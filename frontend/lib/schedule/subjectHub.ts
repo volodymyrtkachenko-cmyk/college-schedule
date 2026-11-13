@@ -16,6 +16,7 @@ import {
   normalizeSubjectName,
 } from "../format";
 import {
+  getTaskPublishedTimestamp,
   parseMinutes,
   resolveTeacherMeetings,
   sortTasksByDeadline,
@@ -59,6 +60,8 @@ export interface RecurringSubjectSlot {
 export interface SubjectTasksPartition {
   all: FullTaskItem[];
   overdue: FullTaskItem[];
+  activeDated: FullTaskItem[];
+  activeNoDate: FullTaskItem[];
   active: FullTaskItem[];
   completed: FullTaskItem[];
 }
@@ -387,7 +390,8 @@ export function findSubjectStatistics(
 }
 
 /**
- * Partitions Classroom tasks matching the inspected subject into overdue, active, and completed lists.
+ * Partitions Classroom tasks matching the inspected subject and sorts buckets consistently with the main Tasks tab:
+ * overdue/dated items by deadline, and undated/completed items newest-first by Classroom publication timestamp.
  */
 export function partitionSubjectTasks(
   tasks: FullTaskItem[],
@@ -396,7 +400,7 @@ export function partitionSubjectTasks(
 ): SubjectTasksPartition {
   const cleanTarget = normalizeSubjectName(subjectName).trim();
   if (!cleanTarget || !Array.isArray(tasks) || tasks.length === 0) {
-    return { all: [], overdue: [], active: [], completed: [] };
+    return { all: [], overdue: [], activeDated: [], activeNoDate: [], active: [], completed: [] };
   }
 
   const matched = tasks.filter((t) => {
@@ -405,24 +409,36 @@ export function partitionSubjectTasks(
   });
 
   const overdue: FullTaskItem[] = [];
-  const active: FullTaskItem[] = [];
-  const completed: FullTaskItem[] = [];
+  const activeDatedRaw: FullTaskItem[] = [];
+  const activeNoDateRaw: FullTaskItem[] = [];
+  const completedRaw: FullTaskItem[] = [];
 
   for (const t of matched) {
     const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
     if (isDone) {
-      completed.push(t);
+      completedRaw.push(t);
     } else if (t.deadline?.isOverdue || t.deadline?.badgeTone === "overdue") {
       overdue.push(t);
+    } else if (t.dueDateIso || t.deadline?.date) {
+      activeDatedRaw.push(t);
     } else {
-      active.push(t);
+      activeNoDateRaw.push(t);
     }
   }
+
+  const byPublishedDesc = (a: FullTaskItem, b: FullTaskItem) =>
+    getTaskPublishedTimestamp(b) - getTaskPublishedTimestamp(a);
+
+  const activeDated = sortTasksByDeadline(activeDatedRaw);
+  const activeNoDate = [...activeNoDateRaw].sort(byPublishedDesc);
+  const completed = [...completedRaw].sort(byPublishedDesc);
 
   return {
     all: matched,
     overdue: sortTasksByDeadline(overdue),
-    active: sortTasksByDeadline(active),
+    activeDated,
+    activeNoDate,
+    active: [...activeDated, ...activeNoDate],
     completed,
   };
 }

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { FullTaskItem } from "../components/TaskCardItem";
 import { getMondayOf, formatShortWeekRange, isSubjectMatch, normalizeSubjectName } from "./format";
+import { getTaskPublishedTimestamp } from "./lesson-card";
 import { KYIV_DATE_FMT } from "./date";
 
 export interface SubjectChipItem {
@@ -37,26 +38,6 @@ export function formatTaskWord(count: number): string {
   if (mod10 === 1 && mod100 !== 11) return "завдання";
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "завдання";
   return "завдань";
-}
-
-/**
- * Повертає timestamp дати публікації завдання (creationTime / created_at) для сортування від найновіших до найстаріших.
- * Якщо дата публікації відсутня у старому кеші — використовує дату дедлайну як фолбек.
- */
-function getTaskPublishedTimestamp(t: FullTaskItem): number {
-  const rawCreated = t.creationTime || t.creation_time || t.created_at;
-  if (rawCreated) {
-    const parsed = Date.parse(rawCreated);
-    if (!Number.isNaN(parsed)) return parsed;
-  }
-  if (t.dueDateIso) {
-    const parsedDue = Date.parse(t.dueDateIso);
-    if (!Number.isNaN(parsedDue)) return parsedDue;
-  }
-  if (t.deadline?.date) {
-    return t.deadline.date.getTime();
-  }
-  return 0;
 }
 
 export function useTaskGroups(

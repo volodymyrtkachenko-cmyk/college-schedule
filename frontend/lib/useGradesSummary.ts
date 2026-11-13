@@ -26,6 +26,7 @@ export interface GradeItem {
   grade12: number;
   percentage: number;
   date?: string | null;
+  publishedAt?: string | null;
   url?: string | null;
 }
 
@@ -438,6 +439,12 @@ export function useGradesSummary(tasks: FullTaskItem[], groupId?: number | null)
           grade12: conv.grade12,
           percentage: conv.percentage,
           date: item.task.dueDateIso,
+          publishedAt:
+            item.task.creationTime ||
+            item.task.creation_time ||
+            item.task.created_at ||
+            item.task.dueDateIso ||
+            null,
           url: item.task.url,
         };
 
@@ -481,11 +488,14 @@ export function useGradesSummary(tasks: FullTaskItem[], groupId?: number | null)
       else if (average5 >= 3.0) level = "satisfactory";
       else level = "risk";
 
-      // Sort grades by date descending
+      // Sort grades newest-first (due date, falling back to Classroom publication date)
       gradesList.sort((a: GradeItem, b: GradeItem) => {
-        if (!a.date) return 1;
-        if (!b.date) return -1;
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
+        const rawA = a.date || a.publishedAt;
+        const rawB = b.date || b.publishedAt;
+        if (!rawA && !rawB) return 0;
+        if (!rawA) return 1;
+        if (!rawB) return -1;
+        return new Date(rawB).getTime() - new Date(rawA).getTime();
       });
 
       const directTeacher = teacherMap.get(subjectName);

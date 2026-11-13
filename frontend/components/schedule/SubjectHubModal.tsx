@@ -171,7 +171,8 @@ export function SubjectHubModal({
     events: AcademicEvent[];
   }>({ cycleWeeks: [], stats: null, events: [] });
   const [enriching, setEnriching] = useState(false);
-  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
+  const [taskTab, setTaskTab] = useState<"pending" | "overdue" | "done">("pending");
+  const [userPickedTaskTab, setUserPickedTaskTab] = useState(false);
 
   const isTeacherView = mode === "teacher";
   const effectiveGroupId = target?.groupId ?? null;
@@ -184,8 +185,9 @@ export function SubjectHubModal({
   }, [isTeacherView, isTeacherUnlocked, effectiveGroupId, isLinkedToGroup]);
 
   useEffect(() => {
-    setShowCompletedTasks(false);
-  }, [target?.subjectName, target?.subjectId]);
+    setUserPickedTaskTab(false);
+    setTaskTab("pending");
+  }, [isOpen, target?.subjectName, target?.subjectId]);
 
   useEffect(() => {
     if (!isOpen || !target) return;
@@ -353,10 +355,28 @@ export function SubjectHubModal({
 
   const subjectTasks = useMemo(() => {
     if (!target?.subjectName) {
-      return { all: [], overdue: [], active: [], completed: [] };
+      return { all: [], overdue: [], activeDated: [], activeNoDate: [], active: [], completed: [] };
     }
     return partitionSubjectTasks(allTasks, target.subjectName, isLinked);
   }, [allTasks, target, isLinked]);
+
+  const effectiveTaskTab: "pending" | "overdue" | "done" = useMemo(() => {
+    if (userPickedTaskTab) {
+      if (taskTab === "done" && !isLinked) return "pending";
+      return taskTab;
+    }
+    if (subjectTasks.active.length > 0) return "pending";
+    if (subjectTasks.overdue.length > 0) return "overdue";
+    if (isLinked && subjectTasks.completed.length > 0) return "done";
+    return "pending";
+  }, [
+    userPickedTaskTab,
+    taskTab,
+    isLinked,
+    subjectTasks.active.length,
+    subjectTasks.overdue.length,
+    subjectTasks.completed.length,
+  ]);
 
   const handleLockedMeetingClick = useCallback(
     (e?: React.MouseEvent) => {
@@ -453,7 +473,6 @@ export function SubjectHubModal({
         ? Math.min(100, Math.round((subjectStat.completed_hours / subjectStat.planned_hours) * 100))
         : null;
 
-  const openTasksList = [...subjectTasks.overdue, ...subjectTasks.active];
   const canShowStudentClassroom = !isTeacherView && effectiveGroupId != null;
 
   return (
@@ -461,14 +480,13 @@ export function SubjectHubModal({
       isOpen={isOpen}
       onClose={onClose}
       variant="sheet"
-      maxWidth="38rem"
+      maxWidth="36rem"
       maxHeight="88dvh"
       labelledBy={titleId}
-      className="rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-elevated shadow-2xl overflow-hidden"
     >
-      <div className="flex flex-col max-h-[88dvh] overflow-hidden">
+      <div className="w-full max-h-[88dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-sys-surface border-b border-sys-border px-4 sm:px-5 py-3.5 sm:py-4 shrink-0">
+        <div className="bg-sys-surface border-b border-sys-border px-4 sm:px-5 py-3.5 shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
@@ -535,10 +553,10 @@ export function SubjectHubModal({
           </div>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-4 custom-scrollbar">
+        {/* Scrollable Content (solid opaque sheet bands divided by hairline borders — zero gaps) */}
+        <div className="flex-1 overflow-y-auto overscroll-contain bg-sys-card divide-y divide-sys-border/75 custom-scrollbar">
           {/* 1. Next Occurrence */}
-          <section className="rounded-2xl border border-sys-border bg-sys-card p-3.5 sm:p-4 shadow-xs">
+          <section className="px-4 sm:px-5 py-3.5">
             <div className="flex items-center justify-between gap-2 mb-2.5">
               <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                 <ClockIcon className="w-3.5 h-3.5 text-sys-accent" />
@@ -674,8 +692,8 @@ export function SubjectHubModal({
 
           {/* 2. Recurring Cycle Slots (Numerator / Denominator) */}
           {recurringSlots.length > 0 && (
-            <section className="rounded-2xl border border-sys-border bg-sys-card p-3.5 sm:p-4 shadow-xs">
-              <div className="flex items-center justify-between gap-2 mb-2.5">
+            <section className="px-4 sm:px-5 py-3.5">
+              <div className="flex items-center justify-between gap-2 mb-2">
                 <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                   <CalendarIcon className="w-3.5 h-3.5 text-sys-accent" />
                   <span>Графік у циклі тижнів</span>
@@ -685,7 +703,7 @@ export function SubjectHubModal({
                 </span>
               </div>
 
-              <ul className="space-y-1.5">
+              <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">
                 {recurringSlots.map((slot) => {
                   const freq = getFrequencyBadge(slot.frequency);
                   const slotDetails = resolveSubjectLessonDetails(slot.sampleLesson, {
@@ -708,7 +726,7 @@ export function SubjectHubModal({
                   return (
                     <li
                       key={`${slot.dayOfWeek}-${slot.lessonNumber}`}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sys-border/70 bg-sys-bg/70 px-3 py-2 text-xs"
+                      className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs"
                     >
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
                         <span className="font-semibold text-sys-text-primary">{slot.dayName}</span>
@@ -740,7 +758,7 @@ export function SubjectHubModal({
 
           {/* 3. Hours Progress */}
           {(subjectStat || enriching) && (
-            <section className="rounded-2xl border border-sys-border bg-sys-card p-3.5 sm:p-4 shadow-xs">
+            <section className="px-4 sm:px-5 py-3.5">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                   <BarChartIcon className="w-3.5 h-3.5 text-sys-accent" />
@@ -752,7 +770,7 @@ export function SubjectHubModal({
               </div>
 
               {subjectStat ? (
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-xl font-black text-sys-text-primary leading-none">
@@ -785,7 +803,7 @@ export function SubjectHubModal({
                       aria-valuenow={progressPct}
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      className="h-2 w-full rounded-full bg-sys-bg border border-sys-border/60 overflow-hidden"
+                      className="h-2 w-full rounded-full bg-sys-bg border border-sys-border/70 overflow-hidden"
                     >
                       <div
                         className="h-full rounded-full bg-sys-accent transition-[width] duration-300 ease-out"
@@ -805,21 +823,21 @@ export function SubjectHubModal({
 
           {/* 4. Upcoming Academic Events (Exams / Credits / Consultations) */}
           {subjectEvents.length > 0 && (
-            <section className="rounded-2xl border border-sys-border bg-sys-card p-3.5 sm:p-4 shadow-xs">
-              <div className="flex items-center justify-between gap-2 mb-2.5">
+            <section className="px-4 sm:px-5 py-3.5">
+              <div className="flex items-center justify-between gap-2 mb-2">
                 <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                   <CheckCircleIcon className="w-3.5 h-3.5 text-sys-accent" />
                   <span>Найближчі події ({subjectEvents.length})</span>
                 </h3>
               </div>
 
-              <ul className="space-y-2">
+              <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">
                 {subjectEvents.map((ev) => {
                   const badge = getEventBadge(ev.event_type, ev.title);
                   return (
                     <li
                       key={ev.id}
-                      className="rounded-xl border border-sys-border/70 bg-sys-bg/70 p-3 text-xs space-y-1"
+                      className="px-3 py-2.5 text-xs space-y-1"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-1.5 min-w-0">
@@ -858,21 +876,21 @@ export function SubjectHubModal({
 
           {/* 5. Google Classroom: Grades & Tasks (Student Mode) */}
           {canShowStudentClassroom && (
-            <section className="rounded-2xl border border-sys-border bg-sys-card p-3.5 sm:p-4 shadow-xs space-y-3">
+            <section className="px-4 sm:px-5 py-3.5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                   <ClipboardListIcon className="w-3.5 h-3.5 text-sys-accent" />
                   <span>Classroom та оцінки</span>
                 </h3>
-                {openTasksList.length > 0 && hasGroupAccess && (
+                {subjectTasks.all.length > 0 && hasGroupAccess && (
                   <span className="text-[11px] font-semibold text-sys-text-muted">
-                    Активних: {formatTaskCount(openTasksList.length)}
+                    Усього: {formatTaskCount(subjectTasks.all.length)}
                   </span>
                 )}
               </div>
 
               {!hasGroupAccess ? (
-                <div className="rounded-xl border border-sky-500/25 bg-sky-500/5 p-3.5 text-center space-y-2.5">
+                <div className="rounded-xl border border-sky-500/25 bg-sky-500/10 p-3.5 text-center space-y-2.5">
                   <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl border border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300">
                     <LockIcon className="w-5 h-5" />
                   </div>
@@ -892,7 +910,7 @@ export function SubjectHubModal({
                 <>
                   {/* Grades summary for this subject */}
                   {subjectGradeSummary && subjectGradeSummary.grades.length > 0 && (
-                    <div className="rounded-xl border border-sys-border/70 bg-sys-bg/70 p-3 space-y-2">
+                    <div className="rounded-xl border border-sys-border/70 bg-sys-bg px-3 py-2.5 space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-baseline gap-2">
                           <span className="text-xs font-medium text-sys-text-secondary">Середній бал:</span>
@@ -945,90 +963,247 @@ export function SubjectHubModal({
                     </div>
                   )}
 
-                  {/* Active & Overdue Tasks */}
-                  {openTasksList.length > 0 ? (
-                    <ul className="space-y-1.5">
-                      {openTasksList.map((task, idx) => {
-                        const statusText = getTaskStatusText(task.deadline, isLinked);
-                        const dotCls = getTaskDeadlineDotColor(task.deadline.badgeTone, isLinked);
-                        const statusCls = getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked);
-                        return (
-                          <li key={task.id || task.url || `open-${idx}`}>
-                            <a
-                              href={task.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="group flex items-start justify-between gap-2.5 rounded-xl border border-sys-border/70 bg-sys-bg/70 p-2.5 hover:border-sys-accent/40 hover:bg-sys-bg transition-colors"
-                            >
-                              <div className="min-w-0 flex-1 space-y-0.5">
-                                <div className="text-xs sm:text-[13px] font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors break-words">
-                                  {task.title}
-                                </div>
-                                {statusText && (
-                                  <div className={`flex items-center gap-1.5 text-[11px] ${statusCls}`}>
-                                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
-                                    <span>{statusText}</span>
+                  {/* Tasks Switcher matching ordinary Tasks tab: До здачі | Борги | Здано */}
+                  {subjectTasks.all.length > 0 ? (
+                    <div className="space-y-2.5">
+                      <div
+                        role="tablist"
+                        aria-label="Категорії завдань предмета"
+                        className={`grid ${isLinked ? "grid-cols-3" : "grid-cols-2"} gap-1 rounded-xl border border-sys-border/70 bg-sys-bg p-1 text-[11px] font-semibold`}
+                      >
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={effectiveTaskTab === "pending"}
+                          onClick={() => {
+                            setUserPickedTaskTab(true);
+                            setTaskTab("pending");
+                          }}
+                          className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors cursor-pointer ${
+                            effectiveTaskTab === "pending"
+                              ? "bg-sys-card text-sys-text-primary border border-sys-border shadow-2xs font-bold"
+                              : "text-sys-text-secondary hover:text-sys-text-primary"
+                          }`}
+                        >
+                          <span className="truncate">До здачі</span>
+                          <span className="rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold text-sys-text-secondary">
+                            {subjectTasks.active.length}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={effectiveTaskTab === "overdue"}
+                          onClick={() => {
+                            setUserPickedTaskTab(true);
+                            setTaskTab("overdue");
+                          }}
+                          className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors cursor-pointer ${
+                            effectiveTaskTab === "overdue"
+                              ? "bg-sys-card text-rose-700 dark:text-rose-300 border border-sys-border shadow-2xs font-bold"
+                              : subjectTasks.overdue.length > 0 && isLinked
+                                ? "text-rose-700 dark:text-rose-300 hover:bg-sys-card/40"
+                                : "text-sys-text-secondary hover:text-sys-text-primary"
+                          }`}
+                        >
+                          <span className="truncate">{isLinked ? "Борги" : "Минув час"}</span>
+                          <span className="rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold">
+                            {subjectTasks.overdue.length}
+                          </span>
+                        </button>
+
+                        {isLinked && (
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={effectiveTaskTab === "done"}
+                            onClick={() => {
+                              setUserPickedTaskTab(true);
+                              setTaskTab("done");
+                            }}
+                            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors cursor-pointer ${
+                              effectiveTaskTab === "done"
+                                ? "bg-sys-card text-emerald-700 dark:text-emerald-300 border border-sys-border shadow-2xs font-bold"
+                                : "text-sys-text-secondary hover:text-sys-text-primary"
+                            }`}
+                          >
+                            <span className="truncate">Здано</span>
+                            <span className="rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold">
+                              {subjectTasks.completed.length}
+                            </span>
+                          </button>
+                        )}
+                      </div>
+
+                      {effectiveTaskTab === "pending" && (
+                        subjectTasks.active.length > 0 ? (
+                          <div className="space-y-2">
+                            {subjectTasks.activeDated.length > 0 && (
+                              <div>
+                                {subjectTasks.activeNoDate.length > 0 && (
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-sys-text-muted px-0.5 mb-1">
+                                    За розкладом дедлайнів
                                   </div>
                                 )}
+                                <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">
+                                  {subjectTasks.activeDated.map((task, idx) => {
+                                    const statusText = getTaskStatusText(task.deadline, isLinked);
+                                    const dotCls = getTaskDeadlineDotColor(task.deadline.badgeTone, isLinked);
+                                    const statusCls = getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked);
+                                    return (
+                                      <li key={task.id || task.url || `act-d-${idx}`}>
+                                        <a
+                                          href={task.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="group flex items-start justify-between gap-2.5 px-3 py-2.5 hover:bg-sys-card/70 transition-colors"
+                                        >
+                                          <div className="min-w-0 flex-1 space-y-0.5">
+                                            <div className="text-xs sm:text-[13px] font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors break-words">
+                                              {task.title}
+                                            </div>
+                                            {statusText && (
+                                              <div className={`flex items-center gap-1.5 text-[11px] ${statusCls}`}>
+                                                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
+                                                <span>{statusText}</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                          <span aria-hidden="true" className="shrink-0 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors">
+                                            ↗
+                                          </span>
+                                        </a>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
                               </div>
-                              <span
-                                aria-hidden="true"
-                                className="shrink-0 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors"
-                              >
-                                ↗
-                              </span>
-                            </a>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-sys-text-secondary">
-                      Активних невиконаних завдань із цього предмета немає.
-                    </p>
-                  )}
+                            )}
 
-                  {/* Completed Tasks Accordion */}
-                  {isLinked && subjectTasks.completed.length > 0 && (
-                    <div className="pt-1 border-t border-sys-border/50">
-                      <button
-                        type="button"
-                        onClick={() => setShowCompletedTasks((prev) => !prev)}
-                        aria-expanded={showCompletedTasks}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors cursor-pointer"
-                      >
-                        <span>Здано та перевірено ({subjectTasks.completed.length})</span>
-                        <span aria-hidden="true">{showCompletedTasks ? "▴" : "▾"}</span>
-                      </button>
+                            {subjectTasks.activeNoDate.length > 0 && (
+                              <div>
+                                {subjectTasks.activeDated.length > 0 && (
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-sys-text-muted px-0.5 mb-1">
+                                    Без терміну здачі
+                                  </div>
+                                )}
+                                <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">
+                                  {subjectTasks.activeNoDate.map((task, idx) => {
+                                    const statusText = getTaskStatusText(task.deadline, isLinked);
+                                    return (
+                                      <li key={task.id || task.url || `act-nd-${idx}`}>
+                                        <a
+                                          href={task.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="group flex items-center justify-between gap-2.5 px-3 py-2.5 hover:bg-sys-card/70 transition-colors"
+                                        >
+                                          <div className="min-w-0 flex-1 space-y-0.5">
+                                            <div className="text-xs sm:text-[13px] font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors break-words">
+                                              {task.title}
+                                            </div>
+                                            {statusText && (
+                                              <div className="text-[11px] text-sys-text-muted">{statusText}</div>
+                                            )}
+                                          </div>
+                                          <span aria-hidden="true" className="shrink-0 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors">
+                                            ↗
+                                          </span>
+                                        </a>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-sys-text-secondary py-1">
+                            Активних завдань до здачі немає.
+                          </p>
+                        )
+                      )}
 
-                      {showCompletedTasks && (
-                        <ul className="mt-2 space-y-1.5">
-                          {subjectTasks.completed.map((task, idx) => {
-                            const gradeInfo =
-                              task.state === "RETURNED"
-                                ? formatTaskGradeDisplay(task.assignedGrade, task.maxPoints, task.subject)
-                                : null;
-                            return (
-                              <li key={task.id || task.url || `done-${idx}`}>
-                                <a
-                                  href={task.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="group flex items-center justify-between gap-2 rounded-xl border border-sys-border/60 bg-sys-bg/50 px-3 py-2 text-xs hover:border-sys-accent/40 transition-colors"
-                                >
-                                  <span className="font-medium text-sys-text-primary truncate group-hover:text-sys-accent transition-colors">
-                                    {task.title}
-                                  </span>
-                                  <span className="shrink-0 font-semibold text-emerald-700 dark:text-emerald-300">
-                                    {gradeInfo ? gradeInfo.text : "Здано"} ↗
-                                  </span>
-                                </a>
-                              </li>
-                            );
-                          })}
-                        </ul>
+                      {effectiveTaskTab === "overdue" && (
+                        subjectTasks.overdue.length > 0 ? (
+                          <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">
+                            {subjectTasks.overdue.map((task, idx) => {
+                              const statusText = getTaskStatusText(task.deadline, isLinked);
+                              const dotCls = getTaskDeadlineDotColor(task.deadline.badgeTone, isLinked);
+                              const statusCls = getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked);
+                              return (
+                                <li key={task.id || task.url || `ovr-${idx}`}>
+                                  <a
+                                    href={task.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="group flex items-start justify-between gap-2.5 px-3 py-2.5 hover:bg-sys-card/70 transition-colors"
+                                  >
+                                    <div className="min-w-0 flex-1 space-y-0.5">
+                                      <div className="text-xs sm:text-[13px] font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors break-words">
+                                        {task.title}
+                                      </div>
+                                      {statusText && (
+                                        <div className={`flex items-center gap-1.5 text-[11px] ${statusCls}`}>
+                                          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
+                                          <span>{statusText}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span aria-hidden="true" className="shrink-0 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors">
+                                      ↗
+                                    </span>
+                                  </a>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-sys-text-secondary py-1">
+                            Прострочених завдань із цього предмета немає.
+                          </p>
+                        )
+                      )}
+
+                      {effectiveTaskTab === "done" && isLinked && (
+                        subjectTasks.completed.length > 0 ? (
+                          <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">
+                            {subjectTasks.completed.map((task, idx) => {
+                              const gradeInfo =
+                                task.state === "RETURNED"
+                                  ? formatTaskGradeDisplay(task.assignedGrade, task.maxPoints, task.subject)
+                                  : null;
+                              return (
+                                <li key={task.id || task.url || `done-${idx}`}>
+                                  <a
+                                    href={task.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="group flex items-center justify-between gap-2.5 px-3 py-2.5 text-xs hover:bg-sys-card/70 transition-colors"
+                                  >
+                                    <span className="font-medium text-sys-text-primary break-words group-hover:text-sys-accent transition-colors min-w-0 flex-1">
+                                      {task.title}
+                                    </span>
+                                    <span className="shrink-0 font-semibold text-emerald-700 dark:text-emerald-300">
+                                      {gradeInfo ? gradeInfo.text : "Здано"} ↗
+                                    </span>
+                                  </a>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-sys-text-secondary py-1">
+                            Зданих завдань із цього предмета поки немає.
+                          </p>
+                        )
                       )}
                     </div>
+                  ) : (
+                    <p className="text-xs text-sys-text-secondary">
+                      Завдань із цього предмета у Classroom не знайдено.
+                    </p>
                   )}
 
                   {!isLinked && subjectTasks.all.length > 0 && (

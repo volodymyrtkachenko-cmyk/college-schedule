@@ -186,25 +186,84 @@ test("findSubjectStatistics resolves both student entries and teacher subjects",
   assert.equal(tEntry.lessons_count, 15);
 });
 
-test("partitionSubjectTasks splits overdue, active sorted by deadline, and completed tasks", () => {
+test("partitionSubjectTasks splits overdue, active dated/no-date, and completed sorted newest-first by publication date", () => {
   const hub = loadTsModule("lib/schedule/subjectHub.ts");
 
   const tasks = [
-    { id: "1", subject: "Програмування", title: "Лаб 1", state: "TURNED_IN", deadline: { isOverdue: false, date: new Date(1000) } },
-    { id: "2", subject: "Програмування", title: "Лаб 2", state: "CREATED", deadline: { isOverdue: true, badgeTone: "overdue", date: new Date(2000) } },
-    { id: "3", subject: "Програмування", title: "Лаб 3", state: "CREATED", deadline: { isOverdue: false, date: new Date(4000) } },
-    { id: "4", subject: "Програмування", title: "Лаб 4", state: "CREATED", deadline: { isOverdue: false, date: new Date(3000) } },
-    { id: "5", subject: "Математика", title: "ДЗ", state: "CREATED", deadline: { isOverdue: false, date: new Date(2500) } },
+    {
+      id: "done-old",
+      subject: "Програмування",
+      title: "Лаб 1 (вересень)",
+      state: "TURNED_IN",
+      creationTime: "2026-09-10T10:00:00Z",
+      deadline: { isOverdue: false, date: null },
+    },
+    {
+      id: "done-new",
+      subject: "Програмування",
+      title: "Лаб 5 (листопад)",
+      state: "RETURNED",
+      creationTime: "2026-11-10T10:00:00Z",
+      deadline: { isOverdue: false, date: null },
+    },
+    {
+      id: "2",
+      subject: "Програмування",
+      title: "Лаб 2",
+      state: "CREATED",
+      deadline: { isOverdue: true, badgeTone: "overdue", date: new Date(2000) },
+    },
+    {
+      id: "3",
+      subject: "Програмування",
+      title: "Лаб 3",
+      state: "CREATED",
+      dueDateIso: "2026-11-25",
+      deadline: { isOverdue: false, date: new Date(4000) },
+    },
+    {
+      id: "4",
+      subject: "Програмування",
+      title: "Лаб 4",
+      state: "CREATED",
+      dueDateIso: "2026-11-20",
+      deadline: { isOverdue: false, date: new Date(3000) },
+    },
+    {
+      id: "nodate-old",
+      subject: "Програмування",
+      title: "Конспект 1",
+      state: "CREATED",
+      creationTime: "2026-10-01T08:00:00Z",
+      deadline: { isOverdue: false, date: null },
+    },
+    {
+      id: "nodate-new",
+      subject: "Програмування",
+      title: "Конспект 2",
+      state: "CREATED",
+      creationTime: "2026-11-05T08:00:00Z",
+      deadline: { isOverdue: false, date: null },
+    },
+    {
+      id: "5",
+      subject: "Математика",
+      title: "ДЗ",
+      state: "CREATED",
+      deadline: { isOverdue: false, date: new Date(2500) },
+    },
   ];
 
   const linkedPart = hub.partitionSubjectTasks(tasks, "Програмування", true);
   assert.deepEqual(Array.from(linkedPart.overdue, (t) => t.id), ["2"]);
-  assert.deepEqual(Array.from(linkedPart.active, (t) => t.id), ["4", "3"]);
-  assert.deepEqual(Array.from(linkedPart.completed, (t) => t.id), ["1"]);
+  assert.deepEqual(Array.from(linkedPart.activeDated, (t) => t.id), ["4", "3"]);
+  assert.deepEqual(Array.from(linkedPart.activeNoDate, (t) => t.id), ["nodate-new", "nodate-old"]);
+  assert.deepEqual(Array.from(linkedPart.active, (t) => t.id), ["4", "3", "nodate-new", "nodate-old"]);
+  assert.deepEqual(Array.from(linkedPart.completed, (t) => t.id), ["done-new", "done-old"]);
 
   const unlinkedPart = hub.partitionSubjectTasks(tasks, "Програмування", false);
   assert.equal(unlinkedPart.completed.length, 0);
-  assert.equal(unlinkedPart.active.length, 3);
+  assert.equal(unlinkedPart.active.length, 6);
 
   const blankPart = hub.partitionSubjectTasks(tasks, "", true);
   assert.equal(blankPart.all.length, 0);

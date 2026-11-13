@@ -196,7 +196,37 @@ export function getTaskDeadlineDotColor(badgeTone: "overdue" | "urgent" | "norma
   return "bg-purple-500";
 }
 
-export function sortTasksByDeadline<T extends { deadline: TaskDeadline; state?: string }>(taskList: T[]): T[] {
+export interface PublishedTaskLike {
+  creationTime?: string | null;
+  creation_time?: string | null;
+  created_at?: string | null;
+  dueDateIso?: string | null;
+  deadline?: { date: Date | null } | null;
+}
+
+/**
+ * Returns the publication timestamp (creationTime / created_at) for newest-first sorting,
+ * falling back to due date when publication metadata is absent in older caches.
+ */
+export function getTaskPublishedTimestamp(t: PublishedTaskLike): number {
+  const rawCreated = t.creationTime || t.creation_time || t.created_at;
+  if (rawCreated) {
+    const parsed = Date.parse(rawCreated);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (t.dueDateIso) {
+    const parsedDue = Date.parse(t.dueDateIso);
+    if (!Number.isNaN(parsedDue)) return parsedDue;
+  }
+  if (t.deadline?.date) {
+    return t.deadline.date.getTime();
+  }
+  return 0;
+}
+
+export function sortTasksByDeadline<
+  T extends { deadline: TaskDeadline; state?: string } & PublishedTaskLike,
+>(taskList: T[]): T[] {
   return [...taskList].sort((a, b) => {
     const isDoneA = a.state === "TURNED_IN" || a.state === "RETURNED";
     const isDoneB = b.state === "TURNED_IN" || b.state === "RETURNED";
@@ -209,7 +239,8 @@ export function sortTasksByDeadline<T extends { deadline: TaskDeadline; state?: 
     if (a.deadline.isOverdue && b.deadline.isOverdue) {
       const timeA = a.deadline.date ? a.deadline.date.getTime() : 0;
       const timeB = b.deadline.date ? b.deadline.date.getTime() : 0;
-      return timeA - timeB;
+      if (timeA !== timeB) return timeA - timeB;
+      return getTaskPublishedTimestamp(b) - getTaskPublishedTimestamp(a);
     }
 
     const hasDateA = Boolean(a.deadline.date);
@@ -220,10 +251,11 @@ export function sortTasksByDeadline<T extends { deadline: TaskDeadline; state?: 
     if (hasDateA && hasDateB) {
       const timeA = a.deadline.date ? a.deadline.date.getTime() : Infinity;
       const timeB = b.deadline.date ? b.deadline.date.getTime() : Infinity;
-      return timeA - timeB;
+      if (timeA !== timeB) return timeA - timeB;
+      return getTaskPublishedTimestamp(b) - getTaskPublishedTimestamp(a);
     }
 
-    return 0;
+    return getTaskPublishedTimestamp(b) - getTaskPublishedTimestamp(a);
   });
 }
 
