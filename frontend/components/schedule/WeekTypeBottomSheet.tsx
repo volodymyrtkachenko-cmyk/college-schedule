@@ -1,6 +1,7 @@
 "use client";
 
 import { AppDialog } from "../ui/AppDialog";
+import { BookOpenIcon, CloseIcon } from "../ui/Icons";
 
 interface WeekTypeBottomSheetProps {
   isOpen: boolean;
@@ -42,13 +43,14 @@ export function WeekTypeBottomSheet({
                 aria-label="Закрити"
                 className="flex h-8 w-8 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
               >
-                ✕
+                <CloseIcon className="h-4 w-4" />
               </button>
             </div>
             <div className="mt-4 space-y-3 text-sm text-sys-text-secondary leading-relaxed">
               <div className="rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3.5">
-                <span className="font-bold text-sys-text-primary block mb-1">
-                  {weekType === "numerator" ? "📘 Чисельник (непарний)" : "📙 Знаменник (парний)"}
+                <span className="inline-flex items-center gap-2 font-bold text-sys-text-primary mb-1">
+                  <BookOpenIcon className={`h-4 w-4 shrink-0 ${weekType === "numerator" ? "text-sky-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400"}`} />
+                  <span>{weekType === "numerator" ? "Чисельник (непарний)" : "Знаменник (парний)"}</span>
                 </span>
                 <p className="text-xs text-sys-text-secondary">
                   {weekType === "numerator"

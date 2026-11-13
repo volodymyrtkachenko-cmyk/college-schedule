@@ -7,6 +7,7 @@ import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
 import { ScheduleDay } from "./ScheduleDay";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
 import { CompactSchedulePeriodCard, getPeriodMeta } from "./SchedulePeriodCard";
+import { ClockIcon } from "./ui/Icons";
 import { useViewportTier } from "../lib/useViewportTier";
 
 const ScheduleEditGrid = dynamic(() => import("./ScheduleEditGrid").then((m) => m.ScheduleEditGrid), { ssr: false });
@@ -303,8 +304,9 @@ export function ScheduleWeekGrid({
                   {shortDateUk(day.date)}
                 </span>
                 {day.is_shortened_day && (
-                  <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
-                    ⏱ 50 хв
+                  <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
+                    <ClockIcon className="w-3 h-3 shrink-0" />
+                    <span>50 хв</span>
                   </span>
                 )}
               </div>
@@ -457,8 +459,9 @@ export function ScheduleWeekGrid({
                     {shortDateUk(day.date)}
                   </span>
                   {day.is_shortened_day && (
-                    <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
-                      ⏱ 50 хв
+                    <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                      <ClockIcon className="w-3 h-3 shrink-0" />
+                      <span>50 хв</span>
                     </span>
                   )}
                 </div>

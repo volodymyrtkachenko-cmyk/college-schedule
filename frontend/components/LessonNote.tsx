@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { invalidateScheduleCache, useOnlineStatus } from "../lib/hooks";
 import { getVisibleUserNote } from "./LessonCard";
 import { AppDialog } from "./ui/AppDialog";
+import { CloseIcon } from "./ui/Icons";
 
 export function LessonNote({ lesson, date }: { lesson: Lesson; date: string }) {
   const cleanDisplayNote = (lesson.note || "")
@@ -148,7 +149,7 @@ export function LessonNoteModal({
             aria-label="Закрити"
             className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary"
           >
-            ✕
+            <CloseIcon className="h-4 w-4" />
           </button>
         </div>
 

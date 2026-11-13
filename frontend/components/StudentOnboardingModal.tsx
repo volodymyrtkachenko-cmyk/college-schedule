@@ -9,6 +9,7 @@ import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { requestClassroomAuth } from "../lib/classroomAuth";
 import { api, ScheduleResponse } from "../lib/api";
 import { checkScheduleHasSubgroups, extractSubgroupTeacherHints } from "../lib/format";
+import { CheckIcon, LockIcon, MoonIcon, SunIcon } from "./ui/Icons";
 
 export interface StudentOnboardingModalProps {
   groupId: number;
@@ -188,7 +189,7 @@ export function StudentOnboardingModal({
                   key={s.id}
                   type="button"
                   onClick={() => setCurrentStepIndex(idx)}
-                  className={`py-1.5 px-2 rounded-lg transition-colors cursor-pointer truncate ${
+                  className={`py-1.5 px-2 rounded-lg transition-colors cursor-pointer truncate inline-flex items-center justify-center gap-1 ${
                     isCurrent
                       ? "bg-sys-card text-sys-accent font-bold border border-sys-border shadow-2xs"
                       : isDone
@@ -196,7 +197,14 @@ export function StudentOnboardingModal({
                       : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  {isDone ? `✓ ${s.tabLabel.split(". ")[1]}` : s.tabLabel}
+                  {isDone ? (
+                    <>
+                      <CheckIcon className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{s.tabLabel.split(". ")[1]}</span>
+                    </>
+                  ) : (
+                    s.tabLabel
+                  )}
                 </button>
               );
             })}
@@ -225,7 +233,7 @@ export function StudentOnboardingModal({
 
                     {currentStep.id === "classroom" && !isClassroomReady ? (
                       <span className="inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-warnBg/45 bg-sys-status-warnBg/15 text-sys-status-warnText text-xs font-bold">
-                        <span>🔒</span>
+                        <LockIcon className="h-3 w-3 shrink-0" />
                         <span>Meet</span>
                       </span>
                     ) : (
@@ -317,8 +325,9 @@ export function StudentOnboardingModal({
                               : "border-sys-border bg-sys-bg hover:border-sys-accent/40"
                           }`}
                         >
-                          <div className={`text-xs font-bold ${active ? "text-sys-accent" : "text-sys-text-primary"}`}>
-                            {active ? `✓ ${opt.label}` : opt.label}
+                          <div className={`inline-flex items-center gap-1 text-xs font-bold ${active ? "text-sys-accent" : "text-sys-text-primary"}`}>
+                            {active && <CheckIcon className="h-3.5 w-3.5 shrink-0" />}
+                            <span>{opt.label}</span>
                           </div>
                           <div className="text-[11px] text-sys-text-secondary truncate mt-0.5">{opt.hint}</div>
                         </button>
@@ -339,7 +348,7 @@ export function StudentOnboardingModal({
                             : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                         }`}
                       >
-                        <span>🌙</span>
+                        <MoonIcon className="h-3.5 w-3.5" />
                         <span>Темна</span>
                       </button>
                       <button
@@ -351,7 +360,7 @@ export function StudentOnboardingModal({
                             : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                         }`}
                       >
-                        <span>☀️</span>
+                        <SunIcon className="h-3.5 w-3.5" />
                         <span>Світла</span>
                       </button>
                     </div>
@@ -383,7 +392,10 @@ export function StudentOnboardingModal({
                   <div className="space-y-2">
                     {isClassroomReady ? (
                       <div className="rounded-xl border border-sys-status-okBg/45 bg-sys-status-okBg/15 p-3 text-xs font-bold text-sys-status-okText space-y-1">
-                        <div>✓ Classroom підключено ({linkedEmail || "активно"})</div>
+                        <div className="inline-flex items-center gap-1.5">
+                          <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+                          <span>Classroom підключено ({linkedEmail || "активно"})</span>
+                        </div>
                         {groupSwitchNotice && (
                           <div className="text-[11px] font-semibold text-sys-status-warnText">{groupSwitchNotice}</div>
                         )}
@@ -436,9 +448,16 @@ export function StudentOnboardingModal({
                 handleFinish();
               }
             }}
-            className="rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
           >
-            {currentStepIndex === steps.length - 1 ? "До розкладу ✓" : "Далі →"}
+            {currentStepIndex === steps.length - 1 ? (
+              <>
+                <span>До розкладу</span>
+                <CheckIcon className="h-3.5 w-3.5" />
+              </>
+            ) : (
+              <span>Далі →</span>
+            )}
           </button>
         </footer>
       </div>

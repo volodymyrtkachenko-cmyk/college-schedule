@@ -767,3 +767,60 @@ export interface UserResource {
   is_active: boolean;
   allowed_groups: number[];
 }
+
+export interface BellSlotItem {
+  lesson_number: number;
+  start_time: string;
+  end_time: string;
+  duration_minutes: number;
+  break_after_minutes: number | null;
+  is_optional: boolean;
+}
+
+export interface PublicBellsResponse {
+  standard: BellSlotItem[];
+  shortened: BellSlotItem[];
+  today_date: string;
+  is_shortened_today: boolean;
+  today_reason: string | null;
+  upcoming_shortened_days: ShortenedDayItem[];
+}
+
+export interface EducationalProcessWeekInfo {
+  week_number: number;
+  start_date: string;
+  end_date: string;
+}
+
+export interface EducationalProcessCellInfo {
+  week_number: number;
+  period_type: string;
+  name?: string | null;
+}
+
+export interface EducationalProcessGroupInfo {
+  group_id: number;
+  group_name: string;
+  cells: EducationalProcessCellInfo[];
+}
+
+export interface EducationalProcessCourseInfo {
+  course: number;
+  groups: EducationalProcessGroupInfo[];
+}
+
+export interface EducationalProcessSemesterRange {
+  semester_number: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  start_week: number;
+  end_week: number;
+}
+
+export interface EducationalProcessMatrix {
+  academic_year_start: number;
+  weeks: EducationalProcessWeekInfo[];
+  courses: EducationalProcessCourseInfo[];
+  semesters?: EducationalProcessSemesterRange[];
+}

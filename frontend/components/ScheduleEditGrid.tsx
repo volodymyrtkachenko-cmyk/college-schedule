@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { DEFAULT_LESSON_TIMES, LESSON_NUMBERS } from "../lib/constants/lessons";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
+import { ClipboardListIcon, ClockIcon } from "./ui/Icons";
 
 const longWeekday = (date: string) =>
   new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(new Date(`${date}T12:00:00`));
@@ -151,8 +152,9 @@ export function ScheduleEditGrid({
                       {longWeekday(day.date)}
                     </h3>
                     {day.is_shortened_day && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
-                        ⏱ 50 хв
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
+                        <ClockIcon className="w-3 h-3 shrink-0" />
+                        <span>50 хв</span>
                       </span>
                     )}
                   </div>
@@ -379,9 +381,10 @@ export function ScheduleEditGrid({
                   <button
                     type="button"
                     onClick={() => onPasteToSlot(day.date, lessonNumber)}
-                    className="flex flex-1 min-h-[50px] w-full items-center justify-center rounded-lg border border-dashed border-sys-accent/40 bg-sys-accent/5 px-2 py-2 text-xs font-semibold text-sys-accent hover:bg-sys-accent/15 transition-colors"
+                    className="flex flex-1 min-h-[50px] w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-sys-accent/40 bg-sys-accent/5 px-2 py-2 text-xs font-semibold text-sys-accent hover:bg-sys-accent/15 transition-colors"
                   >
-                    📋 Вставити сюди
+                    <ClipboardListIcon className="w-3.5 h-3.5 shrink-0" />
+                    <span>Вставити сюди</span>
                   </button>
                 ) : (
                   <div

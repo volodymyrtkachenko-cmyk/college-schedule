@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { ReferenceRecord } from "../lib/api";
 import { removeRecentGroupSelection, removeRecentTeacherSelection } from "../lib/useRecentSelections";
+import { CheckIcon } from "./ui/Icons";
 
 export interface RecentSelectionsChipsProps {
   mode: "student" | "teacher";
@@ -84,9 +85,7 @@ export function RecentSelectionsChips({
               >
                 <span>{item.name}</span>
                 {isSelected && (
-                  <span className="text-[10px] text-sys-accent font-bold" aria-hidden="true">
-                    ✓
-                  </span>
+                  <CheckIcon className="h-3 w-3 text-sys-accent shrink-0" />
                 )}
               </button>
               {!isSelected && (

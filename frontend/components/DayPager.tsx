@@ -6,6 +6,7 @@ import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { LessonCard, QuickJumpTarget, getKyivNow, subscribeKyivNow } from "./LessonCard";
 import { SchedulePeriodCard } from "./SchedulePeriodCard";
+import { CoffeeIcon } from "./ui/Icons";
 import { useTheme } from "../lib/useTheme";
 import { KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_LONG_FMT } from "../lib/date";
 
@@ -509,7 +510,10 @@ export function DayPager({
                 <div key={lessonKey} className="flex flex-col gap-2.5">
                   {isBreakNow && (
                     <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
-                      <span>☕ Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <CoffeeIcon className="w-3.5 h-3.5 shrink-0" />
+                        <span>Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
+                      </span>
                       <span>•</span>
                       <span>до {lesson.lesson_number}-ї пари залишилось {breakLeft} хв</span>
                     </div>

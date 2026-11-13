@@ -1,8 +1,9 @@
 "use client";
 
+import { ChevronDownIcon, LightbulbIcon } from "@/components/ui/Icons";
 import type { HeaderLearningModeData } from "../../lib/schedule";
 import type { MobileTab } from "../../lib/useMobileNav";
-import type { getPeriodMeta } from "../SchedulePeriodCard";
+import { PeriodIcon, type getPeriodMeta } from "../SchedulePeriodCard";
 
 type PeriodBadgeMeta = ReturnType<typeof getPeriodMeta>;
 
@@ -71,7 +72,7 @@ export function MobileChrome({
             <span className="truncate">
               {currentName || (mode === "student" ? "Група" : "Викладач")}
             </span>
-            <span className="text-sys-text-muted text-xs shrink-0">▼</span>
+            <ChevronDownIcon className="h-3.5 w-3.5 text-sys-text-muted shrink-0" />
           </button>
           {mode === "teacher" && !isTeacherUnlocked && (
             <button
@@ -166,8 +167,9 @@ export function MobileChrome({
               {activeWeekPeriodMeta && (
                 <>
                   {(currentWeekNumber || weekType !== "both" || headerLearningModeData) && <span className="shrink-0">·</span>}
-                  <span className="font-semibold text-violet-700 dark:text-violet-400 shrink-0">
-                    {activeWeekPeriodMeta.icon} {activeWeekPeriodMeta.shortLabel}
+                  <span className="inline-flex items-center gap-1 font-semibold text-violet-700 dark:text-violet-400 shrink-0">
+                    <PeriodIcon periodType={activeWeekPeriodMeta.periodType} className="h-3 w-3 shrink-0" />
+                    <span>{activeWeekPeriodMeta.shortLabel}</span>
                   </span>
                 </>
               )}
@@ -182,9 +184,9 @@ export function MobileChrome({
             onClick={onOpenGuideHub}
             aria-label="Гід та довідник можливостей"
             title="Гід та довідник"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-accent hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth text-base"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-accent hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth"
           >
-            💡
+            <LightbulbIcon className="h-[18px] w-[18px]" />
           </button>
         </div>
       </div>

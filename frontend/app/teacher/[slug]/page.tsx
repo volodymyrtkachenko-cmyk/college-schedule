@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { SchedulePageClient } from "../../../components/SchedulePageClient";
+import { TransitionLink } from "../../../components/navigation/NavigationTransitionProvider";
 import { SITE_URL } from "../../../lib/site";
 import { findTeacherBySlug, toTeacherSlug } from "../../../lib/slug";
 import {
@@ -64,11 +65,9 @@ export async function generateMetadata({
       `розклад ${teacher.name}`,
       `розклад викладача ${teacher.name}`,
       `${teacher.name} дфкр`,
-      `${teacher.name} кре`,
       "викладачі дфкр",
       "розклад викладачів дфкр",
       "розклад дфкр",
-      "розклад кре",
     ],
     alternates: {
       canonical: url,
@@ -80,11 +79,20 @@ export async function generateMetadata({
       type: "website",
       locale: "uk_UA",
       siteName: "Розклад ДФКР",
+      images: [
+        {
+          url: "/og-image.png",
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: ["/og-image.png"],
     },
   };
 }
@@ -109,15 +117,26 @@ export default async function TeacherSchedulePage({
     : [];
   const teacherName = teacher?.name || rawSlug;
 
+  const teacherUrl = `${SITE_URL}/teacher/${toTeacherSlug(teacherName)}`;
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": `${teacherUrl}#webpage`,
+        url: teacherUrl,
+        name: `Розклад викладача ${teacherName} — ДФКР`,
+        inLanguage: "uk-UA",
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+      },
       {
         "@type": "Person",
         name: teacherName,
         jobTitle: "Викладач",
         worksFor: {
-          "@type": "CollegeOrUniversity",
+          "@type": "EducationalOrganization",
+          "@id": "https://kre.dp.ua/#organization",
           name: "Дніпровський фаховий коледж радіоелектроніки",
           sameAs: "https://kre.dp.ua/",
         },
@@ -135,13 +154,13 @@ export default async function TeacherSchedulePage({
             "@type": "ListItem",
             position: 2,
             name: "Викладачі ДФКР",
-            item: `${SITE_URL}/#teachers`,
+            item: `${SITE_URL}/teachers`,
           },
           {
             "@type": "ListItem",
             position: 3,
             name: teacherName,
-            item: `${SITE_URL}/teacher/${toTeacherSlug(teacherName)}`,
+            item: teacherUrl,
           },
         ],
       },
@@ -149,31 +168,55 @@ export default async function TeacherSchedulePage({
   };
 
   return (
-    <main
-      id="main-content"
-      tabIndex={-1}
-      className="min-h-dvh bg-transparent text-sys-text-primary outline-none"
-    >
+    <div className="min-h-dvh bg-transparent text-sys-text-primary">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <section
-        aria-label={`Розклад занять викладача ${teacherName} ДФКР`}
-        className="sr-only"
-      >
-        <h1>
-          Розклад викладача {teacherName} — Дніпровський фаховий коледж радіоелектроніки (ДФКР)
-        </h1>
-        <p>
-          Актуальний тижневий розклад навчальних пар для викладача {teacherName} у коледжі радіоелектроніки (ДФКР / КРЕ / ДКРЕ, kre.dp.ua).
-          Аудиторії, групи, чисельник і знаменник, дзвінки та заміна занять.
-        </p>
+      <h1 className="sr-only">
+        Розклад викладача {teacherName} — Дніпровський фаховий коледж радіоелектроніки (ДФКР)
+      </h1>
 
-        {scheduleDays.length > 0 && (
-          <div>
-            <h2>Розклад занять на тиждень</h2>
+      <SchedulePageClient
+        initialGroups={groups}
+        initialTeachers={teachers}
+        initialTeacherId={teacherId}
+        initialMode="teacher"
+      />
+
+      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-4 pt-4 pb-24 text-xs text-sys-text-secondary sm:px-6 lg:pb-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Викладач <strong className="text-sys-text-primary">{teacherName}</strong> · ДФКР
+          </p>
+          <nav aria-label="Розділи розкладу ДФКР" className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <TransitionLink href="/" className="hover:text-sys-accent hover:underline">
+              Головна
+            </TransitionLink>
+            <TransitionLink href="/teachers" className="hover:text-sys-accent hover:underline">
+              Усі викладачі
+            </TransitionLink>
+            <TransitionLink href="/groups" className="hover:text-sys-accent hover:underline">
+              Навчальні групи
+            </TransitionLink>
+            <TransitionLink href="/bells" className="hover:text-sys-accent hover:underline">
+              Дзвінки
+            </TransitionLink>
+            <TransitionLink href="/educational-process" className="hover:text-sys-accent hover:underline">
+              Графік процесу
+            </TransitionLink>
+            <TransitionLink href="/statistics" className="hover:text-sys-accent hover:underline">
+              Статистика
+            </TransitionLink>
+          </nav>
+        </div>
+      </footer>
+
+      {scheduleDays.length > 0 && (
+        <noscript>
+          <section style={{ maxWidth: "800px", margin: "16px auto", padding: "0 16px" }}>
+            <h2>Розклад занять викладача {teacherName}</h2>
             {scheduleDays.map((day, idx) => (
               <div key={day.date || idx}>
                 <h3>{getDayTitle(day.date)}</h3>
@@ -185,9 +228,6 @@ export default async function TeacherSchedulePage({
                         {lesson.subject_name || lesson.subject || "Заняття"} —{" "}
                         група {lesson.group_name || "Група"}
                         {lesson.room ? `, ауд. ${lesson.room}` : ""}
-                        {lesson.week_type === "numerator" ? " (чисельник)" : ""}
-                        {lesson.week_type === "denominator" ? " (знаменник)" : ""}
-                        {lesson.second_teacher_id ? " (пара з 2 викладачами / підгрупами)" : ""}
                       </li>
                     ))}
                   </ul>
@@ -196,35 +236,9 @@ export default async function TeacherSchedulePage({
                 )}
               </div>
             ))}
-          </div>
-        )}
-
-        <nav aria-label="Навігація за іншими викладачами ДФКР">
-          <h2>Інші викладачі коледжу радіоелектроніки</h2>
-          <ul>
-            {teachers.map((t) => (
-              <li key={t.id}>
-                <a href={`/teacher/${toTeacherSlug(t.name)}`}>
-                  Розклад викладача {t.name}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <p>
-            <a href="/">Головна сторінка розкладу ДФКР</a> |{" "}
-            <a href="/bells">Розклад дзвінків ДФКР</a> |{" "}
-            <a href="/educational-process">Графік освітнього процесу</a> |{" "}
-            <a href="/statistics">Статистика занять</a>
-          </p>
-        </nav>
-      </section>
-
-      <SchedulePageClient
-        initialGroups={groups}
-        initialTeachers={teachers}
-        initialTeacherId={teacherId}
-        initialMode="teacher"
-      />
-    </main>
+          </section>
+        </noscript>
+      )}
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CloseIcon, ShareUploadIcon } from "./ui/Icons";
 
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -113,7 +114,7 @@ export function InstallPrompt() {
             title="Закрити"
             className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-accent/15 hover:text-sys-text-primary active:scale-90 transition-colors"
           >
-            ✕
+            <CloseIcon className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -124,8 +125,10 @@ export function InstallPrompt() {
 
   return (
     <div className="md:hidden mx-auto mt-3 flex max-w-[1800px] items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-elevated px-3 py-2 text-xs text-sys-text-primary shadow-sm">
-      <span className="flex-1">
-        На iPhone натисніть «Поділитися» <span className="opacity-75">⎋</span>, а потім — «На початковий екран» ⊞.
+      <span className="flex-1 inline-flex flex-wrap items-center gap-1">
+        <span>На iPhone натисніть «Поділитися»</span>
+        <ShareUploadIcon className="inline h-3.5 w-3.5 opacity-80" />
+        <span>, а потім — «На початковий екран».</span>
       </span>
       <button
         type="button"
@@ -134,7 +137,7 @@ export function InstallPrompt() {
         title="Закрити"
         className="flex h-6 w-6 items-center justify-center rounded text-sys-text-secondary hover:text-sys-text-primary active:scale-90 transition-colors"
       >
-        ✕
+        <CloseIcon className="h-3.5 w-3.5" />
       </button>
     </div>
   );

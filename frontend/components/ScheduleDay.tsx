@@ -7,6 +7,7 @@ import { useToast } from "./ToastProvider";
 import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
 import { LessonCard, QuickJumpTarget, getKyivNow, subscribeKyivNow } from "./LessonCard";
 import { SchedulePeriodCard, CompactSchedulePeriodCard } from "./SchedulePeriodCard";
+import { ClockIcon, CoffeeIcon } from "./ui/Icons";
 import { useTheme } from "../lib/useTheme";
 
 const fmt = (value: string, options: Intl.DateTimeFormatOptions) =>
@@ -181,8 +182,9 @@ export function ScheduleDay({
                     {fmt(schedule.date, { day: "numeric", month: "short" })}
                   </span>
                   {schedule.is_shortened_day && (
-                    <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
-                      ⏱ 50 хв
+                    <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                      <ClockIcon className="w-3 h-3 shrink-0" />
+                      <span>50 хв</span>
                     </span>
                   )}
                 </div>
@@ -275,7 +277,10 @@ export function ScheduleDay({
               >
                 {isBreakNow && (
                   <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
-                    <span>☕ Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <CoffeeIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span>Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
+                    </span>
                     <span>•</span>
                     <span>до {lesson.lesson_number}-ї пари залишилось {breakLeft} хв</span>
                   </div>

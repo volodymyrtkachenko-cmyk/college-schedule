@@ -1,6 +1,7 @@
 "use client";
 
 import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
+import { ChevronDownIcon, LightbulbIcon } from "@/components/ui/Icons";
 import type { HeaderLearningModeData } from "../../lib/schedule";
 
 interface DesktopToolbarProps {
@@ -88,7 +89,7 @@ export function DesktopToolbar({
             <span className="truncate font-semibold text-sys-text-primary">
               {currentName || (mode === "student" ? "Оберіть групу" : "Оберіть викладача")}
             </span>
-            <span className="text-sys-text-muted text-xs ml-auto shrink-0">▼</span>
+            <ChevronDownIcon className="h-3.5 w-3.5 text-sys-text-muted ml-auto shrink-0" />
           </button>
         </div>
 
@@ -264,9 +265,9 @@ export function DesktopToolbar({
             onClick={onOpenGuideHub}
             aria-label="Гід та довідник можливостей"
             title="Гід та довідник можливостей"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-accent hover:border-sys-accent/60 hover:bg-sys-accent/10 active:scale-95 transition-colors duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent cursor-pointer text-base"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-accent hover:border-sys-accent/60 hover:bg-sys-accent/10 active:scale-95 transition-colors duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent cursor-pointer"
           >
-            💡
+            <LightbulbIcon className="h-[18px] w-[18px]" />
           </button>
 
           <TransitionLink

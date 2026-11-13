@@ -40,7 +40,12 @@ export default function GlobalError({
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: "36px", marginBottom: "12px" }}>⚠️</div>
+            <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "48px", height: "48px", borderRadius: "9999px", backgroundColor: "rgba(245, 158, 11, 0.14)", color: "#fbbf24", marginBottom: "14px" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                <path d="M12 9v4M12 17h.01" />
+              </svg>
+            </div>
             <h1 style={{ fontSize: "18px", fontWeight: "bold", margin: "0 0 8px 0" }}>
               Розклад ДФКР тимчасово недоступний
             </h1>

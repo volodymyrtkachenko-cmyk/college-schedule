@@ -11,6 +11,7 @@ import {
   TaskGroupsResult,
 } from "../lib/useTaskGroups";
 import { FullTaskItem, renderTaskCard, TaskCardItem } from "./TaskCardItem";
+import { BarChartIcon, ClipboardListIcon, CloseIcon } from "./ui/Icons";
 
 const GradesView = dynamic(() => import("./GradesView").then((m) => m.GradesView), { ssr: false });
 
@@ -261,7 +262,7 @@ export function TasksTodoBoard({
                 aria-label="Скинути фільтр предмета"
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary hover:text-rose-500 hover:border-rose-500/40 active:scale-95 transition-colors cursor-pointer"
               >
-                ✕
+                <CloseIcon className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -583,7 +584,7 @@ export function MobileTasksView({
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          <span>📋</span>
+          <ClipboardListIcon className="h-3.5 w-3.5 shrink-0" />
           <span>Завдання{hasAccess && badgeCount > 0 ? ` (${badgeCount})` : ""}</span>
         </button>
         <button
@@ -598,7 +599,7 @@ export function MobileTasksView({
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          <span>📊</span>
+          <BarChartIcon className="h-3.5 w-3.5 shrink-0" />
           <span>Оцінки</span>
         </button>
       </div>

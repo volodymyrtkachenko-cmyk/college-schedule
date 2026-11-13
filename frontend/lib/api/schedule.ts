@@ -8,12 +8,14 @@ import {
 } from "./client";
 import type {
   AcademicEvent,
+  EducationalProcessMatrix,
   LearningModeConfig,
   Lesson,
   LessonMutation,
   NoteRevision,
   OccurrenceNote,
   PublicationChangeItem,
+  PublicBellsResponse,
   ScheduleResponse,
   ScheduleVersion,
   ScheduleVersionMutation,
@@ -76,11 +78,12 @@ export function statistics(target: { groupId?: number; teacherId?: number }) {
   return request<StatisticsResponse>(`/api/statistics/?${params.toString()}`);
 }
 
-export function educationalProcess<T = any>(year: number) {
+export function educationalProcess<T = EducationalProcessMatrix>(year: number) {
   return request<T>(`/api/educational-process?academic_year_start=${year}`);
 }
 
 export const settingsApi = {
+  bells: () => request<PublicBellsResponse>("/api/settings/bells"),
   semesterStart: () => request<SemesterStartSetting>("/api/settings/semester-start"),
   learningMode: () => request<LearningModeConfig>("/api/settings/learning-mode"),
   updateLearningMode: (payload: LearningModeConfig, token: string) =>

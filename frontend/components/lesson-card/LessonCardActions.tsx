@@ -3,6 +3,7 @@
 import React from "react";
 import { m, AnimatePresence } from "framer-motion";
 import { EditIcon, MoveIcon } from "../LessonIcons";
+import { HistoryIcon, MessageSquareIcon } from "../ui/Icons";
 import { Lesson } from "../../lib/api";
 
 function CopyIcon() {
@@ -286,7 +287,7 @@ export function LessonMoreMenu({
                       }}
                       className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
                     >
-                      <span>💬</span>
+                      <MessageSquareIcon className="w-3.5 h-3.5 shrink-0" />
                       <span>{visibleNoteText ? "Редагувати примітку" : "+ Примітка"}</span>
                     </button>
 
@@ -298,7 +299,7 @@ export function LessonMoreMenu({
                       }}
                       className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors"
                     >
-                      <span>📜</span>
+                      <HistoryIcon className="w-3.5 h-3.5 shrink-0" />
                       <span>Історія примітки</span>
                     </button>
                   </>

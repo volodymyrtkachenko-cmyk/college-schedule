@@ -23,14 +23,14 @@ export default function manifest(): MetadataRoute.Manifest {
         short_name: "Сьогодні",
         description: "Переглянути розклад занять на сьогодні",
         url: "/",
-        icons: [{ src: "/icon-192.png", sizes: "192x192" }],
+        icons: [{ src: "/icon-192.png", sizes: "192x192", type: "image/png" }],
       },
       {
         name: "Завдання Classroom",
         short_name: "Завдання",
         description: "Переглянути домашні завдання та борги",
         url: "/?tab=tasks",
-        icons: [{ src: "/icon-192.png", sizes: "192x192" }],
+        icons: [{ src: "/icon-192.png", sizes: "192x192", type: "image/png" }],
       },
     ],
   };

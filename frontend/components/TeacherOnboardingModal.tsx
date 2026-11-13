@@ -5,6 +5,7 @@ import { m, AnimatePresence } from "framer-motion";
 import { AppDialog } from "./ui/AppDialog";
 import { useTheme, ACCENT_OPTIONS, AccentColor } from "../lib/useTheme";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
+import { CheckIcon, LockIcon, MoonIcon, SunIcon } from "./ui/Icons";
 
 export interface TeacherOnboardingModalProps {
   teacherId: number;
@@ -114,7 +115,7 @@ export function TeacherOnboardingModal({
                   key={s.id}
                   type="button"
                   onClick={() => setCurrentStepIndex(idx)}
-                  className={`py-1.5 px-2 rounded-lg transition-colors cursor-pointer truncate ${
+                  className={`py-1.5 px-2 rounded-lg transition-colors cursor-pointer truncate inline-flex items-center justify-center gap-1 ${
                     isCurrent
                       ? "bg-sys-card text-sys-accent font-bold border border-sys-border shadow-2xs"
                       : isDone
@@ -122,7 +123,14 @@ export function TeacherOnboardingModal({
                       : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  {isDone ? `✓ ${s.tabLabel.split(". ")[1]}` : s.tabLabel}
+                  {isDone ? (
+                    <>
+                      <CheckIcon className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{s.tabLabel.split(". ")[1]}</span>
+                    </>
+                  ) : (
+                    s.tabLabel
+                  )}
                 </button>
               );
             })}
@@ -154,7 +162,8 @@ export function TeacherOnboardingModal({
                       </span>
                     ) : (
                       <span className="inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-warnBg/45 bg-sys-status-warnBg/15 text-sys-status-warnText text-xs font-bold">
-                        <span>🔒 Zoom</span>
+                        <LockIcon className="h-3 w-3 shrink-0" />
+                        <span>Zoom</span>
                       </span>
                     )}
                   </div>
@@ -179,8 +188,9 @@ export function TeacherOnboardingModal({
                 {currentStep.id === "pin" && (
                   <div>
                     {isUnlocked ? (
-                      <div className="rounded-xl border border-sys-status-okBg/45 bg-sys-status-okBg/15 p-3 text-xs font-bold text-sys-status-okText">
-                        ✓ Доступ викладача активовано! Усі посилання на пари відкриті.
+                      <div className="inline-flex w-full items-center gap-1.5 rounded-xl border border-sys-status-okBg/45 bg-sys-status-okBg/15 p-3 text-xs font-bold text-sys-status-okText">
+                        <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+                        <span>Доступ викладача активовано! Усі посилання на пари відкриті.</span>
                       </div>
                     ) : (
                       <form onSubmit={handleVerifyPin} className="space-y-2">
@@ -229,7 +239,7 @@ export function TeacherOnboardingModal({
                             : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                         }`}
                       >
-                        <span>🌙</span>
+                        <MoonIcon className="h-3.5 w-3.5" />
                         <span>Темна</span>
                       </button>
                       <button
@@ -241,7 +251,7 @@ export function TeacherOnboardingModal({
                             : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                         }`}
                       >
-                        <span>☀️</span>
+                        <SunIcon className="h-3.5 w-3.5" />
                         <span>Світла</span>
                       </button>
                     </div>
@@ -296,9 +306,16 @@ export function TeacherOnboardingModal({
                 handleFinish();
               }
             }}
-            className="rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
           >
-            {currentStepIndex === steps.length - 1 ? "До розкладу ✓" : "Далі →"}
+            {currentStepIndex === steps.length - 1 ? (
+              <>
+                <span>До розкладу</span>
+                <CheckIcon className="h-3.5 w-3.5" />
+              </>
+            ) : (
+              <span>Далі →</span>
+            )}
           </button>
         </footer>
       </div>

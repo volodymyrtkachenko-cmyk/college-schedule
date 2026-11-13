@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { requestClassroomAuth } from "../lib/classroomAuth";
 import { useToast } from "./ToastProvider";
+import { AlertTriangleIcon, CloseIcon } from "./ui/Icons";
 
 export function ClassroomRelinkBanner({ className = "" }: { className?: string }) {
   const { isLinked, needsRelink, relinkReason, linkedEmail, linkedGroupId } = useClassroomSubmissions();
@@ -65,8 +66,8 @@ export function ClassroomRelinkBanner({ className = "" }: { className?: string }
       className={`relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/35 bg-amber-500/10 p-3.5 sm:px-4 sm:py-3 text-xs text-amber-900 dark:text-amber-100 shadow-xs mb-4 ${className}`}
     >
       <div className="flex items-start sm:items-center gap-2.5 min-w-0 pr-6 sm:pr-0">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 text-sm">
-          ⚠️
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400">
+          <AlertTriangleIcon className="h-4 w-4" />
         </span>
         <div className="min-w-0">
           <p className="font-semibold text-amber-950 dark:text-amber-200">
@@ -101,7 +102,7 @@ export function ClassroomRelinkBanner({ className = "" }: { className?: string }
           aria-label="Закрити сповіщення"
           className="flex h-8 w-8 items-center justify-center rounded-xl text-amber-800/70 hover:bg-amber-500/15 hover:text-amber-950 dark:text-amber-300/70 dark:hover:text-amber-100 transition-colors cursor-pointer"
         >
-          ✕
+          <CloseIcon className="h-4 w-4" />
         </button>
       </div>
     </aside>

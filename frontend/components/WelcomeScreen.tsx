@@ -5,6 +5,7 @@ import { ReferenceRecord } from "../lib/api";
 import { filterAndRankEntities, getGroupSearchBadge } from "../lib/quickJump";
 import { getGroupCourse } from "../lib/groupInfo";
 import { useViewportTier } from "../lib/useViewportTier";
+import { CloseIcon } from "./ui/Icons";
 
 const StudentOnboardingModal = dynamic(
   () => import("./StudentOnboardingModal").then((m) => m.StudentOnboardingModal),
@@ -214,7 +215,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                    aria-label="Очистити пошук"
                    className="absolute right-1 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-text-primary transition-colors"
                  >
-                   ✕
+                   <CloseIcon className="h-4 w-4" />
                  </button>
                )}
              </search>

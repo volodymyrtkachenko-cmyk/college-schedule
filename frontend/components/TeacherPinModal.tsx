@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { AppDialog } from "./ui/AppDialog";
+import { CloseIcon } from "./ui/Icons";
 
 interface TeacherPinModalProps {
   isOpen: boolean;
@@ -99,7 +100,7 @@ export function TeacherPinModal({
             aria-label="Закрити"
             className="w-8 h-8 rounded-lg flex items-center justify-center text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-bg transition-colors -mr-1 -mt-1"
           >
-            ✕
+            <CloseIcon className="h-4 w-4" />
           </button>
         </div>
 

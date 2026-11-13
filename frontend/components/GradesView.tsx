@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { FullTaskItem } from "./MobileTasksView";
 import { useGradesSummary, GradeItem, SubjectSummary } from "../lib/useGradesSummary";
+import { BarChartIcon, CloseIcon, UserCheckIcon } from "./ui/Icons";
 
 interface GradesViewProps {
   tasks: FullTaskItem[];
@@ -314,10 +315,10 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: Grades
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-2 text-sys-text-muted hover:text-sys-text-primary text-xs p-0.5 cursor-pointer"
+                className="absolute right-2.5 top-2 text-sys-text-muted hover:text-sys-text-primary p-0.5 cursor-pointer"
                 aria-label="Очистити пошук"
               >
-                ✕
+                <CloseIcon className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
@@ -376,8 +377,9 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: Grades
                         {subj.teacher && (
                           <>
                             <span className="text-[10px] text-slate-500">•</span>
-                            <span className="text-[11px] text-sys-text-secondary truncate max-w-[170px] sm:max-w-[240px]">
-                              👨‍🏫 {subj.teacher}
+                            <span className="inline-flex items-center gap-1 text-[11px] text-sys-text-secondary truncate max-w-[170px] sm:max-w-[240px]">
+                              <UserCheckIcon className="h-3 w-3 shrink-0 text-sys-text-muted" />
+                              <span className="truncate">{subj.teacher}</span>
                             </span>
                           </>
                         )}
@@ -524,8 +526,8 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: Grades
       ) : (
         /* Empty State */
         <div className="rounded-2xl border border-dashed border-sys-border p-6 text-center space-y-2.5">
-          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-sys-accent/10 text-sys-accent text-lg">
-            📊
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-sys-accent/10 text-sys-accent">
+            <BarChartIcon className="h-5 w-5" />
           </div>
           <h3 className="text-sm font-bold text-sys-text-primary">
             {searchQuery || activeFilter !== "all" ? "Нічого не знайдено" : "Оцінок поки немає"}

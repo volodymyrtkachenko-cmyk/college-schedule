@@ -6,6 +6,7 @@ import { getGroupCourse } from "../../lib/groupInfo";
 import { filterAndRankEntities, getGroupSearchBadge } from "../../lib/quickJump";
 import { RecentSelectionsChips } from "../RecentSelectionsChips";
 import { AppDialog } from "../ui/AppDialog";
+import { CheckIcon, CloseIcon } from "../ui/Icons";
 
 interface ContextSelectionModalProps {
   isOpen: boolean;
@@ -129,7 +130,7 @@ export function ContextSelectionModal({
                 aria-label="Закрити"
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
               >
-                ✕
+                <CloseIcon className="h-4 w-4" />
               </button>
             </div>
 
@@ -177,7 +178,7 @@ export function ContextSelectionModal({
                   aria-label="Очистити пошук"
                   className="absolute right-0.5 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-text-primary transition-colors"
                 >
-                  ✕
+                  <CloseIcon className="h-4 w-4" />
                 </button>
               )}
             </search>
@@ -259,7 +260,7 @@ export function ContextSelectionModal({
                   >
                     <div className="flex items-center justify-between gap-1.5 w-full">
                       <span className="truncate font-bold text-sm">{opt.name}</span>
-                      {isSelected && <span className="text-xs shrink-0" aria-hidden="true">✓</span>}
+                      {isSelected && <CheckIcon className="h-3.5 w-3.5 shrink-0 text-sys-accent" />}
                     </div>
                     {groupBadge && groupBadge !== opt.name && (
                       <span className="mt-0.5 text-[10px] text-sys-text-muted truncate block">

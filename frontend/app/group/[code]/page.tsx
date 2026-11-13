@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { SchedulePageClient } from "../../../components/SchedulePageClient";
+import { TransitionLink } from "../../../components/navigation/NavigationTransitionProvider";
 import { SITE_URL } from "../../../lib/site";
 import {
   getGroupCourse,
@@ -73,17 +74,11 @@ export async function generateMetadata({
     description,
     keywords: [
       `розклад ${group.name}`,
-      `розклад групи ${group.name}`,
-      `розклад ${group.name} дфкр`,
       `розклад групи ${group.name} дфкр`,
-      `розклад групи ${group.name} дніпровського фахового коледжу радіоелектроніки`,
       `група ${group.name} кре`,
       `розклад занять ${fullCode}`,
-      `дфкр ${course ? `${course} курс` : ""} ${specialty}`,
-      "розклад дніпровського фахового коледжу радіоелектроніки",
-      "дніпровський фаховий коледж радіоелектроніки розклад",
       "розклад дфкр",
-      "розклад кре",
+      course ? `дфкр ${course} курс` : specialty,
     ],
     alternates: {
       canonical: url,
@@ -95,11 +90,20 @@ export async function generateMetadata({
       type: "website",
       locale: "uk_UA",
       siteName: "Розклад ДФКР",
+      images: [
+        {
+          url: "/og-image.png",
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: ["/og-image.png"],
     },
   };
 }
@@ -129,19 +133,25 @@ export default async function GroupSchedulePage({
   const course = group ? getGroupCourse(group.name) : null;
   const specialty = group ? getGroupSpecialtyName(group.faculty_id) : "";
 
+  const pageUrl = `${SITE_URL}/group/${encodeURIComponent(group?.name || rawCode)}`;
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "Course",
+        "@type": "WebPage",
+        "@id": `${pageUrl}#webpage`,
+        url: pageUrl,
         name: `Розклад занять групи ${group?.name || rawCode} (${fullCode})`,
         description: `Розклад навчальних занять групи ${group?.name || rawCode} Дніпровського фахового коледжу радіоелектроніки. Спеціальність: ${specialty}.`,
-        provider: {
-          "@type": "CollegeOrUniversity",
+        inLanguage: "uk-UA",
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+        about: {
+          "@type": "EducationalOrganization",
+          "@id": "https://kre.dp.ua/#organization",
           name: "Дніпровський фаховий коледж радіоелектроніки",
           sameAs: "https://kre.dp.ua/",
         },
-        educationalCredentialAwarded: "Фаховий молодший бакалавр",
       },
       {
         "@type": "BreadcrumbList",
@@ -155,14 +165,14 @@ export default async function GroupSchedulePage({
           {
             "@type": "ListItem",
             position: 2,
-            name: "Розклад груп",
-            item: `${SITE_URL}/#groups`,
+            name: "Навчальні групи",
+            item: `${SITE_URL}/groups`,
           },
           {
             "@type": "ListItem",
             position: 3,
             name: `Група ${group?.name || rawCode}`,
-            item: `${SITE_URL}/group/${encodeURIComponent(group?.name || rawCode)}`,
+            item: pageUrl,
           },
         ],
       },
@@ -170,34 +180,56 @@ export default async function GroupSchedulePage({
   };
 
   return (
-    <main
-      id="main-content"
-      tabIndex={-1}
-      className="min-h-dvh bg-transparent text-sys-text-primary outline-none"
-    >
+    <div className="min-h-dvh bg-transparent text-sys-text-primary">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <section
-        aria-label={`Розклад занять групи ${group?.name || rawCode} ДФКР`}
-        className="sr-only"
-      >
-        <h1>
-          Розклад групи {group?.name || rawCode} ДФКР — {fullCode}
-        </h1>
-        <p>
-          Актуальний розклад занять для студентів групи {group?.name || rawCode}{" "}
-          ({fullCode}), {course ? `${course} курс, ` : ""}спеціальність &ldquo;{specialty}&rdquo; у Дніпровському фаховому коледжі радіоелектроніки (ДФКР / КРЕ).
-        </p>
-        <p>
-          Розклад дзвінків: 1 пара 09:00–10:20, 2 пара 10:40–12:00, 3 пара 12:30–13:50, 4 пара 14:00–15:20.
-        </p>
+      <h1 className="sr-only">
+        Розклад групи {group?.name || rawCode} ДФКР — {fullCode}
+      </h1>
 
-        {scheduleDays.length > 0 && (
-          <div>
-            <h2>Розклад пар на поточний навчальний тиждень</h2>
+      <SchedulePageClient
+        initialGroups={groups}
+        initialTeachers={teachers}
+        initialGroupId={groupId}
+        initialMode="student"
+      />
+
+      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-4 pt-4 pb-24 text-xs text-sys-text-secondary sm:px-6 lg:pb-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Група <strong className="text-sys-text-primary">{group?.name || rawCode}</strong> ({fullCode}
+            {course ? `, ${course} курс` : ""}) · {specialty} · ДФКР
+          </p>
+          <nav aria-label="Розділи розкладу ДФКР" className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <TransitionLink href="/" className="hover:text-sys-accent hover:underline">
+              Головна
+            </TransitionLink>
+            <TransitionLink href="/groups" className="hover:text-sys-accent hover:underline">
+              Усі групи
+            </TransitionLink>
+            <TransitionLink href="/teachers" className="hover:text-sys-accent hover:underline">
+              Викладачі
+            </TransitionLink>
+            <TransitionLink href="/bells" className="hover:text-sys-accent hover:underline">
+              Дзвінки
+            </TransitionLink>
+            <TransitionLink href="/educational-process" className="hover:text-sys-accent hover:underline">
+              Графік процесу
+            </TransitionLink>
+            <TransitionLink href="/statistics" className="hover:text-sys-accent hover:underline">
+              Статистика
+            </TransitionLink>
+          </nav>
+        </div>
+      </footer>
+
+      {scheduleDays.length > 0 && (
+        <noscript>
+          <section style={{ maxWidth: "800px", margin: "16px auto", padding: "0 16px" }}>
+            <h2>Розклад пар групи {group?.name || rawCode} на тиждень</h2>
             {scheduleDays.map((day, idx) => (
               <div key={day.date || idx}>
                 <h3>{getDayTitle(day.date)}</h3>
@@ -207,48 +239,19 @@ export default async function GroupSchedulePage({
                       <li key={lesson.id || lIdx}>
                         <strong>{lesson.lesson_number} пара ({lesson.time}):</strong>{" "}
                         {lesson.subject_name || lesson.subject || "Заняття"} —{" "}
-                        викладач {lesson.teacher_name || lesson.teacher || "Викладач"}
+                        {lesson.teacher_name || lesson.teacher || "Викладач"}
                         {lesson.room ? `, ауд. ${lesson.room}` : ""}
-                        {lesson.week_type === "numerator" ? " (чисельник)" : ""}
-                        {lesson.week_type === "denominator" ? " (знаменник)" : ""}
-                        {lesson.second_teacher_id ? " (пара з 2 викладачами / підгрупами)" : ""}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p>Занять немає (самостійна робота / вихідний).</p>
+                  <p>Занять немає.</p>
                 )}
               </div>
             ))}
-          </div>
-        )}
-
-        <nav aria-label="Навігація за іншими групами ДФКР">
-          <h2>Інші групи коледжу радіоелектроніки</h2>
-          <ul>
-            {groups.map((g) => (
-              <li key={g.id}>
-                <a href={`/group/${encodeURIComponent(g.name)}`}>
-                  Розклад групи {g.name}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <p>
-            <a href="/">Головна сторінка розкладу ДФКР</a> |{" "}
-            <a href="/bells">Розклад дзвінків ДФКР</a> |{" "}
-            <a href="/educational-process">Графік освітнього процесу</a> |{" "}
-            <a href="/statistics">Статистика пар</a>
-          </p>
-        </nav>
-      </section>
-
-      <SchedulePageClient
-        initialGroups={groups}
-        initialTeachers={teachers}
-        initialGroupId={groupId}
-        initialMode="student"
-      />
-    </main>
+          </section>
+        </noscript>
+      )}
+    </div>
   );
 }

@@ -3,16 +3,49 @@
 import React, { useMemo } from "react";
 import { SchedulePeriodInfo } from "../lib/api";
 import { UKR_DAY_MONTH_LONG_FMT } from "../lib/date";
+import {
+  BuildingIcon,
+  CalendarIcon,
+  FileTextIcon,
+  GraduationCapIcon,
+  LightbulbIcon,
+  SunIcon,
+  WrenchIcon,
+} from "./ui/Icons";
 
 interface SchedulePeriodCardProps {
   period: SchedulePeriodInfo;
   isToday?: boolean;
 }
 
+export function PeriodIcon({
+  periodType,
+  className = "w-3.5 h-3.5 shrink-0",
+}: {
+  periodType?: string | null;
+  className?: string;
+}) {
+  switch (periodType) {
+    case "practice":
+      return <WrenchIcon className={className} />;
+    case "session":
+      return <FileTextIcon className={className} />;
+    case "holiday":
+      return <SunIcon className={className} />;
+    case "diploma":
+      return <GraduationCapIcon className={className} />;
+    case "attestation":
+      return <BuildingIcon className={className} />;
+    default:
+      return <CalendarIcon className={className} />;
+  }
+}
+
 export function getPeriodMeta(period: SchedulePeriodInfo) {
   switch (period.period_type) {
     case "practice":
       return {
+        periodType: period.period_type,
         icon: "🛠️",
         badgeLabel: "Виробнича практика",
         shortLabel: "Практика",
@@ -25,6 +58,7 @@ export function getPeriodMeta(period: SchedulePeriodInfo) {
       };
     case "session":
       return {
+        periodType: period.period_type,
         icon: "📝",
         badgeLabel: "Екзаменаційна сесія",
         shortLabel: "Сесія",
@@ -37,6 +71,7 @@ export function getPeriodMeta(period: SchedulePeriodInfo) {
       };
     case "holiday":
       return {
+        periodType: period.period_type,
         icon: "🌴",
         badgeLabel: "Канікули",
         shortLabel: "Канікули",
@@ -49,6 +84,7 @@ export function getPeriodMeta(period: SchedulePeriodInfo) {
       };
     case "diploma":
       return {
+        periodType: period.period_type,
         icon: "🎓",
         badgeLabel: "Дипломне проектування",
         shortLabel: "Диплом",
@@ -61,6 +97,7 @@ export function getPeriodMeta(period: SchedulePeriodInfo) {
       };
     case "attestation":
       return {
+        periodType: period.period_type,
         icon: "🏛️",
         badgeLabel: "Державна атестація",
         shortLabel: "Атестація",
@@ -73,6 +110,7 @@ export function getPeriodMeta(period: SchedulePeriodInfo) {
       };
     default:
       return {
+        periodType: period.period_type,
         icon: "📅",
         badgeLabel: "Навчальний період",
         shortLabel: "Період",
@@ -125,11 +163,13 @@ export function CompactSchedulePeriodCard({
           onClick();
         }
       }}
-      className={`flex flex-col items-center justify-center rounded-2xl border ${meta.cardBorder} ${meta.cardBg} p-4 text-center min-h-[170px] h-full shadow-xs gap-1.5 transition-all duration-fast ${
+      className={`flex flex-col items-center justify-center rounded-2xl border ${meta.cardBorder} ${meta.cardBg} p-4 text-center min-h-[170px] h-full shadow-xs gap-1.5 transition-colors duration-fast ${
         onClick ? "cursor-pointer hover:border-sys-accent/60 active:scale-[0.99]" : ""
       }`}
     >
-      <span className="text-2xl select-none">{meta.icon}</span>
+      <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border ${meta.badgeTone}`}>
+        <PeriodIcon periodType={meta.periodType} className="h-5 w-5" />
+      </span>
       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border shadow-xs ${meta.badgeTone}`}>
         {meta.shortLabel}
       </span>
@@ -153,12 +193,12 @@ export function SchedulePeriodCard({ period, isToday = false }: SchedulePeriodCa
 
   return (
     <div
-      className={`flex flex-col rounded-2xl border ${meta.cardBorder} ${meta.cardBg} p-5 sm:p-6 shadow-md transition-all my-auto max-w-xl mx-auto w-full text-left`}
+      className={`flex flex-col rounded-2xl border ${meta.cardBorder} ${meta.cardBg} p-5 sm:p-6 shadow-md transition-colors my-auto max-w-xl mx-auto w-full text-left`}
     >
       {/* Top Header Badge & Dates */}
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3.5">
         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-xs ${meta.badgeTone}`}>
-          <span>{meta.icon}</span>
+          <PeriodIcon periodType={meta.periodType} className="h-3.5 w-3.5 shrink-0" />
           <span>{meta.badgeLabel}</span>
         </span>
 
@@ -180,7 +220,7 @@ export function SchedulePeriodCard({ period, isToday = false }: SchedulePeriodCa
       {/* Helpful Hint box if applicable */}
       {meta.hint && (
         <div className="flex items-start gap-2.5 rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3.5 py-2.5 text-xs text-sys-text-secondary">
-          <span className="text-sys-accent shrink-0 text-sm">💡</span>
+          <LightbulbIcon className="h-4 w-4 text-sys-accent shrink-0 mt-0.5" />
           <span className="leading-relaxed">{meta.hint}</span>
         </div>
       )}

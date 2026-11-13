@@ -2,6 +2,7 @@
 
 import React from "react";
 import { getMeetingBtnStyle, MeetingInfo } from "../../lib/lesson-card";
+import { LockIcon } from "../ui/Icons";
 
 export function MeetingPlatformIcon({
   platform,
@@ -85,7 +86,7 @@ export function LockedMeetingBadge({
       aria-label="Онлайн-заняття. Прив'яжіть студентський Classroom цієї групи для доступу до дзвінка"
       className={`inline-flex shrink-0 items-center border border-amber-500/40 dark:border-amber-500/30 bg-amber-500/15 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 font-bold whitespace-nowrap hover:bg-amber-500/25 dark:hover:bg-amber-500/20 active:scale-95 transition-colors duration-fast ease-smooth shadow-xs cursor-pointer ${sizeClasses}`}
     >
-      <span className="text-[12px]">🔒</span>
+      <LockIcon className="w-3 h-3 shrink-0" />
       <span>{label}</span>
     </button>
   );

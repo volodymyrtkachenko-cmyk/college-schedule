@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { AlertTriangleIcon } from "@/components/ui/Icons";
 
 export default function ErrorBoundary({
   error,
@@ -22,8 +23,8 @@ export default function ErrorBoundary({
       className="min-h-dvh flex items-center justify-center p-4 bg-[var(--page-bg)] text-sys-text-primary outline-none"
     >
       <div className="w-full max-w-md p-6 rounded-2xl bg-sys-card border border-sys-border shadow-lg text-center space-y-4">
-        <div className="w-14 h-14 mx-auto rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-2xl">
-          ⚠️
+        <div className="w-14 h-14 mx-auto rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
+          <AlertTriangleIcon className="h-6 w-6" />
         </div>
         <div>
           <h1 className="text-lg font-bold text-sys-text-primary">

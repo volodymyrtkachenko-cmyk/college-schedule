@@ -15,6 +15,20 @@ import { requestClassroomAuth } from "../../lib/classroomAuth";
 import { useMobileNav } from "../../lib/useMobileNav";
 import { api } from "../../lib/api";
 import { checkScheduleHasSubgroups, extractSubgroupTeacherHints, SubgroupTeacherHint } from "../../lib/format";
+import {
+  BarChartIcon,
+  BellIcon,
+  CalendarIcon,
+  GraduationCapIcon,
+  LaptopIcon,
+  LightbulbIcon,
+  LinkIcon,
+  MoonIcon,
+  PaletteIcon,
+  ShieldIcon,
+  SunIcon,
+  UserCheckIcon,
+} from "../../components/ui/Icons";
 
 const GuideHubModal = dynamic(
   () => import("../../components/GuideHubModal").then((m) => m.GuideHubModal),
@@ -195,8 +209,18 @@ export default function SettingsPage() {
         onBackClick={() => setHomeTab("schedule")}
         maxWidthClass="max-w-2xl"
         rightSlot={
-          <span className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary whitespace-nowrap">
-            {scheduleMode === "teacher" ? "👨‍🏫 Викладач" : "🎓 Студент"}
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary whitespace-nowrap">
+            {scheduleMode === "teacher" ? (
+              <>
+                <UserCheckIcon className="h-3.5 w-3.5 text-sys-accent" />
+                <span>Викладач</span>
+              </>
+            ) : (
+              <>
+                <GraduationCapIcon className="h-3.5 w-3.5 text-sys-accent" />
+                <span>Студент</span>
+              </>
+            )}
           </span>
         }
       />
@@ -215,7 +239,7 @@ export default function SettingsPage() {
         {/* Section 1: Розклад */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
-            <span className="text-base">📅</span>
+            <CalendarIcon className="h-4 w-4 text-sys-text-muted" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
               Розклад
             </h2>
@@ -362,7 +386,7 @@ export default function SettingsPage() {
         {isStudent && (
           <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
-              <span className="text-base">🎓</span>
+              <GraduationCapIcon className="h-4 w-4 text-sys-text-muted" />
               <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
                 Google Classroom
               </h2>
@@ -438,7 +462,7 @@ export default function SettingsPage() {
         {/* Section 3: Тема оформлення */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
-            <span className="text-base">🎨</span>
+            <PaletteIcon className="h-4 w-4 text-sys-text-muted" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
               Тема оформлення
             </h2>
@@ -453,7 +477,7 @@ export default function SettingsPage() {
                   : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
-              <span>🌙</span>
+              <MoonIcon className="h-3.5 w-3.5" />
               <span>Темна</span>
             </button>
             <button
@@ -465,7 +489,7 @@ export default function SettingsPage() {
                   : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
-              <span>☀️</span>
+              <SunIcon className="h-3.5 w-3.5" />
               <span>Світла</span>
             </button>
             <button
@@ -477,7 +501,7 @@ export default function SettingsPage() {
                   : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
-              <span>💻</span>
+              <LaptopIcon className="h-3.5 w-3.5" />
               <span>Авто</span>
             </button>
           </div>
@@ -576,7 +600,7 @@ export default function SettingsPage() {
         {isTeacher && (
           <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
-              <span className="text-base">👨‍🏫</span>
+              <UserCheckIcon className="h-4 w-4 text-sys-text-muted" />
               <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
                 Доступ викладача
               </h2>
@@ -667,7 +691,7 @@ export default function SettingsPage() {
         {/* Section 5: Корисні посилання */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
-            <span className="text-base">🔗</span>
+            <LinkIcon className="h-4 w-4 text-sys-text-muted" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
               Корисні посилання
             </h2>
@@ -680,7 +704,7 @@ export default function SettingsPage() {
               className="sm:col-span-2 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 p-3 hover:border-sys-accent/60 hover:bg-sys-accent/15 transition-colors duration-fast ease-smooth group text-left"
             >
               <span className="flex items-center gap-2.5">
-                <span className="text-base">💡</span>
+                <LightbulbIcon className="h-4 w-4 shrink-0 text-sys-accent" />
                 <span className="flex flex-col">
                   <span className="font-semibold text-sys-text-primary text-xs sm:text-sm">Гід та довідник можливостей</span>
                   <span className="text-[11px] text-sys-text-secondary">Усі фішки, підказки, офлайн-режим, дзвінки та робота з Classroom</span>
@@ -694,7 +718,7 @@ export default function SettingsPage() {
               className="spring-press flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-amber-500/40 hover:bg-amber-500/5 transition-colors duration-fast ease-smooth group"
             >
               <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
-                <span className="text-base">🔔</span>
+                <BellIcon className="h-4 w-4 text-sys-text-secondary" />
                 <span>Розклад дзвінків</span>
               </span>
               <span className="text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">↗</span>
@@ -705,7 +729,7 @@ export default function SettingsPage() {
               className="spring-press flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-purple-500/40 hover:bg-purple-500/5 transition-colors duration-fast ease-smooth group"
             >
               <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
-                <span className="text-base">📊</span>
+                <BarChartIcon className="h-4 w-4 text-sys-text-secondary" />
                 <span>Статистика занять</span>
               </span>
               <span className="text-purple-600 dark:text-purple-400 group-hover:translate-x-0.5 transition-transform">↗</span>
@@ -716,7 +740,7 @@ export default function SettingsPage() {
               className="spring-press sm:col-span-2 flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors duration-fast ease-smooth group"
             >
               <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
-                <span className="text-base">📅</span>
+                <CalendarIcon className="h-4 w-4 text-sys-text-secondary" />
                 <span>Графік навчального процесу</span>
               </span>
               <span className="text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">↗</span>
@@ -728,7 +752,7 @@ export default function SettingsPage() {
         {/* Section 6: Адміністрування */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
-            <span className="text-base">🛡️</span>
+            <ShieldIcon className="h-4 w-4 text-sys-text-muted" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
               Адміністрування
             </h2>

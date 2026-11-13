@@ -4,6 +4,7 @@ import { api, DirectoryItem, Lesson, LessonMutation, ScheduleResponse, WeekType 
 import { ReferenceRecord } from "../lib/api";
 import { SearchableSelect } from "./SearchableSelect";
 import { SearchableTextInput } from "./SearchableTextInput";
+import { AlertTriangleIcon, CloseIcon } from "./ui/Icons";
 type Props = {
   lesson?: Lesson;
   date: string;
@@ -139,7 +140,7 @@ export function LessonEditor({
     const baseRooms = Array.from(new Set(teachers.map((t) => t.room).filter(Boolean) as string[])).sort();
     return baseRooms.map((r) => {
       const busyBy = occupiedRoomsMap.get(r.trim().toLowerCase());
-      return busyBy ? `${r} (⚠️ зайнято: ${busyBy})` : r;
+      return busyBy ? `${r} (зайнято: ${busyBy})` : r;
     });
   }, [teachers, occupiedRoomsMap]);
 
@@ -272,14 +273,14 @@ export function LessonEditor({
               aria-label="Закрити панель"
               className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
             >
-              ✕
+              <CloseIcon className="h-4 w-4" />
             </button>
           </div>
 
           {/* Warning Banner: One-off substitution */}
           {isOneOff && weekRangeText && (
             <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-300">
-              <span className="text-sm shrink-0">⚠️</span>
+              <AlertTriangleIcon className="h-4 w-4 shrink-0" />
               <span className="truncate">Разова зміна — лише {weekRangeText}</span>
             </div>
           )}
@@ -398,13 +399,14 @@ export function LessonEditor({
             <SearchableTextInput
               options={uniqueRooms}
               value={form.room ?? ""}
-              onChange={(val) => update("room", val.replace(/\s*\(⚠️.*?\)\s*$/, ""))}
+              onChange={(val) => update("room", val.replace(/\s*\((?:⚠️\s*)?зайнято:.*?\)\s*$/, ""))}
               placeholder={teacherRoom ? `За замовчуванням: ${teacherRoom}` : "Введіть аудиторію"}
             />
             <p className="mt-1 text-xs text-sys-text-secondary">Якщо порожнє, використовується аудиторія викладача.</p>
             {roomConflictInfo && (
-              <p className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-800 dark:text-amber-300">
-                ⚠️ У цей час аудиторія зайнята: <strong>{roomConflictInfo}</strong>
+              <p className="mt-1.5 flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-800 dark:text-amber-300">
+                <AlertTriangleIcon className="h-3.5 w-3.5 shrink-0" />
+                <span>У цей час аудиторія зайнята: <strong>{roomConflictInfo}</strong></span>
               </p>
             )}
           </label>

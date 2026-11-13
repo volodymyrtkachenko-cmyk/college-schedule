@@ -3,13 +3,13 @@ import { SITE_URL } from "../lib/site";
 import { toTeacherSlug } from "../lib/slug";
 import { fetchDirectoryForSsr } from "../lib/ssrApi";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = SITE_URL.replace(/\/+$/, "");
   const todayIso = new Date().toISOString().split("T")[0];
 
-  const { groups, teachers } = await fetchDirectoryForSsr();
+  const { groups, teachers } = await fetchDirectoryForSsr(0);
 
   const staticRoutes: MetadataRoute.Sitemap = [
     {
@@ -21,8 +21,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${siteUrl}/bells`,
       lastModified: todayIso,
-      changeFrequency: "monthly",
+      changeFrequency: "weekly",
       priority: 0.9,
+    },
+    {
+      url: `${siteUrl}/groups`,
+      lastModified: todayIso,
+      changeFrequency: "daily",
+      priority: 0.85,
+    },
+    {
+      url: `${siteUrl}/teachers`,
+      lastModified: todayIso,
+      changeFrequency: "daily",
+      priority: 0.8,
     },
     {
       url: `${siteUrl}/educational-process`,

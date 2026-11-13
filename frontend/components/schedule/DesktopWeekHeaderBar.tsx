@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ReferenceRecord, ScheduleResponse } from "../../lib/api";
 import { formatWeekShareText } from "../../lib/schedule";
-import type { getPeriodMeta } from "../SchedulePeriodCard";
+import { PeriodIcon, type getPeriodMeta } from "../SchedulePeriodCard";
 
 type PeriodBadgeMeta = ReturnType<typeof getPeriodMeta>;
 
@@ -130,7 +130,7 @@ export function DesktopWeekHeaderBar({
           <>
             <span className="text-sys-text-muted">•</span>
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-xs ${activeWeekPeriodMeta.badgeTone}`}>
-              <span>{activeWeekPeriodMeta.icon}</span>
+              <PeriodIcon periodType={activeWeekPeriodMeta.periodType} className="w-3.5 h-3.5 shrink-0" />
               <span>{activeWeekPeriodMeta.title}</span>
             </span>
           </>

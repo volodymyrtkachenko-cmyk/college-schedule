@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { BoltIcon, LockIcon } from "./ui/Icons";
 
 interface GuideDemoStageProps {
   role: "student" | "teacher";
@@ -186,7 +187,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
                     stage === 2 ? "scale-95" : ""
                   }`}
                 >
-                  <span>🔒</span>
+                  <LockIcon className="h-3 w-3 shrink-0" />
                   <span>Meet</span>
                 </span>
               ) : (
@@ -657,7 +658,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
             <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-lg space-y-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center border border-sys-status-infoBg/30 bg-sys-status-infoBg/15 text-sys-status-infoText shrink-0">
-                  🔒
+                  <LockIcon className="h-4 w-4" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-sys-text-primary">Вхід для викладача</div>
@@ -840,7 +841,8 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-sys-text-secondary">3 · 12:30–13:50</span>
                   <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-bold bg-sys-warning uppercase tracking-wider text-sys-warningText">
-                    ⚡ Заміна
+                    <BoltIcon className="h-3 w-3 shrink-0" />
+                    <span>Заміна</span>
                   </span>
                 </div>
                 <div className="text-base font-semibold text-sys-text-subject">

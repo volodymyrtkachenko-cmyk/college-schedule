@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
+import { TransitionLink } from "../components/navigation/NavigationTransitionProvider";
 import { SchedulePageClient } from "../components/SchedulePageClient";
-import { toTeacherSlug } from "../lib/slug";
-import { getGroupFullCode } from "../lib/groupInfo";
+import { SITE_URL } from "../lib/site";
 import { fetchDirectoryForSsr } from "../lib/ssrApi";
 
 export const revalidate = 1800; // Revalidate directory data for SEO every 30 minutes
@@ -13,13 +13,24 @@ export const metadata: Metadata = {
   description:
     "Офіційний електронний розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ). Розклад занять усіх навчальних груп, викладачів, розклад дзвінків, жива пара та Google Classroom.",
   alternates: {
-    canonical: "/",
+    canonical: `${SITE_URL}/`,
   },
   openGraph: {
-    title: "Розклад ДФКР",
+    title: "Розклад ДФКР — коледж радіоелектроніки",
     description:
       "Офіційний електронний розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ). Розклад усіх навчальних груп, викладачів, розклад дзвінків та Google Classroom.",
-    url: "/",
+    url: `${SITE_URL}/`,
+    type: "website",
+    locale: "uk_UA",
+    siteName: "Розклад ДФКР",
+    images: ["/og-image.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Розклад ДФКР — коледж радіоелектроніки",
+    description:
+      "Офіційний електронний розклад занять ДФКР: групи, викладачі, дзвінки та Google Classroom.",
+    images: ["/og-image.png"],
   },
 };
 
@@ -27,90 +38,45 @@ export default async function HomePage() {
   const { groups, teachers } = await fetchDirectoryForSsr();
 
   return (
-    <main
-      id="main-content"
-      tabIndex={-1}
-      className="min-h-dvh bg-transparent text-sys-text-primary outline-none"
-    >
+    <div className="min-h-dvh bg-transparent text-sys-text-primary">
       <h1 className="sr-only">
-        Розклад ДФКР
+        Розклад ДФКР — Дніпровський фаховий коледж радіоелектроніки
       </h1>
 
-      <section
-        aria-label="Розклад ДФКР — інформація про розклад занять коледжу"
-        className="sr-only"
-      >
-        <h2>Розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ)</h2>
-        <p>
-          Розклад занять та пар Дніпровського фахового коледжу радіоелектроніки (Дніпровський фаховий коледж радіоелектроніки розклад,
-          КРЕ, ДКРЕ, коледж радіоелектроніки Дніпро розклад, раніше ДФКР ДНУ ім. Олеся Гончара,
-          радіотехнікум Дніпро, офіційний сайт kre.dp.ua, расписание занятий и пар ДФКР) — офіційний онлайн-розклад пар на сьогодні та на тиждень (чисельник і знаменник)
-          для всіх навчальних груп 1, 2, 3 та 4 курсів, а також розклад викладачів коледжу.
-          Підтримуються спеціальності: 121 Інженерія програмного забезпечення (ІПЗ), 123 Комп&apos;ютерна інженерія (КІ),
-          122 Комп&apos;ютерні науки (КН), 172 Телекомунікації та радіотехніка (ТР), 171 Електроніка та 153 Мікро- та наносистемна техніка.
-        </p>
-        <p>
-          Веб-застосунок Розклад ДФКР забезпечує відстеження поточної живої пари в реальному часі за часом Europe/Kyiv,
-          розклад дзвінків (стандартні пари по 80 хвилин та скорочені дні по 50 хвилин), щоденні заміни та перестановки пар,
-          поділ на 1 та 2 підгрупи з окремими кабінетами, посилання на онлайн-заняття Google Meet і Zoom, а також
-          автоматичну синхронізацію домашніх завдань, дедлайнів та оцінок із Google Classroom.
-        </p>
-
-        <h2>Розклад дзвінків ДФКР (КРЕ)</h2>
-        <p>
-          <a href="/bells">Детальний розклад дзвінків коледжу радіоелектроніки (стандартні пари та скорочені дні)</a>
-        </p>
-        <ul>
-          <li>1 пара: 09:00 – 10:20 (перерва 20 хвилин)</li>
-          <li>2 пара: 10:40 – 12:00 (велика перерва 30 хвилин)</li>
-          <li>3 пара: 12:30 – 13:50 (перерва 10 хвилин)</li>
-          <li>4 пара: 14:00 – 15:20</li>
-          <li>Скорочені дні: початок о 09:00, тривалість кожної пари 50 хвилин, перерви по 10 хвилин.</li>
-        </ul>
-
-        {groups.length > 0 && (
-          <div>
-            <h2 id="groups">Навчальні групи ДФКР (розклад по групах)</h2>
-            <ul>
-              {groups.map((g) => (
-                <li key={g.id}>
-                  <a href={`/group/${encodeURIComponent(g.name)}`}>
-                    Розклад групи {g.name}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {teachers.length > 0 && (
-          <div>
-            <h2 id="teachers">Викладачі ДФКР (розклад викладачів)</h2>
-            <ul>
-              {teachers.map((t) => (
-                <li key={t.id}>
-                  <a href={`/teacher/${toTeacherSlug(t.name)}`}>
-                    Розклад викладача {t.name}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <nav aria-label="Розділи розкладу ДФКР">
-          <h2>Розділи сайту</h2>
-          <ul>
-            <li><a href="/">Розклад занять ДФКР на сьогодні та тиждень</a></li>
-            <li><a href="/bells">Розклад дзвінків ДФКР (пари, перерви, скорочені дні)</a></li>
-            <li><a href="/educational-process">Графік освітнього процесу ДФКР (семестри, сесії, практики, канікули)</a></li>
-            <li><a href="/statistics">Статистика занять та навчального навантаження викладачів ДФКР</a></li>
-            <li><a href="https://kre.dp.ua/" rel="noopener noreferrer">Офіційний сайт Дніпровського фахового коледжу радіоелектроніки (kre.dp.ua)</a></li>
-          </ul>
-        </nav>
-      </section>
-
       <SchedulePageClient initialGroups={groups} initialTeachers={teachers} />
-    </main>
+
+      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-4 pt-4 pb-24 text-xs text-sys-text-secondary sm:px-6 lg:pb-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Дніпровський фаховий коледж радіоелектроніки (ДФКР)
+          </p>
+          <nav aria-label="Розділи розкладу ДФКР" className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <TransitionLink href="/groups" className="hover:text-sys-accent hover:underline">
+              Групи
+            </TransitionLink>
+            <TransitionLink href="/teachers" className="hover:text-sys-accent hover:underline">
+              Викладачі
+            </TransitionLink>
+            <TransitionLink href="/bells" className="hover:text-sys-accent hover:underline">
+              Дзвінки
+            </TransitionLink>
+            <TransitionLink href="/educational-process" className="hover:text-sys-accent hover:underline">
+              Графік процесу
+            </TransitionLink>
+            <TransitionLink href="/statistics" className="hover:text-sys-accent hover:underline">
+              Статистика
+            </TransitionLink>
+            <a
+              href="https://kre.dp.ua/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-sys-accent hover:underline"
+            >
+              kre.dp.ua
+            </a>
+          </nav>
+        </div>
+      </footer>
+    </div>
   );
 }

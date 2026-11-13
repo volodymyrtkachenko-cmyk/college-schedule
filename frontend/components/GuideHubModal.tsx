@@ -8,6 +8,7 @@ import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
 import { useMobileNav } from "../lib/useMobileNav";
 import { AppDialog } from "./ui/AppDialog";
+import { CheckIcon, CloseIcon } from "./ui/Icons";
 import { GuideDemoStage } from "./GuideDemoStage";
 
 export interface GuideHubModalProps {
@@ -38,8 +39,8 @@ const STUDENT_STEPS: GuideStepMeta[] = [
     tabLabel: "Classroom",
     title: "1. Пошта @kre.dp.ua: відкриття Meet/Zoom та ДЗ",
     points: [
-      "Натисніть на «🔒 Meet / Zoom» або кнопку Classroom у шапці й оберіть свій акаунт @kre.dp.ua.",
-      "Замочки зникнуть, до карток пар підтягнуться актуальні домашні завдання, а дані синхронізуються між ПК і телефоном.",
+      "Натисніть на закритий бейдж «Meet / Zoom» або кнопку Classroom у шапці й оберіть свій акаунт @kre.dp.ua.",
+      "Обмеження доступу зникне, до карток пар підтягнуться актуальні домашні завдання, а дані синхронізуються між ПК і телефоном.",
     ],
   },
   {
@@ -95,7 +96,7 @@ const TEACHER_STEPS: GuideStepMeta[] = [
     tabLabel: "PIN-код",
     title: "1. PIN-код для відкриття посилань Meet та Zoom",
     points: [
-      "Натисніть на «🔒 Zoom / Meet» або кнопку «Вхід викладача» у шапці та введіть PIN-код один раз.",
+      "Натисніть на закритий бейдж «Zoom / Meet» або кнопку «Вхід викладача» у шапці та введіть PIN-код один раз.",
       "Усі посилання на онлайн-пари відкриються на цьому пристрої для всіх навчальних груп.",
     ],
   },
@@ -113,8 +114,8 @@ const TEACHER_STEPS: GuideStepMeta[] = [
     tabLabel: "Заміни",
     title: "3. Позначки замін та перенесень у розкладі",
     points: [
-      "Перенесені заняття підписуються новою датою й номером пари («↪ Перенесено → Четвер, 3 пара»).",
-      "Призначені разові заміни виділяються жовтою рамкою та бейджем «⚡ Заміна».",
+      "Перенесені заняття підписуються новою датою й номером пари («Перенесено → Четвер, 3 пара»).",
+      "Призначені разові заміни виділяються жовтою рамкою та бейджем «Заміна».",
     ],
   },
 ];
@@ -251,9 +252,9 @@ export function GuideHubModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Закрити"
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary active:scale-95 transition-colors cursor-pointer text-xs"
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary active:scale-95 transition-colors cursor-pointer"
               >
-                ✕
+                <CloseIcon className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
@@ -276,14 +277,14 @@ export function GuideHubModal({
                   role="tab"
                   aria-selected={isCurrent}
                   onClick={() => goToStep(idx)}
-                  className={`shrink-0 flex-1 py-1.5 px-2 rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap ${
+                  className={`shrink-0 flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap ${
                     isCurrent
                       ? "bg-sys-card text-sys-accent font-bold border border-sys-border shadow-2xs"
                       : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  {s.tabLabel}
-                  {isConfigured && <span className="ml-1 text-sys-status-okText">✓</span>}
+                  <span>{s.tabLabel}</span>
+                  {isConfigured && <CheckIcon className="h-3 w-3 text-sys-status-okText shrink-0" />}
                 </button>
               );
             })}
@@ -326,8 +327,15 @@ export function GuideHubModal({
                 <div className="min-h-[44px] flex items-center">
                   {role === "student" && safeIdx === 0 && (
                     <div className="w-full flex items-center justify-between rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
-                      <span className="font-semibold text-sys-text-secondary truncate mr-2">
-                        {isLinked ? `✓ Підключено: ${linkedEmail}` : "Пошту @kre.dp.ua ще не прив'язано"}
+                      <span className="inline-flex items-center gap-1.5 font-semibold text-sys-text-secondary truncate mr-2">
+                        {isLinked ? (
+                          <>
+                            <CheckIcon className="h-3.5 w-3.5 text-sys-status-okText shrink-0" />
+                            <span className="truncate">Підключено: {linkedEmail}</span>
+                          </>
+                        ) : (
+                          <span>Пошту @kre.dp.ua ще не прив&apos;язано</span>
+                        )}
                       </span>
                       <button
                         type="button"
@@ -395,8 +403,9 @@ export function GuideHubModal({
                   )}
 
                   {role === "teacher" && safeIdx === 0 && isTeacherUnlocked && (
-                    <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-semibold text-sys-status-okText">
-                      ✓ Доступ до посилань на цьому пристрої відкрито
+                    <div className="w-full inline-flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-semibold text-sys-status-okText">
+                      <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+                      <span>Доступ до посилань на цьому пристрої відкрито</span>
                     </div>
                   )}
 
@@ -455,9 +464,16 @@ export function GuideHubModal({
                 goToStep(safeIdx + 1);
               }
             }}
-            className="rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
           >
-            {safeIdx === stepsCount - 1 ? "Зрозуміло ✓" : "Далі →"}
+            {safeIdx === stepsCount - 1 ? (
+              <>
+                <span>Зрозуміло</span>
+                <CheckIcon className="h-3.5 w-3.5" />
+              </>
+            ) : (
+              <span>Далі →</span>
+            )}
           </button>
         </div>
       </div>

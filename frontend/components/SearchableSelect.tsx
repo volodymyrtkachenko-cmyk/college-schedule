@@ -13,6 +13,7 @@ export function SearchableSelect({
   disabled,
   ariaLabel,
   emptyLabel = "Не вибрано",
+  leadingIcon,
 }: {
   options: Option[];
   value: number | null | undefined;
@@ -21,6 +22,7 @@ export function SearchableSelect({
   disabled?: boolean;
   ariaLabel?: string;
   emptyLabel?: string;
+  leadingIcon?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -97,6 +99,11 @@ export function SearchableSelect({
 
   return (
     <div ref={ref} className="relative mt-1">
+      {leadingIcon && (
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-muted flex items-center">
+          {leadingIcon}
+        </span>
+      )}
       <input
         type="text"
         role="combobox"
@@ -126,7 +133,7 @@ export function SearchableSelect({
           setActiveIndex(next.trim() ? 1 : 0);
         }}
         onKeyDown={handleKeyDown}
-        className="form-control w-full"
+        className={`form-control w-full${leadingIcon ? " pl-9" : ""}`}
       />
       {open && (
         <div

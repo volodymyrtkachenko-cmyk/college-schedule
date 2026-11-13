@@ -12,6 +12,7 @@ import {
   vibrateTap,
 } from "../../lib/lesson-card";
 import { PersonalSubmission, extractClassroomTaskKey } from "../../lib/useClassroomSubmissions";
+import { CloseIcon } from "../ui/Icons";
 
 interface GroupedTasks {
   teacher: string | null;
@@ -559,7 +560,7 @@ export function WeekTasksPopover({
                 aria-label="Закрити"
                 className="rounded p-0.5 text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-bg transition-colors shrink-0 ml-1 cursor-pointer"
               >
-                ✕
+                <CloseIcon className="h-3.5 w-3.5" />
               </button>
             </div>
             <div className="flex flex-col gap-1.5">
