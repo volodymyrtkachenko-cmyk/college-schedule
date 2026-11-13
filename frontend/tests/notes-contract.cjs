@@ -1,29 +1,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
-const ts = require('typescript');
+const { loadTsModule } = require('./helpers/load-ts-module.cjs');
 
-const dateSource = fs.readFileSync(path.join(__dirname, '../lib/date.ts'), 'utf8');
-const dateCode = ts.transpileModule(dateSource, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }
-}).outputText;
-
-const code = ts.transpileModule(fs.readFileSync(path.join(__dirname,'../lib/api.ts'),'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }
-}).outputText;
-const response = (body,status=200) => ({ok:status<400,status,json:async()=>body});
+const response = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
 function setup(fetch) {
-  const dateCtx = { exports: {}, Intl, Date, Math, Number };
-  vm.runInNewContext(dateCode, dateCtx);
-  const customRequire = (id) => {
-    if (id === './date' || id.endsWith('/date')) return dateCtx.exports;
-    return require(id);
-  };
-  const ctx = { exports: {}, process: { env: {} }, Headers, console, fetch, require: customRequire };
-  vm.runInNewContext(code, ctx);
-  return ctx.exports.api;
+  return loadTsModule(path.join(__dirname, '../lib/api.ts'), { fetch }).api;
 }
 test('notes save carries the calendar anchor, original revision and bearer authentication',async()=>{
  let sent;
