@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
 import { SubpageHeader } from "@/components/navigation/SubpageHeader";
 import dynamic from "next/dynamic";
-import { useTheme, ACCENT_OPTIONS } from "../../lib/useTheme";
+import { AppearanceStudioSection } from "@/components/settings/AppearanceStudioSection";
 import { useUserSettings } from "../../lib/useUserSettings";
 import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { ClassroomRelinkBanner } from "../../components/ClassroomRelinkBanner";
@@ -21,13 +21,9 @@ import {
   BellIcon,
   CalendarIcon,
   GraduationCapIcon,
-  LaptopIcon,
   LightbulbIcon,
   LinkIcon,
-  MoonIcon,
-  PaletteIcon,
   ShieldIcon,
-  SunIcon,
   UserCheckIcon,
 } from "../../components/ui/Icons";
 
@@ -44,7 +40,6 @@ const ROLE_NAMES: Record<string, string> = {
 };
 
 export default function SettingsPage() {
-  const { theme, resolvedTheme, setTheme, accent, setAccent } = useTheme();
   const { settings, updateSetting } = useUserSettings();
   const { isLinked, linkedEmail, needsRelink, unlink } = useClassroomSubmissions();
   const { isTeacherUnlocked, unlockTeacher, lockTeacher } = useTeacherAccess();
@@ -462,142 +457,8 @@ export default function SettingsPage() {
           </section>
         )}
 
-        {/* Section 3: Тема оформлення */}
-        <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
-            <PaletteIcon className="h-4 w-4 text-sys-text-muted" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
-              Тема оформлення
-            </h2>
-          </div>
-          <div className="grid grid-cols-3 gap-2 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setTheme("dark")}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
-                theme === "dark"
-                  ? "bg-sys-accent text-white shadow-xs"
-                  : "text-sys-text-secondary hover:text-sys-text-primary"
-              }`}
-            >
-              <MoonIcon className="h-3.5 w-3.5" />
-              <span>Темна</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("light")}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
-                theme === "light"
-                  ? "bg-sys-accent text-white shadow-xs"
-                  : "text-sys-text-secondary hover:text-sys-text-primary"
-              }`}
-            >
-              <SunIcon className="h-3.5 w-3.5" />
-              <span>Світла</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("system")}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
-                theme === "system"
-                  ? "bg-sys-accent text-white shadow-xs"
-                  : "text-sys-text-secondary hover:text-sys-text-primary"
-              }`}
-            >
-              <LaptopIcon className="h-3.5 w-3.5" />
-              <span>Авто</span>
-            </button>
-          </div>
-          <p className="text-xs text-sys-text-secondary leading-relaxed">
-            «Авто» відповідає системній темі пристрою.
-          </p>
-
-          <div className="h-px bg-sys-border/40" />
-
-          {/* Accent Color Selection */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
-                Кольорова палітра
-              </span>
-              <span className="text-xs font-semibold text-sys-accent">
-                {ACCENT_OPTIONS.find((opt) => opt.id === accent)?.label ?? "Океан"}
-              </span>
-            </div>
-            <p className="text-xs text-sys-text-secondary leading-relaxed">
-              Тонує фон сторінки, картки розкладу, рамки, шапку та активні елементи.
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
-              {ACCENT_OPTIONS.map((opt) => {
-                const isSelected = accent === opt.id;
-                const isLight = resolvedTheme === "light";
-                const swatchBg = isLight ? opt.lightBgHex : opt.darkBgHex;
-                const swatchCard = isLight ? opt.lightCardHex : opt.darkCardHex;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setAccent(opt.id)}
-                    className={`flex items-center gap-3 p-2.5 rounded-xl border text-left transition-colors duration-fast ease-smooth cursor-pointer ${
-                      isSelected
-                        ? "border-sys-accent bg-sys-accent/15 shadow-xs ring-1 ring-sys-accent"
-                        : "border-sys-border bg-sys-bg hover:border-sys-elevatedBorder text-sys-text-secondary"
-                    }`}
-                  >
-                    {/* Mini Theme Swatch Preview */}
-                    <span
-                      className="relative flex h-9 w-11 shrink-0 items-center justify-center rounded-lg border border-black/15 dark:border-white/15 overflow-hidden shadow-xs"
-                      style={{ backgroundColor: swatchBg }}
-                    >
-                      <span
-                        className="absolute inset-x-1.5 bottom-1 top-2.5 rounded-md border border-black/10 dark:border-white/10"
-                        style={{ backgroundColor: swatchCard }}
-                      />
-                      <span
-                        className="relative z-10 h-4 w-4 rounded-full flex items-center justify-center shadow-xs"
-                        style={{ backgroundColor: opt.colorHex }}
-                      >
-                        {isSelected && (
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="#ffffff"
-                            strokeWidth="3.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        )}
-                      </span>
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className={`text-xs leading-tight truncate ${isSelected ? "text-sys-text-primary font-bold" : "text-sys-text-primary font-medium"}`}>
-                        {opt.label}
-                      </div>
-                      <div className="mt-1 flex items-center gap-1">
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: opt.colorHex }}
-                        />
-                        <span
-                          className="h-2 w-2 rounded-full border border-black/15"
-                          style={{ backgroundColor: opt.lightCardHex }}
-                        />
-                        <span
-                          className="h-2 w-2 rounded-full border border-white/15"
-                          style={{ backgroundColor: opt.darkCardHex }}
-                        />
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+        {/* Section 3: Студія оформлення */}
+        <AppearanceStudioSection />
 
         {/* Section 4: Доступ викладача (тільки для викладачів або при показі всіх параметрів) */}
         {isTeacher && (

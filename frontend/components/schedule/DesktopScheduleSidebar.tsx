@@ -153,7 +153,7 @@ export function DesktopScheduleSidebar({
                         />
                       )}
                     </div>
-                    <span className="text-xl font-bold mt-0.5 leading-none">{d.dateStr}</span>
+                    <span className="ui-mono-slot text-xl font-bold mt-0.5 leading-none">{d.dateStr}</span>
                   </button>
                 );
               })}

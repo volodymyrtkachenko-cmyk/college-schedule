@@ -248,7 +248,7 @@ export function ScheduleDay({
       )}
 
       {orderedLessons.length ? (
-        <DesktopSpotlightGrid className="flex flex-col gap-3">
+        <DesktopSpotlightGrid className="schedule-day-stack flex flex-col">
           {orderedLessons.map((lesson, idx) => {
             const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
             const prev = idx > 0 ? orderedLessons[idx - 1] : null;

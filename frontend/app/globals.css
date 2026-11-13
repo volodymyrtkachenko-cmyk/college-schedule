@@ -1246,3 +1246,445 @@ dialog.app-dialog[data-closing="true"]::backdrop {
   content-visibility: auto;
   contain-intrinsic-size: auto none auto 260px;
 }
+
+/* ==========================================================================
+   Visual Studio: Geometry, Typography, Density, Surfaces, Backdrops & Sliders
+   ========================================================================== */
+:root {
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --lesson-day-pad-x: 1rem;
+  --lesson-day-pad-y: 1rem;
+  --lesson-day-pad-x-sm: 1.5rem;
+  --lesson-day-pad-y-sm: 1.5rem;
+  --lesson-day-pad-x-lg: 1.75rem;
+  --lesson-day-pad-y-lg: 1.75rem;
+  --lesson-day-min-h: 140px;
+  --lesson-week-pad: 0.625rem;
+  --lesson-stack-gap: 0.75rem;
+  --lesson-live-extra-b: 0.65rem;
+}
+
+html[data-radius="sharp"] {
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.375rem;
+  --radius-2xl: 0.5rem;
+}
+
+html[data-radius="soft"] {
+  --radius-lg: 0.75rem;
+  --radius-xl: 1.125rem;
+  --radius-2xl: 1.5rem;
+}
+
+/* Typography presets (Cyrillic-verified self-hosted Google Fonts) */
+html[data-font-preset="tech"] body {
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+html[data-font-preset="tech"] :is(.ui-mono-slot, time, .font-mono) {
+  font-family: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+html[data-font-preset="soft"] body {
+  font-family: var(--font-rubik), ui-rounded, system-ui, -apple-system, sans-serif;
+}
+
+/* Density tokens & layout bindings */
+html[data-density="compact"] {
+  --lesson-day-pad-x: 0.875rem;
+  --lesson-day-pad-y: 0.75rem;
+  --lesson-day-pad-x-sm: 1.125rem;
+  --lesson-day-pad-y-sm: 0.95rem;
+  --lesson-day-pad-x-lg: 1.25rem;
+  --lesson-day-pad-y-lg: 1.05rem;
+  --lesson-day-min-h: 102px;
+  --lesson-week-pad: 0.5rem;
+  --lesson-stack-gap: 0.5rem;
+  --lesson-live-extra-b: 0.55rem;
+}
+
+html[data-density="relaxed"] {
+  --lesson-day-pad-x: 1.25rem;
+  --lesson-day-pad-y: 1.25rem;
+  --lesson-day-pad-x-sm: 1.85rem;
+  --lesson-day-pad-y-sm: 1.7rem;
+  --lesson-day-pad-x-lg: 2.15rem;
+  --lesson-day-pad-y-lg: 2rem;
+  --lesson-day-min-h: 164px;
+  --lesson-week-pad: 0.875rem;
+  --lesson-stack-gap: 1.05rem;
+  --lesson-live-extra-b: 0.75rem;
+}
+
+.schedule-day-stack {
+  gap: var(--lesson-stack-gap);
+}
+
+.lesson-card-day {
+  padding: var(--lesson-day-pad-y) var(--lesson-day-pad-x);
+}
+
+.lesson-card-day[data-live="true"] {
+  padding-bottom: calc(var(--lesson-day-pad-y) + var(--lesson-live-extra-b));
+}
+
+@media (min-width: 640px) {
+  .lesson-card-day {
+    min-height: var(--lesson-day-min-h);
+    padding: var(--lesson-day-pad-y-sm) var(--lesson-day-pad-x-sm);
+  }
+
+  .lesson-card-day[data-live="true"] {
+    padding-bottom: calc(var(--lesson-day-pad-y-sm) + var(--lesson-live-extra-b));
+  }
+}
+
+@media (min-width: 1024px) {
+  .lesson-card-day {
+    padding: var(--lesson-day-pad-y-lg) var(--lesson-day-pad-x-lg);
+  }
+
+  .lesson-card-day[data-live="true"] {
+    padding-bottom: calc(var(--lesson-day-pad-y-lg) + var(--lesson-live-extra-b));
+  }
+}
+
+.lesson-card-week {
+  padding: var(--lesson-week-pad);
+}
+
+.lesson-card-week[data-live="true"] {
+  padding-bottom: calc(var(--lesson-week-pad) + var(--lesson-live-extra-b));
+}
+
+/* Disable base body top gradient when OLED or custom/stock backdrop owns the canvas */
+html[data-surface="oled"] body,
+html[data-backdrop]:not([data-backdrop="none"]) body {
+  background-image: none;
+}
+
+/* Yield page-level outer wrappers so fixed <AppBackdrop /> stays visible */
+html:is([data-backdrop]:not([data-backdrop="none"]), [data-surface="glass"], [data-surface="oled"])
+  .app-content-layer
+  > :is(div, main):first-child {
+  background-color: transparent !important;
+}
+
+/* Surface Material 2: OLED / Pure Paper */
+html[data-theme="dark"][data-surface="oled"] {
+  --page-bg: #000000;
+  --bg: #000000;
+  --surface: #0a0c12;
+  --border: #242a3a;
+  --border-chip: #3a445c;
+  --sys-bg: 0 0 0;
+  --sys-card: 10 12 18;
+  --sys-surface: 10 12 18;
+  --sys-elevated: 18 22 32;
+  --sys-elevated-border: 58 68 92;
+  --sys-border: 36 42 58;
+  --sys-input: 7 9 14;
+  --sys-tab-active: 24 29 42;
+}
+
+html[data-theme="light"][data-surface="oled"] {
+  --page-bg: #ffffff;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --border: #cbd5e1;
+  --border-chip: #94a3b8;
+  --sys-bg: 255 255 255;
+  --sys-card: 255 255 255;
+  --sys-surface: 248 250 252;
+  --sys-elevated: 241 245 249;
+  --sys-elevated-border: 148 163 184;
+  --sys-border: 203 213 225;
+  --sys-input: 244 247 251;
+}
+
+/* Surface Material 3: Frosted Glassmorphism */
+html[data-theme="dark"][data-surface="glass"] {
+  --glass-alpha: 0.68;
+  --glass-chrome-alpha: 0.78;
+  --glass-dialog-alpha: 0.96;
+  --glass-blur: 14px;
+  --glass-specular: rgb(255 255 255 / 0.08);
+  --glass-shadow: 0 10px 30px -14px rgb(0 0 0 / 0.55);
+}
+
+html[data-theme="light"][data-surface="glass"] {
+  --glass-alpha: 0.74;
+  --glass-chrome-alpha: 0.82;
+  --glass-dialog-alpha: 0.96;
+  --glass-blur: 14px;
+  --glass-specular: rgb(255 255 255 / 0.88);
+  --glass-shadow: 0 10px 28px -14px rgb(15 23 42 / 0.14);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html[data-surface="glass"] {
+    --glass-alpha: 0.96;
+    --glass-chrome-alpha: 0.98;
+    --glass-blur: 0px;
+  }
+}
+
+html[data-surface="glass"]
+  :is(.bg-sys-card, .bg-sys-surface, .surface-panel):not([class*="bg-sys-card/"]):not(dialog *):not([role="dialog"] *) {
+  background-color: rgb(var(--sys-card) / var(--glass-alpha)) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+  box-shadow: inset 0 1px 0 var(--glass-specular), var(--glass-shadow);
+}
+
+html[data-surface="glass"] :is(header.bg-sys-card, nav.bg-sys-card, .vt-bottom-nav) {
+  background-color: rgb(var(--sys-card) / var(--glass-chrome-alpha)) !important;
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+}
+
+html[data-surface="glass"] :is(dialog.app-dialog, [role="dialog"]) .bg-sys-card {
+  background-color: rgb(var(--sys-card) / var(--glass-dialog-alpha)) !important;
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+}
+
+html[data-surface="glass"] :is([data-open="true"] .bg-sys-elevated, [role="menu"]) {
+  background-color: rgb(var(--sys-elevated) / var(--glass-dialog-alpha)) !important;
+}
+
+/* Surface Material 4: Crisp Graphic Outline (Neo-Paper / Linear) */
+html[data-surface="outline"] :is(article, section, header, nav, aside > div > div, .surface-panel).border-sys-border {
+  border-width: 1.5px;
+  border-color: rgb(var(--sys-elevated-border));
+  box-shadow: none !important;
+}
+
+html[data-surface="outline"] .shadow-sm,
+html[data-surface="outline"] .shadow-xs,
+html[data-surface="outline"] .shadow-md {
+  box-shadow: none !important;
+}
+
+/* ==========================================================================
+   Stock Backdrops (Aurora, Dots, Radio Blueprint, Silk Mesh)
+   ========================================================================== */
+.app-backdrop-glass-sheen {
+  background:
+    radial-gradient(60% 50% at 15% 15%, rgb(var(--sys-accent) / 0.16), transparent 70%),
+    radial-gradient(50% 45% at 85% 75%, rgb(var(--sys-info) / 0.14), transparent 70%);
+}
+
+html.dark .app-backdrop-aurora {
+  background: radial-gradient(120% 80% at 50% 0%, rgb(var(--sys-accent) / 0.08), transparent 65%);
+}
+
+html.light .app-backdrop-aurora {
+  background: radial-gradient(120% 80% at 50% 0%, rgb(var(--sys-accent) / 0.12), transparent 65%);
+}
+
+.app-aurora-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  will-change: transform;
+}
+
+html.dark .app-aurora-orb-1 {
+  width: min(72vw, 680px);
+  height: min(72vw, 680px);
+  top: -18%;
+  left: -10%;
+  background: radial-gradient(circle, rgb(var(--sys-accent) / 0.28) 0%, transparent 70%);
+}
+
+html.dark .app-aurora-orb-2 {
+  width: min(65vw, 620px);
+  height: min(65vw, 620px);
+  top: 22%;
+  right: -12%;
+  background: radial-gradient(circle, rgb(var(--sys-info) / 0.22) 0%, transparent 70%);
+}
+
+html.dark .app-aurora-orb-3 {
+  width: min(60vw, 560px);
+  height: min(60vw, 560px);
+  bottom: -22%;
+  left: 24%;
+  background: radial-gradient(circle, rgb(var(--sys-status-ok-bg) / 0.16) 0%, transparent 72%);
+}
+
+html.light .app-aurora-orb-1 {
+  width: min(72vw, 680px);
+  height: min(72vw, 680px);
+  top: -16%;
+  left: -10%;
+  background: radial-gradient(circle, rgb(var(--sys-accent) / 0.24) 0%, transparent 72%);
+}
+
+html.light .app-aurora-orb-2 {
+  width: min(65vw, 620px);
+  height: min(65vw, 620px);
+  top: 25%;
+  right: -12%;
+  background: radial-gradient(circle, rgb(var(--sys-info) / 0.2) 0%, transparent 72%);
+}
+
+html.light .app-aurora-orb-3 {
+  width: min(60vw, 560px);
+  height: min(60vw, 560px);
+  bottom: -20%;
+  left: 25%;
+  background: radial-gradient(circle, rgb(var(--sys-status-ok-bg) / 0.14) 0%, transparent 72%);
+}
+
+@keyframes aurora-float-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(5%, 7%, 0) scale(1.08); }
+}
+
+@keyframes aurora-float-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.04); }
+  50% { transform: translate3d(-6%, -5%, 0) scale(0.95); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .app-aurora-orb-1 {
+    animation: aurora-float-1 22s ease-in-out infinite;
+  }
+  .app-aurora-orb-2 {
+    animation: aurora-float-2 28s ease-in-out infinite;
+  }
+}
+
+.app-backdrop-dots {
+  background-image: radial-gradient(rgb(var(--sys-text-muted) / 0.24) 1.15px, transparent 1.15px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 42%, black 35%, transparent 100%);
+  mask-image: radial-gradient(ellipse 90% 80% at 50% 42%, black 35%, transparent 100%);
+}
+
+html.light .app-backdrop-dots {
+  background-image: radial-gradient(rgb(var(--sys-accent) / 0.22) 1.25px, transparent 1.25px);
+}
+
+.app-backdrop-blueprint {
+  background-image:
+    linear-gradient(to right, rgb(var(--sys-accent) / 0.075) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--sys-accent) / 0.075) 1px, transparent 1px),
+    linear-gradient(to right, rgb(var(--sys-border) / 0.28) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--sys-border) / 0.28) 1px, transparent 1px);
+  background-size: 96px 96px, 96px 96px, 24px 24px, 24px 24px;
+}
+
+html.light .app-backdrop-blueprint {
+  background-image:
+    linear-gradient(to right, rgb(var(--sys-accent) / 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--sys-accent) / 0.1) 1px, transparent 1px),
+    linear-gradient(to right, rgb(var(--sys-border) / 0.42) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--sys-border) / 0.42) 1px, transparent 1px);
+}
+
+.app-blueprint-arcs {
+  color: rgb(var(--sys-accent) / 0.16);
+}
+
+html.dark .app-backdrop-silk-gradient {
+  background:
+    radial-gradient(circle at 12% 18%, rgb(var(--sys-accent) / 0.24), transparent 52%),
+    radial-gradient(circle at 88% 24%, rgb(var(--sys-status-denom-bg) / 0.16), transparent 48%),
+    radial-gradient(circle at 52% 92%, rgb(var(--sys-info) / 0.18), transparent 54%);
+}
+
+html.light .app-backdrop-silk-gradient {
+  background:
+    radial-gradient(circle at 14% 18%, rgb(var(--sys-accent) / 0.18), transparent 54%),
+    radial-gradient(circle at 86% 24%, rgb(var(--sys-status-denom-bg) / 0.12), transparent 50%),
+    radial-gradient(circle at 50% 90%, rgb(var(--sys-info) / 0.14), transparent 55%);
+}
+
+.app-backdrop-silk-grain {
+  opacity: 0.035;
+}
+
+html.light .app-backdrop-silk-grain {
+  opacity: 0.025;
+}
+
+/* Native accessible range slider (WebKit & Firefox rules kept strictly separate) */
+.studio-range {
+  --slider-track-size: 0.5rem;
+  --slider-thumb-size: 1.25rem;
+  --slider-track-color: rgb(var(--sys-border));
+  --slider-fill-color: rgb(var(--sys-accent-solid));
+  --slider-thumb-color: #ffffff;
+  --slider-progress: 50%;
+
+  -webkit-appearance: none;
+  appearance: none;
+  inline-size: 100%;
+  block-size: 2.25rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.studio-range::-webkit-slider-runnable-track {
+  block-size: var(--slider-track-size);
+  border-radius: 9999px;
+  border: 1px solid rgb(var(--sys-border) / 0.7);
+  background: var(
+    --slider-custom-track,
+    linear-gradient(
+      to right,
+      var(--slider-fill-color) var(--slider-progress),
+      var(--slider-track-color) var(--slider-progress)
+    )
+  );
+}
+
+.studio-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  inline-size: var(--slider-thumb-size);
+  block-size: var(--slider-thumb-size);
+  margin-block-start: calc((var(--slider-track-size) - var(--slider-thumb-size)) / 2);
+  border-radius: 9999px;
+  border: 2px solid var(--slider-fill-color);
+  background: var(--slider-thumb-color);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.3);
+}
+
+.studio-range::-moz-range-track {
+  block-size: var(--slider-track-size);
+  border-radius: 9999px;
+  border: 1px solid rgb(var(--sys-border) / 0.7);
+  background: var(--slider-custom-track, var(--slider-track-color));
+}
+
+.studio-range::-moz-range-progress {
+  block-size: var(--slider-track-size);
+  border-radius: 9999px;
+  background: var(--slider-custom-progress, var(--slider-fill-color));
+}
+
+.studio-range::-moz-range-thumb {
+  inline-size: var(--slider-thumb-size);
+  block-size: var(--slider-thumb-size);
+  border-radius: 9999px;
+  border: 2px solid var(--slider-fill-color);
+  background: var(--slider-thumb-color);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.3);
+}
+
+.studio-range:focus-visible {
+  outline: 2px solid rgb(var(--sys-accent));
+  outline-offset: 2px;
+  border-radius: 9999px;
+}

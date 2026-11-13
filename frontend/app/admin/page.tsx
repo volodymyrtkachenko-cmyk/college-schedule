@@ -378,7 +378,7 @@ function AdminContent() {
     <main className="flex flex-col lg:flex-row h-[100dvh] bg-sys-bg text-sys-text-primary overflow-hidden">
       <AdminNav active={currentTab} />
       
-      <div className="flex-1 overflow-y-auto overflow-x-auto pb-safe relative bg-sys-bg">
+      <div className="flex-1 overflow-y-auto overflow-x-auto pb-safe relative bg-transparent">
         <div className={`mx-auto space-y-5 px-4 py-4 sm:px-6 sm:py-6 ${currentTab === "schedule" || currentTab === "permanent-schedule" ? "max-w-[1700px] w-full" : "max-w-[1440px] w-full"}`}>
 
         {/* Auto-import notification banner */}

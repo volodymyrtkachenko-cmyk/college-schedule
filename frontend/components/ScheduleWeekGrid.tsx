@@ -297,7 +297,7 @@ export function ScheduleWeekGrid({
                 ) : null}
               </div>
               <div className="flex items-center justify-between gap-1.5 mt-0.5">
-                <span className={`text-xs xl:text-[13px] font-medium ${
+                <span className={`ui-mono-slot text-xs xl:text-[13px] font-medium ${
                   isToday ? "text-sys-text-primary font-semibold" : "text-sys-text-secondary"
                 }`}>
                   {shortDateUk(day.date)}
@@ -452,7 +452,7 @@ export function ScheduleWeekGrid({
                   ) : null}
                 </div>
                 <div className="flex items-center justify-between gap-1.5 mt-0.5">
-                  <span className="text-xs text-sys-text-secondary">
+                  <span className="ui-mono-slot text-xs text-sys-text-secondary">
                     {shortDateUk(day.date)}
                   </span>
                   {day.is_shortened_day && (

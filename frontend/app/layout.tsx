@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { JetBrains_Mono, Manrope, Rubik } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../lib/auth";
 import { Heartbeat } from "../components/Heartbeat";
@@ -8,7 +9,29 @@ import { MotionConfigProvider } from "../components/MotionConfigProvider";
 import { MobileNavProvider } from "../lib/useMobileNav";
 import { BottomNav } from "../components/BottomNav";
 import { NavigationTransitionProvider } from "../components/navigation/NavigationTransitionProvider";
+import { AppBackdrop } from "../components/AppBackdrop";
 import { SITE_URL, BACKEND_API_URL } from "../lib/site";
+
+const manropeFont = Manrope({
+  subsets: ["cyrillic", "latin"],
+  variable: "--font-manrope",
+  display: "swap",
+  preload: false,
+});
+
+const jetBrainsMonoFont = JetBrains_Mono({
+  subsets: ["cyrillic", "latin"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+  preload: false,
+});
+
+const rubikFont = Rubik({
+  subsets: ["cyrillic", "latin"],
+  variable: "--font-rubik",
+  display: "swap",
+  preload: false,
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -197,7 +220,11 @@ const jsonLd = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="uk" suppressHydrationWarning>
+    <html
+      lang="uk"
+      className={`${manropeFont.variable} ${jetBrainsMonoFont.variable} ${rubikFont.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <link rel="preconnect" href={BACKEND_API_URL} crossOrigin="anonymous" />
         <link rel="dns-prefetch" href={BACKEND_API_URL} />
@@ -213,13 +240,49 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           dangerouslySetInnerHTML={{
             __html: `
               try {
+                var root = document.documentElement;
                 var stored = localStorage.getItem('college_theme');
                 var mql = window.matchMedia('(prefers-color-scheme: dark)');
                 var theme = (stored === 'light' || stored === 'dark') ? stored : (mql.matches ? 'dark' : 'light');
-                document.documentElement.classList.add(theme);
-                document.documentElement.setAttribute('data-theme', theme);
+                root.classList.add(theme);
+                root.setAttribute('data-theme', theme);
                 var storedAccent = localStorage.getItem('college_accent') || 'blue';
-                document.documentElement.setAttribute('data-accent', storedAccent);
+                root.setAttribute('data-accent', storedAccent);
+
+                var studioRaw = localStorage.getItem('college_visual_studio_v1');
+                var studio = studioRaw ? JSON.parse(studioRaw) : null;
+                if (studio && typeof studio === 'object') {
+                  root.setAttribute('data-surface', studio.surface || 'matte');
+                  root.setAttribute('data-backdrop', studio.backdrop || 'none');
+                  root.setAttribute('data-font-preset', studio.fontPreset || 'sans');
+                  root.setAttribute('data-radius', studio.radius || 'default');
+                  root.setAttribute('data-density', studio.density || 'default');
+                  if (typeof studio.wallpaperBlur === 'number') {
+                    root.style.setProperty('--backdrop-blur', studio.wallpaperBlur + 'px');
+                  }
+                  if (typeof studio.wallpaperDim === 'number') {
+                    root.style.setProperty('--backdrop-dim', (studio.wallpaperDim / 100).toFixed(2));
+                  }
+                } else {
+                  root.setAttribute('data-surface', 'matte');
+                  root.setAttribute('data-backdrop', 'none');
+                  root.setAttribute('data-font-preset', 'sans');
+                  root.setAttribute('data-radius', 'default');
+                  root.setAttribute('data-density', 'default');
+                }
+
+                if (storedAccent === 'custom') {
+                  var customRaw = localStorage.getItem('college_visual_custom_vars_v1');
+                  var customVars = customRaw ? JSON.parse(customRaw) : null;
+                  var map = customVars && (theme === 'dark' ? customVars.dark : customVars.light);
+                  if (map && typeof map === 'object') {
+                    for (var k in map) {
+                      if (Object.prototype.hasOwnProperty.call(map, k)) {
+                        root.style.setProperty(k, map[k]);
+                      }
+                    }
+                  }
+                }
               } catch (e) {}
 
               try {
@@ -270,9 +333,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <ToastProvider>
                 <MobileNavProvider>
                   <NavigationTransitionProvider>
-                    <Heartbeat />
-                    {children}
-                    <BottomNav />
+                    <AppBackdrop />
+                    <div className="app-content-layer relative z-[1]">
+                      <Heartbeat />
+                      {children}
+                      <BottomNav />
+                    </div>
                   </NavigationTransitionProvider>
                 </MobileNavProvider>
               </ToastProvider>

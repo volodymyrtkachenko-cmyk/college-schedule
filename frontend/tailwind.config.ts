@@ -9,6 +9,11 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      borderRadius: {
+        lg: 'var(--radius-lg, 0.5rem)',
+        xl: 'var(--radius-xl, 0.75rem)',
+        '2xl': 'var(--radius-2xl, 1rem)',
+      },
       colors: {
         sys: {
           bg: 'rgb(var(--sys-bg) / <alpha-value>)',

@@ -568,12 +568,8 @@ export const LessonCard = memo(function LessonCard({
         isHwOpen || moreOpen ? "z-40 !translate-y-0" : ""
       } ${
         isDay
-          ? isLive
-            ? "p-4 pb-6 sm:p-6 sm:pb-8 lg:px-7 lg:py-7 lg:pb-9 sm:min-h-[140px]"
-            : "p-4 sm:p-6 lg:px-7 lg:py-7 sm:min-h-[140px]"
-          : isLive
-            ? "p-2.5 pb-5 rounded-xl h-full flex flex-col justify-between"
-            : "p-2.5 rounded-xl h-full flex flex-col justify-between"
+          ? "lesson-card-day"
+          : "lesson-card-week rounded-xl h-full flex flex-col justify-between"
       } ${stateClass} ${!lesson.is_relevant_this_week ? "opacity-60" : ""} ${
         canMove ? "cursor-grab active:cursor-grabbing" : ""
       }`}
@@ -583,10 +579,10 @@ export const LessonCard = memo(function LessonCard({
         <div className="hidden sm:flex sm:items-stretch gap-4 w-full flex-1">
           {!hideTimeColumn && (
             <div className="w-24 sm:w-28 shrink-0 self-start flex flex-col items-start pr-4 border-r border-sys-border/50 text-left pt-1">
-              <span className={`text-2xl sm:text-[26px] font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
+              <span className={`ui-mono-slot text-2xl sm:text-[26px] font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
                 {lesson.lesson_number}
               </span>
-              <div className="mt-1.5 flex flex-col leading-tight whitespace-nowrap">
+              <div className="ui-mono-slot mt-1.5 flex flex-col leading-tight whitespace-nowrap">
                 <span className="text-sm sm:text-[15px] font-bold text-sys-text-primary">{startT}</span>
                 <span className="text-xs text-sys-text-muted mt-0.5">
                   {endT || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split("-")[1] || ""}
@@ -618,7 +614,7 @@ export const LessonCard = memo(function LessonCard({
               <div className="shrink-0 flex flex-col items-end justify-start gap-2 pt-0.5">
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {(!isDualTeachers || isSingleSubgroupShown) && displayRooms.length > 0 && (
-                    <div className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
+                    <div className="ui-mono-slot inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
                       <span>{roomsLabel}</span>
                     </div>
                   )}
@@ -680,7 +676,7 @@ export const LessonCard = memo(function LessonCard({
             <div className="flex flex-wrap items-center justify-between gap-2 w-full min-h-[34px]">
               <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                 {!hideTimeColumn && (
-                  <div className="flex items-center gap-2 whitespace-nowrap">
+                  <div className="ui-mono-slot flex items-center gap-2 whitespace-nowrap">
                     <span className={`text-base font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
                       {lesson.lesson_number}
                     </span>
@@ -693,7 +689,7 @@ export const LessonCard = memo(function LessonCard({
                 <TemplateWeekBadge isTemplateMode={isTemplateMode} weekType={lesson.week_type} />
                 <LessonStatusBadge lesson={lesson} eventBadge={eventBadge} compact />
                 {canEdit && !isDualTeachers && rooms.length > 0 && (
-                  <span className="inline-flex h-6 px-2 items-center rounded-md border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs whitespace-nowrap">
+                  <span className="ui-mono-slot inline-flex h-6 px-2 items-center rounded-md border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs whitespace-nowrap">
                     {roomsLabel}
                   </span>
                 )}
@@ -702,7 +698,7 @@ export const LessonCard = memo(function LessonCard({
               {canEdit ? (
                 <LessonCardActions variant="mobile-day" {...sharedActionProps} />
               ) : isLive ? (
-                <div className="shrink-0 flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-xs font-bold text-sys-accent whitespace-nowrap ml-auto">
+                <div className="ui-mono-slot shrink-0 flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-xs font-bold text-sys-accent whitespace-nowrap ml-auto">
                   <span className="h-2 w-2 rounded-full bg-sys-accent shrink-0" />
                   <span>ще {remainingMin} хв</span>
                 </div>
@@ -711,7 +707,7 @@ export const LessonCard = memo(function LessonCard({
                   {displayRooms.length > 0 && (
                     <div
                       title={roomsLabel}
-                      className="inline-flex h-8 px-2.5 items-center gap-1 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[160px] truncate whitespace-nowrap"
+                      className="ui-mono-slot inline-flex h-8 px-2.5 items-center gap-1 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[160px] truncate whitespace-nowrap"
                     >
                       <span className="truncate">{roomsLabel}</span>
                     </div>
@@ -754,7 +750,7 @@ export const LessonCard = memo(function LessonCard({
                 {!canEdit && displayRooms.length > 0 && (
                   <div
                     title={roomsLabel}
-                    className="inline-flex min-h-[38px] px-3 items-center rounded-xl border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[55%] truncate"
+                    className="ui-mono-slot inline-flex min-h-[38px] px-3 items-center rounded-xl border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[55%] truncate"
                   >
                     <span className="truncate">{roomsLabel}</span>
                   </div>
@@ -806,7 +802,7 @@ export const LessonCard = memo(function LessonCard({
       {!isDay && (
         <div className="flex items-start gap-2.5 sm:gap-3 h-full">
           {!hideTimeColumn && (
-            <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
+            <div className="ui-mono-slot flex w-11 sm:w-12 shrink-0 flex-col text-left">
               <span className={`text-lg sm:text-xl font-bold leading-none transition-colors ${isLive ? "text-sys-accent font-black" : "text-sys-text-primary"}`}>
                 {lesson.lesson_number}
               </span>
@@ -848,7 +844,7 @@ export const LessonCard = memo(function LessonCard({
                     <span
                       key={`${rm}-${idx}`}
                       title={formatRoom(rm)}
-                      className="inline-flex max-w-full items-center rounded-md border border-sys-border bg-sys-tabActive px-2 py-0.5 text-xs font-medium text-sys-text-primary whitespace-nowrap"
+                      className="ui-mono-slot inline-flex max-w-full items-center rounded-md border border-sys-border bg-sys-tabActive px-2 py-0.5 text-xs font-medium text-sys-text-primary whitespace-nowrap"
                     >
                       <span>{formatRoom(rm)}</span>
                     </span>

@@ -285,6 +285,8 @@ function auditLegacyClasses() {
     "components/MobileWeekDaysStrip.tsx",
     "components/BottomNav.tsx",
     "components/OfflineIndicator.tsx",
+    "components/AppBackdrop.tsx",
+    "components/settings/AppearanceStudioSection.tsx",
     "components/TaskFilters.tsx",
     "components/MobileTasksView.tsx",
     "components/TeacherPinModal.tsx",
