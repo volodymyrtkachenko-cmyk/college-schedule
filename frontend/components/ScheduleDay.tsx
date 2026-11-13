@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
+import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
 import { LessonCard, QuickJumpTarget, getKyivNow, subscribeKyivNow } from "./LessonCard";
 import { SchedulePeriodCard, CompactSchedulePeriodCard } from "./SchedulePeriodCard";
 import { useTheme } from "../lib/useTheme";
@@ -240,7 +241,7 @@ export function ScheduleDay({
       )}
 
       {orderedLessons.length ? (
-        <div key={schedule.date} className="flex flex-col gap-3">
+        <DesktopSpotlightGrid key={schedule.date} className="flex flex-col gap-3">
           {orderedLessons.map((lesson, idx) => {
             const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
             const prev = idx > 0 ? orderedLessons[idx - 1] : null;
@@ -262,7 +263,8 @@ export function ScheduleDay({
             return (
               <div
                 key={lessonKey}
-                className="flex flex-col gap-2.5 relative has-[[data-open]]:z-50"
+                style={{ "--stagger-index": idx } as React.CSSProperties}
+                className="desktop-stagger-card flex flex-col gap-2.5 relative has-[[data-open]]:z-50"
               >
                 {isBreakNow && (
                   <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
@@ -291,7 +293,7 @@ export function ScheduleDay({
               </div>
             );
           })}
-        </div>
+        </DesktopSpotlightGrid>
       ) : schedule.period_info ? (
         compactPeriod ? (
           <CompactSchedulePeriodCard period={schedule.period_info} />

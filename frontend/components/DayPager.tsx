@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { m, AnimatePresence } from "framer-motion";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
@@ -153,97 +153,195 @@ export function DayPager({
 
   // Touch swipe handling with live finger tracking and velocity detection
   const containerRef = useRef<HTMLDivElement>(null);
-  const touchStartRef = useRef<{ x: number; y: number; time: number; isHoriz: boolean } | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const resetTimerRef = useRef<number | null>(null);
+  const pendingTranslateRef = useRef<number>(0);
+  const transitionCleanupRef = useRef<(() => void) | null>(null);
+  const touchStartRef = useRef<{
+    x: number;
+    y: number;
+    time: number;
+    lastX: number;
+    lastTime: number;
+    vx: number;
+    lockedAxis: "x" | "y" | null;
+    isHoriz: boolean;
+  } | null>(null);
+
+  const cancelPendingMotion = useCallback(() => {
+    if (rafRef.current !== null) {
+      window.cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (resetTimerRef.current !== null) {
+      window.clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+    }
+    if (transitionCleanupRef.current) {
+      transitionCleanupRef.current();
+      transitionCleanupRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => cancelPendingMotion, [cancelPendingMotion]);
+
+  const snapContainerBack = useCallback(
+    (animate: boolean) => {
+      cancelPendingMotion();
+      const el = containerRef.current;
+      if (!el) return;
+
+      const clearStyles = () => {
+        el.style.transition = "";
+        el.style.transform = "";
+        el.style.willChange = "";
+      };
+
+      if (!animate) {
+        clearStyles();
+        return;
+      }
+
+      el.style.willChange = "transform";
+      el.style.transition = "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)";
+      el.style.transform = "translate3d(0, 0, 0)";
+
+      const onEnd = (ev: TransitionEvent) => {
+        if (ev.target === el && ev.propertyName === "transform") {
+          clearStyles();
+          el.removeEventListener("transitionend", onEnd);
+          if (transitionCleanupRef.current === cleanup) {
+            transitionCleanupRef.current = null;
+          }
+          if (resetTimerRef.current !== null) {
+            window.clearTimeout(resetTimerRef.current);
+            resetTimerRef.current = null;
+          }
+        }
+      };
+
+      const cleanup = () => {
+        el.removeEventListener("transitionend", onEnd);
+      };
+
+      transitionCleanupRef.current = cleanup;
+      el.addEventListener("transitionend", onEnd);
+      resetTimerRef.current = window.setTimeout(() => {
+        cleanup();
+        if (transitionCleanupRef.current === cleanup) {
+          transitionCleanupRef.current = null;
+        }
+        resetTimerRef.current = null;
+        clearStyles();
+      }, 260);
+    },
+    [cancelPendingMotion],
+  );
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length !== 1) return;
+    cancelPendingMotion();
+
     const target = e.target as HTMLElement | null;
     const scrollable = target?.closest?.(
-      '.overflow-x-auto, .overflow-x-scroll, [data-scroll-x]'
+      ".overflow-x-auto, .overflow-x-scroll, [data-scroll-x]",
     ) as HTMLElement | null;
     const isHoriz = Boolean(scrollable && scrollable.scrollWidth > scrollable.clientWidth);
+    const now = performance.now();
+    const clientX = e.touches[0].clientX;
 
     touchStartRef.current = {
-      x: e.touches[0].clientX,
+      x: clientX,
       y: e.touches[0].clientY,
-      time: Date.now(),
+      time: now,
+      lastX: clientX,
+      lastTime: now,
+      vx: 0,
+      lockedAxis: null,
       isHoriz,
     };
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartRef.current || touchStartRef.current.isHoriz || e.touches.length === 0) return;
-    const diffX = e.touches[0].clientX - touchStartRef.current.x;
-    const diffY = e.touches[0].clientY - touchStartRef.current.y;
+    const start = touchStartRef.current;
+    if (!start || start.isHoriz || e.touches.length === 0) return;
 
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 12) {
-      if (containerRef.current) {
-        const dampedX = diffX * 0.42;
-        containerRef.current.style.transform = `translate3d(${dampedX}px, 0, 0)`;
-        containerRef.current.style.transition = "none";
-      }
+    const clientX = e.touches[0].clientX;
+    const clientY = e.touches[0].clientY;
+    const diffX = clientX - start.x;
+    const diffY = clientY - start.y;
+
+    if (start.lockedAxis === null && (Math.abs(diffX) > 8 || Math.abs(diffY) > 8)) {
+      start.lockedAxis = Math.abs(diffX) > Math.abs(diffY) * 1.1 ? "x" : "y";
+    }
+    if (start.lockedAxis !== "x") return;
+
+    const now = performance.now();
+    const dt = now - start.lastTime;
+    if (dt > 4) {
+      start.vx = (clientX - start.lastX) / dt;
+      start.lastX = clientX;
+      start.lastTime = now;
+    }
+
+    const canAdvanceNext = Boolean(canNextDay && (!maxDateIso || schedule.date < maxDateIso));
+    const canAdvancePrev = Boolean(canPrevDay && (!minDateIso || schedule.date > minDateIso));
+    const allowedInDirection = diffX < 0 ? canAdvanceNext : canAdvancePrev;
+
+    pendingTranslateRef.current = allowedInDirection
+      ? diffX * 0.45
+      : Math.sign(diffX) * Math.min(44, Math.abs(diffX) * 0.22);
+
+    if (rafRef.current === null) {
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = null;
+        const el = containerRef.current;
+        if (!el) return;
+        el.style.willChange = "transform";
+        el.style.transition = "none";
+        el.style.transform = `translate3d(${pendingTranslateRef.current}px, 0, 0)`;
+      });
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current || touchStartRef.current.isHoriz || e.changedTouches.length === 0) {
-      if (containerRef.current) {
-        containerRef.current.style.transition = "transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)";
-        containerRef.current.style.transform = "translate3d(0, 0, 0)";
-      }
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || start.isHoriz || start.lockedAxis !== "x" || e.changedTouches.length === 0) {
+      snapContainerBack(true);
       return;
     }
-    const start = touchStartRef.current;
+
     const touch = e.changedTouches[0];
     const diffX = touch.clientX - start.x;
     const diffY = touch.clientY - start.y;
-    const elapsed = Date.now() - start.time;
-    touchStartRef.current = null;
+    const elapsed = performance.now() - start.time;
 
-    const isHorizontal = Math.abs(diffX) > Math.abs(diffY) * 1.35;
-    const isFlick = elapsed < 280 && Math.abs(diffX) > 25;
-    const isDrag = Math.abs(diffX) > 40;
+    const isHorizontal = Math.abs(diffX) > Math.abs(diffY) * 1.25;
+    const isFlick =
+      (elapsed < 280 && Math.abs(diffX) > 22) ||
+      (Math.abs(start.vx) > 0.35 && Math.abs(diffX) > 18);
+    const isDrag = Math.abs(diffX) > 42;
 
-    if (isHorizontal && (isFlick || isDrag)) {
-      if (containerRef.current) {
-        containerRef.current.style.transition = "";
-        containerRef.current.style.transform = "";
-      }
-      if (diffX < 0) {
-        if (canNextDay && (!maxDateIso || schedule.date < maxDateIso)) {
-          onNextDay?.();
-        }
+    const canAdvanceNext = Boolean(canNextDay && (!maxDateIso || schedule.date < maxDateIso));
+    const canAdvancePrev = Boolean(canPrevDay && (!minDateIso || schedule.date > minDateIso));
+    const wantsNext = diffX < 0;
+
+    if (isHorizontal && (isFlick || isDrag) && (wantsNext ? canAdvanceNext : canAdvancePrev)) {
+      snapContainerBack(false);
+      if (wantsNext) {
+        onNextDay?.();
       } else {
-        if (canPrevDay && (!minDateIso || schedule.date > minDateIso)) {
-          onPrevDay?.();
-        }
+        onPrevDay?.();
       }
     } else {
-      if (containerRef.current) {
-        containerRef.current.style.transition = "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)";
-        containerRef.current.style.transform = "translate3d(0, 0, 0)";
-        setTimeout(() => {
-          if (containerRef.current) {
-            containerRef.current.style.transition = "";
-            containerRef.current.style.transform = "";
-          }
-        }, 220);
-      }
+      snapContainerBack(true);
     }
   };
 
   const handleTouchCancel = () => {
     touchStartRef.current = null;
-    if (containerRef.current) {
-      containerRef.current.style.transition = "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)";
-      containerRef.current.style.transform = "translate3d(0, 0, 0)";
-      setTimeout(() => {
-        if (containerRef.current) {
-          containerRef.current.style.transition = "";
-          containerRef.current.style.transform = "";
-        }
-      }, 220);
-    }
+    snapContainerBack(true);
   };
 
   const orderedLessons = useMemo(() => {
@@ -289,17 +387,17 @@ export function DayPager({
       className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100dvh-12rem)] overflow-x-clip"
     >
       {/* Top context banners: weekend or tomorrow */}
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {isWeekend && (
-          <motion.div
-            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-            animate={{ opacity: 1, height: "auto", marginBottom: 10 }}
-            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+          <m.div
+            initial={{ opacity: 0, y: -8, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.985 }}
             transition={{
-              duration: shouldReduceMotion ? 0 : 0.15,
-              ease: [0.2, 0, 0, 1],
+              duration: shouldReduceMotion ? 0 : 0.16,
+              ease: [0.22, 1, 0.36, 1],
             }}
-            className="overflow-hidden"
+            className="mb-2.5"
           >
             <div className="flex min-h-[48px] max-h-[64px] items-center gap-3 rounded-xl border border-sys-border bg-sys-card px-3.5 py-2 text-xs">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-warning">
@@ -313,7 +411,7 @@ export function DayPager({
                 <span className="text-sys-text-secondary text-xs leading-tight mt-0.5">Показано найближчий навчальний день</span>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -389,7 +487,7 @@ export function DayPager({
 
       {/* Animated Day Schedule List (Hardware-composited GPU glide) */}
       <div className="relative flex-1 w-full flex flex-col overflow-x-clip">
-        <motion.div
+        <m.div
           key={`${scheduleMode}-${schedule.date}`}
           initial={
             shouldReduceMotion || daySlideDir === 0
@@ -467,7 +565,7 @@ export function DayPager({
               <p className="text-xs text-sys-text-secondary mt-1">Розклад на цей день вільний</p>
             </div>
           )}
-        </motion.div>
+        </m.div>
       </div>
     </div>
   );

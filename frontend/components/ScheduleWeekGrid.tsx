@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { canMoveLesson } from "../lib/scheduleMove";
+import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
 import { ScheduleDay } from "./ScheduleDay";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
 import { CompactSchedulePeriodCard, getPeriodMeta } from "./SchedulePeriodCard";
@@ -239,14 +240,14 @@ export function ScheduleWeekGrid({
   const renderMobile = !isMounted || isMobile;
 
   return (
-    <div className="w-full pb-4">
+    <DesktopSpotlightGrid className="w-full pb-4">
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
       {renderDesktop && (
-        <motion.div
+        <m.div
           key={`desktop-week-${week[0]?.date ?? "week"}`}
           initial={{ opacity: 0, scale: 0.988, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 290, damping: 30, mass: 0.85 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4"
         >
         {/* Row 0: Column Headers */}
@@ -345,8 +346,11 @@ export function ScheduleWeekGrid({
             return (
               <div
                 key={`desktop-slot-${num}-${day.date}`}
-                style={{ gridColumn: dIdx + 1 }}
-                className={`flex flex-col min-h-[92px] transition-opacity relative has-[[data-open]]:z-50 has-[[data-open]]:opacity-100 ${
+                style={{
+                  gridColumn: dIdx + 1,
+                  "--stagger-index": dIdx + Math.min(num, 3),
+                } as React.CSSProperties}
+                className={`desktop-stagger-card flex flex-col min-h-[92px] transition-opacity relative has-[[data-open]]:z-50 has-[[data-open]]:opacity-100 ${
                   isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
                 }`}
               >
@@ -392,16 +396,16 @@ export function ScheduleWeekGrid({
             <span>{summaryText}</span>
           </div>
         ))}
-        </motion.div>
+        </m.div>
       )}
 
       {/* Tablet (640px – 1023px): horizontal scroll with snap-start */}
       {renderTablet && (
-        <motion.div
+        <m.div
           key={`tablet-week-${week[0]?.date ?? "week"}`}
           initial={{ opacity: 0, scale: 0.988, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 290, damping: 30, mass: 0.85 }}
+          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto overscroll-x-contain custom-scrollbar snap-x snap-mandatory pb-4"
         >
         {weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum, periodMeta }, dIdx) => {
@@ -543,19 +547,19 @@ export function ScheduleWeekGrid({
             </div>
           );
         })}
-        </motion.div>
+        </m.div>
       )}
 
       {/* Mobile (< 640px): Day list with day headers */}
       {renderMobile && (
         <div className="flex w-full flex-col gap-6 sm:hidden">
-          {week.map((day) => (
+          {week.map((day, dIdx) => (
             <div
               key={`mobile-week-day-${day.date}`}
               id={`day-section-${day.date}`}
               data-day-section
               data-day-date={day.date}
-              className="scroll-mt-16 defer-render-day"
+              className={`scroll-mt-16 ${dIdx > 0 ? "defer-render-day" : ""}`}
             >
               <ScheduleDay
                 schedule={day}
@@ -570,6 +574,6 @@ export function ScheduleWeekGrid({
           ))}
         </div>
       )}
-    </div>
+    </DesktopSpotlightGrid>
   );
 }

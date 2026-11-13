@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import Link from "next/link";
+import { SubpageHeader } from "@/components/navigation/SubpageHeader";
+import { DesktopSpotlightGrid } from "@/components/navigation/DesktopSpotlightGrid";
+import {
+  getCurrentAcademicYear,
+  readCacheSnapshot,
+  writeCacheSnapshot,
+} from "@/lib/cacheSnapshot";
 import { api } from "../../lib/api";
-import { useMobileNav } from "../../lib/useMobileNav";
 
 interface CellInfo {
   week_number: number;
@@ -171,7 +176,6 @@ function mergeCells(cells: CellInfo[], weeks: WeekInfo[]): MergedPeriod[] {
 }
 
 export default function EducationalProcessPage() {
-  const { setHomeTab } = useMobileNav();
   const [matrix, setMatrix] = useState<EducationalProcessMatrix | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -198,26 +202,41 @@ export default function EducationalProcessPage() {
   }, []);
 
   // Determine current academic year (e.g. 2026)
-  const currentAcademicYear = useMemo(() => {
-    const now = new Date();
-    return now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
-  }, []);
+  const currentAcademicYear = useMemo(() => getCurrentAcademicYear(), []);
 
-  // Fetch educational process matrix for active academic year
+  // Fetch educational process matrix with instant stale-while-revalidate cache seed
   useEffect(() => {
-    setLoading(true);
+    const cacheKey = `edu-process:${currentAcademicYear}`;
+    const cached = readCacheSnapshot<EducationalProcessMatrix>(cacheKey);
+    if (cached?.data) {
+      setMatrix(cached.data);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setError(null);
+
+    let cancelled = false;
     api
       .educationalProcess<EducationalProcessMatrix>(currentAcademicYear)
       .then((data) => {
+        if (cancelled) return;
+        writeCacheSnapshot(cacheKey, data);
         setMatrix(data);
         setLoading(false);
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error(err);
-        setError("Не вдалося завантажити графік навчального процесу.");
+        if (!cached?.data) {
+          setError("Не вдалося завантажити графік навчального процесу.");
+        }
         setLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentAcademicYear]);
 
   // Extract all groups with their course info
@@ -423,63 +442,18 @@ export default function EducationalProcessPage() {
 
   return (
     <div className="min-h-screen bg-[var(--page-bg)] text-sys-text-primary">
-      {/* Mobile Header (<640px) */}
-      <header className="sticky top-0 z-30 border-b border-sys-border bg-sys-card px-3.5 py-2.5 sm:hidden shadow-xs backdrop-blur-md">
-        <div className="flex items-center justify-between gap-2">
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 shrink-0 hover:opacity-85 transition-opacity"
-            title="Головна сторінка розкладу"
-          >
-            <span className="rounded-md bg-sys-accent/15 px-1.5 py-0.5 text-xs font-black uppercase tracking-wider text-sys-accent">
-              ДФКР
-            </span>
-            <span className="text-sm font-bold tracking-tight text-sys-text-primary">
-              Графік процесу
-            </span>
-          </Link>
-          <Link
-            href="/"
-            onClick={() => setHomeTab("schedule")}
-            className="flex items-center gap-1 rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.98] transition-colors"
-          >
-            ← До розкладу
-          </Link>
-        </div>
-      </header>
-
-      {/* Desktop Header (>=640px) */}
-      <header className="hidden sm:block border-b border-sys-border bg-sys-card">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-md bg-sys-accent/15 px-2 py-0.5 text-xs font-black uppercase tracking-wider text-sys-accent">
-                ДФКР
-              </span>
-              <span className="text-xs text-sys-text-muted">
-                Дніпровський фаховий коледж радіоелектроніки
-              </span>
-            </div>
-            <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl text-sys-text-primary">
-              Графік освітнього процесу
-            </h1>
-            <p className="mt-0.5 text-xs text-sys-text-secondary">
-              Семестри, екзаменаційні сесії, практика та канікули • {academicYearLabel} навчальний рік
-            </p>
-          </div>
-
-          <Link
-            href="/"
-            onClick={() => setHomeTab("schedule")}
-            className="flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3.5 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-[0.98] transition-colors shadow-xs"
-          >
-            ← До розкладу занять
-          </Link>
-        </div>
-      </header>
+      <SubpageHeader
+        title="Графік освітнього процесу"
+        subtitle={`Семестри, екзамени, практика та канікули · ${academicYearLabel} навчальний рік`}
+        maxWidthClass="max-w-6xl"
+      />
 
       {/* Main Content Area */}
-      <main className="mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-5 pb-24 lg:pb-8 space-y-5">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="vt-main-content focus:outline-none mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-5 pb-24 lg:pb-8 space-y-5"
+      >
         {/* Compact Clean Group Selector */}
         <section
           aria-label="Вибір групи"
@@ -502,7 +476,7 @@ export default function EducationalProcessPage() {
                     role="tab"
                     aria-selected={isActive}
                     onClick={() => handleSelectCourse(courseNum)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                    className={`spring-press px-3 py-1.5 rounded-lg text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
                       isActive
                         ? "bg-sys-accent text-white shadow-xs"
                         : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
@@ -517,7 +491,7 @@ export default function EducationalProcessPage() {
                 role="tab"
                 aria-selected={activeCourseTab === "all"}
                 onClick={() => handleSelectCourse("all")}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                className={`spring-press px-2.5 py-1.5 rounded-lg text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
                   activeCourseTab === "all"
                     ? "bg-sys-accent text-white shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
@@ -572,7 +546,7 @@ export default function EducationalProcessPage() {
                   key={g.id}
                   type="button"
                   onClick={() => handleSelectGroup(g.id)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1 ${
+                  className={`spring-press rounded-lg px-2.5 py-1 text-xs font-semibold transition-[transform,color,background-color,border-color] duration-150 flex items-center gap-1 ${
                     isSelected
                       ? "bg-sys-accent text-white shadow-xs"
                       : "border border-sys-border bg-sys-bg text-sys-text-primary hover:border-sys-accent/50 hover:bg-sys-card"
@@ -615,12 +589,15 @@ export default function EducationalProcessPage() {
           <div className="space-y-6">
             {/* 3 Equal Clean Stats Cards in One Row */}
             {realTimeStatus && (
-              <section
+              <DesktopSpotlightGrid
                 aria-label="Поточний стан"
                 className="grid grid-cols-1 sm:grid-cols-3 gap-3"
               >
                 {/* Card 1: Current Status */}
-                <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2">
+                <div
+                  style={{ "--stagger-index": 0 } as React.CSSProperties}
+                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                >
                   <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                     <span className="font-medium">Зараз триває</span>
                     {realTimeStatus.currentWeekNumber && (
@@ -655,7 +632,10 @@ export default function EducationalProcessPage() {
                 </div>
 
                 {/* Card 2: Next Milestone */}
-                <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2">
+                <div
+                  style={{ "--stagger-index": 1 } as React.CSSProperties}
+                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                >
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium text-sys-text-secondary">Найближча подія</span>
                     {realTimeStatus.nextMilestone && (
@@ -685,7 +665,10 @@ export default function EducationalProcessPage() {
                 </div>
 
                 {/* Card 3: Academic Year Progress */}
-                <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2">
+                <div
+                  style={{ "--stagger-index": 2 } as React.CSSProperties}
+                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                >
                   <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                     <span className="font-medium">Навчальний рік</span>
                     <span className="text-[11px] font-bold text-sys-accent">
@@ -701,13 +684,13 @@ export default function EducationalProcessPage() {
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-sys-bg border border-sys-border/70 overflow-hidden">
                       <div
-                        className="h-full bg-sys-accent rounded-full transition-all duration-500"
+                        className="h-full bg-sys-accent rounded-full transition-[width] duration-500 ease-out"
                         style={{ width: `${realTimeStatus.progressPercent}%` }}
                       />
                     </div>
                   </div>
                 </div>
-              </section>
+              </DesktopSpotlightGrid>
             )}
 
             {/* Semester 1 Section: Autumn / Winter */}
@@ -726,7 +709,7 @@ export default function EducationalProcessPage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {semesterMilestones.semester1.map((item, idx) => {
                   const cfg = TYPE_CONFIG[item.period_type] || TYPE_CONFIG.theory;
                   const isCurrent = item.status === "current";
@@ -736,7 +719,7 @@ export default function EducationalProcessPage() {
                   return (
                     <div
                       key={idx}
-                      className={`rounded-2xl border p-4 transition-all flex flex-col justify-between shadow-xs ${
+                      className={`interactive-surface scroll-reveal-card rounded-2xl border p-4 flex flex-col justify-between shadow-xs ${
                         isCurrent
                           ? "border-sys-accent bg-sys-accent/5 ring-1 ring-sys-accent/40"
                           : isUpcoming
@@ -792,7 +775,7 @@ export default function EducationalProcessPage() {
                     Немає додаткових сесійних або практичних етапів у I семестрі.
                   </div>
                 )}
-              </div>
+              </DesktopSpotlightGrid>
             </section>
 
             {/* Semester 2 Section: Spring / Summer */}
@@ -811,7 +794,7 @@ export default function EducationalProcessPage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {semesterMilestones.semester2.map((item, idx) => {
                   const cfg = TYPE_CONFIG[item.period_type] || TYPE_CONFIG.theory;
                   const isCurrent = item.status === "current";
@@ -821,7 +804,7 @@ export default function EducationalProcessPage() {
                   return (
                     <div
                       key={idx}
-                      className={`rounded-2xl border p-4 transition-all flex flex-col justify-between shadow-xs ${
+                      className={`interactive-surface scroll-reveal-card rounded-2xl border p-4 flex flex-col justify-between shadow-xs ${
                         isCurrent
                           ? "border-sys-accent bg-sys-accent/5 ring-1 ring-sys-accent/40"
                           : isUpcoming
@@ -877,7 +860,7 @@ export default function EducationalProcessPage() {
                     Немає додаткових сесійних або практичних етапів у II семестрі.
                   </div>
                 )}
-              </div>
+              </DesktopSpotlightGrid>
             </section>
 
             {/* Optional Collapsible Full 52 Weeks Schedule */}

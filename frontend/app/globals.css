@@ -549,16 +549,16 @@ html[data-theme="light"][data-accent="cyan"] {
     }
   }
 
-  /* Швидкий і невагомий перехід View Transitions API (140ms) */
+  /* View Transitions API: напрямлені переходи сторінок + окремий плавний перехід теми */
   ::view-transition-group(root) {
-    animation-duration: 0.14s;
+    animation-duration: 0.16s;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
   ::view-transition-old(root) {
-    animation: 0.1s cubic-bezier(0.4, 0, 1, 1) both fade-out;
+    animation: 0.11s cubic-bezier(0.4, 0, 1, 1) both vt-fade-out;
   }
   ::view-transition-new(root) {
-    animation: 0.14s cubic-bezier(0.22, 1, 0.36, 1) both fade-in;
+    animation: 0.16s cubic-bezier(0.22, 1, 0.36, 1) both vt-fade-in;
   }
 
   @keyframes fade-out {
@@ -694,6 +694,254 @@ html[data-theme="light"][data-accent="cyan"] {
 .hover\:bg-sys-accent.text-white:hover {
   background-color: rgb(var(--sys-accent-solid));
   color: #ffffff;
+}
+
+:root {
+  --ease-spring-snappy: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring-gentle: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@supports (animation-timing-function: linear(0, 1)) {
+  :root {
+    --ease-spring-snappy: linear(
+      0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%,
+      1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%,
+      1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%,
+      0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1.004 83.8%, 1
+    );
+    --ease-spring-gentle: linear(
+      0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%,
+      0.849 31.5%, 0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%,
+      1.015 55%, 1.017 63.9%, 1.001
+    );
+  }
+}
+
+/* Keyframes для напрямлених View Transitions (лише compositor transform/opacity) */
+@keyframes vt-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes vt-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes vt-forward-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-22px, 0, 0) scale(0.99);
+  }
+}
+
+@keyframes vt-forward-in {
+  from {
+    opacity: 0;
+    transform: translate3d(28px, 0, 0) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes vt-backward-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(22px, 0, 0) scale(0.99);
+  }
+}
+
+@keyframes vt-backward-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-28px, 0, 0) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes desktop-card-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.988);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes scroll-reveal-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* Іменовані шари View Transitions: максимум 1 видимий елемент кожного імені */
+.vt-main-content {
+  view-transition-name: main-content;
+}
+
+@media (min-width: 1024px) {
+  .vt-desktop-header {
+    view-transition-name: desktop-header;
+  }
+}
+
+@media (max-width: 1023px) {
+  .vt-bottom-nav {
+    view-transition-name: bottom-nav;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Тримаємо нижню панель та верхній хедер закріпленими під час слайду сторінок */
+  ::view-transition-group(bottom-nav) {
+    animation-duration: 0.16s;
+  }
+  ::view-transition-old(bottom-nav),
+  ::view-transition-new(bottom-nav) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+
+  ::view-transition-group(desktop-header) {
+    animation-duration: 0.18s;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Напрямлений слайд між сторінками */
+  :active-view-transition-type(route-forward)::view-transition-old(main-content) {
+    animation: 0.16s cubic-bezier(0.4, 0, 1, 1) both vt-forward-out;
+  }
+  :active-view-transition-type(route-forward)::view-transition-new(main-content) {
+    animation: 0.21s cubic-bezier(0.22, 1, 0.36, 1) both vt-forward-in;
+  }
+
+  :active-view-transition-type(route-backward)::view-transition-old(main-content) {
+    animation: 0.16s cubic-bezier(0.4, 0, 1, 1) both vt-backward-out;
+  }
+  :active-view-transition-type(route-backward)::view-transition-new(main-content) {
+    animation: 0.21s cubic-bezier(0.22, 1, 0.36, 1) both vt-backward-in;
+  }
+
+  /* При перемиканні теми — лише м'яке розчинення без зсуву контенту */
+  :active-view-transition-type(theme-change)::view-transition-old(main-content),
+  :active-view-transition-type(theme-change)::view-transition-old(root) {
+    animation: 0.12s ease-out both vt-fade-out;
+  }
+  :active-view-transition-type(theme-change)::view-transition-new(main-content),
+  :active-view-transition-type(theme-change)::view-transition-new(root) {
+    animation: 0.16s cubic-bezier(0.22, 1, 0.36, 1) both vt-fade-in;
+  }
+}
+
+/* 0 ms перемикання мобільних вкладок зі збереженням layout-кешу */
+.spa-tab-panel {
+  content-visibility: visible;
+}
+
+.spa-tab-panel[data-inactive="true"] {
+  content-visibility: hidden;
+  pointer-events: none;
+}
+
+@supports not (content-visibility: hidden) {
+  .spa-tab-panel[data-inactive="true"] {
+    display: none;
+  }
+}
+
+/* Spring-мікровзаємодія для кнопок та чипів */
+.spring-press {
+  transition-property: transform, background-color, border-color, color;
+  transition-duration: 240ms, 160ms, 160ms, 160ms;
+  transition-timing-function: var(--ease-spring-snappy), ease-out, ease-out, ease-out;
+}
+
+.spring-press:active {
+  transform: scale(0.97);
+}
+
+/* GPU-підсвітка та мікропідйом карток виключно на десктопах з точною мишею */
+.interactive-surface {
+  position: relative;
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .interactive-surface {
+    transition-property: transform, border-color, box-shadow, background-color;
+    transition-duration: 260ms, 200ms, 260ms, 200ms;
+    transition-timing-function: var(--ease-spring-gentle), ease-out, ease-out, ease-out;
+  }
+
+  .interactive-surface::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(
+      340px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+      color-mix(in srgb, var(--sys-accent) 13%, transparent),
+      transparent 68%
+    );
+    transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .interactive-surface:hover:not([data-open="true"]) {
+    transform: translate3d(0, -2px, 0);
+  }
+
+  .interactive-surface:hover::after {
+    opacity: 1;
+  }
+
+  .desktop-stagger-card {
+    animation: desktop-card-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(min(var(--stagger-index, 0), 10) * 32ms);
+  }
+
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    .scroll-reveal-card {
+      animation: scroll-reveal-enter 1ms linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 20%;
+    }
+  }
+}
+
+/* Дискретна поява спливаючих панелей на підтримуваних браузерах */
+.discrete-panel {
+  transition-property: opacity, transform, display;
+  transition-duration: 180ms, 240ms, 180ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-gentle), ease-out;
+  transition-behavior: allow-discrete;
+}
+
+@starting-style {
+  .discrete-panel[data-open="true"] {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.985);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

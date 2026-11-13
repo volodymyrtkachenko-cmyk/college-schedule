@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { canAccessAdmin, useAuth } from "../lib/auth";
 import { ReferenceRecord } from "../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../lib/hooks";
@@ -44,23 +44,6 @@ export interface SchedulePageClientProps {
   initialTeacherId?: number;
   initialMode?: "student" | "teacher";
 }
-
-const dayCarouselVariants = {
-  enter: (dir: number) => ({
-    x: dir > 0 ? 18 : dir < 0 ? -18 : 0,
-    opacity: 0,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-    transition: { type: "tween" as const, duration: 0.14, ease: [0.22, 1, 0.36, 1] as const },
-  },
-  exit: (dir: number) => ({
-    x: dir > 0 ? -18 : dir < 0 ? 18 : 0,
-    opacity: 0,
-    transition: { type: "tween" as const, duration: 0.09, ease: [0.4, 0, 1, 1] as const },
-  }),
-};
 
 export function SchedulePageClient({
   initialGroups = [],
@@ -276,6 +259,7 @@ export function SchedulePageClient({
             onSelect={sel.handleSelectContextOption}
           />
 
+          <main id="main-content" tabIndex={-1} className="vt-main-content focus:outline-none">
           {/* Mobile Main Content (< 1024px) */}
           {showMobile && (
             <div className="lg:hidden pb-24 min-w-0 overflow-x-clip">
@@ -298,8 +282,17 @@ export function SchedulePageClient({
               )}
 
               <div className="w-full">
-                {(sel.tasksTabMounted || sel.mobileTab === "tasks") && (
-                  <div className={sel.mobileTab === "tasks" ? "block" : "hidden"}>
+                {sel.tasksTabMounted || sel.mobileTab === "tasks" ? (
+                  <div
+                    data-inactive={sel.mobileTab !== "tasks"}
+                    aria-hidden={sel.mobileTab !== "tasks"}
+                    ref={(el) => {
+                      if (!el) return;
+                      if (sel.mobileTab !== "tasks") el.setAttribute("inert", "");
+                      else el.removeAttribute("inert");
+                    }}
+                    className="spa-tab-panel"
+                  >
                     <MobileTasksView
                       tasks={allTasks}
                       groupId={groupId}
@@ -314,9 +307,18 @@ export function SchedulePageClient({
                       }}
                     />
                   </div>
-                )}
+                ) : null}
 
-                <div className={sel.mobileTab === "tasks" ? "hidden" : "block px-3 py-3"}>
+                <div
+                  data-inactive={sel.mobileTab === "tasks"}
+                  aria-hidden={sel.mobileTab === "tasks"}
+                  ref={(el) => {
+                    if (!el) return;
+                    if (sel.mobileTab === "tasks") el.setAttribute("inert", "");
+                    else el.removeAttribute("inert");
+                  }}
+                  className="spa-tab-panel px-3 py-3"
+                >
                   {loading ? (
                     <ScheduleLoadingSkeleton rows={3} />
                   ) : error ? (
@@ -407,19 +409,15 @@ export function SchedulePageClient({
                   onReturnBack={sel.handleReturnBack}
                 />
               ) : (
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={sel.view}
-                    initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.985 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.985 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 290,
-                      damping: 30,
-                      mass: 0.85,
-                    }}
-                  >
+                <m.div
+                  key={sel.view}
+                  initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: shouldReduceMotion ? 0 : 0.18,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                >
                     {sel.view === "today" ? (
                       <div className="w-full min-w-0 flex items-start justify-center overflow-x-clip">
                         <div
@@ -458,30 +456,35 @@ export function SchedulePageClient({
                           )}
 
                           <div className="relative w-full">
-                            <AnimatePresence mode="wait" initial={false} custom={shouldReduceMotion ? 0 : sel.daySlideDir}>
-                              <motion.div
-                                key={`${mode}-${mode === "student" ? groupId : teacherId}-${sel.selectedDaySchedule?.date ?? today?.date ?? "day"}`}
-                                custom={shouldReduceMotion ? 0 : sel.daySlideDir}
-                                variants={dayCarouselVariants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                className="w-full"
-                              >
-                                <ScheduleDay
-                                  schedule={sel.selectedDaySchedule ?? today!}
-                                  isToday={sel.selectedDaySchedule?.date === sel.todayActualIso && !sel.isWeekend}
-                                  scheduleMode={mode}
-                                  onQuickJump={sel.handleQuickJump}
-                                  hideHeaderOnMobile={false}
-                                  weekNumber={sel.currentWeekNumber}
-                                  hideDayTitle={sel.isFocusEffective}
-                                  currentGroupName={mode === "student" ? (sel.currentName ?? null) : null}
-                                  currentTeacherId={mode === "teacher" ? teacherId : null}
-                                  currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
-                                />
-                              </motion.div>
-                            </AnimatePresence>
+                            <m.div
+                              key={`${mode}-${mode === "student" ? groupId : teacherId}-${sel.selectedDaySchedule?.date ?? today?.date ?? "day"}`}
+                              initial={{
+                                opacity: 0,
+                                x:
+                                  shouldReduceMotion || !sel.daySlideDir
+                                    ? 0
+                                    : sel.daySlideDir * 20,
+                              }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{
+                                duration: shouldReduceMotion ? 0 : 0.18,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                              className="w-full"
+                            >
+                              <ScheduleDay
+                                schedule={sel.selectedDaySchedule ?? today!}
+                                isToday={sel.selectedDaySchedule?.date === sel.todayActualIso && !sel.isWeekend}
+                                scheduleMode={mode}
+                                onQuickJump={sel.handleQuickJump}
+                                hideHeaderOnMobile={false}
+                                weekNumber={sel.currentWeekNumber}
+                                hideDayTitle={sel.isFocusEffective}
+                                currentGroupName={mode === "student" ? (sel.currentName ?? null) : null}
+                                currentTeacherId={mode === "teacher" ? teacherId : null}
+                                currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
+                              />
+                            </m.div>
                           </div>
                         </div>
 
@@ -533,11 +536,11 @@ export function SchedulePageClient({
                         />
                       </div>
                     )}
-                  </motion.div>
-                </AnimatePresence>
+                </m.div>
               )}
             </div>
           )}
+          </main>
 
           <WeekTypeBottomSheet
             isOpen={weekTypeSheetOpen}

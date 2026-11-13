@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
+import { SubpageHeader } from "@/components/navigation/SubpageHeader";
+import { DesktopSpotlightGrid } from "@/components/navigation/DesktopSpotlightGrid";
 import { SITE_URL } from "../../lib/site";
 
 export const metadata: Metadata = {
@@ -120,57 +122,47 @@ export default function BellsPage() {
   };
 
   return (
-    <main
-      id="main-content"
-      tabIndex={-1}
-      className="min-h-dvh bg-sys-bg pb-20 pt-6 text-sys-text-primary outline-none md:pb-12"
-    >
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    <div className="min-h-dvh bg-sys-bg text-sys-text-primary pb-20 md:pb-12">
+      <SubpageHeader
+        title="Розклад дзвінків ДФКР"
+        subtitle="Дніпровський фаховий коледж радіоелектроніки (КРЕ / ДКРЕ)"
+        maxWidthClass="max-w-4xl"
       />
 
-      <div className="mx-auto max-w-4xl px-4 sm:px-6">
-        {/* Хлібні крихти та навігація */}
-        <nav aria-label="Хлібні крихти" className="mb-4 text-xs text-sys-text-secondary">
-          <ol className="flex items-center gap-1.5">
-            <li>
-              <Link href="/" className="hover:text-sys-accent hover:underline">
-                Головна
-              </Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li className="font-medium text-sys-text-primary" aria-current="page">
-              Розклад дзвінків
-            </li>
-          </ol>
-        </nav>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="vt-main-content pt-6 outline-none"
+      >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
 
-        {/* Заголовок сторінки */}
-        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-sys-text-primary sm:text-3xl">
-              Розклад дзвінків ДФКР
-            </h1>
-            <p className="mt-1 text-sm text-sys-text-secondary sm:text-base">
-              Дніпровський фаховий коледж радіоелектроніки (КРЕ / ДКРЕ)
-            </p>
-          </div>
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-sys-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-sys-accent focus:ring-offset-2"
-          >
-            ← До розкладу пар
-          </Link>
-        </div>
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          {/* Хлібні крихти та навігація */}
+          <nav aria-label="Хлібні крихти" className="mb-5 text-xs text-sys-text-secondary">
+            <ol className="flex items-center gap-1.5">
+              <li>
+                <TransitionLink href="/" className="hover:text-sys-accent hover:underline">
+                  Головна
+                </TransitionLink>
+              </li>
+              <li aria-hidden="true">/</li>
+              <li className="font-medium text-sys-text-primary" aria-current="page">
+                Розклад дзвінків
+              </li>
+            </ol>
+          </nav>
 
-        {/* Таблиці розкладу дзвінків */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Стандартний розклад */}
-          <section
-            aria-labelledby="heading-standard-bells"
-            className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm"
-          >
+          {/* Таблиці розкладу дзвінків */}
+          <DesktopSpotlightGrid className="grid gap-6 md:grid-cols-2">
+            {/* Стандартний розклад */}
+            <section
+              aria-labelledby="heading-standard-bells"
+              style={{ "--stagger-index": 0 } as React.CSSProperties}
+              className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm"
+            >
             <div className="mb-4 flex items-center justify-between">
               <h2
                 id="heading-standard-bells"
@@ -216,7 +208,8 @@ export default function BellsPage() {
           {/* Скорочений розклад */}
           <section
             aria-labelledby="heading-short-bells"
-            className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm"
+            style={{ "--stagger-index": 1 } as React.CSSProperties}
+            className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm"
           >
             <div className="mb-4 flex items-center justify-between">
               <h2
@@ -259,7 +252,7 @@ export default function BellsPage() {
               Застосовується у передсвяткові дні та дні педагогічних нарад за окремим розпорядженням адміністрації.
             </p>
           </section>
-        </div>
+        </DesktopSpotlightGrid>
 
         {/* Блок FAQ */}
         <section aria-labelledby="heading-faqs" className="mt-10">
@@ -273,7 +266,7 @@ export default function BellsPage() {
             {FAQS.map((faq, idx) => (
               <details
                 key={idx}
-                className="group rounded-xl border border-sys-border bg-sys-card p-4 transition-colors hover:border-sys-accent/40 open:border-sys-accent/60"
+                className="scroll-reveal-card group rounded-xl border border-sys-border bg-sys-card p-4 transition-colors hover:border-sys-accent/40 open:border-sys-accent/60"
               >
                 <summary className="flex cursor-pointer items-center justify-between font-medium text-sys-text-primary">
                   <span>{faq.q}</span>
@@ -295,27 +288,28 @@ export default function BellsPage() {
             Корисні розділи розкладу
           </h2>
           <div className="mt-3 flex flex-wrap gap-2 text-sm">
-            <Link
+            <TransitionLink
               href="/"
-              className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 font-medium hover:text-sys-accent"
+              className="spring-press rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 font-medium hover:text-sys-accent"
             >
               📅 Розклад занять на сьогодні та тиждень
-            </Link>
-            <Link
+            </TransitionLink>
+            <TransitionLink
               href="/educational-process"
-              className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 font-medium hover:text-sys-accent"
+              className="spring-press rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 font-medium hover:text-sys-accent"
             >
               📆 Графік освітнього процесу
-            </Link>
-            <Link
+            </TransitionLink>
+            <TransitionLink
               href="/statistics"
-              className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 font-medium hover:text-sys-accent"
+              className="spring-press rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 font-medium hover:text-sys-accent"
             >
               📊 Статистика навантаження
-            </Link>
+            </TransitionLink>
           </div>
         </section>
       </div>
-    </main>
+      </main>
+    </div>
   );
 }

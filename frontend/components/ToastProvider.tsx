@@ -64,7 +64,7 @@ function ToastContainer({ toasts }: { toasts: Toast[] }) {
         <div
           key={toast.id}
           role="alert"
-          className={`flex w-full sm:w-auto animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border px-4 py-3 text-sm shadow-2xl backdrop-blur-md pointer-events-auto ${
+          className={`flex w-full sm:w-auto animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border px-4 py-3 text-sm shadow-2xl lg:backdrop-blur-md pointer-events-auto ${
             toast.type === "success"
               ? "border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/90 text-emerald-800 dark:text-emerald-200"
               : toast.type === "error"

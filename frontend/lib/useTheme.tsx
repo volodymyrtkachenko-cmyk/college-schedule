@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { startTypedViewTransition } from "@/lib/viewTransition";
 
 export type Theme = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
@@ -249,7 +250,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         typeof (document as any).startViewTransition === "function";
 
       if (hasViewTransition && !isReduced) {
-        (document as any).startViewTransition(() => {
+        startTypedViewTransition(["theme-change"], () => {
           applyTheme(newTheme);
         });
       } else {

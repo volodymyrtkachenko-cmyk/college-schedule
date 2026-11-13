@@ -81,7 +81,7 @@ export function TeacherOnboardingModal({
   const isUnlocked = pinSuccess || isTeacherUnlocked;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 sm:bg-black/70 sm:backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 sm:bg-black/70 lg:backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
       <div
         role="dialog"
         aria-modal="true"

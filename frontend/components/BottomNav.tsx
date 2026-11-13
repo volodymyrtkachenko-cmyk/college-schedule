@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
 import { usePathname } from "next/navigation";
 import { useMobileNav, MobileTab, isScheduleRoutePath } from "../lib/useMobileNav";
 
@@ -68,13 +68,13 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Нижня навігація"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-sys-border bg-sys-card pb-[env(safe-area-inset-bottom)] lg:hidden isolate select-none"
+      className="vt-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-sys-border bg-sys-card pb-[env(safe-area-inset-bottom)] lg:hidden isolate select-none"
     >
       <div className="relative mx-auto flex h-14 max-w-lg items-stretch justify-around px-2">
         {/* Hardware-accelerated GPU sliding pill */}
         <div
           aria-hidden="true"
-          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu will-change-transform z-0"
+          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu will-change-transform z-0"
           style={{
             left: "8px",
             width: `calc((100% - 16px) / ${totalTabs})`,
@@ -85,7 +85,7 @@ export function BottomNav() {
         </div>
 
         {/* Tab 1: Schedule */}
-        <Link
+        <TransitionLink
           href={scheduleHref}
           prefetch={true}
           onClick={handleScheduleClick}
@@ -113,11 +113,11 @@ export function BottomNav() {
             <line x1="3" y1="10" x2="21" y2="10" />
           </svg>
           <span className="text-xs leading-tight tracking-tight">Розклад</span>
-        </Link>
+        </TransitionLink>
 
         {/* Tab 2: Tasks (ДЗ) */}
         {!hideTasksTab && (
-          <Link
+          <TransitionLink
             href={tasksHref}
             prefetch={true}
             onClick={handleTasksClick}
@@ -157,11 +157,11 @@ export function BottomNav() {
               )}
             </div>
             <span className="text-xs leading-tight tracking-tight">Завдання</span>
-          </Link>
+          </TransitionLink>
         )}
 
         {/* Tab 3: Settings */}
-        <Link
+        <TransitionLink
           href={settingsHref}
           prefetch={true}
           onClick={handleSettingsClick}
@@ -187,7 +187,7 @@ export function BottomNav() {
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
           <span className="text-xs leading-tight tracking-tight">Налаштування</span>
-        </Link>
+        </TransitionLink>
       </div>
     </nav>
   );

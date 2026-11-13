@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import type { WeekDayMini } from "../../lib/schedule";
 import { formatTaskWord, type TaskGroupsResult } from "../../lib/useTaskGroups";
 import type { FullTaskItem } from "../TaskCardItem";
@@ -51,26 +51,28 @@ export function DesktopScheduleSidebar({
   return (
     <AnimatePresence initial={false}>
       {visible && (
-        <motion.aside
+        <m.aside
           key="desktop-sidebar"
-          initial={{ opacity: 0, x: 200, width: 0, marginLeft: 0 }}
+          initial={{
+            opacity: 0,
+            x: shouldReduceMotion ? 0 : 24,
+            scale: shouldReduceMotion ? 1 : 0.985,
+          }}
           animate={{
             opacity: 1,
             x: 0,
-            width: 360,
-            marginLeft: 32,
+            scale: 1,
           }}
           exit={{
             opacity: 0,
-            x: 200,
-            width: 0,
-            marginLeft: 0,
+            x: shouldReduceMotion ? 0 : 24,
+            scale: shouldReduceMotion ? 1 : 0.985,
           }}
           transition={{
-            duration: shouldReduceMotion ? 0 : 0.18,
-            ease: [0.2, 0, 0, 1],
+            duration: shouldReduceMotion ? 0 : 0.2,
+            ease: [0.22, 1, 0.36, 1],
           }}
-          className="hidden lg:block shrink-0 overflow-hidden"
+          className="ml-8 hidden lg:block w-[360px] shrink-0"
         >
           <div className="w-[360px] flex flex-col gap-6 sticky top-[72px]">
             {/* Week & Navigator Card */}
@@ -133,7 +135,7 @@ export function DesktopScheduleSidebar({
                         }`}
                       >
                         {isActive && (
-                          <motion.div
+                          <m.div
                             layoutId="desktop-sidebar-day-pill"
                             className="absolute inset-0 rounded-xl bg-sys-accentSolid shadow-md ring-2 ring-sys-accent/60 -z-10"
                             transition={{ type: "spring", stiffness: 480, damping: 36 }}
@@ -182,7 +184,7 @@ export function DesktopScheduleSidebar({
                       }`}
                     >
                       {desktopSidebarTab === "tasks" && (
-                        <motion.div
+                        <m.div
                           layoutId="sidebar-classroom-tab-pill"
                           className="absolute inset-0 rounded-md bg-sys-accentSolid shadow-xs -z-10"
                           transition={{ type: "spring", stiffness: 480, damping: 36 }}
@@ -200,7 +202,7 @@ export function DesktopScheduleSidebar({
                       }`}
                     >
                       {desktopSidebarTab === "grades" && (
-                        <motion.div
+                        <m.div
                           layoutId="sidebar-classroom-tab-pill"
                           className="absolute inset-0 rounded-md bg-sys-accentSolid shadow-xs -z-10"
                           transition={{ type: "spring", stiffness: 480, damping: 36 }}
@@ -279,7 +281,7 @@ export function DesktopScheduleSidebar({
               )}
             </div>
           </div>
-        </motion.aside>
+        </m.aside>
       )}
     </AnimatePresence>
   );

@@ -1,6 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { SubpageHeader } from "@/components/navigation/SubpageHeader";
+import { DesktopSpotlightGrid } from "@/components/navigation/DesktopSpotlightGrid";
+import { readCacheSnapshot, writeCacheSnapshot } from "@/lib/cacheSnapshot";
 import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "../../components/SearchableSelect";
 import { RecentSelectionsChips } from "../../components/RecentSelectionsChips";
@@ -8,7 +10,6 @@ import { useRecentSelections } from "../../lib/useRecentSelections";
 import { api, ReferenceRecord, StatisticsResponse, TeacherGroupDetail, TeacherSubjectEntry } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { getProgressPercentage } from "../../lib/format";
-import { useMobileNav } from "../../lib/useMobileNav";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" })
@@ -17,7 +18,6 @@ function formatDate(value: string) {
 
 export default function StatisticsPage() {
   const { user } = useAuth();
-  const { setHomeTab } = useMobileNav();
   const [mode, setMode] = useState<"student" | "teacher">("student");
   const [teacherView, setTeacherView] = useState<"subjects" | "groups">("subjects");
   const [groups, setGroups] = useState<ReferenceRecord[]>([]);
@@ -37,34 +37,51 @@ export default function StatisticsPage() {
     const storedGroupId = Number(window.localStorage.getItem("schedule:groupId")) || null;
     const storedTeacherId = Number(window.localStorage.getItem("schedule:teacherId")) || null;
 
+    const applyReferences = (allGroups: ReferenceRecord[], allTeachers: ReferenceRecord[]) => {
+      const availableGroups =
+        user?.role === "editor"
+          ? allGroups.filter((group) => (user.allowed_groups || []).includes(group.id))
+          : allGroups;
+      const availableTeachers = user?.role === "editor" ? [] : allTeachers;
+      const initialMode =
+        storedMode === "teacher" && availableTeachers.length ? "teacher" : "student";
+
+      setGroups(availableGroups);
+      setTeachers(availableTeachers);
+      setMode(initialMode);
+      setGroupId((prev) =>
+        prev && availableGroups.some((g) => g.id === prev)
+          ? prev
+          : storedGroupId && availableGroups.some((group) => group.id === storedGroupId)
+          ? storedGroupId
+          : availableGroups[0]?.id ?? null,
+      );
+      setTeacherId((prev) =>
+        prev && availableTeachers.some((t) => t.id === prev)
+          ? prev
+          : storedTeacherId && availableTeachers.some((teacher) => teacher.id === storedTeacherId)
+          ? storedTeacherId
+          : availableTeachers[0]?.id ?? null,
+      );
+    };
+
+    const cachedGroups = readCacheSnapshot<ReferenceRecord[]>("directory:groups")?.data;
+    const cachedTeachers = readCacheSnapshot<ReferenceRecord[]>("directory:teachers")?.data;
+    if (cachedGroups && cachedTeachers) {
+      applyReferences(cachedGroups, cachedTeachers);
+      setReferencesLoading(false);
+    }
+
     Promise.all([api.groups(), api.directory.teachers()])
       .then(([allGroups, allTeachers]) => {
         if (!active) return;
-        const availableGroups = user?.role === "editor"
-          ? allGroups.filter((group) => (user.allowed_groups || []).includes(group.id))
-          : allGroups;
-        const availableTeachers = user?.role === "editor" ? [] : allTeachers;
-        const initialMode = storedMode === "teacher" && availableTeachers.length
-          ? "teacher"
-          : "student";
-
-        setGroups(availableGroups);
-        setTeachers(availableTeachers);
-        setMode(initialMode);
-        setGroupId(
-          storedGroupId && availableGroups.some((group) => group.id === storedGroupId)
-            ? storedGroupId
-            : availableGroups[0]?.id ?? null,
-        );
-        setTeacherId(
-          storedTeacherId && availableTeachers.some((teacher) => teacher.id === storedTeacherId)
-            ? storedTeacherId
-            : availableTeachers[0]?.id ?? null,
-        );
+        writeCacheSnapshot("directory:groups", allGroups);
+        writeCacheSnapshot("directory:teachers", allTeachers);
+        applyReferences(allGroups, allTeachers);
         setError(null);
       })
       .catch((loadError: unknown) => {
-        if (active) {
+        if (active && !(cachedGroups && cachedTeachers)) {
           setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити список груп і викладачів.");
         }
       })
@@ -87,15 +104,25 @@ export default function StatisticsPage() {
     }
 
     let active = true;
-    setStatsLoading(true);
+    const statsKey = `stats:${mode}:${targetId}`;
+    const cachedStats = readCacheSnapshot<StatisticsResponse>(statsKey)?.data;
+    if (cachedStats) {
+      setStats(cachedStats);
+      setStatsLoading(false);
+    } else {
+      setStatsLoading(true);
+    }
     setError(null);
+
     const target = mode === "student" ? { groupId: targetId } : { teacherId: targetId };
     api.statistics(target)
       .then((response) => {
-        if (active) setStats(response);
+        if (!active) return;
+        writeCacheSnapshot(statsKey, response);
+        setStats(response);
       })
       .catch((loadError: unknown) => {
-        if (active) {
+        if (active && !cachedStats) {
           setStats(null);
           setError(loadError instanceof Error ? loadError.message : "Не вдалося завантажити статистику.");
         }
@@ -175,29 +202,32 @@ export default function StatisticsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-sys-bg text-sys-text-primary">
-      <header className="border-b border-sys-border bg-sys-bg/80">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-accent">ДФКР</p>
-            <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">Статистика занять ДФКР</h1>
-          </div>
-          <Link
-            href={mode === "teacher" ? "/?mode=teacher" : "/"}
-            onClick={() => setHomeTab("schedule")}
-            className="shrink-0 rounded-lg border border-sys-border px-3 py-2 text-sm font-medium text-sys-text-secondary transition-colors hover:bg-sys-hover hover:text-sys-text-primary"
-          >
-            До розкладу
-          </Link>
-        </div>
-      </header>
+    <div className="min-h-screen bg-sys-bg text-sys-text-primary">
+      <SubpageHeader
+        title="Статистика занять ДФКР"
+        subtitle="Виконання навчального плану та навантаження"
+        backHref={mode === "teacher" ? "/?mode=teacher" : "/"}
+        maxWidthClass="max-w-5xl"
+      />
 
-      <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 pb-24 lg:pb-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="vt-main-content focus:outline-none mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 pb-24 lg:pb-8"
+      >
         <section className="flex flex-col gap-4">
           <div className="flex justify-center mb-2">
             <div role="group" className="inline-flex relative rounded-full bg-sys-elevated p-1 shadow-inner border border-sys-border">
               {teachers.length > 0 && (
-                <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accentSolid rounded-full transition-all duration-300 ease-out z-0 shadow-sm" style={{ left: mode === 'student' ? '4px' : 'calc(50% + 2px)' }}></div>
+                <div
+                  className="pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-sys-accentSolid rounded-full transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu will-change-transform z-0 shadow-sm"
+                  style={{
+                    transform:
+                      mode === "student"
+                        ? "translate3d(0, 0, 0)"
+                        : "translate3d(100%, 0, 0)",
+                  }}
+                />
               )}
               <button
                 type="button"
@@ -279,8 +309,11 @@ export default function StatisticsPage() {
             </div>
 
             {mode === "student" ? (
-              <section className="grid gap-4 grid-cols-2 mt-4">
-                <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
+              <DesktopSpotlightGrid className="grid gap-4 grid-cols-2 mt-4">
+                <div
+                  style={{ "--stagger-index": 0 } as React.CSSProperties}
+                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                >
                   <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                     Вивчено
                   </p>
@@ -292,7 +325,10 @@ export default function StatisticsPage() {
                   </p>
                 </div>
                 {hasGlobalPlan ? (
-                  <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
+                  <div
+                    style={{ "--stagger-index": 1 } as React.CSSProperties}
+                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                  >
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">Всього за планом</p>
                     <p className="mt-2 text-4xl font-black text-sys-text-primary">
                       {stats.planned_hours}
@@ -302,7 +338,10 @@ export default function StatisticsPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
+                  <div
+                    style={{ "--stagger-index": 1 } as React.CSSProperties}
+                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                  >
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                       Дисциплін
                     </p>
@@ -310,10 +349,13 @@ export default function StatisticsPage() {
                     <p className="mt-1 text-xs text-sys-text-muted">у поточному семестрі</p>
                   </div>
                 )}
-              </section>
+              </DesktopSpotlightGrid>
             ) : (
-              <section className="grid gap-4 grid-cols-2 mt-4">
-                <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
+              <DesktopSpotlightGrid className="grid gap-4 grid-cols-2 mt-4">
+                <div
+                  style={{ "--stagger-index": 0 } as React.CSSProperties}
+                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                >
                   <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                     Проведено
                   </p>
@@ -325,7 +367,10 @@ export default function StatisticsPage() {
                   </p>
                 </div>
                 {hasGlobalPlan ? (
-                  <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
+                  <div
+                    style={{ "--stagger-index": 1 } as React.CSSProperties}
+                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                  >
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">Семестровий план</p>
                     <p className="mt-2 text-4xl font-black text-sys-text-primary">
                       {stats.planned_hours}
@@ -335,7 +380,10 @@ export default function StatisticsPage() {
                     </p>
                   </div>
                 ) : stats.weekly_hours ? (
-                  <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
+                  <div
+                    style={{ "--stagger-index": 1 } as React.CSSProperties}
+                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                  >
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">Тижневе навантаження</p>
                     <p className="mt-2 text-4xl font-black text-sys-text-primary">
                       {stats.weekly_hours}
@@ -345,7 +393,10 @@ export default function StatisticsPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
+                  <div
+                    style={{ "--stagger-index": 1 } as React.CSSProperties}
+                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                  >
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                       Активних груп
                     </p>
@@ -353,7 +404,7 @@ export default function StatisticsPage() {
                     <p className="mt-1 text-xs text-sys-text-muted">{teacherSubjects.length} дисциплін</p>
                   </div>
                 )}
-              </section>
+              </DesktopSpotlightGrid>
             )}
 
             {mode === "student" ? (
@@ -367,8 +418,8 @@ export default function StatisticsPage() {
                     <p className="mt-2 text-sm text-sys-text-secondary">Поки що немає даних для відображення.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {displayedStudentEntries.map((entry) => {
+                  <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {displayedStudentEntries.map((entry, idx) => {
                       const totalHours = entry.planned_hours ?? 0;
                       const hasPlannedHours = totalHours > 0;
                       const relativePercent =
@@ -390,7 +441,13 @@ export default function StatisticsPage() {
                         : "text-sys-accent";
 
                       return (
-                        <div key={entry.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40 transition-colors">
+                        <div
+                          key={entry.id}
+                          style={{ "--stagger-index": idx } as React.CSSProperties}
+                          className={`interactive-surface ${
+                            idx < 6 ? "desktop-stagger-card" : "scroll-reveal-card"
+                          } rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40`}
+                        >
                           <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
                               <circle
@@ -402,8 +459,8 @@ export default function StatisticsPage() {
                                 cx="24" cy="24" r="20"
                                 stroke="currentColor" strokeWidth="4" fill="none"
                                 strokeDasharray={circumference}
-                                strokeDashoffset={strokeDashoffset}
-                                className={`${colorClass} transition-all duration-1000 ease-out`}
+                                style={{ strokeDashoffset }}
+                                className={`${colorClass} transition-[stroke-dashoffset] duration-700 ease-out`}
                                 strokeLinecap="round"
                               />
                             </svg>
@@ -438,7 +495,7 @@ export default function StatisticsPage() {
                         </div>
                       );
                     })}
-                  </div>
+                  </DesktopSpotlightGrid>
                 )}
                 <p className="mt-6 text-center text-xs text-sys-text-muted">
                   Дані розраховані за розкладом і не враховують фактичну присутність.
@@ -490,8 +547,8 @@ export default function StatisticsPage() {
                       <p className="mt-2 text-sm text-sys-text-secondary">Поки що немає даних за дисциплінами.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {teacherSubjects.map((subj) => {
+                    <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {teacherSubjects.map((subj, idx) => {
                         const relativePercent =
                           maxTeacherSubjectHours > 0 ? Math.round((subj.completed_hours / maxTeacherSubjectHours) * 100) : 0;
                         const clampedProgress = Math.min(100, Math.max(0, relativePercent));
@@ -499,7 +556,13 @@ export default function StatisticsPage() {
                         const strokeDashoffset = circumference - (clampedProgress / 100) * circumference;
 
                         return (
-                          <div key={subj.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40 transition-colors">
+                          <div
+                            key={subj.id}
+                            style={{ "--stagger-index": idx } as React.CSSProperties}
+                            className={`interactive-surface ${
+                              idx < 6 ? "desktop-stagger-card" : "scroll-reveal-card"
+                            } rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40`}
+                          >
                             <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
                                 <circle
@@ -511,8 +574,8 @@ export default function StatisticsPage() {
                                   cx="24" cy="24" r="20"
                                   stroke="currentColor" strokeWidth="4" fill="none"
                                   strokeDasharray={circumference}
-                                  strokeDashoffset={strokeDashoffset}
-                                  className="text-sys-accent transition-all duration-1000 ease-out"
+                                  style={{ strokeDashoffset }}
+                                  className="text-sys-accent transition-[stroke-dashoffset] duration-700 ease-out"
                                   strokeLinecap="round"
                                 />
                               </svg>
@@ -541,7 +604,7 @@ export default function StatisticsPage() {
                           </div>
                         );
                       })}
-                    </div>
+                    </DesktopSpotlightGrid>
                   )
                 ) : (
                   teacherGroups.length === 0 ? (
@@ -550,8 +613,8 @@ export default function StatisticsPage() {
                       <p className="mt-2 text-sm text-sys-text-secondary">Поки що немає даних за групами.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {teacherGroups.map((grp) => {
+                    <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {teacherGroups.map((grp, idx) => {
                         const relativePercent =
                           maxTeacherGroupHours > 0 ? Math.round((grp.completed_hours / maxTeacherGroupHours) * 100) : 0;
                         const clampedProgress = Math.min(100, Math.max(0, relativePercent));
@@ -559,7 +622,13 @@ export default function StatisticsPage() {
                         const strokeDashoffset = circumference - (clampedProgress / 100) * circumference;
 
                         return (
-                          <div key={grp.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40 transition-colors">
+                          <div
+                            key={grp.id}
+                            style={{ "--stagger-index": idx } as React.CSSProperties}
+                            className={`interactive-surface ${
+                              idx < 6 ? "desktop-stagger-card" : "scroll-reveal-card"
+                            } rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40`}
+                          >
                             <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
                                 <circle
@@ -571,8 +640,8 @@ export default function StatisticsPage() {
                                   cx="24" cy="24" r="20"
                                   stroke="currentColor" strokeWidth="4" fill="none"
                                   strokeDasharray={circumference}
-                                  strokeDashoffset={strokeDashoffset}
-                                  className="text-sys-accent transition-all duration-1000 ease-out"
+                                  style={{ strokeDashoffset }}
+                                  className="text-sys-accent transition-[stroke-dashoffset] duration-700 ease-out"
                                   strokeLinecap="round"
                                 />
                               </svg>
@@ -603,14 +672,14 @@ export default function StatisticsPage() {
                           </div>
                         );
                       })}
-                    </div>
+                    </DesktopSpotlightGrid>
                   )
                 )}
               </section>
             )}
           </>
         ) : null}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

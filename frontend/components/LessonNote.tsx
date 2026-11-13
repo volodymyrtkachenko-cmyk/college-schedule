@@ -130,7 +130,7 @@ export function LessonNoteModal({
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4"
+      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/75 lg:bg-black/60 lg:backdrop-blur-xs p-0 sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget && !hasUnsavedChanges && !busy) onClose();
       }}
@@ -247,7 +247,7 @@ export function LessonNoteModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 z-10 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-sys-border/50 bg-sys-bg/80 backdrop-blur-xs p-4 sm:px-5 sm:py-3.5">
+        <div className="sticky bottom-0 z-10 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-sys-border/50 bg-sys-bg/95 lg:bg-sys-bg/80 lg:backdrop-blur-xs p-4 sm:px-5 sm:py-3.5">
           {mode === "edit" ? (
             <>
               {note ? (

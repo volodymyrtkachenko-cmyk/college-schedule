@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
+import { SubpageHeader } from "@/components/navigation/SubpageHeader";
 import dynamic from "next/dynamic";
 import { useTheme, ACCENT_OPTIONS } from "../../lib/useTheme";
 import { useUserSettings } from "../../lib/useUserSettings";
@@ -185,51 +186,30 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-sys-bg text-sys-text-primary transition-colors duration-200">
-      {/* Top Bar with Return Link */}
-      <header className="sticky top-0 z-30 border-b border-sys-border bg-sys-card px-4 sm:px-6 py-3.5">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <Link
-            href={scheduleMode === "teacher" ? "/?mode=teacher" : "/"}
-            onClick={() => setHomeTab("schedule")}
-            className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 -ml-2 text-xs sm:text-sm font-semibold text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M19 12H5" />
-              <polyline points="12 19 5 12 12 5" />
-            </svg>
-            <span>До розкладу</span>
-          </Link>
-        </div>
-      </header>
+      <SubpageHeader
+        title="Налаштування"
+        subtitle="Параметри пристрою та інтеграції"
+        backHref={scheduleMode === "teacher" ? "/?mode=teacher" : "/"}
+        onBackClick={() => setHomeTab("schedule")}
+        maxWidthClass="max-w-2xl"
+        showMobileSectionStrip={false}
+        rightSlot={
+          <span className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary whitespace-nowrap">
+            {scheduleMode === "teacher" ? "👨‍🏫 Викладач" : "🎓 Студент"}
+          </span>
+        }
+      />
 
       {/* Main Settings Container */}
-      <main className="max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-6 pb-28 lg:pb-12">
-        {/* Title */}
-        <div>
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-sys-text-primary flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-sys-accent/15 text-sys-accent text-base">
-                ⚙️
-              </span>
-              <span>Налаштування</span>
-            </h1>
-            <span className="rounded-lg border border-sys-border bg-sys-card px-2.5 py-1 text-xs font-semibold text-sys-text-secondary">
-              {scheduleMode === "teacher" ? "👨‍🏫 Режим викладача" : "🎓 Режим студента"}
-            </span>
-          </div>
-          <p className="mt-1 text-xs sm:text-sm text-sys-text-secondary">
-            Параметри розкладу й інтерфейсу. Діють лише на цьому пристрої.
-          </p>
-        </div>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="vt-main-content focus:outline-none max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-6 pb-28 lg:pb-12"
+      >
+        {/* Subtitle */}
+        <p className="text-xs sm:text-sm text-sys-text-secondary">
+          Параметри розкладу й інтерфейсу. Діють лише на цьому пристрої.
+        </p>
 
         {/* Section 1: Розклад */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
@@ -708,27 +688,38 @@ export default function SettingsPage() {
               <span className="text-sys-accent group-hover:translate-x-0.5 transition-transform text-xs font-bold shrink-0">Відкрити →</span>
             </button>
 
-            <Link
+            <TransitionLink
+              href="/bells"
+              className="spring-press flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-amber-500/40 hover:bg-amber-500/5 transition-colors duration-fast ease-smooth group"
+            >
+              <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
+                <span className="text-base">🔔</span>
+                <span>Розклад дзвінків</span>
+              </span>
+              <span className="text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">↗</span>
+            </TransitionLink>
+
+            <TransitionLink
               href="/statistics"
-              className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-purple-500/40 hover:bg-purple-500/5 transition-colors duration-fast ease-smooth group"
+              className="spring-press flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-purple-500/40 hover:bg-purple-500/5 transition-colors duration-fast ease-smooth group"
             >
               <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
                 <span className="text-base">📊</span>
                 <span>Статистика занять</span>
               </span>
               <span className="text-purple-600 dark:text-purple-400 group-hover:translate-x-0.5 transition-transform">↗</span>
-            </Link>
+            </TransitionLink>
 
-            <Link
+            <TransitionLink
               href="/educational-process"
-              className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors duration-fast ease-smooth group"
+              className="spring-press sm:col-span-2 flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors duration-fast ease-smooth group"
             >
               <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
                 <span className="text-base">📅</span>
                 <span>Графік навчального процесу</span>
               </span>
               <span className="text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">↗</span>
-            </Link>
+            </TransitionLink>
           </div>
         </section>
 
@@ -757,22 +748,22 @@ export default function SettingsPage() {
                   Вийти з акаунта
                 </button>
               </div>
-              <Link
+              <TransitionLink
                 href="/admin"
                 className="flex items-center justify-center gap-2 rounded-xl bg-sys-accent px-4 py-2.5 text-xs font-bold text-white hover:bg-sys-accent/90 transition-colors"
               >
                 <span>Панель керування розкладом</span>
                 <span>→</span>
-              </Link>
+              </TransitionLink>
             </div>
           ) : (
-            <Link
+            <TransitionLink
               href="/login"
               className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 text-xs hover:border-sys-accent/40 hover:bg-sys-accent/5 transition-colors duration-fast ease-smooth group"
             >
               <span className="font-semibold text-sys-text-primary">Увійти до панелі керування</span>
               <span className="text-sys-accent font-bold group-hover:translate-x-0.5 transition-transform">→</span>
-            </Link>
+            </TransitionLink>
           )}
         </section>
 

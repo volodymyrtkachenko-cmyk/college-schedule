@@ -7,6 +7,7 @@ import { ThemeProvider } from "../lib/useTheme";
 import { MotionConfigProvider } from "../components/MotionConfigProvider";
 import { MobileNavProvider } from "../lib/useMobileNav";
 import { BottomNav } from "../components/BottomNav";
+import { NavigationTransitionProvider } from "../components/navigation/NavigationTransitionProvider";
 import { SITE_URL, BACKEND_API_URL } from "../lib/site";
 
 export const metadata: Metadata = {
@@ -343,9 +344,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <AuthProvider>
               <ToastProvider>
                 <MobileNavProvider>
-                  <Heartbeat />
-                  {children}
-                  <BottomNav />
+                  <NavigationTransitionProvider>
+                    <Heartbeat />
+                    {children}
+                    <BottomNav />
+                  </NavigationTransitionProvider>
                 </MobileNavProvider>
               </ToastProvider>
             </AuthProvider>

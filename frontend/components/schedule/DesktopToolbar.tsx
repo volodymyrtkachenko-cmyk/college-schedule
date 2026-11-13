@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
+import { PublicSectionNav } from "@/components/navigation/PublicSectionNav";
 import type { HeaderLearningModeData } from "../../lib/schedule";
 import { ClassroomSyncButton } from "../ClassroomSyncButton";
 
@@ -69,10 +70,10 @@ export function DesktopToolbar({
     (view === "week" && isCurrentWeek);
 
   return (
-    <header className="sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card/90 backdrop-blur-md">
-      <div className="mx-auto grid grid-cols-[1fr_auto_1fr] gap-x-4 h-full max-w-[1800px] items-center px-6">
+    <header className="vt-desktop-header sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card/90 lg:backdrop-blur-md">
+      <div className="mx-auto flex h-full max-w-[1800px] items-center justify-between gap-3 px-4 xl:px-6">
         {/* Left Zone: Brand + Context Selector */}
-        <div className="flex items-center gap-3 min-w-0 justify-self-start">
+        <div className="flex items-center gap-3 min-w-0">
           <a
             href="https://kre.dp.ua/"
             target="_blank"
@@ -105,7 +106,7 @@ export function DesktopToolbar({
         </div>
 
         {/* Center Zone: Date Navigator + View Mode */}
-        <div className="flex items-center gap-3 justify-self-center">
+        <div className="flex items-center gap-2.5 shrink-0">
           <div className="flex items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs">
             <button
               type="button"
@@ -289,9 +290,10 @@ export function DesktopToolbar({
             💡
           </button>
 
-          <Link
+          <PublicSectionNav compact />
+
+          <TransitionLink
             href={`/settings?mode=${mode}`}
-            prefetch={false}
             aria-label="Налаштування застосунку"
             title="Налаштування"
             className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated active:scale-95 transition-colors duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent"
@@ -310,7 +312,7 @@ export function DesktopToolbar({
               <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
               <circle cx="12" cy="12" r="3" />
             </svg>
-          </Link>
+          </TransitionLink>
         </div>
       </div>
     </header>

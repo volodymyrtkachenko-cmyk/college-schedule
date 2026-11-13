@@ -258,6 +258,13 @@ function auditLegacyClasses() {
   const publicNoTransitionAll = new Set([
     "components/WeekTypeBadge.tsx",
     "components/LessonCard.tsx",
+  "components/navigation/PublicSectionNav.tsx",
+  "components/navigation/SubpageHeader.tsx",
+  "components/navigation/DesktopSpotlightGrid.tsx",
+  "components/navigation/NavigationTransitionProvider.tsx",
+  "app/bells/page.tsx",
+  "app/statistics/page.tsx",
+  "app/educational-process/page.tsx",
     "components/lesson-card/LessonCardMeetingControls.tsx",
     "components/lesson-card/LessonCardStatusBadges.tsx",
     "components/lesson-card/LessonCardActions.tsx",
