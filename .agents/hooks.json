@@ -1,0 +1,11 @@
+{
+  "enforce-auto-push": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ./hooks/stop-git-check.mjs",
+        "timeout": 10
+      }
+    ]
+  }
+}
