@@ -95,15 +95,21 @@ async def perform_course_sync(
     week_monday = today_kyiv - timedelta(days=today_kyiv.weekday())
     week_friday = week_monday + timedelta(days=4)
 
-    # Вікно збереження ДЗ та посилань: попередні 2 тижні (lookback 14 днів) + поточний + наступний тиждень,
-    # щоб завдання та посилання минулих тижнів прив'язувалися до пар свого тижня й не стиралися
+    # Вікно збереження ДЗ та посилань: попередні 2 тижні (lookback 14 днів) + поточний + наступний тиждень
+    # для базових посилань; для завдань розширюємо горизонт до меж семестру (~150 днів), щоб при
+    # перематуванні на минулі чи майбутні тижні ДЗ та борги не зникали з карток пар.
     TASKS_LOOKBACK_DAYS = 14
+    TASK_SEMESTER_LOOKBACK_DAYS = 150
+    TASK_SEMESTER_LOOKAHEAD_DAYS = 150
     tasks_window_start = min(current_monday, week_monday)
     tasks_lookback_start = tasks_window_start - timedelta(days=TASKS_LOOKBACK_DAYS)
     tasks_window_end = max(current_monday, week_monday) + timedelta(days=11)  # п'ятниця наступного тижня
+    task_history_floor = min(tasks_lookback_start, today_real - timedelta(days=TASK_SEMESTER_LOOKBACK_DAYS))
+    task_future_ceiling = max(tasks_window_end, today_real + timedelta(days=TASK_SEMESTER_LOOKAHEAD_DAYS))
     links_window_start = tasks_lookback_start
     links_window_end = max(current_monday + timedelta(days=4), week_friday)
     unmapped_tasks: list[dict] = []
+    failed_coursework_course_ids: set[str] = set()
 
     db_teachers = (await db.scalars(select(Teacher))).all()
 
@@ -191,19 +197,28 @@ async def perform_course_sync(
 
     await db.flush()
 
-    # КРОК 2: Завантажуємо розклад на розширений горизонт (2 тижні назад + поточний + наступний тиждень)
+    # КРОК 2: Завантажуємо розклад на базовий горизонт (від tasks_lookback_start до tasks_window_end)
     horizon_lessons_by_date: dict[date, list] = {}
-    for w_offset in (-2, -1, 0, 1):
-        w_mon = tasks_window_start + timedelta(days=w_offset * 7)
-        _, w_by_day = await build_week_projection(db, w_mon, group_id=group.id)
+    loaded_task_mondays: set[date] = set()
+
+    async def _ensure_task_week_loaded(target_monday: date) -> None:
+        if target_monday in loaded_task_mondays:
+            return
+        loaded_task_mondays.add(target_monday)
+        _, w_by_day = await build_week_projection(db, target_monday, group_id=group.id)
         for weekday in range(1, 6):
-            d = w_mon + timedelta(days=weekday - 1)
+            d = target_monday + timedelta(days=weekday - 1)
             horizon_lessons_by_date[d] = [
                 l for l in w_by_day.get(weekday, [])
                 if getattr(l, "subject_id", None)
                 and (1 <= getattr(l, "lesson_number", 0) <= 4)
                 and not getattr(l, "is_cancelled", False)
             ]
+
+    w_mon = tasks_lookback_start
+    while w_mon <= tasks_window_end:
+        await _ensure_task_week_loaded(w_mon)
+        w_mon += timedelta(days=7)
 
     parsed_announcements: list[dict] = []
     raw_coursework_items: list[dict] = []
@@ -775,7 +790,9 @@ async def perform_course_sync(
                     parsed["author_tokens"] = list(set(mat_author_tokens))
                     parsed_announcements.append(parsed)
 
-            if not isinstance(cw_resp, Exception) and cw_resp.status_code == 200:
+            if isinstance(cw_resp, Exception) or cw_resp.status_code != 200:
+                failed_coursework_course_ids.add(str(course_id))
+            else:
                 for cw in cw_resp.json().get("courseWork", []):
                     cw_id = cw.get("id")
                     alt_link = (cw.get("alternateLink") or "").strip()
@@ -911,7 +928,7 @@ async def perform_course_sync(
                     # щоб не прив'язані користувачі бачили все з наявними правилами розкладу.
                     # 25.6: Персональний стан здачі (TURNED_IN, RETURNED, оцінки) НЕ впливає на спільні нотатки групи!
                     if due_date is not None:
-                        if due_date > tasks_window_end:
+                        if due_date > task_future_ceiling or due_date < task_history_floor:
                             unmapped_tasks.append({
                                 "title": title_raw,
                                 "due_date": due_date.isoformat(),
@@ -920,6 +937,7 @@ async def perform_course_sync(
                             continue
 
                     raw_coursework_items.append({
+                        "course_id": str(course_id),
                         "due_date": due_date,
                         "created_dt": created_dt,
                         "alt_link": alt_link,
@@ -932,19 +950,48 @@ async def perform_course_sync(
                         "task_entry": task_entry,
                     })
 
+    # Дозавантажуємо тижні для всіх актуальних завдань (як майбутніх, так і минулих боргів у межах семестру)
+    extra_task_mondays: set[date] = set()
+    for cw_item in raw_coursework_items:
+        d_val: Optional[date] = cw_item["due_date"]
+        if d_val is not None:
+            due_mon = d_val - timedelta(days=d_val.weekday())
+            if task_history_floor - timedelta(days=7) <= due_mon <= task_future_ceiling:
+                extra_task_mondays.add(due_mon)
+            next_mon = due_mon + timedelta(days=7)
+            if next_mon <= task_future_ceiling:
+                extra_task_mondays.add(next_mon)
+        else:
+            c_val = cw_item["created_dt"].date()
+            c_mon = c_val - timedelta(days=c_val.weekday())
+            if task_history_floor <= c_val <= task_future_ceiling:
+                extra_task_mondays.add(c_mon)
+                next_mon = c_mon + timedelta(days=7)
+                if next_mon <= task_future_ceiling:
+                    extra_task_mondays.add(next_mon)
+
+    for extra_mon in sorted(extra_task_mondays):
+        await _ensure_task_week_loaded(extra_mon)
+
+    managed_task_dates = set(horizon_lessons_by_date.keys())
+    active_cw_urls = {cw_item["alt_link"] for cw_item in raw_coursework_items if cw_item.get("alt_link")}
+
     # КРОК 1b: Smart Merge для старих [TASK] та посилань Meet/Zoom.
     # Тепер відомо, які саме викладачі є активними для цього студента (synced_teacher_tokens),
     # тож оновлюємо/очищуємо лише ЇХНІ рядки, а посилання та ДЗ викладача іншої підгрупи зберігаємо!
     sync_teacher_tokens = set(synced_teacher_tokens)
     synced_subject_ids: set[int] = set()
+    failed_coursework_subject_ids: set[int] = set()
     for course, _ in bundles:
-        c_id = course["id"]
+        c_id = str(course["id"])
         c_title_norm = _norm(f"{course.get('name', '')} {course.get('section', '')}".strip())
-        c_toks = course_teachers_tokens.get(c_id, [])
+        c_toks = course_teachers_tokens.get(course["id"], [])
         for d_lessons in horizon_lessons_by_date.values():
             for l_obj in d_lessons:
                 if getattr(l_obj, "subject_id", None) and _matches_lesson(l_obj, c_title_norm, "", c_toks):
                     synced_subject_ids.add(l_obj.subject_id)
+                    if c_id in failed_coursework_course_ids:
+                        failed_coursework_subject_ids.add(l_obj.subject_id)
 
     # Попередньо визначаємо слоти, для яких є актуальні посилання у вікні синхронізації (попередні 2 тижні + поточний тиждень)
     parsed_announcements.sort(key=lambda x: x["created_dt"])
@@ -1060,6 +1107,27 @@ async def perform_course_sync(
             if l_str.startswith("[TASK"):
                 c_match = re.search(r"/(?:c|w)/([A-Za-z0-9_\-]+)", l_str)
                 task_c_id = c_match.group(1) if c_match else None
+                link_part = ""
+                if "|" in l_str:
+                    parts = [p.strip() for p in l_str.split("|")]
+                    if len(parts) >= 2 and parts[1].startswith("http"):
+                        link_part = parts[1]
+                course_failed = (
+                    (task_c_id and task_c_id in failed_coursework_course_ids)
+                    or (gn.subject_id in failed_coursework_subject_ids)
+                )
+                in_managed_window = (
+                    gn.note_date in managed_task_dates
+                    or (link_part and link_part in active_cw_urls)
+                )
+                if (
+                    gn.note_date < task_history_floor
+                    or gn.note_date > task_future_ceiling
+                    or course_failed
+                    or not in_managed_window
+                ):
+                    kept.append(l_str)
+                    continue
                 if _task_line_belongs_to_sync(
                     l_str, task_c_id, current_sync_course_ids, sync_teacher_tokens, synced_subgroups
                 ):
@@ -1103,7 +1171,7 @@ async def perform_course_sync(
     # КРОК 4: Прикріплюємо ДЗ (за правилами 13.1, 13.2 та 13.3)
     sorted_horizon_dates = sorted(
         d for d in horizon_lessons_by_date.keys()
-        if tasks_lookback_start <= d <= tasks_window_end
+        if task_history_floor <= d <= task_future_ceiling
     )
 
     # 13.3: Сортування завдань перед прив'язкою: спочатку з датою (за зростанням дедлайну), потім без дати (за датою публікації)

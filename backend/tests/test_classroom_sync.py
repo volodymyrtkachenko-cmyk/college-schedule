@@ -2537,6 +2537,123 @@ async def test_sync_all_connected_groups_once_isolates_timeout_and_persists_hear
         assert len(hb["errors"]) == 1
 
 
+@pytest.mark.anyio
+async def test_perform_course_sync_preserves_history_and_maps_distant_weeks(classroom_db):
+    """
+    Завдання з минулих (>14 днів тому) і майбутніх (+3 тижні) тижнів повинні прив'язуватись до
+    своїх реальних пар, а старі [TASK] за межами вікна синку не повинні стиратись.
+    """
+    from datetime import timedelta
+    from app.models.entities import Group
+    from app.models.lesson_notes import LessonOccurrenceNote
+
+    _, state = classroom_db
+    monday = state["monday"]
+    past_due_mon = monday - timedelta(days=28)   # -4 тижні (минулий борг)
+    future_due_mon = monday + timedelta(days=21) # +3 тижні (майбутнє завдання)
+    older_preserved_mon = monday - timedelta(days=42)  # -6 тижнів (збережена історія)
+
+    async with state["sessions"]() as db:
+        db.add(
+            LessonOccurrenceNote(
+                group_id=state["group_id"],
+                note_date=older_preserved_mon,
+                lesson_number=2,
+                subject_id=state["subj_phil_id"],
+                subject_name="Основи філософських знань",
+                origin_kind="schedule",
+                origin_id=1,
+                note="[TASK] Старе завдання (до 01.09) | https://classroom.google.com/c/202/a/old/details",
+                archived=False,
+            )
+        )
+        await db.commit()
+
+    courses = [
+        {"id": "202", "name": "Основи філософських знань"},
+    ]
+    transport = _make_fake_google_transport(
+        courses_by_token={"ya29.hist": courses},
+        profiles_by_token={"ya29.hist": {"id": "uid_hist", "emailAddress": "hist@kre.dp.ua"}},
+        teachers_by_course={
+            "202": [{"userId": "t_phil", "profile": {"name": {"fullName": "Домніна Ганна Сергіївна"}}}],
+        },
+        announcements_by_course={},
+        coursework_by_course={
+            "202": [
+                {
+                    "id": "cw_past",
+                    "title": "Борг 4 тижні тому",
+                    "alternateLink": "https://classroom.google.com/c/202/a/cw_past/details",
+                    "creationTime": (past_due_mon - timedelta(days=2)).isoformat() + "T10:00:00Z",
+                    "dueDate": {
+                        "year": past_due_mon.year,
+                        "month": past_due_mon.month,
+                        "day": past_due_mon.day,
+                    },
+                },
+                {
+                    "id": "cw_future",
+                    "title": "Майбутній реферат +3т",
+                    "alternateLink": "https://classroom.google.com/c/202/a/cw_future/details",
+                    "creationTime": monday.isoformat() + "T10:00:00Z",
+                    "dueDate": {
+                        "year": future_due_mon.year,
+                        "month": future_due_mon.month,
+                        "day": future_due_mon.day,
+                    },
+                },
+            ]
+        },
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client):
+        async with state["sessions"]() as db:
+            group = await db.get(Group, state["group_id"])
+            res = await classroom_router.perform_course_sync(
+                db, group, courses, "ya29.hist"
+            )
+            await db.commit()
+
+    assert res["synced_tasks"] == 2
+    assert res["unmapped_tasks"] == []
+
+    async with state["sessions"]() as db:
+        past_note = await db.scalar(
+            select(LessonOccurrenceNote).where(
+                LessonOccurrenceNote.group_id == state["group_id"],
+                LessonOccurrenceNote.note_date == past_due_mon,
+                LessonOccurrenceNote.lesson_number == 2,
+                LessonOccurrenceNote.archived.is_(False),
+            )
+        )
+        future_note = await db.scalar(
+            select(LessonOccurrenceNote).where(
+                LessonOccurrenceNote.group_id == state["group_id"],
+                LessonOccurrenceNote.note_date == future_due_mon,
+                LessonOccurrenceNote.lesson_number == 2,
+                LessonOccurrenceNote.archived.is_(False),
+            )
+        )
+        preserved_note = await db.scalar(
+            select(LessonOccurrenceNote).where(
+                LessonOccurrenceNote.group_id == state["group_id"],
+                LessonOccurrenceNote.note_date == older_preserved_mon,
+                LessonOccurrenceNote.lesson_number == 2,
+                LessonOccurrenceNote.archived.is_(False),
+            )
+        )
+        assert past_note is not None and "Борг 4 тижні тому" in past_note.note
+        assert future_note is not None and "Майбутній реферат +3т" in future_note.note
+        assert preserved_note is not None and "Старе завдання" in preserved_note.note
+
+
+
 
 
 
