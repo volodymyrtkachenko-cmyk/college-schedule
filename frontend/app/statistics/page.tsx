@@ -220,7 +220,7 @@ export default function StatisticsPage() {
             <div role="group" className="inline-flex relative rounded-full bg-sys-elevated p-1 shadow-inner border border-sys-border">
               {teachers.length > 0 && (
                 <div
-                  className="pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-sys-accentSolid rounded-full transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu will-change-transform z-0 shadow-sm"
+                  className="pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-sys-accentSolid rounded-full transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0 shadow-sm"
                   style={{
                     transform:
                       mode === "student"

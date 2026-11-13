@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScheduleResponse, api } from "../../lib/api";
-import { KYIV_DATE_FMT, getKyivInitialWeekAnchor } from "../../lib/date";
+import { requestClassroomAuth } from "../../lib/classroomAuth";
+import { KYIV_DATE_FMT, formatKyivDateIso, getKyivInitialWeekAnchor } from "../../lib/date";
 import {
   aggregateClassroomTasks,
   countOverdueClassroomTasks,
@@ -11,6 +12,8 @@ import {
 import { syncPersonalSubmissions, useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { DEFAULT_TASK_FILTERS, useTaskGroups } from "../../lib/useTaskGroups";
 import type { ReturnTarget } from "./useScheduleSelection";
+
+const tasksMemoryCache = new Map<number, { tasks: any[]; lastSyncedAt: string | null }>();
 
 interface UseScheduleDataFetchParams {
   groupId: number | null;
@@ -39,6 +42,8 @@ export function useScheduleDataFetch({
 }: UseScheduleDataFetchParams) {
   const [classroomTasks, setClassroomTasks] = useState<any[]>([]);
   const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
+  const classroomLastSyncedAtRef = useRef<string | null>(null);
+  classroomLastSyncedAtRef.current = classroomLastSyncedAt;
   const { isLinked, isLinkedToGroup, submissions, personalTeachers } = useClassroomSubmissions();
   const hasGroupTaskAccess = mode !== "student" || isLinkedToGroup(groupId);
 
@@ -67,8 +72,15 @@ export function useScheduleDataFetch({
       setClassroomTasks([]);
       return;
     }
+    const mem = tasksMemoryCache.get(groupId);
+    if (mem) {
+      setClassroomTasks(mem.tasks);
+      if (mem.lastSyncedAt) setClassroomLastSyncedAt(mem.lastSyncedAt);
+      return;
+    }
     const cached = readCachedGroupTasks(groupId);
     if (cached.length > 0) {
+      tasksMemoryCache.set(groupId, { tasks: cached, lastSyncedAt: null });
       setClassroomTasks(cached);
     }
   }, [groupId, readCachedGroupTasks]);
@@ -81,6 +93,7 @@ export function useScheduleDataFetch({
       setClassroomTasks((prev) => {
         const next = mergeTasksLists(prev, detail.tasks);
         if (groupId) {
+          tasksMemoryCache.set(groupId, { tasks: next, lastSyncedAt: classroomLastSyncedAtRef.current });
           try {
             localStorage.setItem(`schedule:classroom_group_tasks:${groupId}`, JSON.stringify(next));
           } catch {}
@@ -91,6 +104,53 @@ export function useScheduleDataFetch({
     window.addEventListener("classroom-tasks-synced", handlePersonalTasksSynced);
     return () => window.removeEventListener("classroom-tasks-synced", handlePersonalTasksSynced);
   }, [groupId]);
+
+  const syncInFlightRef = useRef(false);
+  const weekStartStr = useMemo(() => formatKyivDateIso(weekAnchorDate), [weekAnchorDate]);
+
+  useEffect(() => {
+    const handleGlobalTrigger = (e: Event) => {
+      if (e.defaultPrevented || syncInFlightRef.current) return;
+      e.preventDefault();
+      syncInFlightRef.current = true;
+      void requestClassroomAuth({
+        groupId,
+        weekStart: weekStartStr,
+        onSuccess: (res, usedCode) => {
+          const gid = res.group_id ?? groupId;
+          if (!returnTarget && gid && gid !== groupId) {
+            setGroupId(gid);
+          }
+          if (Array.isArray(res?.tasks) && gid) {
+            const existing = tasksMemoryCache.get(gid)?.tasks ?? [];
+            const merged = mergeTasksLists(existing, res.tasks);
+            tasksMemoryCache.set(gid, {
+              tasks: merged,
+              lastSyncedAt: res.last_synced_at ?? null,
+            });
+          }
+          const parts = [`підтягнуто ${res.synced_links ?? 0} онлайн-пар`];
+          if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
+          if (res.synced_students > 0) parts.push(`${res.synced_students} студентів`);
+          const prefix =
+            groupId !== null && res.group_id && groupId !== res.group_id
+              ? `Перемкнуто на вашу групу ${res.group_name}`
+              : `Група ${res.group_name}`;
+          const autoNote = usedCode ? " (фонове автооновлення активне)" : "";
+          setToast(`${prefix}: ${parts.join(", ")}${autoNote}!`, "success");
+        },
+        onError: (err) => {
+          setToast(err.message || "Не вдалося підключитися до Google Classroom", "error");
+        },
+      })
+        .catch(() => {})
+        .finally(() => {
+          syncInFlightRef.current = false;
+        });
+    };
+    window.addEventListener("trigger-classroom-sync", handleGlobalTrigger);
+    return () => window.removeEventListener("trigger-classroom-sync", handleGlobalTrigger);
+  }, [groupId, weekStartStr, returnTarget, setGroupId, setToast]);
 
   useEffect(() => {
     const handlePrompt = (e?: Event) => {
@@ -132,6 +192,10 @@ export function useScheduleDataFetch({
         if (Array.isArray(res?.tasks) && res.tasks.length > 0) {
           setClassroomTasks((prev) => {
             const merged = mergeTasksLists(prev, res.tasks);
+            tasksMemoryCache.set(gid, {
+              tasks: merged,
+              lastSyncedAt: res?.last_synced_at ?? null,
+            });
             try {
               localStorage.setItem(`schedule:classroom_group_tasks:${gid}`, JSON.stringify(merged));
             } catch {}
@@ -140,6 +204,10 @@ export function useScheduleDataFetch({
         }
         if (res?.last_synced_at) {
           setClassroomLastSyncedAt(res.last_synced_at);
+          const prevMem = tasksMemoryCache.get(gid);
+          if (prevMem) {
+            tasksMemoryCache.set(gid, { tasks: prevMem.tasks, lastSyncedAt: res.last_synced_at });
+          }
         }
         if (isLinked && res && res.requires_auth === false && !isLinkedToGroup(gid)) {
           try {
@@ -162,8 +230,10 @@ export function useScheduleDataFetch({
 
   useEffect(() => {
     if (groupId) {
-      const cached = readCachedGroupTasks(groupId);
-      if (cached.length > 0) {
+      const mem = tasksMemoryCache.get(groupId);
+      const cached = mem ? mem.tasks : readCachedGroupTasks(groupId);
+      if (cached.length > 0 && !mem) {
+        tasksMemoryCache.set(groupId, { tasks: cached, lastSyncedAt: null });
         setClassroomTasks(cached);
       }
       // Defer background sync when cached tasks already exist so mobile startup stays responsive
@@ -234,6 +304,10 @@ export function useScheduleDataFetch({
         setClassroomTasks((prev) => {
           const merged = mergeTasksLists(prev, tasks);
           if (groupId) {
+            tasksMemoryCache.set(groupId, {
+              tasks: merged,
+              lastSyncedAt: lastSynced ?? classroomLastSyncedAt,
+            });
             try {
               localStorage.setItem(`schedule:classroom_group_tasks:${groupId}`, JSON.stringify(merged));
             } catch {}
@@ -245,7 +319,7 @@ export function useScheduleDataFetch({
         setClassroomLastSyncedAt(lastSynced);
       }
     },
-    [returnTarget, groupId, setGroupId]
+    [returnTarget, groupId, setGroupId, classroomLastSyncedAt]
   );
 
   const allTasks = useMemo(

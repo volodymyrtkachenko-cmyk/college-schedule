@@ -46,7 +46,7 @@ const NavigationTransitionContext = createContext<NavigationTransitionContextVal
   isPending: false,
 });
 
-let idleWarmupScheduled = false;
+const PREFETCH_TTL_MS = 25_000;
 
 function shouldSkipBackgroundWarmup(): boolean {
   if (typeof navigator === "undefined") return true;
@@ -99,7 +99,7 @@ export function NavigationTransitionProvider({
   const pathname = usePathname() || "/";
   const [isPending, startNavTransition] = useTransition();
 
-  const prefetchedPathsRef = useRef<Set<string>>(new Set());
+  const prefetchedAtRef = useRef<Map<string, number>>(new Map());
   const pendingResolverRef = useRef<(() => void) | null>(null);
   const pendingTimerRef = useRef<number | null>(null);
   const activeVtRef = useRef<ViewTransitionHandle | null>(null);
@@ -131,8 +131,10 @@ export function NavigationTransitionProvider({
   const prefetchRoute = useCallback(
     (href: string) => {
       const targetPath = normalizeRoutePath(href);
-      if (!prefetchedPathsRef.current.has(href)) {
-        prefetchedPathsRef.current.add(href);
+      const now = Date.now();
+      const last = prefetchedAtRef.current.get(href) ?? 0;
+      if (now - last > PREFETCH_TTL_MS) {
+        prefetchedAtRef.current.set(href, now);
         try {
           router.prefetch(href);
         } catch {
@@ -144,16 +146,17 @@ export function NavigationTransitionProvider({
     [router],
   );
 
-  // Idle background warmup for core pages + directory/calendar caches
+  // Keep core routes (/ and /settings) warm in Next.js Router Cache without idle API storms
   useEffect(() => {
-    if (idleWarmupScheduled || shouldSkipBackgroundWarmup()) return;
-    idleWarmupScheduled = true;
+    if (shouldSkipBackgroundWarmup()) return;
 
-    const runWarmup = () => {
+    const warmCoreRoutes = () => {
+      const now = Date.now();
       for (const route of CORE_PREFETCH_ROUTES) {
         if (normalizeRoutePath(route) === normalizeRoutePath(pathname)) continue;
-        if (!prefetchedPathsRef.current.has(route)) {
-          prefetchedPathsRef.current.add(route);
+        const last = prefetchedAtRef.current.get(route) ?? 0;
+        if (now - last > PREFETCH_TTL_MS) {
+          prefetchedAtRef.current.set(route, now);
           try {
             router.prefetch(route);
           } catch {
@@ -161,27 +164,14 @@ export function NavigationTransitionProvider({
           }
         }
       }
+    };
 
-      if (!readCacheSnapshot("directory:groups")?.fresh) {
-        void api
-          .groups()
-          .then((data) => writeCacheSnapshot("directory:groups", data))
-          .catch(() => {});
-      }
-      if (!readCacheSnapshot("directory:teachers")?.fresh) {
-        void api.directory
-          .teachers()
-          .then((data) => writeCacheSnapshot("directory:teachers", data))
-          .catch(() => {});
-      }
-      const year = getCurrentAcademicYear();
-      if (!readCacheSnapshot(`edu-process:${year}`)?.fresh) {
-        void api
-          .educationalProcess(year)
-          .then((data) => writeCacheSnapshot(`edu-process:${year}`, data))
-          .catch(() => {});
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        warmCoreRoutes();
       }
     };
+    document.addEventListener("visibilitychange", handleVisibility);
 
     const win = window as Window & {
       requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
@@ -189,11 +179,17 @@ export function NavigationTransitionProvider({
     };
 
     if (typeof win.requestIdleCallback === "function") {
-      const id = win.requestIdleCallback(runWarmup, { timeout: 1800 });
-      return () => win.cancelIdleCallback?.(id);
+      const id = win.requestIdleCallback(warmCoreRoutes, { timeout: 1400 });
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibility);
+        win.cancelIdleCallback?.(id);
+      };
     }
-    const timer = window.setTimeout(runWarmup, 900);
-    return () => window.clearTimeout(timer);
+    const timer = window.setTimeout(warmCoreRoutes, 700);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.clearTimeout(timer);
+    };
   }, [pathname, router]);
 
   const navigateWithTransition = useCallback(
@@ -237,14 +233,14 @@ export function NavigationTransitionProvider({
       const handle = startTypedViewTransition([direction], () => {
         return new Promise<void>((resolve) => {
           pendingResolverRef.current = resolve;
-          // Hard upper bound so an uncached network stall never freezes the snapshot
+          // Hard upper bound so an uncached route never freezes the viewport
           pendingTimerRef.current = window.setTimeout(() => {
             pendingTimerRef.current = null;
             if (pendingResolverRef.current === resolve) {
               pendingResolverRef.current = null;
               resolve();
             }
-          }, 180);
+          }, 90);
           runRouterNav();
         });
       });

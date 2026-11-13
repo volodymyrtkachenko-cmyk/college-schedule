@@ -74,7 +74,7 @@ export function BottomNav() {
         {/* Hardware-accelerated GPU sliding pill */}
         <div
           aria-hidden="true"
-          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu will-change-transform z-0"
+          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
           style={{
             left: "8px",
             width: `calc((100% - 16px) / ${totalTabs})`,

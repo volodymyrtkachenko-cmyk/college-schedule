@@ -39,6 +39,7 @@ export function ScheduleDay({
   currentTeacherId,
   currentTeacherName,
   compactPeriod = false,
+  daySlideDir = 0,
 }: {
   schedule: ScheduleResponse;
   isToday?: boolean;
@@ -59,6 +60,7 @@ export function ScheduleDay({
   currentTeacherId?: number | null;
   currentTeacherName?: string | null;
   compactPeriod?: boolean;
+  daySlideDir?: number;
 }) {
   const { showToast } = useToast();
   const { resolvedTheme } = useTheme();
@@ -241,7 +243,7 @@ export function ScheduleDay({
       )}
 
       {orderedLessons.length ? (
-        <DesktopSpotlightGrid key={schedule.date} className="flex flex-col gap-3">
+        <DesktopSpotlightGrid className="flex flex-col gap-3">
           {orderedLessons.map((lesson, idx) => {
             const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
             const prev = idx > 0 ? orderedLessons[idx - 1] : null;
@@ -262,8 +264,13 @@ export function ScheduleDay({
 
             return (
               <div
-                key={lessonKey}
-                style={{ "--stagger-index": idx } as React.CSSProperties}
+                key={`${schedule.date}-${lessonKey}`}
+                style={
+                  {
+                    "--stagger-index": idx,
+                    "--day-slide-x": daySlideDir ? `${daySlideDir * 14}px` : "0px",
+                  } as React.CSSProperties
+                }
                 className="desktop-stagger-card flex flex-col gap-2.5 relative has-[[data-open]]:z-50"
               >
                 {isBreakNow && (

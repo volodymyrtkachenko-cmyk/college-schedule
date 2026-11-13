@@ -1,9 +1,7 @@
 "use client";
 
 import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
-import { PublicSectionNav } from "@/components/navigation/PublicSectionNav";
 import type { HeaderLearningModeData } from "../../lib/schedule";
-import { ClassroomSyncButton } from "../ClassroomSyncButton";
 
 interface DesktopToolbarProps {
   mode: "student" | "teacher";
@@ -17,8 +15,6 @@ interface DesktopToolbarProps {
   isTodaySelected: boolean;
   compactWeekRange: string;
   headerLearningModeData: HeaderLearningModeData | null;
-  groupId: number | null;
-  weekStartStr: string;
   isTeacherUnlocked: boolean;
   resolvedTheme: "light" | "dark";
   onOpenContextModal: () => void;
@@ -27,12 +23,6 @@ interface DesktopToolbarProps {
   onResetToday: () => void;
   onOpenDatePicker: () => void;
   onViewChange: (nextView: "today" | "week") => void;
-  onClassroomSynced: (
-    detectedId: number | null,
-    tasks?: any[],
-    lastSynced?: string | null,
-    isSilent?: boolean
-  ) => void;
   onOpenTeacherPinModal: () => void;
   onToggleTheme: () => void;
   onOpenGuideHub: () => void;
@@ -50,8 +40,6 @@ export function DesktopToolbar({
   isTodaySelected,
   compactWeekRange,
   headerLearningModeData,
-  groupId,
-  weekStartStr,
   isTeacherUnlocked,
   resolvedTheme,
   onOpenContextModal,
@@ -60,7 +48,6 @@ export function DesktopToolbar({
   onResetToday,
   onOpenDatePicker,
   onViewChange,
-  onClassroomSynced,
   onOpenTeacherPinModal,
   onToggleTheme,
   onOpenGuideHub,
@@ -70,7 +57,7 @@ export function DesktopToolbar({
     (view === "week" && isCurrentWeek);
 
   return (
-    <header className="vt-desktop-header sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card/90 lg:backdrop-blur-md">
+    <header className="vt-desktop-header sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card">
       <div className="mx-auto flex h-full max-w-[1800px] items-center justify-between gap-3 px-4 xl:px-6">
         {/* Left Zone: Brand + Context Selector */}
         <div className="flex items-center gap-3 min-w-0">
@@ -172,7 +159,7 @@ export function DesktopToolbar({
           >
             <div
               aria-hidden="true"
-              className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu will-change-transform z-0"
+              className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu z-0"
               style={{
                 left: "4px",
                 width: "calc((100% - 8px) / 2)",
@@ -225,16 +212,8 @@ export function DesktopToolbar({
           )}
         </div>
 
-        {/* Right Zone: Classroom, Teacher PIN, Theme, Guide, Settings */}
+        {/* Right Zone: Teacher PIN, Theme, Guide, Settings */}
         <div className="flex items-center gap-2 justify-self-end">
-          {mode === "student" && groupId && (
-            <ClassroomSyncButton
-              currentGroupId={groupId}
-              weekStart={weekStartStr}
-              onSynced={onClassroomSynced}
-            />
-          )}
-
           {mode === "teacher" && !isTeacherUnlocked && (
             <button
               type="button"
@@ -290,17 +269,15 @@ export function DesktopToolbar({
             💡
           </button>
 
-          <PublicSectionNav compact />
-
           <TransitionLink
             href={`/settings?mode=${mode}`}
             aria-label="Налаштування застосунку"
             title="Налаштування"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated active:scale-95 transition-colors duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent"
+            className="spring-press flex h-10 items-center justify-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-2.5 xl:px-3 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated transition-colors duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent"
           >
             <svg
-              width="18"
-              height="18"
+              width="17"
+              height="17"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -308,10 +285,12 @@ export function DesktopToolbar({
               strokeLinecap="round"
               strokeLinejoin="round"
               aria-hidden="true"
+              className="shrink-0"
             >
               <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
               <circle cx="12" cy="12" r="3" />
             </svg>
+            <span className="hidden xl:inline text-xs font-semibold">Налаштування</span>
           </TransitionLink>
         </div>
       </div>

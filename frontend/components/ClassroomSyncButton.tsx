@@ -16,6 +16,8 @@ export function ClassroomSyncButton({
   currentGroupId,
   weekStart,
   onSynced,
+  compact = false,
+  listenGlobalTrigger = true,
 }: {
   currentGroupId: number | null;
   weekStart?: string;
@@ -25,6 +27,8 @@ export function ClassroomSyncButton({
     lastSyncedAt?: string | null,
     isSilent?: boolean
   ) => void;
+  compact?: boolean;
+  listenGlobalTrigger?: boolean;
 }) {
   const [syncing, setSyncing] = useState(false);
   const { showToast } = useToast();
@@ -203,14 +207,21 @@ export function ClassroomSyncButton({
   }, [syncing, currentGroupId, weekStart, onSynced, showToast]);
 
   useEffect(() => {
-    const handleTrigger = () => {
+    if (!listenGlobalTrigger) return;
+    const handleTrigger = (e: Event) => {
+      if (e.defaultPrevented) return;
+      e.preventDefault();
       void handleSync();
     };
     window.addEventListener("trigger-classroom-sync", handleTrigger);
     return () => window.removeEventListener("trigger-classroom-sync", handleTrigger);
-  }, [handleSync]);
+  }, [handleSync, listenGlobalTrigger]);
 
   const isLinked = Boolean(linkedEmail);
+
+  const sizeClass = compact
+    ? "inline-flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
+    : "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border px-2.5 sm:px-3 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50";
 
   return (
     <button
@@ -220,25 +231,29 @@ export function ClassroomSyncButton({
       aria-label={isLinked ? "Classroom прив'язано" : "Прив'язати Classroom"}
       title={
         isLinked
-          ? `Classroom (прив'язано ${linkedEmail}) — натисніть для примусової синхронізації`
+          ? `Classroom (прив'язано ${linkedEmail}) — натисніть для синхронізації`
           : "Прив'язати Google Classroom. Сервер лише читає ваші завдання з Classroom і нічого не змінює"
       }
-      className={
+      className={`${sizeClass} ${
         isLinked
-          ? "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 sm:px-3 text-xs font-semibold text-emerald-800 dark:text-emerald-300 transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-500/20 disabled:opacity-50"
-          : "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-50 dark:bg-sky-500/10 px-2.5 sm:px-3 text-xs font-semibold text-sky-800 dark:text-sky-300 transition-colors hover:bg-sky-100 dark:hover:bg-sky-500/20 disabled:opacity-50"
-      }
+          ? "border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20"
+          : "border-sky-500/40 bg-sky-50 dark:bg-sky-500/10 text-sky-800 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20"
+      }`}
     >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+      <svg width={compact ? "13" : "15"} height={compact ? "13" : "15"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
         <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
         <path d="M6 12v5c3 3 9 3 12 0v-5" />
       </svg>
-      <span className="hidden sm:inline">
+      <span className={compact ? "" : "hidden sm:inline"}>
         {syncing
-          ? "Синхронізація..."
+          ? "Оновлення..."
           : isLinked
-            ? "Classroom"
-            : "Прив'язати Classroom"}
+            ? compact
+              ? "Оновити"
+              : "Classroom"
+            : compact
+              ? "Підключити"
+              : "Прив'язати Classroom"}
       </span>
       {isLinked && !syncing ? (
         <span

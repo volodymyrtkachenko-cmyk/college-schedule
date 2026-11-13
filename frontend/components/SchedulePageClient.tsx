@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
-import { AnimatePresence, m, useReducedMotion } from "framer-motion";
+import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { canAccessAdmin, useAuth } from "../lib/auth";
 import { ReferenceRecord } from "../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../lib/hooks";
@@ -199,8 +199,6 @@ export function SchedulePageClient({
               isTodaySelected={isTodaySelected}
               compactWeekRange={sel.compactWeekRange}
               headerLearningModeData={sel.headerLearningModeData}
-              groupId={groupId}
-              weekStartStr={weekStartStr}
               isTeacherUnlocked={isTeacherUnlocked}
               resolvedTheme={resolvedTheme}
               onOpenContextModal={() => setContextModalOpen(true)}
@@ -209,7 +207,6 @@ export function SchedulePageClient({
               onResetToday={sel.view === "today" ? sel.handleJumpToToday : sel.resetWeek}
               onOpenDatePicker={() => setDatePickerOpen(true)}
               onViewChange={sel.handleViewChange}
-              onClassroomSynced={handleToolbarClassroomSynced}
               onOpenTeacherPinModal={() => handleOpenTeacherPinModal(null)}
               onToggleTheme={toggleTheme}
               onOpenGuideHub={() => setGuideHubOpen(true)}
@@ -409,14 +406,9 @@ export function SchedulePageClient({
                   onReturnBack={sel.handleReturnBack}
                 />
               ) : (
-                <m.div
+                <div
                   key={sel.view}
-                  initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: shouldReduceMotion ? 0 : 0.18,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
+                  className={shouldReduceMotion ? "" : "desktop-view-enter"}
                 >
                     {sel.view === "today" ? (
                       <div className="w-full min-w-0 flex items-start justify-center overflow-x-clip">
@@ -456,22 +448,6 @@ export function SchedulePageClient({
                           )}
 
                           <div className="relative w-full">
-                            <m.div
-                              key={`${mode}-${mode === "student" ? groupId : teacherId}-${sel.selectedDaySchedule?.date ?? today?.date ?? "day"}`}
-                              initial={{
-                                opacity: 0,
-                                x:
-                                  shouldReduceMotion || !sel.daySlideDir
-                                    ? 0
-                                    : sel.daySlideDir * 20,
-                              }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{
-                                duration: shouldReduceMotion ? 0 : 0.18,
-                                ease: [0.22, 1, 0.36, 1],
-                              }}
-                              className="w-full"
-                            >
                               <ScheduleDay
                                 schedule={sel.selectedDaySchedule ?? today!}
                                 isToday={sel.selectedDaySchedule?.date === sel.todayActualIso && !sel.isWeekend}
@@ -483,14 +459,18 @@ export function SchedulePageClient({
                                 currentGroupName={mode === "student" ? (sel.currentName ?? null) : null}
                                 currentTeacherId={mode === "teacher" ? teacherId : null}
                                 currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
+                                daySlideDir={sel.daySlideDir}
                               />
-                            </m.div>
                           </div>
                         </div>
 
                         <DesktopScheduleSidebar
                           visible={!sel.isFocusEffective}
                           shouldReduceMotion={shouldReduceMotion}
+                          mode={mode}
+                          groupId={groupId}
+                          weekStartStr={weekStartStr}
+                          onClassroomSynced={handleToolbarClassroomSynced}
                           currentWeekNumber={sel.currentWeekNumber}
                           weekType={sel.weekType}
                           weekRange={sel.weekRange}
@@ -536,7 +516,7 @@ export function SchedulePageClient({
                         />
                       </div>
                     )}
-                </m.div>
+                </div>
               )}
             </div>
           )}

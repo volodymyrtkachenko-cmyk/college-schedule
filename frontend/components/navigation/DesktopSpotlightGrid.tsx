@@ -8,9 +8,8 @@ interface DesktopSpotlightGridProps extends React.HTMLAttributes<HTMLDivElement>
 
 /**
  * Desktop-only GPU pointer spotlight coordinator.
- * Coalesces pointer coordinates in a single requestAnimationFrame and updates
- * `--spot-x` / `--spot-y` on hovered `.interactive-surface` children without React re-renders.
- * Zero event cost on touch / coarse-pointer devices.
+ * Caches surface DOMRects to avoid layout thrashing on pointermove, throttles
+ * sub-4px pointer jitter, and updates `--spot-x` / `--spot-y` in one rAF.
  */
 export function DesktopSpotlightGrid({
   children,
@@ -19,6 +18,8 @@ export function DesktopSpotlightGrid({
   ...rest
 }: DesktopSpotlightGridProps) {
   const rafRef = useRef<number | null>(null);
+  const rectCacheRef = useRef<WeakMap<HTMLElement, DOMRect>>(new WeakMap());
+  const lastCoordsRef = useRef<WeakMap<HTMLElement, { x: number; y: number }>>(new WeakMap());
   const pendingRef = useRef<{
     el: HTMLElement;
     clientX: number;
@@ -31,13 +32,21 @@ export function DesktopSpotlightGrid({
     const mq = window.matchMedia(
       "(min-width: 1024px) and (hover: hover) and (pointer: fine)",
     );
+    const invalidateCache = () => {
+      rectCacheRef.current = new WeakMap();
+    };
     const update = () => {
       canHoverRef.current = mq.matches;
+      invalidateCache();
     };
     update();
     mq.addEventListener?.("change", update);
+    window.addEventListener("scroll", invalidateCache, { passive: true });
+    window.addEventListener("resize", invalidateCache, { passive: true });
     return () => {
       mq.removeEventListener?.("change", update);
+      window.removeEventListener("scroll", invalidateCache);
+      window.removeEventListener("resize", invalidateCache);
       if (rafRef.current !== null) {
         window.cancelAnimationFrame(rafRef.current);
       }
@@ -65,9 +74,24 @@ export function DesktopSpotlightGrid({
         const job = pendingRef.current;
         pendingRef.current = null;
         if (!job) return;
-        const rect = job.el.getBoundingClientRect();
-        job.el.style.setProperty("--spot-x", `${Math.round(job.clientX - rect.left)}px`);
-        job.el.style.setProperty("--spot-y", `${Math.round(job.clientY - rect.top)}px`);
+
+        let rect = rectCacheRef.current.get(job.el);
+        if (!rect) {
+          rect = job.el.getBoundingClientRect();
+          rectCacheRef.current.set(job.el, rect);
+        }
+
+        const relX = Math.round(job.clientX - rect.left);
+        const relY = Math.round(job.clientY - rect.top);
+        const prev = lastCoordsRef.current.get(job.el);
+        if (prev) {
+          const dx = relX - prev.x;
+          const dy = relY - prev.y;
+          if (dx * dx + dy * dy < 16) return;
+        }
+        lastCoordsRef.current.set(job.el, { x: relX, y: relY });
+        job.el.style.setProperty("--spot-x", `${relX}px`);
+        job.el.style.setProperty("--spot-y", `${relY}px`);
       });
     },
     [onPointerMove],

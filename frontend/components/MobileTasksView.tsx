@@ -105,7 +105,7 @@ export function TasksTodoBoard({
       >
         <div
           aria-hidden="true"
-          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu will-change-transform z-0"
+          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu z-0"
           style={{
             left: "4px",
             width: `calc((100% - 8px) / ${totalStatusTabs})`,
@@ -524,6 +524,7 @@ export function MobileTasksView({
         {groupId && (
           <div className="shrink-0 pt-0.5">
             <ClassroomSyncButton
+              listenGlobalTrigger={false}
               currentGroupId={groupId}
               weekStart={weekStart}
               onSynced={(id, syncedTasks, lastSynced, isSilent) =>
@@ -538,7 +539,7 @@ export function MobileTasksView({
       <div className="relative mb-4 grid grid-cols-2 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs select-none isolate">
         <div
           aria-hidden="true"
-          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu will-change-transform z-0"
+          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu z-0"
           style={{
             left: "4px",
             width: "calc((100% - 8px) / 2)",

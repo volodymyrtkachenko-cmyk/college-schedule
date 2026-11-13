@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { m, AnimatePresence } from "framer-motion";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
@@ -308,7 +307,9 @@ export function DayPager({
     const start = touchStartRef.current;
     touchStartRef.current = null;
     if (!start || start.isHoriz || start.lockedAxis !== "x" || e.changedTouches.length === 0) {
-      snapContainerBack(true);
+      if (pendingTranslateRef.current !== 0) {
+        snapContainerBack(true);
+      }
       return;
     }
 
@@ -387,18 +388,8 @@ export function DayPager({
       className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100dvh-12rem)] overflow-x-clip"
     >
       {/* Top context banners: weekend or tomorrow */}
-      <AnimatePresence initial={false}>
-        {isWeekend && (
-          <m.div
-            initial={{ opacity: 0, y: -8, scale: 0.985 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.985 }}
-            transition={{
-              duration: shouldReduceMotion ? 0 : 0.16,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-            className="mb-2.5"
-          >
+      {isWeekend && (
+        <div className="mb-2.5">
             <div className="flex min-h-[48px] max-h-[64px] items-center gap-3 rounded-xl border border-sys-border bg-sys-card px-3.5 py-2 text-xs">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-warning">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -411,9 +402,8 @@ export function DayPager({
                 <span className="text-sys-text-secondary text-xs leading-tight mt-0.5">Показано найближчий навчальний день</span>
               </div>
             </div>
-          </m.div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
 
       {/* Day header: як на ПК — «Понеділок, 20 жовтня» + кнопки поділитися (44x44px) */}
@@ -485,25 +475,18 @@ export function DayPager({
         </div>
       )}
 
-      {/* Animated Day Schedule List (Hardware-composited GPU glide) */}
+      {/* Animated Day Schedule List (Hardware-composited GPU CSS glide) */}
       <div className="relative flex-1 w-full flex flex-col overflow-x-clip">
-        <m.div
+        <div
           key={`${scheduleMode}-${schedule.date}`}
-          initial={
-            shouldReduceMotion || daySlideDir === 0
-              ? false
-              : {
-                  opacity: 0,
-                  x: daySlideDir > 0 ? 22 : -22,
-                }
+          data-slide-dir={
+            !shouldReduceMotion && daySlideDir !== 0
+              ? daySlideDir > 0
+                ? "next"
+                : "prev"
+              : undefined
           }
-          animate={{ opacity: 1, x: 0 }}
-          transition={{
-            type: "tween",
-            duration: shouldReduceMotion ? 0 : 0.16,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-          className="flex flex-col flex-1 gap-3 w-full will-change-[transform,opacity] transform-gpu"
+          className="mobile-day-slide flex flex-col flex-1 gap-3 w-full"
         >
           {orderedLessons.length > 0 ? (
             orderedLessons.map((lesson, idx) => {
@@ -565,7 +548,7 @@ export function DayPager({
               <p className="text-xs text-sys-text-secondary mt-1">Розклад на цей день вільний</p>
             </div>
           )}
-        </m.div>
+        </div>
       </div>
     </div>
   );

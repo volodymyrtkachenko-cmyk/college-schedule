@@ -52,42 +52,53 @@ export default function SettingsPage() {
       setGroupHasSubgroups(cachedFlag === "1");
     }
 
-    const prefix = `schedule:week:groupId:${gid}:`;
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (k && k.startsWith(prefix)) {
-        const raw = window.localStorage.getItem(k);
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const lessons = parsed.flatMap((d: any) => d.lessons || []);
-              if (lessons.length > 0) {
-                if (cachedFlag === null) {
-                  setGroupHasSubgroups(checkScheduleHasSubgroups(lessons));
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+
+      const prefix = `schedule:week:groupId:${gid}:`;
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith(prefix)) {
+          const raw = window.localStorage.getItem(k);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                const lessons = parsed.flatMap((d: any) => d.lessons || []);
+                if (lessons.length > 0) {
+                  if (cachedFlag === null) {
+                    setGroupHasSubgroups(checkScheduleHasSubgroups(lessons));
+                  }
+                  setSubgroupHints(extractSubgroupTeacherHints(lessons));
+                  break;
                 }
-                setSubgroupHints(extractSubgroupTeacherHints(lessons));
-                break;
               }
-            }
-          } catch {}
+            } catch {}
+          }
         }
       }
-    }
 
-    api.week(gid)
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const allLessons = data.flatMap((d) => d.lessons || []);
-          const has = checkScheduleHasSubgroups(allLessons);
-          setGroupHasSubgroups(has);
-          setSubgroupHints(extractSubgroupTeacherHints(allLessons));
-          try {
-            localStorage.setItem(`schedule:has_subgroups:${gid}`, has ? "1" : "0");
-          } catch {}
-        }
-      })
-      .catch(() => {});
+      api.week(gid)
+        .then((data) => {
+          if (cancelled) return;
+          if (Array.isArray(data) && data.length > 0) {
+            const allLessons = data.flatMap((d) => d.lessons || []);
+            const has = checkScheduleHasSubgroups(allLessons);
+            setGroupHasSubgroups(has);
+            setSubgroupHints(extractSubgroupTeacherHints(allLessons));
+            try {
+              localStorage.setItem(`schedule:has_subgroups:${gid}`, has ? "1" : "0");
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }, 150);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, []);
 
   const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">("student");
@@ -192,7 +203,6 @@ export default function SettingsPage() {
         backHref={scheduleMode === "teacher" ? "/?mode=teacher" : "/"}
         onBackClick={() => setHomeTab("schedule")}
         maxWidthClass="max-w-2xl"
-        showMobileSectionStrip={false}
         rightSlot={
           <span className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary whitespace-nowrap">
             {scheduleMode === "teacher" ? "👨‍🏫 Викладач" : "🎓 Студент"}

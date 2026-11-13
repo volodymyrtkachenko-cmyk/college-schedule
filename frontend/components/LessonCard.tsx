@@ -520,7 +520,7 @@ export const LessonCard = memo(function LessonCard({
           onMoveSelect?.(lesson);
         }
       }}
-      className={`interactive-surface group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-[transform,box-shadow,border-color,background-color] duration-base ease-smooth hover:border-sys-border/90 hover:shadow-md active:scale-[0.99] ${
+      className={`interactive-surface group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-[transform,border-color,background-color] duration-150 ease-out hover:border-sys-border/90 active:scale-[0.99] ${
         isHwOpen || moreOpen ? "z-40 !translate-y-0" : ""
       } ${
         isDay

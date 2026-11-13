@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import type { WeekDayMini } from "../../lib/schedule";
 
 interface DesktopFocusDaySwitcherProps {
@@ -81,7 +80,21 @@ export function DesktopFocusDaySwitcher({
             )}
           </div>
 
-          <div className="grid grid-cols-5 gap-2">
+          <div className="relative grid grid-cols-5 gap-2 isolate">
+            {weekDaysMini.length === 5 && (
+              <div
+                aria-hidden="true"
+                className={`pointer-events-none absolute top-0 bottom-0 left-0 z-0 rounded-xl bg-sys-accentSolid shadow-md ring-2 ring-sys-accent/60 transform-gpu ${
+                  shouldReduceMotion
+                    ? ""
+                    : "transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                }`}
+                style={{
+                  width: "calc((100% - 32px) / 5)",
+                  transform: `translate3d(calc(${Math.max(0, Math.min(selectedDayIndex, 4))} * (100% + 8px)), 0, 0)`,
+                }}
+              />
+            )}
             {weekDaysMini.map((d) => {
               const isActive = d.index === selectedDayIndex;
               const isToday = d.iso === todayActualIso;
@@ -90,19 +103,12 @@ export function DesktopFocusDaySwitcher({
                   key={d.iso}
                   type="button"
                   onClick={() => onSelectDayIndex(d.index)}
-                  className={`relative isolate z-10 flex flex-col items-center justify-center h-15 rounded-xl transition-colors duration-fast ease-smooth cursor-pointer active:scale-95 ${
+                  className={`relative z-10 flex flex-col items-center justify-center h-15 rounded-xl transition-colors duration-150 cursor-pointer active:scale-95 ${
                     isActive
                       ? "text-white font-black"
                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
                   }`}
                 >
-                  {isActive && (
-                    <motion.div
-                      layoutId="desktop-focus-day-pill"
-                      className="absolute inset-0 rounded-xl bg-sys-accentSolid shadow-md ring-2 ring-sys-accent/60 -z-10"
-                      transition={{ type: "spring", stiffness: 480, damping: 36 }}
-                    />
-                  )}
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs uppercase font-semibold opacity-90">{d.name}</span>
                     {isToday && (
