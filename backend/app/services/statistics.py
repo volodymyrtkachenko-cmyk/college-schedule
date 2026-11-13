@@ -321,6 +321,8 @@ async def _scheduled_hours(
                         or cell_key in latest_changes
                         or cell_key in overrides_by_cell
                         or item.version_id != active_version_id
+                        or (item.effective_from is not None and item.effective_from > current_date)
+                        or (item.effective_until is not None and item.effective_until < current_date)
                     ):
                         continue
                     # Regular base lesson
@@ -479,8 +481,23 @@ async def _scheduled_hours(
 
     weekly_hours: int | None = None
     if teacher_id is not None:
-        active_version_id = active_versions[0].id if active_versions else None
-        target_schedules = [s for s in schedules if active_version_id is None or s.version_id == active_version_id]
+        through_version = next(
+            (v for v in active_versions if v.valid_from <= through_date <= v.valid_until),
+            None,
+        )
+        if through_version is None:
+            through_version = next(
+                (v for v in active_versions if v.valid_from <= through_date),
+                None,
+            )
+        through_version_id = through_version.id if through_version else None
+        target_schedules = [
+            s
+            for s in schedules
+            if s.version_id == through_version_id
+            and (s.effective_from is None or s.effective_from <= through_date)
+            and (s.effective_until is None or s.effective_until >= through_date)
+        ]
         if target_schedules:
             seen_slots = set()
             half_pairs = 0

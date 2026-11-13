@@ -21,7 +21,17 @@ class CourseProcessInfo(BaseModel):
     course: int
     groups: List[GroupProcessInfo]
 
+class SemesterRangeInfo(BaseModel):
+    semester_number: int
+    name: str
+    start_date: date
+    end_date: date
+    start_week: int
+    end_week: int
+
+
 class EducationalProcessMatrix(BaseModel):
     academic_year_start: int
     weeks: List[WeekInfo]
     courses: List[CourseProcessInfo]
+    semesters: List[SemesterRangeInfo] = []

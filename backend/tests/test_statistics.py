@@ -12,6 +12,7 @@ from app.models import (
     Schedule,
     SchedulePeriod,
     SchedulePeriodSlot,
+    ScheduleVersion,
     Subject,
     Teacher,
 )
@@ -218,3 +219,135 @@ async def test_statistics_endpoint_caps_through_date_at_inclusive_semester_end(
     statistics_mock.assert_awaited_once_with(
         statistics_db, group, semester_start, semester_end
     )
+
+
+@pytest.mark.anyio
+async def test_teacher_weekly_hours_ignores_future_versions_and_respects_effective_dates(statistics_db):
+    group = Group(name="Versioned group")
+    teacher = Teacher(name="Versioned teacher")
+    subject = Subject(name="Versioned subject")
+    statistics_db.add_all([group, teacher, subject])
+    await statistics_db.flush()
+
+    current_v = ScheduleVersion(
+        name="Current term",
+        valid_from=date(2026, 9, 1),
+        valid_until=date(2026, 12, 31),
+        is_active=True,
+    )
+    future_v = ScheduleVersion(
+        name="Next term",
+        valid_from=date(2027, 1, 10),
+        valid_until=date(2027, 5, 31),
+        is_active=True,
+    )
+    statistics_db.add_all([current_v, future_v])
+    await statistics_db.flush()
+
+    statistics_db.add_all([
+        Schedule(
+            group_id=group.id,
+            teacher_id=teacher.id,
+            subject_id=subject.id,
+            version_id=current_v.id,
+            day_of_week=1,
+            lesson_number=1,
+            week_type="both",
+            is_active=True,
+        ),
+        Schedule(
+            group_id=group.id,
+            teacher_id=teacher.id,
+            subject_id=subject.id,
+            version_id=current_v.id,
+            day_of_week=2,
+            lesson_number=1,
+            week_type="both",
+            effective_from=date(2026, 12, 1),
+            is_active=True,
+        ),
+        # Future version has 4 pairs/week, must NOT leak into October weekly_hours
+        Schedule(
+            group_id=group.id,
+            teacher_id=teacher.id,
+            subject_id=subject.id,
+            version_id=future_v.id,
+            day_of_week=3,
+            lesson_number=1,
+            week_type="both",
+            is_active=True,
+        ),
+        Schedule(
+            group_id=group.id,
+            teacher_id=teacher.id,
+            subject_id=subject.id,
+            version_id=future_v.id,
+            day_of_week=4,
+            lesson_number=1,
+            week_type="both",
+            is_active=True,
+        ),
+    ])
+    await statistics_db.commit()
+
+    result = await teacher_statistics(
+        statistics_db,
+        teacher,
+        date(2026, 9, 7),
+        date(2026, 9, 13),
+    )
+
+    assert result["total_hours"] == 2
+    assert result["weekly_hours"] == 2
+
+
+@pytest.mark.anyio
+async def test_teacher_weekly_hours_does_not_sum_multiple_versions_when_unversioned(statistics_db):
+    group = Group(name="Unversioned group")
+    teacher = Teacher(name="Unversioned teacher")
+    subject = Subject(name="Unversioned subject")
+    statistics_db.add_all([group, teacher, subject])
+    await statistics_db.flush()
+
+    future_v = ScheduleVersion(
+        name="Future version",
+        valid_from=date(2027, 2, 1),
+        valid_until=date(2027, 5, 31),
+        is_active=True,
+    )
+    statistics_db.add(future_v)
+    await statistics_db.flush()
+
+    statistics_db.add_all([
+        Schedule(
+            group_id=group.id,
+            teacher_id=teacher.id,
+            subject_id=subject.id,
+            version_id=None,
+            day_of_week=1,
+            lesson_number=1,
+            week_type="both",
+            is_active=True,
+        ),
+        Schedule(
+            group_id=group.id,
+            teacher_id=teacher.id,
+            subject_id=subject.id,
+            version_id=future_v.id,
+            day_of_week=2,
+            lesson_number=1,
+            week_type="both",
+            is_active=True,
+        ),
+    ])
+    await statistics_db.commit()
+
+    result = await teacher_statistics(
+        statistics_db,
+        teacher,
+        date(2026, 9, 7),
+        date(2026, 9, 13),
+    )
+
+    assert result["total_hours"] == 2
+    assert result["weekly_hours"] == 2

@@ -8,12 +8,14 @@ from app.core.security import require_roles
 from app.database import get_db
 from app.schemas import (
     LearningModeConfig,
+    PublicBellsResponse,
     SemesterDatesSetting,
     SemesterDatesUpdate,
     SemesterStartSetting,
     ShortenedDayItem,
     ShortenedDayTogglePayload,
 )
+from app.services.bells import get_public_bells_payload
 from app.services.learning_mode import get_learning_mode_config, save_learning_mode_config
 from app.services.settings import SEMESTER_START_KEY, TEACHER_PIN_KEY, settings_service
 
@@ -132,6 +134,11 @@ async def update_teacher_pin_setting(
 ):
     await settings_service.set(db, TEACHER_PIN_KEY, payload.pin.strip())
     return payload
+
+
+@router.get("/bells", response_model=PublicBellsResponse)
+async def get_public_bells(db: AsyncSession = Depends(get_db)):
+    return await get_public_bells_payload(db)
 
 
 @router.get("/shortened-days", response_model=list[ShortenedDayItem])

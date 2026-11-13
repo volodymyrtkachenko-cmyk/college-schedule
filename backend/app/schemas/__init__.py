@@ -7,7 +7,7 @@ from app.schemas.common import (
     ScheduleItem, SchedulePeriodInfo, ScheduleResponse, SemesterDatesSetting,
     SemesterDatesUpdate, SemesterStartSetting,
     LearningModeConfig, LearningModeOverride,
-    ShortenedDayItem, ShortenedDayTogglePayload,
+    ShortenedDayItem, ShortenedDayTogglePayload, BellSlotItem, PublicBellsResponse,
 )
 
 __all__ = [
@@ -18,5 +18,5 @@ __all__ = [
     "ScheduleItem", "SchedulePeriodInfo", "ScheduleResponse", "SemesterStartSetting",
     "SemesterDatesSetting", "SemesterDatesUpdate",
     "LearningModeConfig", "LearningModeOverride",
-    "ShortenedDayItem", "ShortenedDayTogglePayload",
+    "ShortenedDayItem", "ShortenedDayTogglePayload", "BellSlotItem", "PublicBellsResponse",
 ]

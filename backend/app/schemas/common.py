@@ -160,6 +160,24 @@ class ShortenedDayTogglePayload(BaseModel):
     reason: str | None = Field(default=None, max_length=255)
 
 
+class BellSlotItem(BaseModel):
+    lesson_number: int
+    start_time: str
+    end_time: str
+    duration_minutes: int
+    break_after_minutes: int | None = None
+    is_optional: bool = False
+
+
+class PublicBellsResponse(BaseModel):
+    standard: list[BellSlotItem]
+    shortened: list[BellSlotItem]
+    today_date: date
+    is_shortened_today: bool
+    today_reason: str | None = None
+    upcoming_shortened_days: list[ShortenedDayItem] = []
+
+
 class SchedulePeriodInfo(BaseModel):
     id: int
     name: str

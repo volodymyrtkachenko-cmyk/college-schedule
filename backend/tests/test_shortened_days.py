@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import date, time
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -7,6 +7,7 @@ from app.core.security import create_access_token, hash_password
 from app.database import Base, get_db
 from app.main import app
 from app.models import BellSchedule, Group, Schedule, Subject, Teacher, User
+from app.services.bells import invalidate_bell_cache
 from app.services.settings import settings_service
 
 
@@ -58,6 +59,7 @@ async def shortened_test_setup():
         group_id = group.id
 
     settings_service.clear_cache()
+    invalidate_bell_cache()
 
     async def override_db():
         async with sessions() as session:
@@ -69,6 +71,7 @@ async def shortened_test_setup():
 
     app.dependency_overrides.clear()
     settings_service.clear_cache()
+    invalidate_bell_cache()
     await engine.dispose()
 
 
@@ -210,3 +213,31 @@ async def test_copy_day_via_batch_endpoint(shortened_test_setup):
     assert resp.status_code == 200
     source_data = resp.json()
     assert len(source_data["lessons"]) == 2
+
+
+@pytest.mark.anyio
+async def test_public_bells_endpoint_returns_active_and_shortened_today(shortened_test_setup, monkeypatch):
+    client, admin_token, _, _, _ = shortened_test_setup
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    fake_today = date(2026, 10, 28)
+    monkeypatch.setattr("app.services.bells.today_local", lambda: fake_today)
+
+    resp = await client.post(
+        "/api/settings/shortened-days",
+        json={"date": fake_today.isoformat(), "reason": "День коледжу"},
+        headers=admin_headers,
+    )
+    assert resp.status_code == 200
+
+    bells_resp = await client.get("/api/settings/bells")
+    assert bells_resp.status_code == 200
+    data = bells_resp.json()
+
+    assert data["is_shortened_today"] is True
+    assert data["today_reason"] == "День коледжу"
+    assert len(data["standard"]) == 2
+    assert data["standard"][0]["duration_minutes"] == 80
+    assert data["standard"][0]["break_after_minutes"] == 20
+    assert len(data["shortened"]) == 5
+    assert data["shortened"][0]["duration_minutes"] == 50
+    assert data["shortened"][4]["is_optional"] is True
