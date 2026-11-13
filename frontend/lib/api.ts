@@ -1971,16 +1971,16 @@ export const api = {
             });
         },
         groupStudents: (groupId: number) =>
-            authenticatedRequest<{
-                course_name: string | null;
-                last_synced_at: string | null;
-                connected_accounts_count?: number;
-                total_accounts_count?: number;
-                has_subgroups?: boolean;
-                subgroup_warning?: string | null;
-                accounts?: ClassroomAccountStat[];
-                students: Array<{ id: number; full_name: string; email?: string | null; photo_url?: string | null }>;
-            }>(`/api/classroom/groups/${groupId}/students`),
+            authenticatedRequest<ClassroomGroupRosterResponse>(
+                `/api/classroom/groups/${groupId}/students`
+            ),
+        syncGroupNow: (groupId: number) =>
+            authenticatedRequest<{ ok: boolean } & ClassroomGroupRosterResponse>(
+                `/api/classroom/groups/${groupId}/sync-now`,
+                {
+                    method: "POST",
+                }
+            ),
         bulkImportStudents: (groupId: number, raw_text: string, replace_existing: boolean = false) =>
             authenticatedRequest<{ added: number; total: number }>(
                 `/api/classroom/groups/${groupId}/students/bulk`,
@@ -2004,24 +2004,55 @@ export const api = {
                 }
             ),
         syncAll: () =>
-            authenticatedRequest<{ status: string; synced_count: number; errors_count: number }>(
-                "/api/classroom/credentials/sync-all",
+            authenticatedRequest<{
+                checked_groups: number;
+                processed: number[];
+                errors?: Array<{ group_id: number; error: string }>;
+            }>(
+                "/api/classroom/sync-all",
                 {
                     method: "POST",
                 }
             ),
         getDiagnostics: () =>
             authenticatedRequest<{
+                primary_key_configured?: boolean;
                 total_credentials: number;
-                active_credentials: number;
-                needs_relink_credentials: number;
-                crypto_status: any;
+                active_credentials?: number;
+                needs_relink_credentials?: number;
+                crypto_status?: any;
+                worker_heartbeat?: ClassroomWorkerHeartbeat | null;
+                group_backoffs?: Record<string, { failures: number; backoff_until: string; remaining_seconds: number }>;
                 credentials: any[];
             }>("/api/classroom/credentials/diagnostics", {
                 method: "GET",
             }),
     },
 };
+export interface ClassroomWorkerHeartbeat {
+    last_started_at?: string | null;
+    last_finished_at?: string | null;
+    checked_groups?: number;
+    processed?: number[];
+    errors?: Array<{ group_id: number; error: string }>;
+    force?: boolean;
+    duration_ms?: number;
+    next_interval_s?: number;
+    next_run_at?: string | null;
+}
+export interface ClassroomGroupRosterResponse {
+    course_name: string | null;
+    last_synced_at: string | null;
+    connected_accounts_count?: number;
+    total_accounts_count?: number;
+    has_subgroups?: boolean;
+    subgroup_warning?: string | null;
+    sync_in_progress?: boolean;
+    group_backoff_until?: string | null;
+    worker_heartbeat?: ClassroomWorkerHeartbeat | null;
+    accounts?: ClassroomAccountStat[];
+    students: Array<{ id: number; full_name: string; email?: string | null; photo_url?: string | null }>;
+}
 export interface ClassroomAccountStat {
     id: number;
     google_user_id: string;

@@ -162,3 +162,85 @@ async def test_is_cred_healthy_logic(classroom_db):
     assert accs[103]["is_active"] is False
     assert summary["connected_accounts_count"] == 2
     assert summary["needs_reconnect"] is False
+
+
+@pytest.mark.anyio
+async def test_honest_group_accounts_summary_preserves_errors_backoff_and_needs_relink(classroom_db):
+    from datetime import datetime, timedelta, timezone
+    from app.models import ClassroomCredential
+    from app.routers.classroom import _build_group_accounts_summary
+
+    _, state = classroom_db
+    gid = state["group_id"]
+    now_utc = datetime.now(timezone.utc)
+    valid_enc = encrypt_token("1//honest_refresh_token")
+
+    c1 = ClassroomCredential(
+        id=201,
+        group_id=gid,
+        google_user_id="uid_honest_1",
+        email="ok@kre.dp.ua",
+        refresh_token=valid_enc,
+        last_synced_at=now_utc - timedelta(minutes=10),
+        is_active=True,
+        needs_relink=False,
+    )
+    c2 = ClassroomCredential(
+        id=202,
+        group_id=gid,
+        google_user_id="uid_honest_2",
+        email="backoff@kre.dp.ua",
+        refresh_token=valid_enc,
+        last_synced_at=now_utc - timedelta(hours=3),
+        last_error="courses_http_429",
+        fail_count=2,
+        next_attempt_at=now_utc + timedelta(minutes=25),
+        is_active=True,
+        needs_relink=False,
+    )
+    c3 = ClassroomCredential(
+        id=203,
+        group_id=gid,
+        google_user_id="uid_honest_3",
+        email="relink@kre.dp.ua",
+        refresh_token=valid_enc,
+        last_synced_at=now_utc - timedelta(hours=18),
+        last_error="needs_relink: courses_error_401",
+        fail_count=1,
+        is_active=False,
+        needs_relink=True,
+    )
+    c4 = ClassroomCredential(
+        id=204,
+        group_id=gid,
+        google_user_id="uid_honest_4",
+        email="corrupt@kre.dp.ua",
+        refresh_token="",
+        last_synced_at=now_utc - timedelta(minutes=15),
+        last_error="missing_or_corrupt_refresh_token",
+        fail_count=1,
+        is_active=False,
+        needs_relink=True,
+    )
+
+    async with state["sessions"]() as db:
+        db.add_all([c1, c2, c3, c4])
+        await db.commit()
+        summary = await _build_group_accounts_summary(db, gid)
+
+    accs = {a["id"]: a for a in summary["accounts"]}
+    assert accs[201]["is_active"] is True
+    assert accs[201]["last_error"] is None
+
+    # c2 має бути здоровим за токеном, але НЕ приховувати помилку й next_attempt_at!
+    assert accs[202]["is_active"] is True
+    assert accs[202]["last_error"] == "courses_http_429"
+    assert accs[202]["fail_count"] == 2
+    assert accs[202]["next_attempt_at"] is not None
+
+    # c3 і c4 мають бути нездоровими через needs_relink / missing_or_corrupt_refresh_token
+    assert accs[203]["is_active"] is False
+    assert accs[203]["needs_relink"] is True
+    assert accs[204]["is_active"] is False
+    assert accs[204]["needs_relink"] is True
+    assert summary["connected_accounts_count"] == 2

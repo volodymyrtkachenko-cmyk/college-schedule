@@ -2,8 +2,11 @@ from sqlalchemy import event, inspect as sa_inspect
 from sqlalchemy.orm import Session
 from sqlalchemy import update
 from datetime import datetime, timezone
-from app.models.entities import Schedule, ScheduleOverride, ImportedScheduleChange, Group, Teacher
+from app.models.entities import Schedule, ScheduleOverride, ImportedScheduleChange, Group, Teacher, Setting
 from app.models.lesson_notes import LessonOccurrenceNote
+
+# Internal diagnostic/heartbeat keys stored in `settings` that never alter schedules.
+_NON_SCHEDULE_SETTING_KEYS = {"classroom_auto_sync_heartbeat"}
 
 # Tables whose rows are scoped to one group (have group_id). Notes are attached
 # after projection, so they invalidate HTTP/ETag revisions but not the projection cache.
@@ -76,6 +79,8 @@ def bump_group_updated_at(session: Session, flush_context, instances):
             elif table not in _NOTE_TABLES:
                 pend["global"] = pend["projection_global"] = projection_dirty = True
         elif table in _GLOBAL_TABLES:
+            if isinstance(obj, Setting) and getattr(obj, "key", None) in _NON_SCHEDULE_SETTING_KEYS:
+                continue
             pend["global"] = pend["projection_global"] = projection_dirty = True
 
     if groups_to_bump:
@@ -90,6 +95,8 @@ def bump_group_updated_at(session: Session, flush_context, instances):
 
 def _mark_bulk_dml(orm_execute_state):
     """Core/bulk insert/update/delete bypass session.dirty — treat them as global changes."""
+    if orm_execute_state.execution_options.get("skip_cache_rev"):
+        return
     if not (orm_execute_state.is_insert or orm_execute_state.is_update or orm_execute_state.is_delete):
         return
     table = getattr(getattr(orm_execute_state.statement, "table", None), "name", None)

@@ -8,7 +8,14 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { AdminNav, referenceLabels } from "../../components/admin/AdminNav";
 import { ReferenceForm } from "../../components/admin/ReferenceForm";
 import { ReferenceTable } from "../../components/admin/ReferenceTable";
-import { api, invalidateDirectoryCache, ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
+import {
+  api,
+  ClassroomGroupRosterResponse,
+  invalidateDirectoryCache,
+  ReferenceMutation,
+  ReferenceRecord,
+  ReferenceResource,
+} from "../../lib/api";
 import { useAuth, canAccessAdmin } from "../../lib/auth";
 import { ConfirmModal } from "../../components/admin/ConfirmModal";
 const AdminScheduleEditor = dynamic(() => import("../../components/admin/AdminScheduleEditor").then((module) => module.AdminScheduleEditor), {
@@ -243,17 +250,9 @@ function AdminContent() {
   const [bulkStudentText, setBulkStudentText] = useState("");
   const [bulkStudentReplace, setBulkStudentReplace] = useState(false);
   const [bulkStudentSaving, setBulkStudentSaving] = useState(false);
-  const [rosterData, setRosterData] = useState<{
-    course_name: string | null;
-    last_synced_at: string | null;
-    connected_accounts_count?: number;
-    total_accounts_count?: number;
-    has_subgroups?: boolean;
-    subgroup_warning?: string | null;
-    accounts?: import("../../lib/api").ClassroomAccountStat[];
-    students: Array<{ id: number; full_name: string; email?: string | null; photo_url?: string | null }>;
-  } | null>(null);
+  const [rosterData, setRosterData] = useState<ClassroomGroupRosterResponse | null>(null);
   const [rosterLoading, setRosterLoading] = useState(false);
+  const [forcingGroupSync, setForcingGroupSync] = useState(false);
 
   const openGroupRoster = async (group: { id: number; name: string }, preserveTab = false) => {
     setRosterGroup(group);
@@ -314,6 +313,20 @@ function AdminContent() {
       await openGroupRoster(rosterGroup, true);
     } catch (err) {
       setToast(err instanceof Error ? err.message : "Не вдалося відключити акаунт", "error");
+    }
+  };
+
+  const handleSyncGroupNow = async () => {
+    if (!rosterGroup || forcingGroupSync) return;
+    setForcingGroupSync(true);
+    try {
+      const updated = await api.classroom.syncGroupNow(rosterGroup.id);
+      setRosterData(updated);
+      setToast("Примусову синхронізацію групи виконано", "success");
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Не вдалося виконати синхронізацію", "error");
+    } finally {
+      setForcingGroupSync(false);
     }
   };
 
@@ -1007,15 +1020,68 @@ function AdminContent() {
                             ? "Група має підгрупи: бажано підключити хоча б по 1 студенту з кожної підгрупи"
                             : "Для повної синхронізації завдань достатньо 1 активного акаунта"}
                         </p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-sys-text-secondary">
+                          {rosterData?.worker_heartbeat?.last_finished_at ? (
+                            <span>
+                              Автоцикл воркера: {formatLastSynced(rosterData.worker_heartbeat.last_finished_at)}
+                              {typeof rosterData.worker_heartbeat.checked_groups === "number"
+                                ? ` (${rosterData.worker_heartbeat.processed?.length ?? 0}/${rosterData.worker_heartbeat.checked_groups} груп)`
+                                : ""}
+                            </span>
+                          ) : (
+                            <span>Автоцикл воркера: ще не зафіксовано</span>
+                          )}
+                          {rosterData?.worker_heartbeat?.errors && rosterData.worker_heartbeat.errors.length > 0 && (
+                            <span className="text-amber-700 dark:text-amber-400 font-medium">
+                              Помилок циклу: {rosterData.worker_heartbeat.errors.length}
+                            </span>
+                          )}
+                          {rosterData?.group_backoff_until && (
+                            <span className="text-amber-700 dark:text-amber-400 font-medium">
+                              Пауза групи до{" "}
+                              {new Date(rosterData.group_backoff_until).toLocaleTimeString("uk-UA", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <ClassroomSyncButton
-                        currentGroupId={rosterGroup.id}
-                        onSynced={(_gid, _tasks, _lastSynced, isSilent) => {
-                          if (!isSilent) {
-                            void openGroupRoster(rosterGroup, true);
-                          }
-                        }}
-                      />
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={handleSyncGroupNow}
+                          disabled={forcingGroupSync}
+                          aria-busy={forcingGroupSync}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-sys-accent/40 bg-sys-accent/10 px-3 py-2 text-xs font-semibold text-sys-accent hover:bg-sys-accent/20 disabled:opacity-50 transition-colors"
+                          title="Примусово синхронізувати всі активні акаунти цієї групи прямо зараз"
+                        >
+                          <svg
+                            width="13"
+                            height="13"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                            className={forcingGroupSync ? "animate-spin" : ""}
+                          >
+                            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                            <path d="M21 3v5h-5" />
+                          </svg>
+                          <span>{forcingGroupSync ? "Синхронізація..." : "Оновити зараз"}</span>
+                        </button>
+                        <ClassroomSyncButton
+                          currentGroupId={rosterGroup.id}
+                          onSynced={(_gid, _tasks, _lastSynced, isSilent) => {
+                            if (!isSilent) {
+                              void openGroupRoster(rosterGroup, true);
+                            }
+                          }}
+                        />
+                      </div>
                     </div>
 
                     {/* Попередження, якщо для підгрупи немає жодного активного акаунта */}
@@ -1063,7 +1129,14 @@ function AdminContent() {
                                 acc.last_error.includes("token_is_access_token_not_refresh_token")
                               ))
                             );
+                            const nextAttemptDate = acc.next_attempt_at ? new Date(acc.next_attempt_at) : null;
+                            const inBackoff = Boolean(
+                              nextAttemptDate &&
+                                !Number.isNaN(nextAttemptDate.getTime()) &&
+                                nextAttemptDate.getTime() > Date.now()
+                            );
                             const isWorking = acc.is_active && !needsRelink;
+                            const hasTempIssue = isWorking && (inBackoff || acc.fail_count > 0 || Boolean(acc.last_error));
 
                             const errorLabel = (() => {
                               if (acc.reason_code === "key_changed") return "Ключ шифрування змінено — потрібна повторна прив'язка";
@@ -1080,82 +1153,99 @@ function AdminContent() {
                               return acc.last_error ? `Помилка: ${acc.last_error}` : null;
                             })();
 
+                            const dotClass = needsRelink || hasTempIssue
+                              ? "bg-amber-500 dark:bg-amber-400"
+                              : isWorking
+                              ? "bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"
+                              : "bg-rose-500 dark:bg-rose-400";
+
+                            const labelClass = needsRelink || hasTempIssue
+                              ? "text-amber-700 dark:text-amber-400 font-medium"
+                              : isWorking
+                              ? "text-emerald-700 dark:text-emerald-400 font-medium"
+                              : "text-rose-700 dark:text-rose-400 font-medium";
+
+                            const statusLabel = needsRelink
+                              ? "Потрібна прив'язка"
+                              : !isWorking
+                              ? "Неактивний"
+                              : inBackoff
+                              ? "Пауза (ліміт/помилка)"
+                              : hasTempIssue
+                              ? "Тимчасова помилка"
+                              : "Активний";
+
                             return (
                               <div
                                 key={acc.id || idx}
-                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-sys-border/60 bg-sys-card/70 p-3 text-xs transition-colors hover:border-sys-border"
+                                className="flex flex-col gap-2 rounded-xl border border-sys-border/60 bg-sys-card/70 p-3 text-xs transition-colors hover:border-sys-border"
                               >
-                                {/* Ліва частина: Аватар + Ім'я + Email + Підгрупа */}
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <AdminUserAvatar photoUrl={acc.photo_url} name={acc.student_name} size="md" />
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                  {/* Ліва частина: Аватар + Ім'я + Email + Підгрупа */}
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <AdminUserAvatar photoUrl={acc.photo_url} name={acc.student_name} size="md" />
 
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-semibold text-sys-text-primary text-[13px] truncate">
-                                        {displayName}
-                                      </span>
-                                      {acc.subgroup ? (
-                                        <span className="inline-flex shrink-0 items-center gap-1 h-5 px-1.5 rounded-md border border-sys-accent/35 bg-sys-accent/15 text-[10px] font-semibold text-sys-accent">
-                                          <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" aria-hidden="true" />
-                                          <span>{acc.subgroup} підгр.</span>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-semibold text-sys-text-primary text-[13px] truncate">
+                                          {displayName}
                                         </span>
-                                      ) : null}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sys-text-muted text-[11px] truncate mt-0.5">
-                                      <span>{subtitle}</span>
+                                        {acc.subgroup ? (
+                                          <span className="inline-flex shrink-0 items-center gap-1 h-5 px-1.5 rounded-md border border-sys-accent/35 bg-sys-accent/15 text-[10px] font-semibold text-sys-accent">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" aria-hidden="true" />
+                                            <span>{acc.subgroup} підгр.</span>
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <div className="flex items-center gap-2 text-sys-text-muted text-[11px] truncate mt-0.5">
+                                        <span>{subtitle}</span>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
 
-                                {/* Права частина: Статус синхронізації + Кнопка відключення */}
-                                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-sys-border/30">
-                                  <div className="text-left sm:text-right">
-                                    <div className="flex items-center sm:justify-end gap-1.5 text-[11px]">
-                                      <span
-                                        className={`h-2 w-2 rounded-full shrink-0 ${
-                                          isWorking
-                                            ? "bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"
-                                            : needsRelink
-                                            ? "bg-amber-500 dark:bg-amber-400"
-                                            : "bg-rose-500 dark:bg-rose-400"
-                                        }`}
-                                      />
-                                      <span
-                                        className={
-                                          isWorking
-                                            ? "text-emerald-700 dark:text-emerald-400 font-medium"
-                                            : needsRelink
-                                            ? "text-amber-700 dark:text-amber-400 font-medium"
-                                            : "text-rose-700 dark:text-rose-400 font-medium"
-                                        }
-                                      >
-                                        {isWorking ? "Активний" : needsRelink ? "Потрібна прив'язка" : "Неактивний"}
+                                  {/* Права частина: Статус синхронізації + Кнопка відключення */}
+                                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-sys-border/30">
+                                    <div className="text-left sm:text-right">
+                                      <div className="flex items-center sm:justify-end gap-1.5 text-[11px]">
+                                        <span className={`h-2 w-2 rounded-full shrink-0 ${dotClass}`} aria-hidden="true" />
+                                        <span className={labelClass}>{statusLabel}</span>
+                                      </div>
+                                      <span className="text-[10px] text-sys-text-secondary block mt-0.5">
+                                        {acc.last_synced_at
+                                          ? `Синхронізовано ${formatLastSynced(acc.last_synced_at)}`
+                                          : acc.last_client_seen_at
+                                          ? `Активність ${formatLastSynced(acc.last_client_seen_at)}`
+                                          : "ще не синхронізовано"}
                                       </span>
                                     </div>
-                                    <span className="text-[10px] text-sys-text-secondary block mt-0.5">
-                                      {acc.last_synced_at
-                                        ? `Синхронізовано ${formatLastSynced(acc.last_synced_at)}`
-                                        : acc.last_client_seen_at
-                                        ? `Активність ${formatLastSynced(acc.last_client_seen_at)}`
-                                        : "ще не синхронізовано"}
-                                    </span>
-                                  </div>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteClassroomAccount(acc.id, displayName)}
-                                    className="rounded-lg p-1.5 text-sys-text-muted hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                                    title="Відключити цей акаунт"
-                                  >
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                                    </svg>
-                                  </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteClassroomAccount(acc.id, displayName)}
+                                      className="rounded-lg p-1.5 text-sys-text-muted hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                                      title="Відключити цей акаунт"
+                                      aria-label={`Відключити ${displayName}`}
+                                    >
+                                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                        <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                      </svg>
+                                    </button>
+                                  </div>
                                 </div>
 
-                                {errorLabel && (
-                                  <div className="w-full text-amber-800 dark:text-amber-300 text-[11px] bg-amber-500/10 border border-amber-500/20 rounded-lg p-2 mt-1 truncate" title={acc.last_error || errorLabel}>
-                                    ⚠ {errorLabel}
+                                {(errorLabel || inBackoff) && (
+                                  <div
+                                    className="w-full text-amber-800 dark:text-amber-300 text-[11px] bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1.5 break-words"
+                                    title={acc.last_error || errorLabel || undefined}
+                                  >
+                                    <span aria-hidden="true">⚠ </span>
+                                    {errorLabel || "Тимчасова пауза через помилку Google API"}
+                                    {inBackoff && nextAttemptDate
+                                      ? ` · Наступна спроба о ${nextAttemptDate.toLocaleTimeString("uk-UA", {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}`
+                                      : null}
                                   </div>
                                 )}
                               </div>

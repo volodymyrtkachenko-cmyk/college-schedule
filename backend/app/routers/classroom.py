@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import hashlib
+import json
 import os
 import logging
 import re
@@ -31,6 +32,7 @@ from app.models import (
     Group,
     GroupStudent,
     Schedule,
+    Setting,
     Teacher,
     User,
 )
@@ -1010,10 +1012,97 @@ async def _refresh_google_token(refresh_token: str) -> Optional[str]:
     return tok
 
 
-MAX_ACCOUNTS_PER_CYCLE = 2
+MAX_ACCOUNTS_PER_CYCLE = 5
 CACHE_TTL_TEACHERS_TOPICS = 12 * 3600  # 12 годин TTL для статичних метаданих курсів (викладачі та теми)
+CLASSROOM_AUTO_SYNC_HEARTBEAT_KEY = "classroom_auto_sync_heartbeat"
 _last_students_synced_at: dict[int, datetime] = {}
 _course_teachers_cache: dict[str, tuple[float, Any]] = {}
+
+
+def _is_permanent_token_error(err_msg: Optional[str]) -> bool:
+    """True коли токен відкликаний або пошкоджений назавжди і потрібна повторна прив'язка."""
+    msg = (err_msg or "").lower()
+    if not msg:
+        return False
+    return (
+        "invalid_grant" in msg
+        or "missing_or_corrupt_refresh_token" in msg
+        or "token_is_access_token_not_refresh_token" in msg
+        or "unauthorized_client" in msg
+    )
+
+
+def _is_permanent_courses_error(status_code: int, response_text: str = "") -> bool:
+    """Відокремлює відкликаний доступ (401/403 scope) від тимчасових лімітів/збоїв Google API (429/5xx)."""
+    if status_code == 401:
+        return True
+    if status_code == 403:
+        low = (response_text or "").lower()
+        transient_markers = ("ratelimit", "rate_limit", "quota", "limitexceeded", "backend", "unavailable")
+        return not any(marker in low for marker in transient_markers)
+    return False
+
+
+def _is_transient_recoverable_error(last_error: Optional[str]) -> bool:
+    """True для записів, помилково деактивованих через тимчасову помилку (429/5xx/missing_client_secret)."""
+    msg = (last_error or "").lower()
+    if not msg or _is_permanent_token_error(msg):
+        return False
+    return (
+        "missing_client_secret" in msg
+        or "courses_error_429" in msg
+        or "courses_error_5" in msg
+        or "courses_http_429" in msg
+        or "courses_http_5" in msg
+        or "network_error" in msg
+        or "timeout" in msg
+        or "rate_limit" in msg
+    )
+
+
+async def _write_classroom_heartbeat(db: AsyncSession, payload: dict[str, Any]) -> None:
+    """Зберігає стан останнього циклу автосинхронізації без інвалідації ETag розкладу."""
+    value = json.dumps(payload, ensure_ascii=False)
+    try:
+        dialect = db.get_bind().dialect.name
+        if dialect == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert as pg_insert
+            stmt = pg_insert(Setting).values(key=CLASSROOM_AUTO_SYNC_HEARTBEAT_KEY, value=value)
+            await db.execute(
+                stmt.on_conflict_do_update(index_elements=["key"], set_={"value": value}),
+                execution_options={"skip_cache_rev": True},
+            )
+        elif dialect == "sqlite":
+            from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+            stmt = sqlite_insert(Setting).values(key=CLASSROOM_AUTO_SYNC_HEARTBEAT_KEY, value=value)
+            await db.execute(
+                stmt.on_conflict_do_update(index_elements=["key"], set_={"value": value}),
+                execution_options={"skip_cache_rev": True},
+            )
+        else:
+            existing = await db.get(Setting, CLASSROOM_AUTO_SYNC_HEARTBEAT_KEY)
+            if existing is None:
+                db.add(Setting(key=CLASSROOM_AUTO_SYNC_HEARTBEAT_KEY, value=value))
+            else:
+                existing.value = value
+    except Exception:
+        existing = await db.get(Setting, CLASSROOM_AUTO_SYNC_HEARTBEAT_KEY)
+        if existing is None:
+            db.add(Setting(key=CLASSROOM_AUTO_SYNC_HEARTBEAT_KEY, value=value))
+        else:
+            existing.value = value
+    await db.commit()
+
+
+async def _read_classroom_heartbeat(db: AsyncSession) -> Optional[dict[str, Any]]:
+    row = await db.get(Setting, CLASSROOM_AUTO_SYNC_HEARTBEAT_KEY)
+    if not row or not row.value:
+        return None
+    try:
+        data = json.loads(row.value)
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
 _course_topics_cache: dict[str, tuple[float, Any]] = {}
 
 
@@ -2394,25 +2483,34 @@ async def sync_from_classroom(
                     )
                     .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
                 )
+            refresh_permanent_error = False
             if db_lookup_cred:
-                db_lookup_cred.last_client_seen_at = datetime.now(timezone.utc)
+                now_utc = datetime.now(timezone.utc)
+                db_lookup_cred.last_client_seen_at = now_utc
                 if db_lookup_cred.refresh_token:
                     if not refresh_token:
                         refresh_token = db_lookup_cred.refresh_token
                     if not access_token:
-                        fresh_tok, err_detail, rotated = await _refresh_google_token_detailed(db_lookup_cred.refresh_token)
+                        fresh_tok, err_detail, status_code = await _refresh_google_token_detailed(db_lookup_cred.refresh_token)
                         if fresh_tok:
                             access_token = fresh_tok
                             db_lookup_cred.is_active = True
                             db_lookup_cred.needs_relink = False
-                            db_lookup_cred.last_refresh_ok_at = datetime.now(timezone.utc)
+                            db_lookup_cred.last_refresh_ok_at = now_utc
+                            rotated = rotate_token(db_lookup_cred.refresh_token)
                             if rotated:
                                 db_lookup_cred.refresh_token = rotated
                         else:
-                            db_lookup_cred.needs_relink = True
-                            db_lookup_cred.is_active = False
-                            db_lookup_cred.last_error = f"needs_relink: {err_detail}"
+                            err_text = err_detail or f"refresh_failed_{status_code}"
+                            if _is_permanent_token_error(err_text):
+                                refresh_permanent_error = True
+                                db_lookup_cred.needs_relink = True
+                                db_lookup_cred.is_active = False
+                                db_lookup_cred.last_error = f"needs_relink: {err_text}"
+                            else:
+                                _apply_credential_backoff(db_lookup_cred, err_text, now_utc)
                 else:
+                    refresh_permanent_error = True
                     db_lookup_cred.needs_relink = True
                     db_lookup_cred.is_active = False
                     db_lookup_cred.last_error = "needs_relink: missing_or_corrupt_refresh_token"
@@ -2426,11 +2524,20 @@ async def sync_from_classroom(
                     grp = await db.get(Group, target_gid)
                     if grp:
                         target_gname = grp.name
+                is_relink = refresh_permanent_error or not db_lookup_cred or not db_lookup_cred.refresh_token
                 return {
-                    "status": "needs_relink",
-                    "needs_relink": True,
-                    "reason_code": "no_refresh_token" if not db_lookup_cred or not db_lookup_cred.refresh_token else "token_refresh_failed",
-                    "error": "Потрібне повторне підключення до Google Classroom",
+                    "status": "needs_relink" if is_relink else "temporary_error",
+                    "needs_relink": is_relink,
+                    "reason_code": (
+                        ("no_refresh_token" if not db_lookup_cred or not db_lookup_cred.refresh_token else "token_refresh_failed")
+                        if is_relink
+                        else "temporary_error"
+                    ),
+                    "error": (
+                        "Потрібне повторне підключення до Google Classroom"
+                        if is_relink
+                        else "Тимчасова помилка Google під час оновлення токена"
+                    ),
                     "group_id": target_gid or 0,
                     "group_name": target_gname,
                     "synced_links": 0,
@@ -2467,18 +2574,34 @@ async def sync_from_classroom(
                         headers=headers,
                     )
             if courses_resp.status_code != 200:
+                is_perm = _is_permanent_courses_error(courses_resp.status_code, courses_resp.text)
                 if db_lookup_cred:
-                    db_lookup_cred.needs_relink = True
-                    db_lookup_cred.is_active = False
-                    db_lookup_cred.last_error = f"needs_relink: courses_error_{courses_resp.status_code}"
+                    if is_perm:
+                        db_lookup_cred.needs_relink = True
+                        db_lookup_cred.is_active = False
+                        db_lookup_cred.last_error = f"needs_relink: courses_error_{courses_resp.status_code}"
+                    else:
+                        _apply_credential_backoff(
+                            db_lookup_cred,
+                            f"courses_error_{courses_resp.status_code}",
+                            datetime.now(timezone.utc),
+                        )
                     await db.commit()
                 if not payload.code and (payload.google_user_id or payload.email):
                     target_gid = payload.group_id or (db_lookup_cred.group_id if db_lookup_cred else 0)
                     return {
-                        "status": "needs_relink",
-                        "needs_relink": True,
-                        "reason_code": "revoked" if courses_resp.status_code == 401 else "api_error",
-                        "error": "Не вдалося прочитати курси з Google Classroom (потрібна повторна прив'язка)",
+                        "status": "needs_relink" if is_perm else "temporary_error",
+                        "needs_relink": is_perm,
+                        "reason_code": (
+                            ("revoked" if courses_resp.status_code == 401 else "api_error")
+                            if is_perm
+                            else "temporary_error"
+                        ),
+                        "error": (
+                            "Не вдалося прочитати курси з Google Classroom (потрібна повторна прив'язка)"
+                            if is_perm
+                            else "Google Classroom тимчасово обмежив запити — спробуйте трохи пізніше"
+                        ),
                         "group_id": target_gid or 0,
                         "group_name": "",
                         "synced_links": 0,
@@ -2488,7 +2611,10 @@ async def sync_from_classroom(
                         "personal_tasks": [],
                         "unmapped_tasks": [],
                     }
-                raise HTTPException(status_code=401, detail="Не вдалося прочитати курси з Google Classroom")
+                raise HTTPException(
+                    status_code=401 if is_perm else 503,
+                    detail="Не вдалося прочитати курси з Google Classroom",
+                )
 
             courses = courses_resp.json().get("courses", [])
 
@@ -3013,18 +3139,30 @@ async def _fetch_user_submissions(
                         )
 
             if courses_resp.status_code != 200:
+                is_perm = _is_permanent_courses_error(courses_resp.status_code, courses_resp.text)
                 if cred:
-                    cred.needs_relink = True
-                    cred.is_active = False
-                    cred.last_error = f"needs_relink: courses_error_{courses_resp.status_code}"
+                    if is_perm:
+                        cred.needs_relink = True
+                        cred.is_active = False
+                        cred.last_error = f"needs_relink: courses_error_{courses_resp.status_code}"
+                    else:
+                        _apply_credential_backoff(
+                            cred,
+                            f"courses_error_{courses_resp.status_code}",
+                            datetime.now(timezone.utc),
+                        )
                     await db.commit()
                 return {
                     "connected": False,
                     "submissions": {},
                     "tasks": [],
                     "reason": f"courses_error_{courses_resp.status_code}",
-                    "needs_relink": True,
-                    "reason_code": "revoked" if courses_resp.status_code == 401 else "api_error",
+                    "needs_relink": is_perm,
+                    "reason_code": (
+                        ("revoked" if courses_resp.status_code == 401 else "api_error")
+                        if is_perm
+                        else "temporary_error"
+                    ),
                 }
 
             all_courses = courses_resp.json().get("courses", [])
@@ -3415,13 +3553,26 @@ async def trigger_background_sync_if_needed(
         )
 
         if all_creds:
-            # Auto-unblock credentials that failed solely due to missing client secret now that it's present
-            if get_google_client_secret():
-                for c in all_creds:
-                    if c.is_active and c.last_error and "missing_client_secret" in c.last_error:
+            # Відновлюємо записи, що застрягли через відсутній секрет або тимчасові збої (429/5xx/timeout)
+            has_secret = bool(get_google_client_secret())
+            recovered_any = False
+            for c in all_creds:
+                if c.is_active and c.last_error and "missing_client_secret" in c.last_error and has_secret:
+                    c.last_error = None
+                    c.fail_count = 0
+                    c.next_attempt_at = None
+                    recovered_any = True
+                elif (not c.is_active or getattr(c, "needs_relink", False)) and _is_transient_recoverable_error(c.last_error):
+                    if "missing_client_secret" in (c.last_error or "").lower() and not has_secret:
+                        continue
+                    plain_rt, _ = decrypt_token_detailed(c.refresh_token) if c.refresh_token else (None, "empty")
+                    if plain_rt and plain_rt.startswith("1//"):
+                        c.is_active = True
+                        c.needs_relink = False
                         c.last_error = None
                         c.fail_count = 0
                         c.next_attempt_at = None
+                        recovered_any = True
 
             # 25.5: Беремо активні записи групи, для яких настав час спроби,
             # відсортовані за last_synced_at (найстаріший першим, NULLS FIRST).
@@ -3435,6 +3586,8 @@ async def trigger_background_sync_if_needed(
 
             active_creds = [c for c in all_creds if _is_ready(c)]
             if not active_creds:
+                if recovered_any:
+                    await db.commit()
                 logger.warning("Classroom sync group_id=%s: no ready active credentials", group_id)
                 return
 
@@ -3446,7 +3599,25 @@ async def trigger_background_sync_if_needed(
 
             active_creds.sort(key=_cred_sort_key)
 
-            # If group has subgroup split, ensure we pick credentials covering both subgroups
+            # Перевіряємо min_gap за справді найстарішим (або ще несинхронізованим) акаунтом ДО перестановки за підгрупами
+            oldest = active_creds[0]
+            if not force and oldest.last_synced_at is not None:
+                oldest_ts = oldest.last_synced_at if oldest.last_synced_at.tzinfo else oldest.last_synced_at.replace(tzinfo=timezone.utc)
+                now_kyiv = now.astimezone(KYIV_TZ)
+                min_gap = _get_classroom_min_sync_gap_seconds(now_kyiv)
+                if (now - oldest_ts).total_seconds() < min_gap:
+                    if recovered_any:
+                        await db.commit()
+                    logger.debug(
+                        "Classroom sync group_id=%s skipped: last synced %.0fs ago (min gap %.0fs)",
+                        group_id,
+                        (now - oldest_ts).total_seconds(),
+                        min_gap,
+                    )
+                    return
+
+            # Якщо у групи є поділ на підгрупи — пріоритезуємо по 1 найстарішому з кожної підгрупи,
+            # але не обрізаємо решту акаунтів, щоб усі проходили чесну ротацію.
             has_split = await db.scalar(
                 select(func.count(Schedule.id)).where(
                     Schedule.group_id == group_id,
@@ -3463,31 +3634,17 @@ async def trigger_background_sync_if_needed(
                 if sub2:
                     chosen.append(sub2[0])
                 for c in active_creds:
-                    if c not in chosen and len(chosen) < 3:
+                    if c not in chosen:
                         chosen.append(c)
                 active_creds = chosen
-
-            # Якщо навіть найстаріший акаунт синхронізувався менше min_gap тому (і не force) — пропускаємо
-            oldest = active_creds[0]
-            if not force and oldest.last_synced_at is not None:
-                oldest_ts = oldest.last_synced_at if oldest.last_synced_at.tzinfo else oldest.last_synced_at.replace(tzinfo=timezone.utc)
-                now_kyiv = now.astimezone(KYIV_TZ)
-                min_gap = _get_classroom_min_sync_gap_seconds(now_kyiv)
-                if (now - oldest_ts).total_seconds() < min_gap:
-                    logger.debug(
-                        "Classroom sync group_id=%s skipped: last synced %.0fs ago (min gap %.0fs)",
-                        group_id,
-                        (now - oldest_ts).total_seconds(),
-                        min_gap,
-                    )
-                    return
 
             synced_count = 0
             seen_course_ids: set[str] = set()
             any_synced = False
+            effective_max = len(active_creds) if force else max(1, max_accounts)
 
             for cred in active_creds:
-                if synced_count >= max(1, max_accounts):
+                if synced_count >= effective_max:
                     break
 
                 fresh_token, err_msg, status_code = await _refresh_google_token_detailed(cred.refresh_token)
@@ -3498,11 +3655,7 @@ async def trigger_background_sync_if_needed(
                         cred.id,
                         _sanitize_error_msg(err_msg or f"status_{status_code}"),
                     )
-                    if err_msg and (
-                        err_msg.startswith("invalid_grant")
-                        or err_msg.startswith("missing_or_corrupt_refresh_token")
-                        or err_msg in ("missing_or_corrupt_refresh_token", "token_is_access_token_not_refresh_token")
-                    ):
+                    if _is_permanent_token_error(err_msg):
                         # Непоправна помилка токена деактивує запис і вимагає перепідключення
                         cred.is_active = False
                         cred.needs_relink = True
@@ -3768,14 +3921,17 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
     now_utc = datetime.now(timezone.utc)
 
     def _is_cred_healthy(c: ClassroomCredential) -> bool:
-        # 1. Если есть валидный refresh_token (1//...) и нет фатальной ошибки отзыва доступа
+        if getattr(c, "needs_relink", False):
+            return False
+        if _is_permanent_token_error(c.last_error):
+            return False
+
+        # 1. Якщо є валідний refresh_token (1//...) і немає фатальної помилки відкликання
         plain_rt = decrypt_token(c.refresh_token) if c.refresh_token else ""
         if plain_rt and plain_rt.startswith("1//"):
-            if c.last_error and c.last_error.startswith("invalid_grant"):
-                return False
             return True
 
-        # 2. Если студент синхронизировался недавно (< 55 минут назад), его сессия ещё активна
+        # 2. Якщо студент синхронізувався нещодавно (< 55 хвилин тому), його сесія ще активна
         if c.last_synced_at:
             ts = c.last_synced_at if c.last_synced_at.tzinfo else c.last_synced_at.replace(tzinfo=timezone.utc)
             if (now_utc - ts).total_seconds() < 55 * 60:
@@ -3848,11 +4004,21 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
             "photo_url": photo_url,
             "subgroup": c.subgroup,
             "last_synced_at": _iso_utc(c.last_synced_at),
-            "last_error": c.last_error if not healthy else None,
+            "last_error": c.last_error,
             "fail_count": c.fail_count or 0,
-            "next_attempt_at": _iso_utc(c.next_attempt_at) if not healthy else None,
+            "next_attempt_at": _iso_utc(c.next_attempt_at),
+            "needs_relink": bool(getattr(c, "needs_relink", False)),
             "is_active": healthy,
         })
+
+    group_backoff_until: Optional[str] = None
+    backoff_entry = _sync_backoff_state.get(group_id)
+    if backoff_entry:
+        remaining = backoff_entry[1] - _time.monotonic()
+        if remaining > 0:
+            group_backoff_until = _iso_utc(now_utc + timedelta(seconds=remaining))
+
+    worker_heartbeat = await _read_classroom_heartbeat(db)
 
     return {
         "connected_accounts_count": active_count,
@@ -3861,6 +4027,9 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
         "subgroup_warning": subgroup_warning,
         "latest_cred_synced_at": _iso_utc(latest_sync_dt),
         "needs_reconnect": needs_reconnect,
+        "sync_in_progress": group_id in _SYNC_LOCK_GROUPS,
+        "group_backoff_until": group_backoff_until,
+        "worker_heartbeat": worker_heartbeat,
         "accounts": account_items,
     }
 
@@ -3916,6 +4085,26 @@ async def get_group_students(
             for s in students
         ],
     }
+
+
+@router.post("/groups/{group_id}/sync-now")
+async def sync_group_classroom_now(
+    group_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles("admin", "editor")),
+):
+    """Примусово запускає синхронізацію Classroom для конкретної групи з адмін-панелі."""
+    group = await db.get(Group, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Групу не знайдено")
+    await trigger_background_sync_if_needed(
+        db,
+        group_id,
+        max_accounts=max(10, MAX_ACCOUNTS_PER_CYCLE),
+        force=True,
+    )
+    roster = await get_group_students(group_id=group_id, db=db, _=_)
+    return {"ok": True, **roster}
 
 
 class BulkStudentsPayload(BaseModel):
@@ -4208,13 +4397,22 @@ async def get_classroom_group_status(
 
 async def sync_all_connected_groups_once(force: bool = False) -> dict:
     """Проходить по всіх підключених групах у classroom_credentials та classroom_group_bindings і оновлює їх розклад."""
-    synced_groups = []
+    started_at = datetime.now(timezone.utc)
+    synced_groups: list[int] = []
+    errors: list[dict[str, Any]] = []
+
     async with async_session_factory() as db:
         cred_group_ids = set(
             (
                 await db.scalars(
                     select(ClassroomCredential.group_id).where(
-                        ClassroomCredential.is_active.is_(True)
+                        or_(
+                            ClassroomCredential.is_active.is_(True),
+                            ClassroomCredential.last_error.ilike("%429%"),
+                            ClassroomCredential.last_error.ilike("%courses_error_5%"),
+                            ClassroomCredential.last_error.ilike("%courses_http_5%"),
+                            ClassroomCredential.last_error.ilike("%missing_client_secret%"),
+                        )
                     )
                 )
             ).all()
@@ -4240,14 +4438,38 @@ async def sync_all_connected_groups_once(force: bool = False) -> dict:
         try:
             logger.info("Classroom auto-sync: processing group_id=%s", gid)
             async with async_session_factory() as db:
-                await trigger_background_sync_if_needed(db, gid, force=force)
+                await asyncio.wait_for(
+                    trigger_background_sync_if_needed(db, gid, force=force),
+                    timeout=120.0,
+                )
                 synced_groups.append(gid)
             await asyncio.sleep(3)  # Пауза між групами для захисту від Google API Rate Limit
+        except asyncio.TimeoutError:
+            logger.warning("Auto-sync timed out after 120s for group %s", gid)
+            errors.append({"group_id": gid, "error": "timeout_120s"})
         except Exception as e:
-            logger.warning(f"Auto-sync skipped for group {gid}: {_sanitize_error_msg(str(e))}")
+            err_text = _sanitize_error_msg(str(e))
+            logger.warning(f"Auto-sync skipped for group {gid}: {err_text}")
+            errors.append({"group_id": gid, "error": err_text})
 
-    logger.info("Classroom auto-sync: cycle complete, processed=%s", synced_groups)
-    return {"checked_groups": len(group_ids), "processed": synced_groups}
+    finished_at = datetime.now(timezone.utc)
+    heartbeat_payload: dict[str, Any] = {
+        "last_started_at": _iso_utc(started_at),
+        "last_finished_at": _iso_utc(finished_at),
+        "checked_groups": len(group_ids),
+        "processed": synced_groups,
+        "errors": errors,
+        "force": force,
+        "duration_ms": int((finished_at - started_at).total_seconds() * 1000),
+    }
+    try:
+        async with async_session_factory() as hb_db:
+            await _write_classroom_heartbeat(hb_db, heartbeat_payload)
+    except Exception as hb_err:
+        logger.debug("Could not persist classroom auto-sync heartbeat: %s", hb_err)
+
+    logger.info("Classroom auto-sync: cycle complete, processed=%s, errors=%d", synced_groups, len(errors))
+    return {"checked_groups": len(group_ids), "processed": synced_groups, "errors": errors}
 
 
 async def perform_daily_credentials_health_check() -> dict:
@@ -4273,17 +4495,16 @@ async def perform_daily_credentials_health_check() -> dict:
                 if rotated:
                     cred.refresh_token = rotated
                 cred.fail_count = 0
+                cred.last_error = None
+                cred.next_attempt_at = None
                 results["ok"] += 1
             else:
                 results["failed"] += 1
-                if err_msg and (
-                    err_msg.startswith("invalid_grant")
-                    or err_msg.startswith("missing_or_corrupt_refresh_token")
-                    or err_msg in ("missing_or_corrupt_refresh_token", "token_is_access_token_not_refresh_token")
-                ):
+                if _is_permanent_token_error(err_msg):
                     cred.is_active = False
                     cred.needs_relink = True
                     cred.last_error = _sanitize_error_msg(err_msg)
+                    cred.next_attempt_at = None
                 else:
                     _apply_credential_backoff(cred, err_msg or f"status_{status_code}", now)
         await db.commit()
@@ -4320,6 +4541,7 @@ async def get_classroom_credentials_diagnostics(
             "needs_relink": getattr(c, "needs_relink", False),
             "fail_count": c.fail_count,
             "last_error": c.last_error,
+            "next_attempt_at": _iso_utc(c.next_attempt_at),
             "last_synced_at": c.last_synced_at.isoformat() if c.last_synced_at else None,
             "last_refresh_ok_at": c.last_refresh_ok_at.isoformat() if getattr(c, "last_refresh_ok_at", None) else None,
             "last_client_seen_at": c.last_client_seen_at.isoformat() if getattr(c, "last_client_seen_at", None) else None,
@@ -4328,10 +4550,24 @@ async def get_classroom_credentials_diagnostics(
             "token_format_valid": has_plain and not (plain or "").startswith("ya29."),
             "token_prefix": prefix,
         })
+    now_utc = datetime.now(timezone.utc)
+    now_mono = _time.monotonic()
+    group_backoffs = {}
+    for gid, (fails, next_allowed) in _sync_backoff_state.items():
+        rem = next_allowed - now_mono
+        if rem > 0:
+            group_backoffs[str(gid)] = {
+                "failures": fails,
+                "backoff_until": _iso_utc(now_utc + timedelta(seconds=rem)),
+                "remaining_seconds": int(rem),
+            }
     primary_key_configured = bool(os.getenv("CLASSROOM_FERNET_KEY") or getattr(settings, "classroom_fernet_key", ""))
+    worker_heartbeat = await _read_classroom_heartbeat(db)
     return {
         "primary_key_configured": primary_key_configured,
         "total_credentials": len(results),
+        "worker_heartbeat": worker_heartbeat,
+        "group_backoffs": group_backoffs,
         "credentials": results,
     }
 
@@ -4368,6 +4604,14 @@ async def classroom_auto_sync_loop() -> None:
             logger.error(f"Classroom auto-sync loop error: {_sanitize_error_msg(str(e))}")
         now_k = datetime.now(KYIV_TZ)
         interval_seconds = _get_classroom_sync_interval_seconds(now_k)
+        try:
+            async with async_session_factory() as hb_db:
+                hb = await _read_classroom_heartbeat(hb_db) or {}
+                hb["next_interval_s"] = interval_seconds
+                hb["next_run_at"] = _iso_utc(datetime.now(timezone.utc) + timedelta(seconds=interval_seconds))
+                await _write_classroom_heartbeat(hb_db, hb)
+        except Exception:
+            pass
         logger.info(
             "Classroom smart auto-sync sleeping for %ds (%.1f min) until next cycle [Kyiv time: %s]",
             interval_seconds,

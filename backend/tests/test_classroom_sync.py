@@ -2193,6 +2193,351 @@ async def test_dynamic_subgroup_detection_for_arbitrary_teachers(classroom_db):
         assert acc_shev["subgroup"] == 2
 
 
+@pytest.mark.anyio
+async def test_transient_courses_429_does_not_deactivate_or_overwrite_refresh_token(classroom_db):
+    from datetime import timedelta
+    from sqlalchemy import select
+    from app.models import ClassroomCredential
+
+    client, state = classroom_db
+    gid = state["group_id"]
+    monday = state["monday"]
+    now_utc = datetime.now(timezone.utc)
+
+    enc_rt = encrypt_token("1//valid_rt_429_test")
+    async with state["sessions"]() as db:
+        cred = ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_429_user",
+            email="ratelimit@kre.dp.ua",
+            student_name="Тест Ліміт",
+            refresh_token=enc_rt,
+            last_synced_at=now_utc - timedelta(hours=2),
+            is_active=True,
+            needs_relink=False,
+        )
+        db.add(cred)
+        await db.commit()
+
+    # 1. Google Classroom /v1/courses повертає 429 під час /user-submissions -> НЕ повинно ставити is_active=False або needs_relink=True
+    transport_429 = _make_fake_google_transport(
+        courses_by_token={},
+        profiles_by_token={},
+        teachers_by_course={},
+        announcements_by_course={},
+        coursework_by_course={},
+        courses_status_by_token={"ya29.fresh_ok": 429},
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport_429
+        return real_async_client(*args, **kwargs)
+
+    async def fake_refresh_ok(rt: str):
+        return "ya29.fresh_ok", None, 200
+
+    with (
+        patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh_ok),
+        patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client),
+    ):
+        res_sub = await client.post(
+            "/api/classroom/user-submissions",
+            json={
+                "group_id": gid,
+                "google_user_id": "uid_429_user",
+                "email": "ratelimit@kre.dp.ua",
+            },
+        )
+        assert res_sub.status_code == 200
+        body_sub = res_sub.json()
+        assert body_sub["connected"] is False
+        assert body_sub["needs_relink"] is False
+        assert body_sub["reason_code"] == "temporary_error"
+
+        # 2. Тихий /api/classroom/sync без access_token на 429:
+        #    НЕ псує refresh_token цифрою 200 і НЕ ставить is_active=False / needs_relink=True
+        res_sync = await client.post(
+            "/api/classroom/sync",
+            json={
+                "group_id": gid,
+                "google_user_id": "uid_429_user",
+                "email": "ratelimit@kre.dp.ua",
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert res_sync.status_code == 200
+        body_sync = res_sync.json()
+        assert body_sync["needs_relink"] is False
+        assert body_sync["reason_code"] == "temporary_error"
+
+    async with state["sessions"]() as db:
+        saved = await db.scalar(
+            select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_429_user")
+        )
+        assert saved is not None
+        assert saved.is_active is True
+        assert saved.needs_relink is False
+        assert saved.fail_count >= 2
+        assert saved.next_attempt_at is not None
+        assert decrypt_token(saved.refresh_token) == "1//valid_rt_429_test"
+
+
+@pytest.mark.anyio
+async def test_auto_recovery_and_five_account_rotation_without_cap(classroom_db):
+    from datetime import timedelta
+    from sqlalchemy import select
+    from app.models import ClassroomCredential
+
+    _, state = classroom_db
+    gid = state["group_id"]
+    now_utc = datetime.now(timezone.utc)
+
+    # Група має поділ на підгрупи (has_split > 0) і 5 акаунтів:
+    # 1-й синхронізувався 2 год тому (підгрупа 1), а інші 4 — 18 год тому,
+    # включно з одним помилково деактивованим через courses_error_429.
+    creds = [
+        ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_rot_1",
+            email="rot1@kre.dp.ua",
+            subgroup=1,
+            refresh_token=encrypt_token("1//rot_1"),
+            last_synced_at=now_utc - timedelta(hours=2),
+            is_active=True,
+            needs_relink=False,
+        ),
+        ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_rot_2",
+            email="rot2@kre.dp.ua",
+            subgroup=2,
+            refresh_token=encrypt_token("1//rot_2"),
+            last_synced_at=now_utc - timedelta(hours=18),
+            is_active=False,
+            needs_relink=True,
+            last_error="needs_relink: courses_error_429",
+            fail_count=1,
+        ),
+        ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_rot_3",
+            email="rot3@kre.dp.ua",
+            subgroup=None,
+            refresh_token=encrypt_token("1//rot_3"),
+            last_synced_at=now_utc - timedelta(hours=18),
+            is_active=True,
+            needs_relink=False,
+        ),
+        ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_rot_4",
+            email="rot4@kre.dp.ua",
+            subgroup=None,
+            refresh_token=encrypt_token("1//rot_4"),
+            last_synced_at=now_utc - timedelta(hours=18),
+            is_active=True,
+            needs_relink=False,
+        ),
+        ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_rot_5",
+            email="rot5@kre.dp.ua",
+            subgroup=None,
+            refresh_token=encrypt_token("1//rot_5"),
+            last_synced_at=now_utc - timedelta(hours=18),
+            is_active=True,
+            needs_relink=False,
+        ),
+    ]
+    async with state["sessions"]() as db:
+        db.add_all(creds)
+        await db.commit()
+
+    transport = _make_fake_google_transport(
+        courses_by_token={
+            "ya29.rot_tok": [{"id": "c_phil", "name": "Основи філософських знань"}],
+        },
+        profiles_by_token={},
+        teachers_by_course={
+            "c_phil": [{"userId": "t_sh", "profile": {"name": {"fullName": "Домніна Галина Сергіївна"}}}],
+        },
+        announcements_by_course={},
+        coursework_by_course={},
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    async def fake_refresh(rt: str):
+        return "ya29.rot_tok", None, 200
+
+    with (
+        patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh),
+        patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client),
+        patch("app.routers.classroom.get_google_client_secret", return_value="secret_ok"),
+    ):
+        async with state["sessions"]() as db:
+            await classroom_router.trigger_background_sync_if_needed(db, gid, force=False)
+
+    async with state["sessions"]() as db:
+        updated = (
+            await db.scalars(
+                select(ClassroomCredential).where(ClassroomCredential.group_id == gid)
+            )
+        ).all()
+        assert len(updated) == 5
+        for c in updated:
+            assert c.is_active is True
+            assert c.needs_relink is False
+            assert c.last_error is None
+            ts = c.last_synced_at if c.last_synced_at.tzinfo else c.last_synced_at.replace(tzinfo=timezone.utc)
+            assert (datetime.now(timezone.utc) - ts).total_seconds() < 120
+
+
+@pytest.mark.anyio
+async def test_admin_sync_group_now_endpoint(classroom_db):
+    from datetime import timedelta
+    from app.core.security import create_access_token, hash_password
+    from app.models import ClassroomCredential, User
+
+    client, state = classroom_db
+    gid = state["group_id"]
+    now_utc = datetime.now(timezone.utc)
+
+    async with state["sessions"]() as db:
+        admin = User(
+            username="admin_cls_sync",
+            name="Admin Sync",
+            password_hash=hash_password("pass123"),
+            role="admin",
+            is_active=True,
+        )
+        viewer = User(
+            username="viewer_cls_sync",
+            name="Viewer Sync",
+            password_hash=hash_password("pass123"),
+            role="viewer",
+            is_active=True,
+        )
+        cred = ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_force_1",
+            email="force@kre.dp.ua",
+            refresh_token=encrypt_token("1//force_rt"),
+            last_synced_at=now_utc - timedelta(hours=10),
+            is_active=True,
+            needs_relink=False,
+        )
+        db.add_all([admin, viewer, cred])
+        await db.commit()
+        admin_headers = {"Authorization": f"Bearer {create_access_token(admin)}"}
+        viewer_headers = {"Authorization": f"Bearer {create_access_token(viewer)}"}
+
+    # Гість і viewer не мають доступу
+    unauth = await client.post(f"/api/classroom/groups/{gid}/sync-now")
+    assert unauth.status_code == 401
+    forb = await client.post(f"/api/classroom/groups/{gid}/sync-now", headers=viewer_headers)
+    assert forb.status_code == 403
+
+    transport = _make_fake_google_transport(
+        courses_by_token={"ya29.force_ok": [{"id": "c_phil", "name": "Основи філософських знань"}]},
+        profiles_by_token={},
+        teachers_by_course={},
+        announcements_by_course={},
+        coursework_by_course={},
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    async def fake_refresh(rt: str):
+        return "ya29.force_ok", None, 200
+
+    with (
+        patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh),
+        patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client),
+    ):
+        resp = await client.post(f"/api/classroom/groups/{gid}/sync-now", headers=admin_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["connected_accounts_count"] == 1
+    assert "worker_heartbeat" in data
+
+
+@pytest.mark.anyio
+async def test_sync_all_connected_groups_once_isolates_timeout_and_persists_heartbeat(classroom_db):
+    from datetime import timedelta
+    from app.models import ClassroomCredential, Group
+    from app.services import cache_rev
+
+    _, state = classroom_db
+    gid1 = state["group_id"]
+    now_utc = datetime.now(timezone.utc)
+
+    async with state["sessions"]() as db:
+        g2 = Group(name="86 ДФКР", is_active=True)
+        db.add(g2)
+        await db.flush()
+        gid2 = g2.id
+        db.add_all([
+            ClassroomCredential(
+                group_id=gid1,
+                google_user_id="uid_hb_1",
+                email="hb1@kre.dp.ua",
+                refresh_token=encrypt_token("1//hb1"),
+                last_synced_at=now_utc - timedelta(hours=5),
+                is_active=True,
+            ),
+            ClassroomCredential(
+                group_id=gid2,
+                google_user_id="uid_hb_2",
+                email="hb2@kre.dp.ua",
+                refresh_token=encrypt_token("1//hb2"),
+                last_synced_at=now_utc - timedelta(hours=5),
+                is_active=True,
+            ),
+        ])
+        await db.commit()
+
+    rev_before = cache_rev.global_rev
+
+    async def fake_trigger(db_sess, target_gid: int, max_accounts: int = 5, force: bool = False):
+        if target_gid == gid1:
+            raise TimeoutError("simulated timeout")
+        return None
+
+    async def noop_sleep(_secs: float):
+        return None
+
+    with (
+        patch.object(classroom_router, "async_session_factory", state["sessions"]),
+        patch.object(classroom_router, "trigger_background_sync_if_needed", side_effect=fake_trigger),
+        patch.object(classroom_router.asyncio, "sleep", side_effect=noop_sleep),
+    ):
+        result = await classroom_router.sync_all_connected_groups_once(force=False)
+
+    assert result["checked_groups"] == 2
+    assert result["processed"] == [gid2]
+    assert len(result["errors"]) == 1
+    assert result["errors"][0]["group_id"] == gid1
+    # Запис heartbeat не повинен скидати глобальний кеш розкладу
+    assert cache_rev.global_rev == rev_before
+
+    async with state["sessions"]() as db:
+        hb = await classroom_router._read_classroom_heartbeat(db)
+        assert hb is not None
+        assert hb["checked_groups"] == 2
+        assert hb["processed"] == [gid2]
+        assert len(hb["errors"]) == 1
+
+
+
 
 
 
