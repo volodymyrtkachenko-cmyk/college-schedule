@@ -4,6 +4,7 @@ import { api, Lesson, NoteRevision } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { invalidateScheduleCache, useOnlineStatus } from "../lib/hooks";
 import { getVisibleUserNote } from "./LessonCard";
+import { AppDialog } from "./ui/AppDialog";
 
 export function LessonNote({ lesson, date }: { lesson: Lesson; date: string }) {
   const cleanDisplayNote = (lesson.note || "")
@@ -73,14 +74,6 @@ export function LessonNoteModal({
     }
   }, [mode]);
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
   async function fetchHistory() {
     if (!groupId) return;
     setBusy(true);
@@ -129,18 +122,16 @@ export function LessonNoteModal({
   const hasUnsavedChanges = draft.trim() !== note.trim();
 
   return (
-    <div
-      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/75 lg:bg-black/60 lg:backdrop-blur-xs p-0 sm:p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !hasUnsavedChanges && !busy) onClose();
-      }}
+    <AppDialog
+      isOpen
+      onClose={onClose}
+      variant="sheet"
+      maxWidth="448px"
+      closeDisabled={busy}
+      closeOnBackdropClick={!hasUnsavedChanges && !busy}
+      labelledBy="lesson-note-modal-title"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="lesson-note-modal-title"
-        className="flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
-      >
+      <div className="flex max-h-[92dvh] w-full flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-sys-border/50 px-5 py-4">
           <div>
@@ -188,7 +179,7 @@ export function LessonNoteModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain custom-scrollbar p-5 space-y-4">
           {mode === "edit" ? (
             <form
               id="lesson-note-form"
@@ -278,7 +269,7 @@ export function LessonNoteModal({
                   type="submit"
                   form="lesson-note-form"
                   disabled={busy || !online}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs bg-sys-accent hover:opacity-95 active:scale-[0.98] rounded-lg transition-all disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs bg-sys-accent hover:opacity-95 active:scale-[0.98] rounded-lg transition-opacity disabled:opacity-50"
                 >
                   {busy ? "Збереження…" : "Зберегти"}
                 </button>
@@ -295,6 +286,6 @@ export function LessonNoteModal({
           )}
         </div>
       </div>
-    </div>
+    </AppDialog>
   );
 }

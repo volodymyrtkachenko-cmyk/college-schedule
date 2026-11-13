@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AppDialog } from "../ui/AppDialog";
 
 interface WeekTypeBottomSheetProps {
   isOpen: boolean;
@@ -24,28 +24,14 @@ export function WeekTypeBottomSheet({
   onResetCurrentWeek,
 }: WeekTypeBottomSheetProps) {
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          key="weekTypeBackdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 bg-black/80 lg:bg-black/75 lg:backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
-          onClick={onClose}
-        >
-          <motion.div
-            key="weekTypeContent"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="week-type-sheet-title"
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 26, stiffness: 300 }}
-            className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border border-sys-border bg-sys-card p-5 sm:p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+    <AppDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      variant="sheet"
+      maxWidth="448px"
+      labelledBy="week-type-sheet-title"
+    >
+      <div className="w-full rounded-t-3xl sm:rounded-2xl border border-sys-border bg-sys-card p-5 pb-safe sm:p-6 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-sys-border/60">
               <h2 id="week-type-sheet-title" className="text-base font-bold text-sys-text-primary">
                 Тип тижня за графіком
@@ -102,9 +88,7 @@ export function WeekTypeBottomSheet({
                 )}
               </div>
             </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+      </div>
+    </AppDialog>
   );
 }

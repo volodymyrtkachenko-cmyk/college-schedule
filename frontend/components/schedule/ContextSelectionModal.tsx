@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import type { ReferenceRecord } from "../../lib/api";
 import { getGroupCourse } from "../../lib/groupInfo";
 import { filterAndRankEntities, getGroupSearchBadge } from "../../lib/quickJump";
 import { RecentSelectionsChips } from "../RecentSelectionsChips";
+import { AppDialog } from "../ui/AppDialog";
 
 interface ContextSelectionModalProps {
   isOpen: boolean;
@@ -47,7 +47,8 @@ export function ContextSelectionModal({
       setModalCourseFilter(null);
       setModalHighlightedIndex(0);
       if (isDesktop) {
-        setTimeout(() => searchInputRef.current?.focus(), 50);
+        const id = window.requestAnimationFrame(() => searchInputRef.current?.focus());
+        return () => window.cancelAnimationFrame(id);
       }
     }
   }, [isOpen, mode, isDesktop]);
@@ -80,29 +81,14 @@ export function ContextSelectionModal({
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          key="contextModalBackdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-50 bg-black/80 lg:bg-black/75 lg:backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
-          onClick={onClose}
-        >
-          <motion.div
-            key="contextModalBox"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="context-modal-title"
-            initial={{ opacity: 0, y: 24, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 350, damping: 28 }}
-            className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 pb-safe shadow-2xl max-h-[85dvh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
+    <AppDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      variant="sheet"
+      maxWidth="448px"
+      labelledBy="context-modal-title"
+    >
+      <div className="w-full rounded-t-3xl sm:rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 pb-safe shadow-2xl h-[min(78dvh,500px)] flex flex-col overflow-hidden">
             <div className="mx-auto mb-2.5 h-1.5 w-10 rounded-full bg-sys-border sm:hidden shrink-0" aria-hidden="true" />
             <h2 id="context-modal-title" className="sr-only">
               Оберіть групу або викладача
@@ -236,7 +222,7 @@ export function ContextSelectionModal({
             {/* List of items */}
             <div
               role="listbox"
-              className={`mt-2.5 flex-1 min-h-0 max-h-72 overflow-y-auto overscroll-contain custom-scrollbar pr-1 pb-2 ${
+              className={`mt-2.5 flex-1 min-h-0 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain custom-scrollbar pr-1 pb-2 ${
                 modalTab === "student" ? "grid grid-cols-2 sm:grid-cols-3 gap-2 content-start" : "space-y-1"
               }`}
             >
@@ -289,9 +275,7 @@ export function ContextSelectionModal({
                 </p>
               )}
             </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+      </div>
+    </AppDialog>
   );
 }

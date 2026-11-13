@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
+import { AppDialog } from "./ui/AppDialog";
 import { useUserSettings } from "../lib/useUserSettings";
 import { useTheme, ACCENT_OPTIONS, AccentColor } from "../lib/useTheme";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
@@ -152,13 +153,15 @@ export function StudentOnboardingModal({
   const isClassroomReady = isLinked || classroomSuccess;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 sm:bg-black/70 lg:backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="onboarding-title"
-        className="w-full sm:max-w-[480px] max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden select-none"
-      >
+    <AppDialog
+      isOpen
+      onClose={handleFinish}
+      variant="sheet"
+      maxWidth="480px"
+      closeDisabled={isLinkingClassroom}
+      labelledBy="onboarding-title"
+    >
+      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden select-none">
         <header className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2">
             <h2 id="onboarding-title" className="text-sm sm:text-base font-bold text-sys-text-primary">
@@ -200,9 +203,9 @@ export function StudentOnboardingModal({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-4">
-          <AnimatePresence mode="wait">
-            <motion.div
+        <main className="flex-1 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] custom-scrollbar p-4">
+          <AnimatePresence mode="wait" initial={false}>
+            <m.div
               key={currentStep.id}
               initial={{ opacity: 0, x: 14 }}
               animate={{ opacity: 1, x: 0 }}
@@ -211,7 +214,7 @@ export function StudentOnboardingModal({
               className="space-y-4"
             >
               {/* Живий прев'ю-макет реальної LessonCard */}
-              <div className="rounded-2xl border border-sys-border bg-sys-bg p-3.5 shadow-inner">
+              <div className="rounded-2xl border border-sys-border bg-sys-bg p-3.5 shadow-inner min-h-[164px] flex flex-col justify-center">
                 <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -287,7 +290,7 @@ export function StudentOnboardingModal({
               </div>
 
               {/* Керування кроком */}
-              <div className="space-y-3">
+              <div className="space-y-3 min-h-[166px]">
                 <div>
                   <h3 className="text-sm sm:text-base font-bold text-sys-text-primary">{currentStep.title}</h3>
                   <p className="text-xs text-sys-text-secondary mt-0.5 leading-relaxed">{currentStep.subtitle}</p>
@@ -396,13 +399,17 @@ export function StudentOnboardingModal({
                       </button>
                     )}
 
-                    {classroomError && (
-                      <p className="text-xs font-semibold text-sys-status-dangerText text-center">{classroomError}</p>
-                    )}
+                    <div className="min-h-[18px]">
+                      {classroomError && (
+                        <p className="text-xs font-semibold text-sys-status-dangerText text-center" role="alert">
+                          {classroomError}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
-            </motion.div>
+            </m.div>
           </AnimatePresence>
         </main>
 
@@ -435,6 +442,6 @@ export function StudentOnboardingModal({
           </button>
         </footer>
       </div>
-    </div>
+    </AppDialog>
   );
 }

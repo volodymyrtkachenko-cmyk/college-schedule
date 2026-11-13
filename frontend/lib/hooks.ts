@@ -9,6 +9,7 @@ import {
 } from "./api";
 import { useAuth } from "./auth";
 import { formatKyivDateIso } from "./date";
+import { checkScheduleHasSubgroups, extractSubgroupTeacherHints } from "./format";
 
 const memoryCache = new Map<
   string,
@@ -370,11 +371,24 @@ export function useSchedule(
               const d = new Date(weekAnchorDate);
               d.setDate(weekAnchorDate.getDate() + idx);
               const mappedIso = formatDateKey(d);
-              const safeLessons = (dayItem.lessons || []).filter((l) => !l.is_replacement);
+              const isSameWeek = bestDate === dateKey;
+              const safeLessons = isSameWeek
+                ? dayItem.lessons
+                : (dayItem.lessons || [])
+                    .filter((l) => !l.is_replacement)
+                    .map((l) => {
+                      if (!l.note || !l.note.includes("[TASK")) return l;
+                      const cleanedNote = l.note
+                        .split("\n")
+                        .filter((line) => !line.trim().startsWith("[TASK"))
+                        .join("\n")
+                        .trim();
+                      return { ...l, note: cleanedNote || null };
+                    });
               return {
                 ...dayItem,
                 date: mappedIso,
-                lessons: bestDate === dateKey ? dayItem.lessons : safeLessons,
+                lessons: safeLessons,
               };
             });
             const remappedJson = JSON.stringify(remappedWeek);
@@ -465,6 +479,17 @@ export function useSchedule(
             window.localStorage.setItem(todayKey, incomingTodayJson);
             window.localStorage.setItem(weekKey, incomingWeekJson);
             pruneOldScheduleCache(targetKey, 6);
+            if (mode === "student" && targetGroupId) {
+              const allLessons = weekResponse.flatMap((d) => d.lessons || []);
+              window.localStorage.setItem(
+                `schedule:has_subgroups:${targetGroupId}`,
+                checkScheduleHasSubgroups(allLessons) ? "1" : "0"
+              );
+              window.localStorage.setItem(
+                `schedule:subgroup_hints:${targetGroupId}`,
+                JSON.stringify(extractSubgroupTeacherHints(allLessons))
+              );
+            }
           } catch {}
 
           memoryCache.set(getMemKey(), {

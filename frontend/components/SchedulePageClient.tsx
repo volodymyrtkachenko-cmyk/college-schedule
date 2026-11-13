@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { canAccessAdmin, useAuth } from "../lib/auth";
@@ -11,6 +11,7 @@ import { useTheme } from "../lib/useTheme";
 import { useUserSettings } from "../lib/useUserSettings";
 import { useViewportTier } from "../lib/useViewportTier";
 import { DayPager } from "./DayPager";
+import { MobileWeekDaysStrip } from "./MobileWeekDaysStrip";
 import { OfflineIndicator } from "./OfflineIndicator";
 import { ScheduleDay } from "./ScheduleDay";
 import { SplashScreen } from "./SplashScreen";
@@ -121,6 +122,21 @@ export function SchedulePageClient({
   const [teacherPinTargetGroup, setTeacherPinTargetGroup] = useState<string | null>(null);
   const [guideHubOpen, setGuideHubOpen] = useState(false);
   const [desktopSidebarTab, setDesktopSidebarTab] = useState<"tasks" | "grades">("tasks");
+  const tasksPanelRef = useRef<HTMLDivElement | null>(null);
+  const schedulePanelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const tasksEl = tasksPanelRef.current;
+    if (tasksEl) {
+      if (sel.mobileTab !== "tasks") tasksEl.setAttribute("inert", "");
+      else tasksEl.removeAttribute("inert");
+    }
+    const scheduleEl = schedulePanelRef.current;
+    if (scheduleEl) {
+      if (sel.mobileTab === "tasks") scheduleEl.setAttribute("inert", "");
+      else scheduleEl.removeAttribute("inert");
+    }
+  }, [sel.mobileTab, sel.tasksTabMounted, showMobile]);
 
   const handleOpenTeacherPinModal = useCallback((groupName: string | null = null) => {
     setTeacherPinTargetGroup(groupName);
@@ -217,7 +233,6 @@ export function SchedulePageClient({
             <MobileChrome
               mode={mode}
               mobileTab={sel.mobileTab}
-              view={sel.view}
               currentName={sel.currentName}
               isTeacherUnlocked={isTeacherUnlocked}
               canNavigatePrevWeek={sel.canNavigatePrevWeek}
@@ -227,18 +242,12 @@ export function SchedulePageClient({
               weekType={sel.weekType}
               headerLearningModeData={sel.headerLearningModeData}
               activeWeekPeriodMeta={sel.activeWeekPeriodMeta}
-              weekAnchorDate={weekAnchorDate}
-              selectedDayIndex={sel.selectedDayIndex}
-              isCurrentWeek={isCurrentWeek}
-              todayIso={sel.todayActualIso}
-              week={week}
               onOpenContextModal={() => setContextModalOpen(true)}
               onOpenTeacherPinModal={() => handleOpenTeacherPinModal(null)}
               onShiftWeekPreservingDay={sel.shiftWeekPreservingDay}
               onOpenDatePicker={() => setDatePickerOpen(true)}
               onOpenWeekTypeSheet={() => setWeekTypeSheetOpen(true)}
               onOpenGuideHub={() => setGuideHubOpen(true)}
-              onSelectDay={sel.handleSelectDayIndex}
             />
           )}
 
@@ -281,17 +290,14 @@ export function SchedulePageClient({
               <div className="w-full">
                 {sel.tasksTabMounted || sel.mobileTab === "tasks" ? (
                   <div
+                    ref={tasksPanelRef}
                     data-inactive={sel.mobileTab !== "tasks"}
                     aria-hidden={sel.mobileTab !== "tasks"}
-                    ref={(el) => {
-                      if (!el) return;
-                      if (sel.mobileTab !== "tasks") el.setAttribute("inert", "");
-                      else el.removeAttribute("inert");
-                    }}
                     className="spa-tab-panel"
                   >
                     <MobileTasksView
                       tasks={allTasks}
+                      summaryTaskGroups={guideTaskGroups}
                       groupId={groupId}
                       weekStart={weekStartStr}
                       weekAnchorDate={weekAnchorDate}
@@ -307,15 +313,24 @@ export function SchedulePageClient({
                 ) : null}
 
                 <div
+                  ref={schedulePanelRef}
                   data-inactive={sel.mobileTab === "tasks"}
                   aria-hidden={sel.mobileTab === "tasks"}
-                  ref={(el) => {
-                    if (!el) return;
-                    if (sel.mobileTab === "tasks") el.setAttribute("inert", "");
-                    else el.removeAttribute("inert");
-                  }}
-                  className="spa-tab-panel px-3 py-3"
+                  className="spa-tab-panel"
                 >
+                  {sel.view === "today" && (
+                    <div className="sticky top-[calc(3.5rem+1px+env(safe-area-inset-top))] z-30">
+                      <MobileWeekDaysStrip
+                        weekAnchorDate={weekAnchorDate}
+                        selectedDayIndex={sel.selectedDayIndex}
+                        onSelectDay={sel.handleSelectDayIndex}
+                        isCurrentWeek={isCurrentWeek}
+                        todayIso={sel.todayActualIso}
+                        week={week}
+                      />
+                    </div>
+                  )}
+                  <div className="px-3 py-3">
                   {loading ? (
                     <ScheduleLoadingSkeleton rows={3} />
                   ) : error ? (
@@ -371,6 +386,7 @@ export function SchedulePageClient({
                         {mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."}
                       </div>
                     )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { m, AnimatePresence, useReducedMotion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { ScheduleWeekGrid } from "../ScheduleWeekGrid";
 import { WeekTypeBadge } from "../WeekTypeBadge";
@@ -753,6 +753,17 @@ export function AdminScheduleEditor() {
   });
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
 
+  useEffect(() => {
+    if (!curatorModalOpen && !mobileActionsOpen) return;
+    const onOverlayKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (curatorModalOpen && !curatorLoading) setCuratorModalOpen(false);
+      else if (mobileActionsOpen) setMobileActionsOpen(false);
+    };
+    window.addEventListener("keydown", onOverlayKey);
+    return () => window.removeEventListener("keydown", onOverlayKey);
+  }, [curatorModalOpen, curatorLoading, mobileActionsOpen]);
+
   const todayIso = useMemo(() => {
     return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
   }, []);
@@ -1061,13 +1072,13 @@ export function AdminScheduleEditor() {
           {/* Buffer / Swap Active Banner */}
           <AnimatePresence>
             {swapSource ? (
-              <motion.div
+              <m.div
                 key="swap-banner"
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.2, 0, 0, 1] }}
-                className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sys-accent/40 bg-sys-card p-3 shadow-xl backdrop-blur-md"
+                className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sys-accent/40 bg-sys-card p-3 shadow-xl lg:backdrop-blur-md"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="text-lg shrink-0">⇄</span>
@@ -1087,15 +1098,15 @@ export function AdminScheduleEditor() {
                 >
                   ✕ Скасувати
                 </button>
-              </motion.div>
+              </m.div>
             ) : buffer ? (
-              <motion.div
+              <m.div
                 key="buffer-banner"
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.2, 0, 0, 1] }}
-                className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-sys-card p-3 shadow-xl backdrop-blur-md"
+                className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-sys-card p-3 shadow-xl lg:backdrop-blur-md"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="text-lg shrink-0">{buffer.mode === "copy" ? "📋" : "✂️"}</span>
@@ -1124,7 +1135,7 @@ export function AdminScheduleEditor() {
                     ✕ Скасувати
                   </button>
                 </div>
-              </motion.div>
+              </m.div>
             ) : null}
           </AnimatePresence>
 
@@ -1205,7 +1216,7 @@ export function AdminScheduleEditor() {
                   const currentDay = week[selectedDayIndex];
                   if (!currentDay) {
                     return (
-                      <motion.div
+                      <m.div
                         key="empty-day"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -1213,7 +1224,7 @@ export function AdminScheduleEditor() {
                         className="p-8 text-center text-sys-text-secondary text-sm"
                       >
                         Немає даних для цього дня
-                      </motion.div>
+                      </m.div>
                     );
                   }
 
@@ -1224,7 +1235,7 @@ export function AdminScheduleEditor() {
                   }).format(new Date(`${currentDay.date}T12:00:00`));
 
                   return (
-                    <motion.div
+                    <m.div
                       key={currentDay.date}
                       custom={daySlideDir}
                       variants={{
@@ -1272,7 +1283,7 @@ export function AdminScheduleEditor() {
                           <button
                             type="button"
                             onClick={() => setEditor({ date: currentDay.date })}
-                            className="min-h-[40px] px-3.5 rounded-lg bg-sys-accent text-xs font-semibold text-white shadow-xs hover:opacity-95 active:scale-95 transition-all"
+                            className="min-h-[40px] px-3.5 rounded-lg bg-sys-accent text-xs font-semibold text-white shadow-xs hover:opacity-95 active:scale-95 transition-opacity"
                           >
                             + Додати
                           </button>
@@ -1365,7 +1376,7 @@ export function AdminScheduleEditor() {
                         );
                       })}
                     </div>
-                  </motion.div>
+                  </m.div>
                 );
               })()}
               </AnimatePresence>
@@ -1398,16 +1409,16 @@ export function AdminScheduleEditor() {
       )}
       {curatorModalOpen && (
         <div
-          className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 lg:backdrop-blur-sm"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setCuratorModalOpen(false);
+            if (e.target === e.currentTarget && !curatorLoading) setCuratorModalOpen(false);
           }}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Масова виховна година"
-            className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92dvh] overflow-y-auto pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
+            className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92dvh] overflow-y-auto overscroll-contain [scrollbar-gutter:stable] pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
           >
             <div className="flex items-center justify-between border-b border-sys-border/50 pb-3">
               <div className="flex items-center gap-2">
@@ -1459,7 +1470,7 @@ export function AdminScheduleEditor() {
                 type="button"
                 disabled={curatorLoading}
                 onClick={() => void runBulkCurator("delete")}
-                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs sm:text-sm font-semibold text-rose-600 dark:text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs sm:text-sm font-semibold text-rose-600 dark:text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-colors disabled:opacity-50"
               >
                 Очистити слот
               </button>
@@ -1467,7 +1478,7 @@ export function AdminScheduleEditor() {
                 type="button"
                 disabled={curatorLoading}
                 onClick={() => void runBulkCurator("create")}
-                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] transition-opacity disabled:opacity-50"
               >
                 {curatorLoading ? "Виконуємо..." : "Проставити всім групам"}
               </button>
@@ -1532,15 +1543,15 @@ export function AdminScheduleEditor() {
             }}
             className="fixed inset-0 z-50 flex items-end sm:hidden"
           >
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+              className="fixed inset-0 bg-black/60"
               onClick={() => setMobileActionsOpen(false)}
             />
-            <motion.div
+            <m.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
@@ -1661,7 +1672,7 @@ export function AdminScheduleEditor() {
                   <span>Друк розкладу</span>
                 </button>
               </div>
-            </motion.div>
+            </m.div>
           </div>
         )}
       </AnimatePresence>

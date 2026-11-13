@@ -52,48 +52,40 @@ export default function SettingsPage() {
       setGroupHasSubgroups(cachedFlag === "1");
     }
 
+    const cachedHintsRaw = localStorage.getItem(`schedule:subgroup_hints:${gid}`);
+    if (cachedHintsRaw) {
+      try {
+        const parsed = JSON.parse(cachedHintsRaw);
+        if (parsed && Array.isArray(parsed.sub1) && Array.isArray(parsed.sub2)) {
+          setSubgroupHints(parsed);
+        }
+      } catch {}
+    }
+
+    if (cachedFlag !== null && cachedHintsRaw) {
+      return;
+    }
+
     let cancelled = false;
     const timer = window.setTimeout(() => {
       if (cancelled) return;
-
-      const prefix = `schedule:week:groupId:${gid}:`;
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const k = window.localStorage.key(i);
-        if (k && k.startsWith(prefix)) {
-          const raw = window.localStorage.getItem(k);
-          if (raw) {
-            try {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                const lessons = parsed.flatMap((d: any) => d.lessons || []);
-                if (lessons.length > 0) {
-                  if (cachedFlag === null) {
-                    setGroupHasSubgroups(checkScheduleHasSubgroups(lessons));
-                  }
-                  setSubgroupHints(extractSubgroupTeacherHints(lessons));
-                  break;
-                }
-              }
-            } catch {}
-          }
-        }
-      }
-
       api.week(gid)
         .then((data) => {
           if (cancelled) return;
           if (Array.isArray(data) && data.length > 0) {
             const allLessons = data.flatMap((d) => d.lessons || []);
             const has = checkScheduleHasSubgroups(allLessons);
+            const hints = extractSubgroupTeacherHints(allLessons);
             setGroupHasSubgroups(has);
-            setSubgroupHints(extractSubgroupTeacherHints(allLessons));
+            setSubgroupHints(hints);
             try {
               localStorage.setItem(`schedule:has_subgroups:${gid}`, has ? "1" : "0");
+              localStorage.setItem(`schedule:subgroup_hints:${gid}`, JSON.stringify(hints));
             } catch {}
           }
         })
         .catch(() => {});
-    }, 150);
+    }, 250);
 
     return () => {
       cancelled = true;
@@ -101,31 +93,30 @@ export default function SettingsPage() {
     };
   }, []);
 
-  const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">("student");
-  const { setHideTasksTab, setScheduleMode: setNavScheduleMode, setHomeTab } = useMobileNav();
+  const {
+    setHideTasksTab,
+    scheduleMode: navScheduleMode,
+    setScheduleMode: setNavScheduleMode,
+    setHomeTab,
+  } = useMobileNav();
+  const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">(navScheduleMode);
 
   useEffect(() => {
-    setHideTasksTab(scheduleMode === "teacher");
-  }, [scheduleMode, setHideTasksTab]);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const urlMode = params.get("mode") as "student" | "teacher" | null;
+    const cached = localStorage.getItem("schedule:mode") as "student" | "teacher" | null;
+    const resolved =
+      urlMode === "student" || urlMode === "teacher"
+        ? urlMode
+        : cached === "student" || cached === "teacher"
+          ? cached
+          : "student";
 
-  useEffect(() => {
-    setNavScheduleMode(scheduleMode);
-  }, [scheduleMode, setNavScheduleMode]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const urlMode = params.get("mode") as "student" | "teacher" | null;
-      if (urlMode === "student" || urlMode === "teacher") {
-        setScheduleMode(urlMode);
-        return;
-      }
-      const cached = localStorage.getItem("schedule:mode") as "student" | "teacher" | null;
-      if (cached === "student" || cached === "teacher") {
-        setScheduleMode(cached);
-      }
-    }
-  }, []);
+    setScheduleMode(resolved);
+    setHideTasksTab(resolved === "teacher");
+    setNavScheduleMode(resolved);
+  }, [setHideTasksTab, setNavScheduleMode]);
 
   const [pinInput, setPinInput] = useState("");
   const [showPinInput, setShowPinInput] = useState(false);

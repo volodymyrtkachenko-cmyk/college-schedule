@@ -1,9 +1,7 @@
 "use client";
 
-import type { ScheduleResponse } from "../../lib/api";
 import type { HeaderLearningModeData } from "../../lib/schedule";
 import type { MobileTab } from "../../lib/useMobileNav";
-import { MobileWeekDaysStrip } from "../MobileWeekDaysStrip";
 import type { getPeriodMeta } from "../SchedulePeriodCard";
 
 type PeriodBadgeMeta = ReturnType<typeof getPeriodMeta>;
@@ -11,7 +9,6 @@ type PeriodBadgeMeta = ReturnType<typeof getPeriodMeta>;
 interface MobileChromeProps {
   mode: "student" | "teacher";
   mobileTab: MobileTab;
-  view: "today" | "week";
   currentName?: string;
   isTeacherUnlocked: boolean;
   canNavigatePrevWeek: boolean;
@@ -21,24 +18,17 @@ interface MobileChromeProps {
   weekType: string;
   headerLearningModeData: HeaderLearningModeData | null;
   activeWeekPeriodMeta: PeriodBadgeMeta | null;
-  weekAnchorDate: Date;
-  selectedDayIndex: number;
-  isCurrentWeek: boolean;
-  todayIso: string;
-  week: ScheduleResponse[];
   onOpenContextModal: () => void;
   onOpenTeacherPinModal: () => void;
   onShiftWeekPreservingDay: (offset: number) => void;
   onOpenDatePicker: () => void;
   onOpenWeekTypeSheet: () => void;
   onOpenGuideHub: () => void;
-  onSelectDay: (index: number) => void;
 }
 
 export function MobileChrome({
   mode,
   mobileTab,
-  view,
   currentName,
   isTeacherUnlocked,
   canNavigatePrevWeek,
@@ -48,18 +38,12 @@ export function MobileChrome({
   weekType,
   headerLearningModeData,
   activeWeekPeriodMeta,
-  weekAnchorDate,
-  selectedDayIndex,
-  isCurrentWeek,
-  todayIso,
-  week,
   onOpenContextModal,
   onOpenTeacherPinModal,
   onShiftWeekPreservingDay,
   onOpenDatePicker,
   onOpenWeekTypeSheet,
   onOpenGuideHub,
-  onSelectDay,
 }: MobileChromeProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card pt-[env(safe-area-inset-top)] lg:hidden">
@@ -204,18 +188,6 @@ export function MobileChrome({
           </button>
         </div>
       </div>
-
-      {/* Tier 2: Sticky Day tabs Пн• Вт Ср Чт Пт */}
-      {mobileTab === "schedule" && view === "today" && (
-        <MobileWeekDaysStrip
-          weekAnchorDate={weekAnchorDate}
-          selectedDayIndex={selectedDayIndex}
-          onSelectDay={onSelectDay}
-          isCurrentWeek={isCurrentWeek}
-          todayIso={todayIso}
-          week={week}
-        />
-      )}
     </header>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AcademicTermRecord, TermCourseScheduleInput, api } from "../../lib/api";
 import { useToast } from "../ToastProvider";
 
@@ -21,6 +21,14 @@ export function TermScheduleModal({
 }: TermScheduleModalProps) {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !loading) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [loading, onClose]);
   const [activeTab, setActiveTab] = useState<"schedule" | "new_term" | "clone">("schedule");
 
   // Form states
@@ -193,9 +201,9 @@ export function TermScheduleModal({
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 backdrop-blur-md"
+      className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 lg:backdrop-blur-md"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !loading) onClose();
       }}
     >
       <div
@@ -205,7 +213,7 @@ export function TermScheduleModal({
         className="flex max-h-[94dvh] w-full sm:max-w-3xl flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
       >
         {/* Header */}
-        <div className="p-5 sm:p-6 pb-4 border-b border-sys-border/50 sticky top-0 flex justify-between items-center z-10 bg-sys-card/95 backdrop-blur-sm">
+        <div className="p-5 sm:p-6 pb-4 border-b border-sys-border/50 sticky top-0 flex justify-between items-center z-10 bg-sys-card">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sys-accent/20 text-sys-accent shadow-inner">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -226,7 +234,7 @@ export function TermScheduleModal({
           </div>
           <button
             onClick={onClose}
-            className="h-8 w-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 active:scale-95 transition-all"
+            className="h-8 w-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 active:scale-95 transition-colors"
             aria-label="Закрити"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -241,7 +249,7 @@ export function TermScheduleModal({
           <button
             type="button"
             onClick={() => setActiveTab("schedule")}
-            className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all ${
+            className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors ${
               activeTab === "schedule"
                 ? "border-sys-accent text-sys-accent"
                 : "border-transparent text-sys-text-secondary hover:text-sys-text-primary"
@@ -252,7 +260,7 @@ export function TermScheduleModal({
           <button
             type="button"
             onClick={() => setActiveTab("new_term")}
-            className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all ${
+            className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors ${
               activeTab === "new_term"
                 ? "border-sys-accent text-sys-accent"
                 : "border-transparent text-sys-text-secondary hover:text-sys-text-primary"
@@ -263,7 +271,7 @@ export function TermScheduleModal({
           <button
             type="button"
             onClick={() => setActiveTab("clone")}
-            className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all ${
+            className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors ${
               activeTab === "clone"
                 ? "border-sys-accent text-sys-accent"
                 : "border-transparent text-sys-text-secondary hover:text-sys-text-primary"
@@ -274,7 +282,7 @@ export function TermScheduleModal({
         </div>
 
         {/* Body content */}
-        <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+        <div className="p-5 sm:p-6 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] space-y-5 flex-1">
           {activeTab === "schedule" && (
             <>
               {/* General term settings */}
@@ -331,7 +339,7 @@ export function TermScheduleModal({
                     return (
                       <div
                         key={cs.course}
-                        className={`p-4 rounded-xl border transition-all ${
+                        className={`p-4 rounded-xl border transition-colors ${
                           isPract
                             ? "border-amber-500/40 bg-amber-500/5 shadow-sm"
                             : "border-sys-border bg-sys-card/70"
@@ -469,7 +477,7 @@ export function TermScheduleModal({
                   type="button"
                   onClick={handleCreateNextTerm}
                   disabled={loading}
-                  className="w-full py-2.5 rounded-xl bg-sys-accent hover:bg-sys-accent-hover text-white text-xs font-bold transition-all shadow-md active:scale-[0.99] disabled:opacity-50"
+                  className="w-full py-2.5 rounded-xl bg-sys-accent hover:bg-sys-accent-hover text-white text-xs font-bold transition-colors shadow-md active:scale-[0.99] disabled:opacity-50"
                 >
                   {loading ? "Створення..." : "➕ Створити семестр для планування"}
                 </button>
@@ -512,7 +520,7 @@ export function TermScheduleModal({
                   type="button"
                   onClick={handleCloneWorkload}
                   disabled={loading || terms.filter((t) => t.id !== term.id).length === 0}
-                  className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md active:scale-[0.99] disabled:opacity-50"
+                  className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors shadow-md active:scale-[0.99] disabled:opacity-50"
                 >
                   {loading ? "Копіювання..." : "📥 Скопіювати предмети з перерахунком годин"}
                 </button>
@@ -527,7 +535,7 @@ export function TermScheduleModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 text-xs font-semibold transition-all"
+              className="px-4 py-2 rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 text-xs font-semibold transition-colors"
             >
               Скасувати
             </button>
@@ -535,7 +543,7 @@ export function TermScheduleModal({
               type="button"
               onClick={handleSaveSchedule}
               disabled={loading}
-              className="px-5 py-2 rounded-xl bg-sys-accent hover:bg-sys-accent-hover text-white text-xs font-bold transition-all shadow-md active:scale-95 disabled:opacity-50"
+              className="px-5 py-2 rounded-xl bg-sys-accent hover:bg-sys-accent-hover text-white text-xs font-bold transition-colors shadow-md active:scale-95 disabled:opacity-50"
             >
               {loading ? "Збереження..." : "Зберегти графік процесу"}
             </button>

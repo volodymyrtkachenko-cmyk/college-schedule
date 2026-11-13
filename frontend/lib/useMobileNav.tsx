@@ -7,7 +7,6 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
-  startTransition,
 } from "react";
 import { usePathname } from "next/navigation";
 
@@ -66,9 +65,7 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const setHomeTab = useCallback((tab: "schedule" | "tasks") => {
-    startTransition(() => {
-      setHomeTabState(tab);
-    });
+    setHomeTabState(tab);
   }, []);
 
   const activeTab: MobileTab = useMemo(() => {

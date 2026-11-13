@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { SearchableSelect } from "../SearchableSelect";
 import { ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
 
@@ -61,11 +61,11 @@ export function ReferenceForm({
   // Handle escape to close
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
+      if (e.key === "Escape" && !saving) onCancel();
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [onCancel]);
+  }, [onCancel, saving]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -94,17 +94,17 @@ export function ReferenceForm({
   }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 lg:backdrop-blur-xs p-0 sm:p-4"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
+        if (e.target === e.currentTarget && !saving) onCancel();
       }}
     >
-      <motion.form
+      <m.form
         onSubmit={submit}
         role="dialog"
         aria-modal="true"
@@ -131,7 +131,7 @@ export function ReferenceForm({
         </div>
 
         {/* Scrollable Form Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] px-5 py-4 space-y-4">
           {fields[resource].map(({ key, label, type }, i) => (
             <label key={key} className="flex flex-col gap-1.5 text-sm font-medium text-sys-text-secondary">
               <span>{label}</span>
@@ -181,23 +181,23 @@ export function ReferenceForm({
         </div>
 
         {/* Sticky Footer */}
-        <div className="sticky bottom-0 z-10 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 border-t border-sys-border/50 bg-sys-bg/60 p-4 backdrop-blur-xs">
+        <div className="sticky bottom-0 z-10 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 border-t border-sys-border/50 bg-sys-card/95 p-4">
           <button
             type="button"
             onClick={onCancel}
-            className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-4 rounded-lg border border-sys-border bg-sys-card text-sm font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all"
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-4 rounded-lg border border-sys-border bg-sys-card text-sm font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-colors"
           >
             Скасувати
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-6 rounded-lg bg-sys-accent text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50"
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-6 rounded-lg bg-sys-accent text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] transition-opacity disabled:opacity-50"
           >
             {saving ? "Збереження…" : "Зберегти"}
           </button>
         </div>
-      </motion.form>
-    </motion.div>
+      </m.form>
+    </m.div>
   );
 }

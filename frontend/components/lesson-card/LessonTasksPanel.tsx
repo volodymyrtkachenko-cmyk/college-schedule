@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { Lesson } from "../../lib/api";
 import {
   ClassroomTaskItem,
@@ -520,7 +520,7 @@ export function WeekTasksPopover({
     <AnimatePresence>
       {show && (
         <>
-          <motion.div
+          <m.div
             key="hw-list-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -532,7 +532,7 @@ export function WeekTasksPopover({
               onClose();
             }}
           />
-          <motion.div
+          <m.div
             key={`hw-list-${lesson.id}-${lesson.lesson_number}`}
             id={`hw-list-${lesson.id}-${lesson.lesson_number}`}
             onClick={(e) => e.stopPropagation()}
@@ -571,7 +571,7 @@ export function WeekTasksPopover({
                 variant="week"
               />
             </div>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

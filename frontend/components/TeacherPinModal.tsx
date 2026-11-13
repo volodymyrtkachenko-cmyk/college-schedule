@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
+import { AppDialog } from "./ui/AppDialog";
 
 interface TeacherPinModalProps {
   isOpen: boolean;
@@ -28,20 +28,10 @@ export function TeacherPinModal({
       setPin("");
       setError(null);
       setIsSubmitting(false);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      const id = window.requestAnimationFrame(() => inputRef.current?.focus());
+      return () => window.cancelAnimationFrame(id);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,29 +57,14 @@ export function TeacherPinModal({
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          key="teacher-pin-backdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 lg:backdrop-blur-xs"
-          onClick={onClose}
-        >
-          <motion.div
-            key="teacher-pin-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="teacher-pin-modal-title"
-            initial={{ opacity: 0, scale: 0.94, y: 16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 16 }}
-            transition={{ type: "spring", stiffness: 350, damping: 28 }}
-            className="surface-panel w-full max-w-sm rounded-2xl border border-sys-border bg-sys-card p-6 shadow-2xl relative overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
+    <AppDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      closeDisabled={isSubmitting}
+      maxWidth="384px"
+      labelledBy="teacher-pin-modal-title"
+    >
+      <div className="surface-panel w-full rounded-2xl border border-sys-border bg-sys-card p-6 shadow-2xl relative overflow-hidden">
             {/* Header Icon & Title */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
@@ -174,11 +149,13 @@ export function TeacherPinModal({
                     : "border-sys-border focus:border-sys-accent focus:ring-sys-accent/20"
                 }`}
               />
-              {error && (
-                <p className="text-xs text-rose-700 dark:text-rose-400 font-medium mt-1.5 animate-in fade-in duration-150">
-                  {error}
-                </p>
-              )}
+              <div className="min-h-[20px] mt-1.5">
+                {error && (
+                  <p className="text-xs text-rose-700 dark:text-rose-400 font-medium animate-in fade-in duration-150" role="alert">
+                    {error}
+                  </p>
+                )}
+              </div>
             </div>
 
             {targetGroupName && (
@@ -212,9 +189,7 @@ export function TeacherPinModal({
             </div>
           </form>
         )}
-      </motion.div>
-    </motion.div>
-  )}
-</AnimatePresence>
+      </div>
+    </AppDialog>
   );
 }

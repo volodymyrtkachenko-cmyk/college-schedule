@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { ReferenceRecord } from "../lib/api";
 import { filterAndRankEntities, getGroupSearchBadge } from "../lib/quickJump";
 import { getGroupCourse } from "../lib/groupInfo";
@@ -92,7 +92,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
       
       <AnimatePresence mode="wait" custom={direction}>
         {step === 1 ? (
-          <motion.div
+          <m.div
             key="step1"
             custom={direction}
             variants={variants}
@@ -138,9 +138,9 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                 </div>
               </button>
             </div>
-          </motion.div>
+          </m.div>
         ) : (
-          <motion.div
+          <m.div
             key="step2"
             custom={direction}
             variants={variants}
@@ -242,7 +242,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                </div>
              )}
              
-             <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 pr-2 space-y-2 custom-scrollbar pb-6" role="listbox">
+             <div className="flex-1 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain min-h-0 pr-2 space-y-2 custom-scrollbar pb-6" role="listbox">
                 {filtered.map((item, idx) => {
                   const isHighlighted = idx === highlightedIndex;
                   const badge = mode === "student" ? getGroupSearchBadge(item) : null;
@@ -278,7 +278,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                   </div>
                 )}
              </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

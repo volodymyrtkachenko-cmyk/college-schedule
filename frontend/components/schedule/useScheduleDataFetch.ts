@@ -344,8 +344,6 @@ export function useScheduleDataFetch({
     DEFAULT_TASK_FILTERS
   );
 
-  const guideTaskGroups = useTaskGroups(allTasks, "all", undefined, undefined, isLinked);
-
   const overdueCount = useMemo(
     () =>
       countOverdueClassroomTasks(
@@ -367,7 +365,7 @@ export function useScheduleDataFetch({
     hasGroupTaskAccess,
     allTasks,
     sidebarTaskGroups,
-    guideTaskGroups,
+    guideTaskGroups: sidebarTaskGroups,
     handleToolbarClassroomSynced,
   };
 }

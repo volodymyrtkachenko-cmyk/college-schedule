@@ -84,6 +84,14 @@ export function EventsModal({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !saving) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [saving, onClose]);
+
+  useEffect(() => {
     if (eventToEdit) {
       setGroupId(eventToEdit.group_id);
       setEventType(eventToEdit.event_type);
@@ -192,9 +200,9 @@ export function EventsModal({
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 lg:backdrop-blur-sm"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !saving) onClose();
       }}
     >
       <div
@@ -225,7 +233,7 @@ export function EventsModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] p-5 sm:p-6 space-y-4">
           {/* Група та тип події */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="space-y-1">
@@ -388,7 +396,7 @@ export function EventsModal({
             </label>
           </div>
 
-          <div className="sticky bottom-0 z-10 pt-3 border-t border-sys-border/50 bg-sys-card/90 backdrop-blur-xs">
+          <div className="sticky bottom-0 z-10 pt-3 border-t border-sys-border/50 bg-sys-card/95">
             {eventToEdit ? (
               <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                 <button
@@ -416,7 +424,7 @@ export function EventsModal({
                     type="button"
                     disabled={saving || !groupId}
                     onClick={() => void handleSave()}
-                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
+                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs transition-opacity hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                   >
                     {saving ? "Зберігаємо..." : "Зберегти зміни"}
                   </button>
@@ -435,7 +443,7 @@ export function EventsModal({
                   type="button"
                   disabled={saving || !groupId}
                   onClick={() => void handleSave()}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs transition-opacity hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                 >
                   {saving ? "Додаємо..." : "+ Додати подію у розклад"}
                 </button>

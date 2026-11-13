@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { m, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import { api, DirectoryItem, Lesson, LessonMutation, ReferenceRecord, ScheduleVersion, TemplateScheduleResponse } from "../../lib/api";
 import { getMondayOf } from "../../lib/date";
@@ -618,7 +618,7 @@ export function PermanentScheduleEditor() {
       </div>
 
       {/* Distinct Permanent Schedule Banner */}
-      <div className="rounded-xl border-2 border-indigo-500/40 bg-indigo-500/10 dark:bg-indigo-950/25 p-3.5 shadow-sm backdrop-blur-xs flex flex-wrap items-center justify-between gap-3">
+      <div className="rounded-xl border-2 border-indigo-500/40 bg-indigo-500/10 dark:bg-indigo-950/25 p-3.5 shadow-sm lg:backdrop-blur-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 flex-wrap min-w-0">
           <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black uppercase tracking-wider bg-indigo-600 dark:bg-indigo-500 text-white">
             ПОСТІЙНИЙ РОЗКЛАД
@@ -663,13 +663,13 @@ export function PermanentScheduleEditor() {
       {/* Buffer Active Panel */}
       <AnimatePresence>
         {buffer ? (
-          <motion.div
+          <m.div
             key="perm-buffer"
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.2, 0, 0, 1] }}
-            className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-indigo-500/60 bg-sys-card p-3.5 shadow-xl backdrop-blur-md"
+            className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-indigo-500/60 bg-sys-card p-3.5 shadow-xl lg:backdrop-blur-md"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="text-lg shrink-0">{buffer.mode === "copy" ? "📋" : "✂️"}</span>
@@ -693,15 +693,15 @@ export function PermanentScheduleEditor() {
                 {buffer.mode === "copy" ? "Готово (Esc)" : "✕ Скасувати"}
               </button>
             </div>
-          </motion.div>
+          </m.div>
         ) : swapSource ? (
-          <motion.div
+          <m.div
             key="perm-swap"
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.2, 0, 0, 1] }}
-            className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-indigo-500/60 bg-sys-card p-3.5 shadow-xl backdrop-blur-md"
+            className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-indigo-500/60 bg-sys-card p-3.5 shadow-xl lg:backdrop-blur-md"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="text-lg shrink-0">⇄</span>
@@ -721,7 +721,7 @@ export function PermanentScheduleEditor() {
             >
               ✕ Скасувати
             </button>
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
 
@@ -861,7 +861,7 @@ export function PermanentScheduleEditor() {
             <div
               role="tablist"
               aria-label="Дні тижня"
-              className="relative flex h-11 w-full border-b border-sys-border/60 bg-sys-card/95 backdrop-blur-xs select-none"
+              className="relative flex h-11 w-full border-b border-sys-border/60 bg-sys-card select-none"
             >
               {/* Sliding indicator line at bottom */}
               <div
@@ -921,7 +921,7 @@ export function PermanentScheduleEditor() {
                   const dayLessons = templateData.days.find((d) => d.day_of_week === currentDayDef.day)?.lessons || [];
 
                   return (
-                    <motion.div
+                    <m.div
                       key={`${currentDayDef.day}-${weekType}`}
                       custom={daySlideDir}
                       variants={{
@@ -962,7 +962,7 @@ export function PermanentScheduleEditor() {
                           <button
                             type="button"
                             onClick={() => setEditor({ day_of_week: currentDayDef.day })}
-                            className="min-h-[40px] px-3.5 rounded-lg bg-sys-accent text-xs font-semibold text-white shadow-xs hover:opacity-95 active:scale-95 transition-all"
+                            className="min-h-[40px] px-3.5 rounded-lg bg-sys-accent text-xs font-semibold text-white shadow-xs hover:opacity-95 active:scale-95 transition-opacity"
                           >
                             + Додати
                           </button>
@@ -1035,7 +1035,7 @@ export function PermanentScheduleEditor() {
                         );
                       })}
                     </div>
-                  </motion.div>
+                  </m.div>
                 );
               })()}
               </AnimatePresence>
@@ -1070,15 +1070,15 @@ export function PermanentScheduleEditor() {
             }}
             className="fixed inset-0 z-50 flex items-end sm:hidden"
           >
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+              className="fixed inset-0 bg-black/60"
               onClick={() => setMobileActionsDay(null)}
             />
-            <motion.div
+            <m.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
@@ -1140,7 +1140,7 @@ export function PermanentScheduleEditor() {
                   </button>
                 )}
               </div>
-            </motion.div>
+            </m.div>
           </div>
         )}
       </AnimatePresence>

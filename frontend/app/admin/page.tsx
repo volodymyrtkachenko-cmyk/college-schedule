@@ -4,7 +4,7 @@
 import dynamic from "next/dynamic";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { m, AnimatePresence, useReducedMotion } from "framer-motion";
 import { AdminNav, referenceLabels } from "../../components/admin/AdminNav";
 import { ReferenceForm } from "../../components/admin/ReferenceForm";
 import { ReferenceTable } from "../../components/admin/ReferenceTable";
@@ -385,7 +385,7 @@ function AdminContent() {
         {importNotification && (
           <div
             role="alert"
-            className={`rounded-2xl p-4 sm:p-5 border transition-all shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+            className={`rounded-2xl p-4 sm:p-5 border transition-colors shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
               importNotification.urgent
                 ? "bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-amber-500/5 border-amber-500/40 text-sys-text-primary shadow-amber-950/20"
                 : "bg-gradient-to-r from-sys-accent/15 via-sky-500/10 to-sys-accent/5 border-sys-accent/30 text-sys-text-primary shadow-cyan-950/15"
@@ -441,7 +441,7 @@ function AdminContent() {
               <button
                 type="button"
                 onClick={() => setSelectedNotifPubId(importNotification.publication_id)}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-sys-border bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-sys-text-primary transition-all active:scale-95 shrink-0"
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-sys-border bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-sys-text-primary transition-colors active:scale-95 shrink-0"
               >
                 Показати зміни
               </button>
@@ -449,7 +449,7 @@ function AdminContent() {
                 type="button"
                 onClick={() => void handleRevertNotification()}
                 disabled={revertingNotif}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-all active:scale-95 disabled:opacity-50 shrink-0"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors active:scale-95 disabled:opacity-50 shrink-0"
               >
                 {revertingNotif ? "Відкат..." : "Відкотити"}
               </button>
@@ -476,7 +476,7 @@ function AdminContent() {
         />
 
         <AnimatePresence mode="wait">
-          <motion.div
+          <m.div
             key={currentTab}
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -533,7 +533,7 @@ function AdminContent() {
                     </button>
                     <button
                       onClick={() => setEditor(null)}
-                      className="shrink-0 min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-95 transition-all"
+                      className="shrink-0 min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-95 transition-opacity"
                     >
                       + Додати {resourceConfig[activeResource].addLabel}
                     </button>
@@ -687,7 +687,7 @@ function AdminContent() {
         />
           </>
         )}
-          </motion.div>
+          </m.div>
         </AnimatePresence>
         </div>
       </div>

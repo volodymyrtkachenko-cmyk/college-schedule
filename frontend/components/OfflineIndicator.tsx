@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { useOnlineStatus, invalidateScheduleCache } from "../lib/hooks";
 
 export function OfflineIndicator({
@@ -15,7 +15,7 @@ export function OfflineIndicator({
   return (
     <AnimatePresence>
       {!online ? (
-        <motion.div
+        <m.div
           key="offline"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
@@ -24,9 +24,9 @@ export function OfflineIndicator({
           className="overflow-hidden border-b border-amber-500/30 dark:border-amber-400/20 bg-amber-500/15 dark:bg-amber-400/10 px-4 py-2 text-center text-xs sm:text-sm font-medium text-amber-900 dark:text-amber-200 flex items-center justify-center gap-2"
         >
           <span>📡 Немає підключення до інтернету · показано збережений розклад.</span>
-        </motion.div>
+        </m.div>
       ) : isSlowNetwork || isUsingFallbackCache ? (
-        <motion.div
+        <m.div
           key="slow-or-fallback"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
@@ -49,7 +49,7 @@ export function OfflineIndicator({
           >
             Оновити
           </button>
-        </motion.div>
+        </m.div>
       ) : null}
     </AnimatePresence>
   );

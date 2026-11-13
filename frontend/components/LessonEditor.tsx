@@ -69,14 +69,20 @@ export function LessonEditor({
   isTemplate = false,
 }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-     setTimeout(() => dialogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
-  }, []);
   const [form, setForm] = useState(() => initial(lesson, date, scheduleMode, defaultGroupId, defaultTeacherId, initialWeekType));
   const [subjects, setSubjects] = useState<DirectoryItem[]>([]);
   const [teacherSubjects, setTeacherSubjects] = useState<Record<number, number[]>>({});
   const [teachers, setTeachers] = useState<ReferenceRecord[]>([]);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [busy, onClose]);
   const [loadingDirectories, setLoadingDirectories] = useState(true);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -239,8 +245,10 @@ export function LessonEditor({
     <>
       {/* Subtle Drawer Backdrop so week schedule on the left remains visible */}
       <div
-        className="fixed inset-0 z-[120] bg-black/40 backdrop-blur-xs transition-opacity"
-        onClick={onClose}
+        className="fixed inset-0 z-[120] bg-black/65 lg:bg-black/45 lg:backdrop-blur-xs transition-opacity"
+        onClick={() => {
+          if (!busy) onClose();
+        }}
         aria-hidden="true"
       />
 
@@ -250,7 +258,7 @@ export function LessonEditor({
         role="dialog"
         aria-modal="true"
         aria-label={lesson ? "Редагувати заняття" : "Додати заняття"}
-        className="fixed inset-y-0 right-0 z-[130] flex w-full sm:w-[420px] flex-col border-l border-sys-border bg-sys-card shadow-2xl animate-in slide-in-from-right duration-200"
+        className="fixed inset-y-0 right-0 z-[130] flex w-full sm:w-[420px] flex-col border-l border-sys-border bg-sys-card shadow-2xl overscroll-contain animate-in slide-in-from-right duration-200"
       >
         {/* Sticky Header */}
         <div className="sticky top-0 z-10 border-b border-sys-border bg-sys-card px-5 py-4">
@@ -278,7 +286,7 @@ export function LessonEditor({
         </div>
 
         {/* Scrollable Form Body */}
-        <form id="lesson-editor-form" onSubmit={submit} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <form id="lesson-editor-form" onSubmit={submit} className="flex-1 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain px-5 py-4 space-y-4">
           {scheduleMode === "teacher" && (
             <label className="form-label">
               <span>Група</span>

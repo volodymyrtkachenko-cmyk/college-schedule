@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { EditIcon, MoveIcon } from "../LessonIcons";
 import { Lesson } from "../../lib/api";
 
@@ -103,7 +103,7 @@ export function LessonMoreMenu({
     <AnimatePresence>
       {open && (
         <>
-          <motion.div
+          <m.div
             key="more-menu-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -115,7 +115,7 @@ export function LessonMoreMenu({
               onClose();
             }}
           />
-          <motion.div
+          <m.div
             key="more-menu-popup"
             initial={{ opacity: 0, scale: 0.95, y: alignTop ? 4 : -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -305,7 +305,7 @@ export function LessonMoreMenu({
                 )}
               </>
             )}
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

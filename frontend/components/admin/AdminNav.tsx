@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "../../lib/auth";
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { m, AnimatePresence, useReducedMotion } from "framer-motion";
 import { api, ReferenceResource } from "../../lib/api";
 
 export const referenceLabels: Record<ReferenceResource, string> = {
@@ -342,7 +342,7 @@ export function AdminNav({ active }: { active: string }) {
   };
 
   const linkClass = (isActive: boolean) =>
-    `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+    `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
       isActive
         ? "border border-sys-accent/30 bg-sys-accent/15 text-sys-accent font-semibold"
         : "border border-transparent text-sys-text-secondary hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary"
@@ -670,15 +670,15 @@ export function AdminNav({ active }: { active: string }) {
       <AnimatePresence>
         {drawerOpen && (
           <>
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-[70] bg-[#0b1120]/80 backdrop-blur-xs lg:hidden"
+              className="fixed inset-0 z-[70] bg-[#0b1120]/80 lg:hidden"
               onClick={() => setDrawerOpen(false)}
             />
-            <motion.aside
+            <m.aside
               id="admin-drawer"
               aria-label="Навігація адмінпанелі"
               onTouchStart={onTouchStart}
@@ -691,7 +691,7 @@ export function AdminNav({ active }: { active: string }) {
               className="fixed top-0 left-0 bottom-0 z-[80] w-[min(320px,86vw)] bg-sys-card border-r border-sys-border flex flex-col shadow-2xl lg:hidden"
             >
               {renderNavContent()}
-            </motion.aside>
+            </m.aside>
           </>
         )}
       </AnimatePresence>

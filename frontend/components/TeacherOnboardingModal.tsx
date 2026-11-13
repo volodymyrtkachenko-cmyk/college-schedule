@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
+import { AppDialog } from "./ui/AppDialog";
 import { useTheme, ACCENT_OPTIONS, AccentColor } from "../lib/useTheme";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 
@@ -81,13 +82,15 @@ export function TeacherOnboardingModal({
   const isUnlocked = pinSuccess || isTeacherUnlocked;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 sm:bg-black/70 lg:backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="teacher-onboarding-title"
-        className="w-full sm:max-w-[480px] max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden select-none"
-      >
+    <AppDialog
+      isOpen
+      onClose={handleFinish}
+      variant="sheet"
+      maxWidth="480px"
+      closeDisabled={isVerifyingPin}
+      labelledBy="teacher-onboarding-title"
+    >
+      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden select-none">
         <header className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2">
             <h2 id="teacher-onboarding-title" className="text-sm sm:text-base font-bold text-sys-text-primary truncate">
@@ -126,9 +129,9 @@ export function TeacherOnboardingModal({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-4">
-          <AnimatePresence mode="wait">
-            <motion.div
+        <main className="flex-1 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] custom-scrollbar p-4">
+          <AnimatePresence mode="wait" initial={false}>
+            <m.div
               key={currentStep.id}
               initial={{ opacity: 0, x: 14 }}
               animate={{ opacity: 1, x: 0 }}
@@ -167,7 +170,7 @@ export function TeacherOnboardingModal({
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-3 min-h-[146px]">
                 <div>
                   <h3 className="text-sm sm:text-base font-bold text-sys-text-primary">{currentStep.title}</h3>
                   <p className="text-xs text-sys-text-secondary mt-0.5 leading-relaxed">{currentStep.subtitle}</p>
@@ -202,9 +205,13 @@ export function TeacherOnboardingModal({
                             {isVerifyingPin ? "Перевірка..." : "Розблокувати"}
                           </button>
                         </div>
-                        {pinError && (
-                          <p className="text-xs font-semibold text-sys-status-dangerText">{pinError}</p>
-                        )}
+                        <div className="min-h-[18px]">
+                          {pinError && (
+                            <p className="text-xs font-semibold text-sys-status-dangerText" role="alert">
+                              {pinError}
+                            </p>
+                          )}
+                        </div>
                       </form>
                     )}
                   </div>
@@ -262,7 +269,7 @@ export function TeacherOnboardingModal({
                   </div>
                 )}
               </div>
-            </motion.div>
+            </m.div>
           </AnimatePresence>
         </main>
 
@@ -295,6 +302,6 @@ export function TeacherOnboardingModal({
           </button>
         </footer>
       </div>
-    </div>
+    </AppDialog>
   );
 }

@@ -86,7 +86,7 @@ export const TaskCardItem = memo(function TaskCardItem({
       href={t.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden transform-gpu [content-visibility:auto] [contain-intrinsic-size:78px]"
+      className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
       style={{
         boxShadow: borderAccentStyle,
       }}

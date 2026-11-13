@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, startTransition } from "react";
+import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
@@ -8,6 +8,7 @@ import {
   useTaskGroups,
   formatTaskWord,
   TaskFilterState,
+  TaskGroupsResult,
 } from "../lib/useTaskGroups";
 import { FullTaskItem, renderTaskCard, TaskCardItem } from "./TaskCardItem";
 
@@ -17,6 +18,9 @@ export type { FullTaskItem };
 export { renderTaskCard };
 
 export type TasksTabMode = "pending" | "overdue" | "done";
+
+const EMPTY_TASKS: FullTaskItem[] = [];
+const DONE_INITIAL_LIMIT = 15;
 
 export function TasksTodoBoard({
   tasks,
@@ -29,6 +33,7 @@ export function TasksTodoBoard({
   const [activeTab, setActiveTab] = useState<TasksTabMode>("pending");
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [subjectMenuOpen, setSubjectMenuOpen] = useState(false);
+  const [showAllDone, setShowAllDone] = useState(false);
 
   const filters: TaskFilterState = useMemo(
     () => ({
@@ -119,7 +124,7 @@ export function TasksTodoBoard({
           type="button"
           role="tab"
           aria-selected={activeTab === "pending"}
-          onClick={() => startTransition(() => setActiveTab("pending"))}
+          onClick={() => setActiveTab("pending")}
           className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             activeTab === "pending"
               ? "text-white font-bold"
@@ -142,7 +147,7 @@ export function TasksTodoBoard({
           type="button"
           role="tab"
           aria-selected={activeTab === "overdue"}
-          onClick={() => startTransition(() => setActiveTab("overdue"))}
+          onClick={() => setActiveTab("overdue")}
           className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             activeTab === "overdue"
               ? "text-white font-bold"
@@ -170,7 +175,7 @@ export function TasksTodoBoard({
             type="button"
             role="tab"
             aria-selected={activeTab === "done"}
-            onClick={() => startTransition(() => setActiveTab("done"))}
+            onClick={() => setActiveTab("done")}
             className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
               activeTab === "done"
                 ? "text-white font-bold"
@@ -319,7 +324,7 @@ export function TasksTodoBoard({
       {activeTab === "pending" && isLinked && overdueTotalCount > 0 && !effectiveSubject && (
         <button
           type="button"
-          onClick={() => startTransition(() => setActiveTab("overdue"))}
+          onClick={() => setActiveTab("overdue")}
           className="w-full flex items-center justify-between gap-2 rounded-xl border border-rose-500/35 bg-rose-500/10 px-3.5 py-2.5 text-xs text-left transition-colors hover:bg-rose-500/15 active:scale-[0.99] cursor-pointer"
         >
           <div className="flex items-center gap-2 min-w-0">
@@ -438,9 +443,20 @@ export function TasksTodoBoard({
               </p>
             </div>
           ) : (
-            turnedInTasks.map((t, idx) => (
-              <TaskCardItem key={t.id || t.url || `done-${idx}`} task={t} isLinked={isLinked} />
-            ))
+            <>
+              {(showAllDone ? turnedInTasks : turnedInTasks.slice(0, DONE_INITIAL_LIMIT)).map((t, idx) => (
+                <TaskCardItem key={t.id || t.url || `done-${idx}`} task={t} isLinked={isLinked} />
+              ))}
+              {!showAllDone && turnedInTasks.length > DONE_INITIAL_LIMIT && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllDone(true)}
+                  className="w-full rounded-xl border border-sys-border bg-sys-card py-2.5 px-4 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-[0.99] transition-colors cursor-pointer"
+                >
+                  Показати всі здані ({turnedInTasks.length})
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -450,12 +466,14 @@ export function TasksTodoBoard({
 
 export function MobileTasksView({
   tasks,
+  summaryTaskGroups,
   groupId,
   weekStart,
   lastSyncedAt,
   onSynced,
 }: {
   tasks: FullTaskItem[];
+  summaryTaskGroups?: TaskGroupsResult;
   groupId: number | null;
   weekStart?: string;
   weekAnchorDate?: Date;
@@ -477,7 +495,14 @@ export function MobileTasksView({
   const { isLinked, isLinkedToGroup } = useClassroomSubmissions();
   const hasAccess = Boolean(groupId && isLinkedToGroup(groupId));
 
-  const { activeCount, totalCount } = useTaskGroups(tasks, "all", undefined, undefined, isLinked);
+  const fallbackSummary = useTaskGroups(
+    summaryTaskGroups ? EMPTY_TASKS : tasks,
+    "all",
+    undefined,
+    undefined,
+    isLinked
+  );
+  const { activeCount, totalCount } = summaryTaskGroups ?? fallbackSummary;
   const badgeCount = isLinked ? activeCount : totalCount;
 
   const formattedSyncTime = useMemo(() => {
@@ -551,7 +576,7 @@ export function MobileTasksView({
 
         <button
           type="button"
-          onClick={() => startTransition(() => setViewMode("tasks"))}
+          onClick={() => setViewMode("tasks")}
           className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             viewMode === "tasks"
               ? "text-white font-bold"
@@ -565,9 +590,7 @@ export function MobileTasksView({
           type="button"
           onClick={() => {
             setGradesVisited(true);
-            startTransition(() => {
-              setViewMode("grades");
-            });
+            setViewMode("grades");
           }}
           className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             viewMode === "grades"

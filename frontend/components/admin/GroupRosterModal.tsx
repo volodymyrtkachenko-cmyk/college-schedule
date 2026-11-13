@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { api, ClassroomGroupRosterResponse } from "../../lib/api";
 import { ClassroomSyncButton } from "../ClassroomSyncButton";
 
@@ -179,6 +179,15 @@ export function GroupRosterModal({ group, onClose, onNotify }: GroupRosterModalP
     void loadRoster(group);
   }, [group?.id, loadRoster]);
 
+  useEffect(() => {
+    if (!group) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !bulkStudentSaving) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [group, bulkStudentSaving, onClose]);
+
   const handleBulkStudentImport = async () => {
     if (!group || !bulkStudentText.trim()) return;
     setBulkStudentSaving(true);
@@ -236,17 +245,17 @@ export function GroupRosterModal({ group, onClose, onNotify }: GroupRosterModalP
   return (
     <AnimatePresence>
       {group && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
-          className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 lg:backdrop-blur-sm"
           onClick={(e) => {
-            if (e.target === e.currentTarget) onClose();
+            if (e.target === e.currentTarget && !bulkStudentSaving) onClose();
           }}
         >
-          <motion.div
+          <m.div
             role="dialog"
             aria-modal="true"
             aria-label={`Студенти групи ${group.name}`}
@@ -300,7 +309,7 @@ export function GroupRosterModal({ group, onClose, onNotify }: GroupRosterModalP
                     setRosterTab("students");
                     setBulkStudentOpen(false);
                   }}
-                  className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                     rosterTab === "students"
                       ? "bg-sys-tabActive text-sys-text-primary shadow-sm border border-sys-border/80"
                       : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/40"
@@ -326,7 +335,7 @@ export function GroupRosterModal({ group, onClose, onNotify }: GroupRosterModalP
                     setRosterTab("classroom");
                     setBulkStudentOpen(false);
                   }}
-                  className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                     rosterTab === "classroom"
                       ? "bg-sys-tabActive text-sys-text-primary shadow-sm border border-sys-border/80"
                       : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/40"
@@ -350,7 +359,7 @@ export function GroupRosterModal({ group, onClose, onNotify }: GroupRosterModalP
 
             {/* Вміст вкладки: Classroom-акаунти */}
             {rosterTab === "classroom" && (
-              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+              <div className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] p-4 sm:p-5 space-y-4">
                 {/* Синхронізація та статус курсу */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-sys-border/60 bg-sys-bg/40 p-3.5">
                   <div className="min-w-0">
@@ -626,7 +635,7 @@ export function GroupRosterModal({ group, onClose, onNotify }: GroupRosterModalP
             {rosterTab === "students" && (
               <>
                 {bulkStudentOpen ? (
-                  <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                  <div className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] p-4 sm:p-5 space-y-4">
                     <div className="flex items-center justify-between">
                       <button
                         type="button"
@@ -753,7 +762,7 @@ export function GroupRosterModal({ group, onClose, onNotify }: GroupRosterModalP
                     </div>
 
                     {/* Список студентів (2 колонки на sm:) */}
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+                    <div className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] p-4 sm:p-5">
                       {rosterLoading ? (
                         <p className="text-sm text-sys-text-secondary py-6 text-center">Завантаження списку...</p>
                       ) : !rosterData || rosterData.students.length === 0 ? (
@@ -845,8 +854,8 @@ export function GroupRosterModal({ group, onClose, onNotify }: GroupRosterModalP
                 )}
               </>
             )}
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

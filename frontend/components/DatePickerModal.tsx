@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { getMondayOf, getSyncedNow, KYIV_DATE_FMT } from "../lib/date";
+import { AppDialog } from "./ui/AppDialog";
 
 interface DatePickerModalProps {
   isOpen: boolean;
@@ -60,18 +60,6 @@ export function DatePickerModal({
       setViewMonth(initialDate.getMonth());
     }
   }, [isOpen, initialDate]);
-
-  // Handle Escape key
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
 
   const canGoPrevMonth = useMemo(() => {
     if (!effectiveMinIso) return true;
@@ -149,8 +137,8 @@ export function DatePickerModal({
       });
     }
 
-    // Next month padding days to complete 7-column rows (up to 35 or 42 cells)
-    const remaining = (7 - (days.length % 7)) % 7;
+    // Next month padding days: always pad to 42 cells (6 rows) so height never jumps between months.
+    const remaining = Math.max(0, 42 - days.length);
     for (let d = 1; d <= remaining; d++) {
       const nextDate = new Date(viewYear, viewMonth + 1, d);
       days.push({
@@ -198,29 +186,13 @@ export function DatePickerModal({
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          key="date-picker-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Вибір дати розкладу"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 lg:bg-black/75 lg:backdrop-blur-xs"
-          onClick={onClose}
-        >
-          <motion.div
-            key="date-picker-dialog"
-            initial={{ opacity: 0, scale: 0.94, y: 16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 16 }}
-            transition={{ type: "spring", stiffness: 350, damping: 28 }}
-            className="surface-panel w-full max-w-[340px] sm:max-w-sm rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-2xl relative select-none"
-            onClick={(e) => e.stopPropagation()}
-          >
+    <AppDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      maxWidth="384px"
+      ariaLabel="Вибір дати розкладу"
+    >
+      <div className="surface-panel w-full rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-2xl relative select-none">
             {/* Header: Month & Year Navigator */}
         <div className="flex items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-sys-border/60">
           <div className="flex items-center gap-1.5">
@@ -355,9 +327,7 @@ export function DatePickerModal({
             <span>Сьогодні</span>
           </button>
         </div>
-      </motion.div>
-    </motion.div>
-  )}
-</AnimatePresence>
+      </div>
+    </AppDialog>
   );
 }

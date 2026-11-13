@@ -827,9 +827,11 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 }
 
-/* Іменовані шари View Transitions: максимум 1 видимий елемент кожного імені */
-.vt-main-content {
-  view-transition-name: main-content;
+/* Іменовані шари View Transitions: увімкнено лише на desktop (>= 1024px) */
+@media (min-width: 1024px) {
+  .vt-main-content {
+    view-transition-name: main-content;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -840,7 +842,7 @@ html[data-theme="light"][data-accent="cyan"] {
 
 @media (max-width: 1023px) {
   .vt-bottom-nav {
-    view-transition-name: bottom-nav;
+    contain: layout style;
   }
 }
 
@@ -899,6 +901,7 @@ html[data-theme="light"][data-accent="cyan"] {
 /* 0 ms перемикання мобільних вкладок зі збереженням layout-кешу */
 .spa-tab-panel {
   content-visibility: visible;
+  contain: layout style;
 }
 
 .spa-tab-panel[data-inactive="true"] {
@@ -909,6 +912,112 @@ html[data-theme="light"][data-accent="cyan"] {
 @supports not (content-visibility: hidden) {
   .spa-tab-panel[data-inactive="true"] {
     display: none;
+  }
+}
+
+/* Native Top-Layer <dialog class="app-dialog"> (Modal & Bottom Sheet) */
+dialog.app-dialog {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  max-width: none;
+  overflow: visible;
+  width: min(calc(100vw - 1.5rem), var(--dialog-max-w, 32rem));
+  max-height: min(92dvh, var(--dialog-max-h, 760px));
+  margin: auto;
+  opacity: 0;
+  transform: translate3d(0, 8px, 0) scale(0.985);
+  transition:
+    opacity 160ms var(--ease-spring),
+    transform 180ms var(--ease-spring),
+    overlay 180ms allow-discrete,
+    display 180ms allow-discrete;
+}
+
+dialog.app-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+dialog.app-dialog[data-closing="true"] {
+  opacity: 0;
+  transform: translate3d(0, 8px, 0) scale(0.985);
+  pointer-events: none;
+}
+
+dialog.app-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.app-dialog::backdrop {
+  background: rgb(2 6 23 / 0.72);
+  overflow: hidden;
+  overscroll-behavior: contain;
+  opacity: 0;
+  transition:
+    opacity 160ms var(--ease-out),
+    overlay 180ms allow-discrete,
+    display 180ms allow-discrete;
+}
+
+dialog.app-dialog[open]::backdrop {
+  opacity: 1;
+}
+
+dialog.app-dialog[data-closing="true"]::backdrop {
+  opacity: 0;
+}
+
+@media (max-width: 639px) {
+  dialog.app-dialog[data-variant="sheet"] {
+    width: 100vw;
+    max-width: 100vw;
+    margin: auto auto 0 auto;
+    transform: translate3d(0, 24px, 0);
+  }
+
+  dialog.app-dialog[data-variant="sheet"][open] {
+    transform: translate3d(0, 0, 0);
+  }
+
+  dialog.app-dialog[data-variant="sheet"][data-closing="true"] {
+    transform: translate3d(0, 24px, 0);
+  }
+}
+
+@media (min-width: 1024px) {
+  dialog.app-dialog::backdrop {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+}
+
+@starting-style {
+  dialog.app-dialog[open] {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.985);
+  }
+
+  dialog.app-dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 639px) {
+  @starting-style {
+    dialog.app-dialog[data-variant="sheet"][open] {
+      transform: translate3d(0, 24px, 0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.app-dialog,
+  dialog.app-dialog::backdrop {
+    transition-duration: 0.01ms !important;
   }
 }
 

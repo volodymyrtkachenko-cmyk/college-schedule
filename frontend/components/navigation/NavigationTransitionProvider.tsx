@@ -207,7 +207,10 @@ export function NavigationTransitionProvider({
         });
       };
 
-      // Same-pathname query updates or reduced-motion/unsupported VT: navigate immediately
+      // Same-pathname query updates, mobile viewports (< 1024px), or reduced-motion/unsupported VT: navigate immediately
+      const isDesktopViewport =
+        typeof window !== "undefined" &&
+        (window.matchMedia?.("(min-width: 1024px)")?.matches ?? false);
       const hasNativeVT =
         typeof document !== "undefined" &&
         typeof (document as Document & { startViewTransition?: unknown }).startViewTransition ===
@@ -216,7 +219,7 @@ export function NavigationTransitionProvider({
         typeof window !== "undefined" &&
         (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false);
 
-      if (!direction || !hasNativeVT || prefersReduced) {
+      if (!direction || !isDesktopViewport || !hasNativeVT || prefersReduced) {
         runRouterNav();
         return;
       }
