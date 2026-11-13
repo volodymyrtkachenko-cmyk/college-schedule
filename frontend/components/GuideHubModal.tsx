@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, startTransition } from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { m, AnimatePresence } from "framer-motion";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
@@ -140,6 +139,7 @@ export function GuideHubModal({
   const [role, setRole] = useState<"student" | "teacher">(initialRole ?? mode ?? "student");
   const [stepIdx, setStepIdx] = useState(0);
   const [slideDir, setSlideDir] = useState(1);
+  const [hasStepped, setHasStepped] = useState(false);
 
   const steps = role === "student" ? STUDENT_STEPS : TEACHER_STEPS;
   const stepsCount = steps.length;
@@ -147,6 +147,7 @@ export function GuideHubModal({
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
     setStepIdx(0);
+    setHasStepped(false);
     try {
       const storedMode = window.localStorage.getItem("schedule:mode");
       if (!initialRole && !mode && (storedMode === "student" || storedMode === "teacher")) {
@@ -161,10 +162,12 @@ export function GuideHubModal({
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") {
+        setHasStepped(true);
         setSlideDir(1);
         setStepIdx((c) => Math.min(stepsCount - 1, c + 1));
       }
       if (e.key === "ArrowLeft") {
+        setHasStepped(true);
         setSlideDir(-1);
         setStepIdx((c) => Math.max(0, c - 1));
       }
@@ -177,19 +180,18 @@ export function GuideHubModal({
   const activeStep = steps[safeIdx] ?? steps[0];
 
   const goToStep = (nextIdx: number) => {
-    startTransition(() => {
-      setSlideDir(nextIdx >= safeIdx ? 1 : -1);
-      setStepIdx(nextIdx);
-    });
+    if (nextIdx === safeIdx) return;
+    setHasStepped(true);
+    setSlideDir(nextIdx > safeIdx ? 1 : -1);
+    setStepIdx(nextIdx);
   };
 
   const handleRoleChange = (nextRole: "student" | "teacher") => {
     if (nextRole === role) return;
-    startTransition(() => {
-      setSlideDir(nextRole === "teacher" ? 1 : -1);
-      setRole(nextRole);
-      setStepIdx(0);
-    });
+    setHasStepped(true);
+    setSlideDir(nextRole === "teacher" ? 1 : -1);
+    setRole(nextRole);
+    setStepIdx(0);
   };
 
   return (
@@ -200,7 +202,7 @@ export function GuideHubModal({
       maxWidth="500px"
       labelledBy="guide-title"
     >
-      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden select-none">
+      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-lg sm:shadow-2xl overflow-hidden select-none">
         {/* 1. ШАПКА + ПЕРЕМИКАЧ РОЛІ + ВКЛАДКИ */}
         <div className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2">
@@ -294,18 +296,13 @@ export function GuideHubModal({
         </div>
 
         {/* 2. СТАБІЛЬНА СЦЕНА + ОПИС БЕЗ СТРИБКІВ РОЗМІРУ */}
-        <div className="flex-1 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] custom-scrollbar p-4">
-          <AnimatePresence mode="wait" initial={false} custom={slideDir}>
-            <m.div
-              key={`${role}-${activeStep.id}`}
-              custom={slideDir}
-              initial={{ opacity: 0, x: slideDir * 14 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: slideDir * -14 }}
-              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-              className="space-y-3.5"
-            >
-              <GuideDemoStage role={role} stepIdx={safeIdx} isOpen={isOpen} />
+        <div className="flex-1 overflow-y-auto overflow-x-clip lg:[scrollbar-gutter:stable] custom-scrollbar p-4">
+          <div
+            key={`${role}-${activeStep.id}`}
+            data-slide-dir={hasStepped ? (slideDir >= 0 ? "next" : "prev") : undefined}
+            className="guide-step-slide space-y-3.5"
+          >
+            <GuideDemoStage role={role} stepIdx={safeIdx} isOpen={isOpen} />
 
               {/* 3. ЛАКОНІЧНИЙ ОПИС + РЕЗЕРВОВАНИЙ СЛОТ ШВИДКОЇ ДІЇ */}
               <div className="space-y-2.5 px-0.5 flex flex-col justify-between min-h-[168px]">
@@ -456,8 +453,7 @@ export function GuideHubModal({
                   )}
                 </div>
               </div>
-            </m.div>
-          </AnimatePresence>
+          </div>
         </div>
 
         {/* 4. НИЖНЯ НАВІГАЦІЯ */}

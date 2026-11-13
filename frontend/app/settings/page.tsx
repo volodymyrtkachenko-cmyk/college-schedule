@@ -52,6 +52,10 @@ export default function SettingsPage() {
   const { showToast } = useToast();
   const [isLinkingClassroom, setIsLinkingClassroom] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showGuideMounted, setShowGuideMounted] = useState(false);
+  useEffect(() => {
+    if (showGuideModal) setShowGuideMounted(true);
+  }, [showGuideModal]);
 
   const [groupHasSubgroups, setGroupHasSubgroups] = useState<boolean>(false);
   const [subgroupHints, setSubgroupHints] = useState<{ sub1: SubgroupTeacherHint[]; sub2: SubgroupTeacherHint[] }>({ sub1: [], sub2: [] });
@@ -791,8 +795,9 @@ export default function SettingsPage() {
           )}
         </section>
 
-        {showGuideModal && (
+        {showGuideMounted && (
           <GuideHubModal
+            isOpen={showGuideModal}
             groupId={
               typeof window !== "undefined"
                 ? Number(localStorage.getItem("schedule:groupId")) ||

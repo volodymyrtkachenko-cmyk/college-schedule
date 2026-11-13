@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { AnimatePresence, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import { canAccessAdmin, useAuth } from "../lib/auth";
 import { ReferenceRecord } from "../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../lib/hooks";
@@ -123,6 +123,10 @@ export function SchedulePageClient({
   const [teacherPinModalOpen, setTeacherPinModalOpen] = useState(false);
   const [teacherPinTargetGroup, setTeacherPinTargetGroup] = useState<string | null>(null);
   const [guideHubOpen, setGuideHubOpen] = useState(false);
+  const [guideHubMounted, setGuideHubMounted] = useState(false);
+  useEffect(() => {
+    if (guideHubOpen) setGuideHubMounted(true);
+  }, [guideHubOpen]);
   const [desktopSidebarTab, setDesktopSidebarTab] = useState<"tasks" | "grades">("tasks");
   const { urlSearch } = useMobileNav();
   const tasksPanelRef = useRef<HTMLDivElement | null>(null);
@@ -600,27 +604,26 @@ export function SchedulePageClient({
             onSelectDate={sel.handleDatePickerSelect}
           />
 
-          <AnimatePresence>
-            {guideHubOpen && (
-              <GuideHubModal
-                groupId={groupId}
-                teacherId={teacherId}
-                mode={mode}
-                groupName={groups.find((g) => g.id === groupId)?.name ?? null}
-                teacherName={sel.selectedTeacher?.name ?? null}
-                taskCounts={
-                  isLinked
-                    ? {
-                        pending: guideTaskGroups.pendingCount,
-                        overdue: guideTaskGroups.overdueTotalCount,
-                        done: guideTaskGroups.doneCount,
-                      }
-                    : null
-                }
-                onClose={() => setGuideHubOpen(false)}
-              />
-            )}
-          </AnimatePresence>
+          {guideHubMounted && (
+            <GuideHubModal
+              isOpen={guideHubOpen}
+              groupId={groupId}
+              teacherId={teacherId}
+              mode={mode}
+              groupName={groups.find((g) => g.id === groupId)?.name ?? null}
+              teacherName={sel.selectedTeacher?.name ?? null}
+              taskCounts={
+                isLinked
+                  ? {
+                      pending: guideTaskGroups.pendingCount,
+                      overdue: guideTaskGroups.overdueTotalCount,
+                      done: guideTaskGroups.doneCount,
+                    }
+                  : null
+              }
+              onClose={() => setGuideHubOpen(false)}
+            />
+          )}
         </>
       )}
     </div>

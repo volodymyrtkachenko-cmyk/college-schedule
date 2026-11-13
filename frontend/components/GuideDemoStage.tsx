@@ -94,20 +94,23 @@ function DemoCursor({
           transition: "transform 160ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease",
         }}
       >
-        {clicking && !hidden && (
-          <span
-            key="click-ripple"
-            className="absolute -left-2.5 -top-2.5 h-7 w-7 rounded-full border-2 border-sys-accent bg-sys-accent/35 animate-ping"
-          />
-        )}
+        <span
+          data-clicking={clicking && !hidden ? "true" : "false"}
+          className="guide-cursor-ripple pointer-events-none opacity-0 absolute -left-2.5 -top-2.5 h-7 w-7 rounded-full border-2 border-sys-accent bg-sys-accent/35"
+        />
 
         <svg
           width="24"
           height="24"
           viewBox="0 0 24 24"
           fill="none"
-          className="drop-shadow-[0_4px_10px_rgba(0,0,0,0.65)]"
         >
+          <path
+            transform="translate(1.5 2)"
+            d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.53.35-.85L6.35 2.86a.5.5 0 0 0-.85.35Z"
+            fill="#0f172a"
+            fillOpacity="0.22"
+          />
           <path
             d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.53.35-.85L6.35 2.86a.5.5 0 0 0-.85.35Z"
             fill="#ffffff"
@@ -160,7 +163,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
   }, [isOpen, role, stepIdx]);
 
   return (
-    <div className="relative mx-auto w-full h-[236px] rounded-2xl border border-sys-border bg-sys-bg px-3.5 py-3 flex flex-col justify-center overflow-hidden shadow-inner">
+    <div className="relative mx-auto w-full h-[236px] rounded-2xl border border-sys-border bg-sys-bg px-3.5 py-3 flex flex-col justify-center overflow-hidden [contain:layout_style_paint]">
       {/* =====================================================
           СТУДЕНТ 0: CLASSROOM (Lock -> Meet + ДЗ, фіксована висота)
          ===================================================== */}
@@ -181,22 +184,29 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
                 <span className="text-xs font-semibold text-sys-text-secondary">09:00–10:20</span>
               </div>
 
-              {stage < 3 ? (
+              <div className="inline-grid">
                 <span
-                  className={`inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-warnBg/40 bg-sys-status-warnBg/15 text-sys-status-warnText text-xs font-bold transition-transform duration-150 ${
-                    stage === 2 ? "scale-95" : ""
+                  aria-hidden={stage >= 3}
+                  className={`col-start-1 row-start-1 inline-flex h-8 px-2.5 items-center justify-self-end gap-1.5 rounded-lg border border-sys-status-warnBg/40 bg-sys-status-warnBg/15 text-sys-status-warnText text-xs font-bold transition-[opacity,transform] duration-150 ${
+                    stage < 3
+                      ? `opacity-100 ${stage === 2 ? "scale-95" : "scale-100"}`
+                      : "opacity-0 scale-95 pointer-events-none"
                   }`}
                 >
                   <LockIcon className="h-3 w-3 shrink-0" />
                   <span>Meet</span>
                 </span>
-              ) : (
-                <span className="inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold shadow-xs animate-in fade-in duration-150">
+                <span
+                  aria-hidden={stage < 3}
+                  className={`col-start-1 row-start-1 inline-flex h-8 px-2.5 items-center justify-self-end gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold shadow-xs transition-[opacity,transform] duration-150 ${
+                    stage >= 3 ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
+                  }`}
+                >
                   <PlatformSvg platform="meet" />
                   <span>Meet</span>
                   <span className="opacity-75">↗</span>
                 </span>
-              )}
+              </div>
             </div>
 
             <div>
@@ -297,28 +307,27 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
               </span>
             </div>
 
-            {/* Subgroup 2 Row — collapses gently inside grid track without shifting rows above */}
+            {/* Subgroup 2 Row — GPU-only fade & slight shift without layout reflow */}
             <div
-              className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
-                stage < 3 ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              aria-hidden={stage >= 3}
+              className={`transition-[transform,opacity] duration-200 ease-out ${
+                stage < 3 ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none"
               }`}
             >
-              <div className="overflow-hidden">
-                <div className="flex items-center justify-between gap-2 h-7">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-sys-border bg-sys-bg/80 text-xs font-semibold text-sys-text-secondary">
-                      <span className="h-1.5 w-1.5 rounded-full bg-sys-text-muted/60" />
-                      <span>2 підгр.</span>
-                    </span>
-                    <UserSvg />
-                    <span className="text-xs font-medium text-sys-text-secondary truncate">
-                      Коваленко Н.С.
-                    </span>
-                  </div>
-                  <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-1 text-xs font-semibold leading-none text-sys-text-secondary">
-                    ауд. 204
+              <div className="flex items-center justify-between gap-2 h-7">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-sys-border bg-sys-bg/80 text-xs font-semibold text-sys-text-secondary">
+                    <span className="h-1.5 w-1.5 rounded-full bg-sys-text-muted/60" />
+                    <span>2 підгр.</span>
+                  </span>
+                  <UserSvg />
+                  <span className="text-xs font-medium text-sys-text-secondary truncate">
+                    Коваленко Н.С.
                   </span>
                 </div>
+                <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-1 text-xs font-semibold leading-none text-sys-text-secondary">
+                  ауд. 204
+                </span>
               </div>
             </div>
           </div>
@@ -368,7 +377,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
           </div>
 
           <div
-            className={`flex items-center gap-2 rounded-[8px] border border-sys-status-okBg/40 bg-sys-card px-3.5 py-2.5 text-xs font-semibold text-sys-status-okText shadow-lg transition-[opacity,transform] duration-200 ${
+            className={`flex items-center gap-2 rounded-[8px] border border-sys-status-okBg/40 bg-sys-card px-3.5 py-2.5 text-xs font-semibold text-sys-status-okText shadow-sm transition-[opacity,transform] duration-200 ${
               stage >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1.5 pointer-events-none"
             }`}
             aria-hidden={stage < 3}
@@ -437,38 +446,41 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
             <span>▾</span>
           </div>
 
-          <div className="min-h-[82px]">
-            {stage < 3 ? (
-              <div
-                className="rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1 min-h-[80px]"
-                style={{ boxShadow: "inset 3px 0 0 #f59e0b" }}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-xs font-semibold text-sys-text-primary">Лабораторна робота №4</span>
-                  <span className="text-xs text-sys-text-muted">↗</span>
-                </div>
-                <p className="text-[11px] text-sys-text-muted truncate">Комп&apos;ютерна схемотехніка · Іваненко О.М.</p>
-                <div className="flex items-center gap-1.5 text-xs font-medium text-sys-status-warnText pt-0.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sys-status-warnBg" />
-                  <span>Завтра</span>
-                </div>
+          <div className="grid min-h-[82px]">
+            <div
+              aria-hidden={stage >= 3}
+              className={`col-start-1 row-start-1 rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1 min-h-[80px] transition-opacity duration-150 ${
+                stage < 3 ? "opacity-100" : "opacity-0 pointer-events-none"
+              }`}
+              style={{ boxShadow: "inset 3px 0 0 #f59e0b" }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-xs font-semibold text-sys-text-primary">Лабораторна робота №4</span>
+                <span className="text-xs text-sys-text-muted">↗</span>
               </div>
-            ) : (
-              <div
-                className="rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1 min-h-[80px] animate-in fade-in duration-150"
-                style={{ boxShadow: "inset 3px 0 0 #ef4444" }}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-xs font-semibold text-sys-text-primary">Практична робота №2</span>
-                  <span className="text-xs text-sys-text-muted">↗</span>
-                </div>
-                <p className="text-[11px] text-sys-text-muted truncate">Вища математика · Петренко І.В.</p>
-                <div className="flex items-center gap-1.5 text-xs font-medium text-sys-status-dangerText pt-0.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sys-status-dangerBg" />
-                  <span>10 лист. · прострочено 2 дні</span>
-                </div>
+              <p className="text-[11px] text-sys-text-muted truncate">Комп&apos;ютерна схемотехніка · Іваненко О.М.</p>
+              <div className="flex items-center gap-1.5 text-xs font-medium text-sys-status-warnText pt-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-sys-status-warnBg" />
+                <span>Завтра</span>
               </div>
-            )}
+            </div>
+            <div
+              aria-hidden={stage < 3}
+              className={`col-start-1 row-start-1 rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1 min-h-[80px] transition-opacity duration-150 ${
+                stage >= 3 ? "opacity-100" : "opacity-0 pointer-events-none"
+              }`}
+              style={{ boxShadow: "inset 3px 0 0 #ef4444" }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-xs font-semibold text-sys-text-primary">Практична робота №2</span>
+                <span className="text-xs text-sys-text-muted">↗</span>
+              </div>
+              <p className="text-[11px] text-sys-text-muted truncate">Вища математика · Петренко І.В.</p>
+              <div className="flex items-center gap-1.5 text-xs font-medium text-sys-status-dangerText pt-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-sys-status-dangerBg" />
+                <span>10 лист. · прострочено 2 дні</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -531,27 +543,34 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
               </div>
             </div>
 
-            <div className="min-h-[36px] flex items-center">
-              {stage < 3 ? (
-                <div className="flex items-center gap-1 pt-1.5 border-t border-sys-border/40 w-full">
-                  {["11 б.", "12 б.", "10 б."].map((mark) => (
-                    <span
-                      key={mark}
-                      className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-bold border border-sys-status-okBg/30 bg-sys-status-okBg/15 text-sys-status-okText"
-                    >
-                      {mark}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-between w-full rounded-xl border border-sys-border/60 bg-sys-bg/60 px-2.5 py-1.5 text-xs animate-in fade-in duration-150">
-                  <span className="font-semibold text-sys-text-primary truncate">Контрольна робота №1</span>
-                  <span className="font-bold text-sys-text-primary shrink-0 ml-2">
-                    95<span className="text-[10px] text-sys-text-secondary">/100 б.</span>{" "}
-                    <span className="text-sys-status-okText">(5 за 5-б.)</span>
+            <div className="grid min-h-[36px] items-center">
+              <div
+                aria-hidden={stage >= 3}
+                className={`col-start-1 row-start-1 flex items-center gap-1 pt-1.5 border-t border-sys-border/40 w-full transition-opacity duration-150 ${
+                  stage < 3 ? "opacity-100" : "opacity-0 pointer-events-none"
+                }`}
+              >
+                {["11 б.", "12 б.", "10 б."].map((mark) => (
+                  <span
+                    key={mark}
+                    className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-bold border border-sys-status-okBg/30 bg-sys-status-okBg/15 text-sys-status-okText"
+                  >
+                    {mark}
                   </span>
-                </div>
-              )}
+                ))}
+              </div>
+              <div
+                aria-hidden={stage < 3}
+                className={`col-start-1 row-start-1 flex items-center justify-between w-full rounded-xl border border-sys-border/60 bg-sys-bg/60 px-2.5 py-1.5 text-xs transition-opacity duration-150 ${
+                  stage >= 3 ? "opacity-100" : "opacity-0 pointer-events-none"
+                }`}
+              >
+                <span className="font-semibold text-sys-text-primary truncate">Контрольна робота №1</span>
+                <span className="font-bold text-sys-text-primary shrink-0 ml-2">
+                  95<span className="text-[10px] text-sys-text-secondary">/100 б.</span>{" "}
+                  <span className="text-sys-status-okText">(5 за 5-б.)</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -655,7 +674,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
             }`}
             aria-hidden={stage >= 3}
           >
-            <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-lg space-y-3">
+            <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center border border-sys-status-infoBg/30 bg-sys-status-infoBg/15 text-sys-status-infoText shrink-0">
                   <LockIcon className="h-4 w-4" />
@@ -822,35 +841,42 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
             })}
           </div>
 
-          <div className="min-h-[112px]">
-            {stage < 3 ? (
-              <div className="rounded-2xl border border-sys-status-dangerBg/40 border-dashed bg-sys-card p-3.5 space-y-1.5 min-h-[108px]">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-sys-text-secondary shrink-0">3 · 12:30–13:50</span>
-                  <span className="rounded px-1.5 py-0.5 text-[11px] sm:text-xs font-bold border border-sys-status-warnBg/40 bg-sys-status-warnBg/15 text-sys-status-warnText truncate">
-                    ↪ Перенесено → Чт, 3 пара
-                  </span>
-                </div>
-                <div className="text-base font-semibold line-through text-sys-text-muted">
-                  Мікропроцесорні системи
-                </div>
-                <div className="text-xs text-sys-text-secondary">Група: 85</div>
+          <div className="grid min-h-[112px]">
+            <div
+              aria-hidden={stage >= 3}
+              className={`col-start-1 row-start-1 rounded-2xl border border-sys-status-dangerBg/40 border-dashed bg-sys-card p-3.5 space-y-1.5 min-h-[108px] transition-opacity duration-150 ${
+                stage < 3 ? "opacity-100" : "opacity-0 pointer-events-none"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-sys-text-secondary shrink-0">3 · 12:30–13:50</span>
+                <span className="rounded px-1.5 py-0.5 text-[11px] sm:text-xs font-bold border border-sys-status-warnBg/40 bg-sys-status-warnBg/15 text-sys-status-warnText truncate">
+                  ↪ Перенесено → Чт, 3 пара
+                </span>
               </div>
-            ) : (
-              <div className="rounded-2xl border border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-card p-3.5 space-y-1.5 min-h-[108px] animate-in fade-in duration-150">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-sys-text-secondary">3 · 12:30–13:50</span>
-                  <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-bold bg-sys-warning uppercase tracking-wider text-sys-warningText">
-                    <BoltIcon className="h-3 w-3 shrink-0" />
-                    <span>Заміна</span>
-                  </span>
-                </div>
-                <div className="text-base font-semibold text-sys-text-subject">
-                  Мікропроцесорні системи
-                </div>
-                <div className="text-xs text-sys-text-secondary">Група: 85 • ауд. 305</div>
+              <div className="text-base font-semibold line-through text-sys-text-muted">
+                Мікропроцесорні системи
               </div>
-            )}
+              <div className="text-xs text-sys-text-secondary">Група: 85</div>
+            </div>
+            <div
+              aria-hidden={stage < 3}
+              className={`col-start-1 row-start-1 rounded-2xl border border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-card p-3.5 space-y-1.5 min-h-[108px] transition-opacity duration-150 ${
+                stage >= 3 ? "opacity-100" : "opacity-0 pointer-events-none"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-sys-text-secondary">3 · 12:30–13:50</span>
+                <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-bold bg-sys-warning uppercase tracking-wider text-sys-warningText">
+                  <BoltIcon className="h-3 w-3 shrink-0" />
+                  <span>Заміна</span>
+                </span>
+              </div>
+              <div className="text-base font-semibold text-sys-text-subject">
+                Мікропроцесорні системи
+              </div>
+              <div className="text-xs text-sys-text-secondary">Група: 85 • ауд. 305</div>
+            </div>
           </div>
         </div>
       )}
