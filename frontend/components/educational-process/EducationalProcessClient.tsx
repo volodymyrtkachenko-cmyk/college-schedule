@@ -1,20 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DesktopSpotlightGrid } from "@/components/navigation/DesktopSpotlightGrid";
 import { SubpageHeader } from "@/components/navigation/SubpageHeader";
-import { ChevronDownIcon, ChevronUpIcon, CloseIcon, SearchIcon } from "@/components/ui/Icons";
+import { ChevronDownIcon, ChevronUpIcon, CloseIcon, SearchIcon, UsersIcon } from "@/components/ui/Icons";
 import {
   api,
-  type EducationalProcessCellInfo,
   type EducationalProcessMatrix,
-  type EducationalProcessWeekInfo,
 } from "@/lib/api";
 import {
   getCurrentAcademicYear,
   readCacheSnapshot,
   writeCacheSnapshot,
 } from "@/lib/cacheSnapshot";
+import {
+  mergeProcessCells,
+  MS_PER_DAY,
+  parseUtcMidnightMs,
+  partitionSemesterPeriods,
+  type MergedPeriod,
+} from "@/lib/educationalProcess";
 
 const TYPE_CONFIG: Record<
   string,
@@ -85,12 +90,6 @@ const MONTH_NAMES_UA = [
   "груд.",
 ];
 
-const MS_PER_DAY = 86_400_000;
-
-function parseUtcMidnightMs(dateStr: string): number {
-  return Date.parse(`${dateStr}T00:00:00Z`);
-}
-
 function formatDisplayDate(dateStr: string) {
   const ms = parseUtcMidnightMs(dateStr);
   if (Number.isNaN(ms)) return dateStr;
@@ -108,70 +107,8 @@ function formatShortDate(dateStr: string) {
   return `${String(d.getUTCDate()).padStart(2, "0")}.${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-interface MergedPeriod {
-  start_date: string;
-  end_date: string;
-  start_week: number;
-  end_week: number;
-  weeks_count: number;
-  period_type: string;
-  name: string | null;
-}
-
-function mergeCells(
-  cells: EducationalProcessCellInfo[],
-  weeks: EducationalProcessWeekInfo[]
-): MergedPeriod[] {
-  if (!cells.length || !weeks.length) return [];
-
-  const sortedCells = [...cells].sort((a, b) => a.week_number - b.week_number);
-  const merged: MergedPeriod[] = [];
-  let current: MergedPeriod | null = null;
-
-  for (const cell of sortedCells) {
-    const week = weeks.find((w) => w.week_number === cell.week_number);
-    if (!week) continue;
-
-    const normalizedName = cell.name ?? null;
-    if (!current) {
-      current = {
-        start_date: week.start_date,
-        end_date: week.end_date,
-        start_week: cell.week_number,
-        end_week: cell.week_number,
-        weeks_count: 1,
-        period_type: cell.period_type,
-        name: normalizedName,
-      };
-    } else if (current.period_type === cell.period_type && current.name === normalizedName) {
-      current.end_date = week.end_date;
-      current.end_week = cell.week_number;
-      current.weeks_count += 1;
-    } else {
-      merged.push(current);
-      current = {
-        start_date: week.start_date,
-        end_date: week.end_date,
-        start_week: cell.week_number,
-        end_week: cell.week_number,
-        weeks_count: 1,
-        period_type: cell.period_type,
-        name: normalizedName,
-      };
-    }
-  }
-
-  if (current) {
-    merged.push(current);
-  }
-
-  return merged;
-}
-
 export function EducationalProcessClient() {
-  const defaultYear = useMemo(() => getCurrentAcademicYear(), []);
-  const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
-  const yearOptions = useMemo(() => [defaultYear - 1, defaultYear, defaultYear + 1], [defaultYear]);
+  const selectedYear = useMemo(() => getCurrentAcademicYear(), []);
 
   const [matrix, setMatrix] = useState<EducationalProcessMatrix | null>(null);
   const [loading, setLoading] = useState(true);
@@ -182,10 +119,13 @@ export function EducationalProcessClient() {
   const [activeCourseTab, setActiveCourseTab] = useState<number | "all">(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFullSchedule, setShowFullSchedule] = useState(false);
+  const hasInitializedGroupRef = useRef(false);
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem("schedule:groupId");
+      const raw =
+        window.localStorage.getItem("schedule:groupId") ||
+        window.localStorage.getItem("schedule:classroom_linked_group_id");
       if (raw) {
         const parsed = Number(raw);
         if (!Number.isNaN(parsed) && parsed > 0) {
@@ -260,21 +200,28 @@ export function EducationalProcessClient() {
 
   useEffect(() => {
     if (allGroups.length === 0) return;
-    if (!selectedGroupId || !allGroups.some((g) => g.id === selectedGroupId)) {
-      if (savedGroupId && allGroups.some((g) => g.id === savedGroupId)) {
-        const found = allGroups.find((g) => g.id === savedGroupId);
-        setSelectedGroupId(savedGroupId);
-        if (found) setActiveCourseTab(found.course);
-      } else {
-        setSelectedGroupId(allGroups[0].id);
-        setActiveCourseTab(allGroups[0].course);
-      }
-    } else if (
-      activeCourseTab !== "all" &&
-      !availableCourses.includes(activeCourseTab)
-    ) {
-      const found = allGroups.find((g) => g.id === selectedGroupId);
-      setActiveCourseTab(found ? found.course : availableCourses[0] ?? "all");
+
+    const preferredId = selectedGroupId ?? savedGroupId;
+    const matched = preferredId ? allGroups.find((g) => g.id === preferredId) : null;
+
+    if (!matched) {
+      const fallback =
+        (savedGroupId ? allGroups.find((g) => g.id === savedGroupId) : null) ?? allGroups[0];
+      setSelectedGroupId(fallback.id);
+      setActiveCourseTab(fallback.course);
+      hasInitializedGroupRef.current = true;
+      return;
+    }
+
+    // Align the course tab to the user's active/saved group once matrix data loads
+    if (!hasInitializedGroupRef.current) {
+      hasInitializedGroupRef.current = true;
+      setActiveCourseTab(matched.course);
+      return;
+    }
+
+    if (activeCourseTab !== "all" && !availableCourses.includes(activeCourseTab)) {
+      setActiveCourseTab(matched.course);
     }
   }, [allGroups, availableCourses, activeCourseTab, selectedGroupId, savedGroupId]);
 
@@ -286,7 +233,7 @@ export function EducationalProcessClient() {
         return {
           group: g,
           course: course.course,
-          mergedPeriods: mergeCells(g.cells, matrix.weeks),
+          mergedPeriods: mergeProcessCells(g.cells, matrix.weeks),
         };
       }
     }
@@ -402,15 +349,12 @@ export function EducationalProcessClient() {
     const sem1 = matrix?.semesters?.find((s) => s.semester_number === 1);
     const sem2 = matrix?.semesters?.find((s) => s.semester_number === 2);
 
-    const sem1EndWeek = sem1?.end_week ?? 21;
-    const sem2StartWeek = sem2?.start_week ?? Math.max(sem1EndWeek + 1, 22);
-
-    const semester1 = nonTheory
-      .filter((p) => p.start_week <= sem1EndWeek || p.end_week < sem2StartWeek)
-      .map(formatItem);
-    const semester2 = nonTheory
-      .filter((p) => p.end_week >= sem2StartWeek)
-      .map(formatItem);
+    const formatted = nonTheory.map(formatItem);
+    const { semester1, semester2 } = partitionSemesterPeriods(
+      formatted,
+      matrix?.semesters,
+      matrix?.weeks
+    );
 
     const sem1Subtitle = sem1
       ? `${formatDisplayDate(sem1.start_date)} — ${formatDisplayDate(sem1.end_date)}`
@@ -420,7 +364,7 @@ export function EducationalProcessClient() {
       : "Весна — Літо (січень – серпень)";
 
     return { semester1, semester2, sem1Subtitle, sem2Subtitle };
-  }, [currentGroupData, matrix?.semesters, todayIso]);
+  }, [currentGroupData, matrix?.semesters, matrix?.weeks, todayIso]);
 
   const handleSelectCourse = (courseNum: number | "all") => {
     setActiveCourseTab(courseNum);
@@ -446,21 +390,36 @@ export function EducationalProcessClient() {
     if (g && activeCourseTab !== "all" && activeCourseTab !== g.course) {
       setActiveCourseTab(g.course);
     }
-    try {
-      window.localStorage.setItem("schedule:groupId", id.toString());
-      setSavedGroupId(id);
-    } catch {}
   };
+
+  const savedGroup = useMemo(
+    () => (savedGroupId ? allGroups.find((g) => g.id === savedGroupId) ?? null : null),
+    [allGroups, savedGroupId]
+  );
 
   const academicYearLabel = `${selectedYear}/${selectedYear + 1}`;
   const totalWeeksCount = matrix?.weeks?.length || 52;
+  const headerSubtitle = currentGroupData
+    ? `Група ${currentGroupData.group.group_name} · ${currentGroupData.course} курс · ${academicYearLabel} н. р.`
+    : `Семестри, екзамени, практика та канікули · ${academicYearLabel} навчальний рік`;
 
   return (
     <div className="min-h-screen bg-[var(--page-bg)] text-sys-text-primary">
       <SubpageHeader
         title="Графік освітнього процесу"
-        subtitle={`Семестри, екзамени, практика та канікули · ${academicYearLabel} навчальний рік`}
+        subtitle={headerSubtitle}
         maxWidthClass="max-w-6xl"
+        rightSlot={
+          currentGroupData ? (
+            <span className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-2.5 text-xs font-semibold text-sys-text-primary whitespace-nowrap">
+              <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
+              <span>Група {currentGroupData.group.group_name}</span>
+              <span className="hidden sm:inline text-sys-text-secondary font-medium">
+                · {currentGroupData.course} курс
+              </span>
+            </span>
+          ) : undefined
+        }
       />
 
       <main
@@ -469,75 +428,48 @@ export function EducationalProcessClient() {
         className="vt-main-content focus:outline-none mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-5 pb-24 lg:pb-8 space-y-5"
       >
         <section
-          aria-label="Вибір навчального року та групи"
+          aria-label="Вибір курсу та групи"
           className="rounded-2xl border border-sys-border bg-sys-card p-3 sm:p-4 shadow-xs space-y-3"
         >
-          {/* Row 1: Course Tabs, Academic Year Selector & Search */}
+          {/* Row 1: Course Tabs & Search */}
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <div
-                role="tablist"
-                aria-label="Курс"
-                className="flex items-center gap-1 bg-sys-bg p-1 rounded-xl border border-sys-border/70 overflow-x-auto"
+            <div
+              role="tablist"
+              aria-label="Курс"
+              className="flex items-center gap-1 bg-sys-bg p-1 rounded-xl border border-sys-border/70 overflow-x-auto"
+            >
+              {availableCourses.map((courseNum) => {
+                const isActive = activeCourseTab === courseNum;
+                return (
+                  <button
+                    key={courseNum}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => handleSelectCourse(courseNum)}
+                    className={`spring-press px-3 py-1.5 rounded-lg text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
+                      isActive
+                        ? "bg-sys-accentSolid text-sys-onAccent shadow-xs"
+                        : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
+                    }`}
+                  >
+                    {courseNum} курс
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeCourseTab === "all"}
+                onClick={() => handleSelectCourse("all")}
+                className={`spring-press px-2.5 py-1.5 rounded-lg text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
+                  activeCourseTab === "all"
+                    ? "bg-sys-accentSolid text-sys-onAccent shadow-xs"
+                    : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
+                }`}
               >
-                {availableCourses.map((courseNum) => {
-                  const isActive = activeCourseTab === courseNum;
-                  return (
-                    <button
-                      key={courseNum}
-                      type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      onClick={() => handleSelectCourse(courseNum)}
-                      className={`spring-press px-3 py-1.5 rounded-lg text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
-                        isActive
-                          ? "bg-sys-accentSolid text-sys-onAccent shadow-xs"
-                          : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
-                      }`}
-                    >
-                      {courseNum} курс
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeCourseTab === "all"}
-                  onClick={() => handleSelectCourse("all")}
-                  className={`spring-press px-2.5 py-1.5 rounded-lg text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
-                    activeCourseTab === "all"
-                      ? "bg-sys-accentSolid text-sys-onAccent shadow-xs"
-                      : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
-                  }`}
-                >
-                  Всі
-                </button>
-              </div>
-
-              <div
-                role="group"
-                aria-label="Навчальний рік"
-                className="flex items-center gap-1 bg-sys-bg p-1 rounded-xl border border-sys-border/70"
-              >
-                {yearOptions.map((yr) => {
-                  const active = selectedYear === yr;
-                  return (
-                    <button
-                      key={yr}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => setSelectedYear(yr)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
-                        active
-                          ? "bg-sys-elevated text-sys-text-primary border border-sys-border shadow-2xs"
-                          : "text-sys-text-secondary hover:text-sys-text-primary"
-                      }`}
-                    >
-                      {yr}/{String(yr + 1).slice(-2)}
-                    </button>
-                  );
-                })}
-              </div>
+                Всі
+              </button>
             </div>
 
             <div className="relative min-w-[180px] md:w-52">
@@ -571,16 +503,22 @@ export function EducationalProcessClient() {
                 <button
                   key={g.id}
                   type="button"
+                  aria-pressed={isSelected}
                   onClick={() => handleSelectGroup(g.id)}
-                  className={`spring-press rounded-lg px-2.5 py-1 text-xs font-semibold transition-[transform,color,background-color,border-color] duration-150 flex items-center gap-1 ${
+                  className={`spring-press rounded-lg px-2.5 py-1 text-xs font-semibold transition-[transform,color,background-color,border-color] duration-150 flex items-center gap-1.5 ${
                     isSelected
                       ? "bg-sys-accentSolid text-sys-onAccent shadow-xs"
                       : "border border-sys-border bg-sys-bg text-sys-text-primary hover:border-sys-accent/50 hover:bg-sys-card"
                   }`}
                 >
                   <span>{g.name}</span>
-                  {isSaved && !isSelected && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-sys-accent" title="Збережена група" />
+                  {isSaved && (
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        isSelected ? "bg-sys-onAccent" : "bg-sys-accent"
+                      }`}
+                      title="Моя група з розкладу"
+                    />
                   )}
                 </button>
               );
@@ -589,6 +527,35 @@ export function EducationalProcessClient() {
               <span className="text-xs text-sys-text-secondary py-1">Групи не знайдені.</span>
             )}
           </div>
+
+          {currentGroupData && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-sys-border/60 pt-2.5 text-xs">
+              <div className="flex flex-wrap items-center gap-2 text-sys-text-secondary">
+                <UsersIcon className="h-3.5 w-3.5 text-sys-accent" />
+                <span>
+                  Зараз обрано:{" "}
+                  <strong className="font-bold text-sys-text-primary">
+                    група {currentGroupData.group.group_name}
+                  </strong>{" "}
+                  ({currentGroupData.course} курс)
+                </span>
+                {savedGroup && savedGroup.id === currentGroupData.group.group_id && (
+                  <span className="rounded-md bg-sys-accent-subtle px-2 py-0.5 text-[11px] font-semibold text-sys-accent">
+                    Моя група
+                  </span>
+                )}
+              </div>
+              {savedGroup && savedGroup.id !== currentGroupData.group.group_id && (
+                <button
+                  type="button"
+                  onClick={() => handleSelectGroup(savedGroup.id)}
+                  className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-[11px] font-semibold text-sys-accent hover:border-sys-accent/50 hover:bg-sys-card transition-colors"
+                >
+                  Повернутися до моєї групи ({savedGroup.name})
+                </button>
+              )}
+            </div>
+          )}
         </section>
 
         {loading ? (
