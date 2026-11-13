@@ -1,0 +1,299 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ScheduleResponse, api } from "../../lib/api";
+import { KYIV_DATE_FMT, getKyivInitialWeekAnchor } from "../../lib/date";
+import {
+  aggregateClassroomTasks,
+  countOverdueClassroomTasks,
+  mergeTasksLists,
+} from "../../lib/schedule";
+import { syncPersonalSubmissions, useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
+import { DEFAULT_TASK_FILTERS, useTaskGroups } from "../../lib/useTaskGroups";
+import type { ReturnTarget } from "./useScheduleSelection";
+
+interface UseScheduleDataFetchParams {
+  groupId: number | null;
+  setGroupId: (id: number) => void;
+  mode: "student" | "teacher";
+  week: ScheduleResponse[];
+  weekAnchorDate: Date;
+  currentWeekNumber: number | null;
+  returnTarget: ReturnTarget | null;
+  setToast: (msg: string, type?: "success" | "error" | "info") => void;
+  setOverdueCount: (count: number) => void;
+  onOpenTeacherPinModal: (groupName: string | null) => void;
+}
+
+export function useScheduleDataFetch({
+  groupId,
+  setGroupId,
+  mode,
+  week,
+  weekAnchorDate,
+  currentWeekNumber,
+  returnTarget,
+  setToast,
+  setOverdueCount,
+  onOpenTeacherPinModal,
+}: UseScheduleDataFetchParams) {
+  const [classroomTasks, setClassroomTasks] = useState<any[]>([]);
+  const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
+  const { isLinked, isLinkedToGroup, submissions, personalTeachers } = useClassroomSubmissions();
+  const hasGroupTaskAccess = mode !== "student" || isLinkedToGroup(groupId);
+
+  const readCachedGroupTasks = useCallback((gid: number | null): any[] => {
+    if (typeof window === "undefined" || !gid) return [];
+    try {
+      const groupRaw = localStorage.getItem(`schedule:classroom_group_tasks:${gid}`);
+      const groupList = groupRaw ? JSON.parse(groupRaw) : [];
+      const linkedGid = Number(localStorage.getItem("schedule:classroom_linked_group_id")) || null;
+      if (linkedGid === gid) {
+        const personalRaw = localStorage.getItem("schedule:classroom_tasks");
+        const personalList = personalRaw ? JSON.parse(personalRaw) : [];
+        return mergeTasksLists(
+          Array.isArray(groupList) ? groupList : [],
+          Array.isArray(personalList) ? personalList : []
+        );
+      }
+      return Array.isArray(groupList) ? groupList : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!groupId) {
+      setClassroomTasks([]);
+      return;
+    }
+    const cached = readCachedGroupTasks(groupId);
+    if (cached.length > 0) {
+      setClassroomTasks(cached);
+    }
+  }, [groupId, readCachedGroupTasks]);
+
+  useEffect(() => {
+    const handlePersonalTasksSynced = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (!detail || !Array.isArray(detail.tasks)) return;
+      if (detail.groupId && groupId && Number(detail.groupId) !== Number(groupId)) return;
+      setClassroomTasks((prev) => {
+        const next = mergeTasksLists(prev, detail.tasks);
+        if (groupId) {
+          try {
+            localStorage.setItem(`schedule:classroom_group_tasks:${groupId}`, JSON.stringify(next));
+          } catch {}
+        }
+        return next;
+      });
+    };
+    window.addEventListener("classroom-tasks-synced", handlePersonalTasksSynced);
+    return () => window.removeEventListener("classroom-tasks-synced", handlePersonalTasksSynced);
+  }, [groupId]);
+
+  useEffect(() => {
+    const handlePrompt = (e?: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail?.isTeacherView) {
+        onOpenTeacherPinModal(detail?.groupName || null);
+        return;
+      }
+      setToast("Для перегляду онлайн-пари прив'яжіть Google Classroom цієї групи", "info");
+      window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+    };
+    window.addEventListener("prompt-classroom-link", handlePrompt);
+    return () => window.removeEventListener("prompt-classroom-link", handlePrompt);
+  }, [setToast, onOpenTeacherPinModal]);
+
+  const formattedSyncTime = useMemo(() => {
+    if (!classroomLastSyncedAt) return null;
+    try {
+      const d = new Date(classroomLastSyncedAt);
+      if (isNaN(d.getTime())) return null;
+      return new Intl.DateTimeFormat("uk-UA", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/Kyiv",
+      }).format(d);
+    } catch {
+      return null;
+    }
+  }, [classroomLastSyncedAt]);
+
+  const currentGroupIdRef = useRef<number | null>(groupId);
+  currentGroupIdRef.current = groupId;
+
+  const fetchClassroomTasks = useCallback(
+    async (gid: number) => {
+      try {
+        const res = await api.classroom.groupStatus(gid);
+        if (currentGroupIdRef.current !== gid) return;
+        if (Array.isArray(res?.tasks) && res.tasks.length > 0) {
+          setClassroomTasks((prev) => {
+            const merged = mergeTasksLists(prev, res.tasks);
+            try {
+              localStorage.setItem(`schedule:classroom_group_tasks:${gid}`, JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+        if (res?.last_synced_at) {
+          setClassroomLastSyncedAt(res.last_synced_at);
+        }
+        if (isLinked && res && res.requires_auth === false && !isLinkedToGroup(gid)) {
+          try {
+            localStorage.setItem("schedule:classroom_linked_group_id", String(gid));
+            window.dispatchEvent(new Event("classroom-linked-change"));
+            window.dispatchEvent(new Event("classroom-access-changed"));
+          } catch {}
+          void syncPersonalSubmissions(gid);
+          return;
+        }
+      } catch {
+        // Ignore background fetch error
+      }
+      if (isLinked && currentGroupIdRef.current === gid) {
+        void syncPersonalSubmissions(gid);
+      }
+    },
+    [isLinked, isLinkedToGroup]
+  );
+
+  useEffect(() => {
+    if (groupId) {
+      const cached = readCachedGroupTasks(groupId);
+      if (cached.length > 0) {
+        setClassroomTasks(cached);
+      }
+      // Defer background sync when cached tasks already exist so mobile startup stays responsive
+      const delayMs = cached.length > 0 ? 1200 : 150;
+      const timer = setTimeout(() => {
+        void fetchClassroomTasks(groupId);
+      }, delayMs);
+      return () => clearTimeout(timer);
+    }
+    setClassroomTasks([]);
+    setClassroomLastSyncedAt(null);
+  }, [groupId, readCachedGroupTasks, fetchClassroomTasks]);
+
+  useEffect(() => {
+    let lastClassroomVisibilitySync = 0;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        const now = Date.now();
+        if (now - lastClassroomVisibilitySync >= 60_000) {
+          lastClassroomVisibilitySync = now;
+          if (groupId) {
+            void fetchClassroomTasks(groupId);
+          }
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [groupId, fetchClassroomTasks]);
+
+  useEffect(() => {
+    const handleClassroomSynced = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      const isSilent = Boolean(detail?.is_silent);
+      if (!isSilent && detail?.group_id && detail.group_id !== groupId) {
+        setGroupId(detail.group_id);
+      }
+      if (detail?.tasks && Array.isArray(detail.tasks) && detail.tasks.length > 0) {
+        const targetGid = detail.group_id ?? groupId;
+        if (!isSilent || !detail?.group_id || detail.group_id === groupId) {
+          setClassroomTasks((prev) => {
+            const merged = mergeTasksLists(prev, detail.tasks);
+            if (targetGid) {
+              try {
+                localStorage.setItem(`schedule:classroom_group_tasks:${targetGid}`, JSON.stringify(merged));
+              } catch {}
+            }
+            return merged;
+          });
+        }
+      }
+      if (detail?.last_synced_at) {
+        setClassroomLastSyncedAt(detail.last_synced_at);
+      } else if (!isSilent && groupId) {
+        void fetchClassroomTasks(groupId);
+      }
+    };
+    window.addEventListener("classroom-synced", handleClassroomSynced);
+    return () => window.removeEventListener("classroom-synced", handleClassroomSynced);
+  }, [groupId, fetchClassroomTasks, setGroupId]);
+
+  const handleToolbarClassroomSynced = useCallback(
+    (detectedId: number | null, tasks?: any[], lastSynced?: string | null, isSilent?: boolean) => {
+      if (!isSilent && !returnTarget && detectedId && detectedId !== groupId) {
+        setGroupId(detectedId);
+      }
+      if (tasks && Array.isArray(tasks)) {
+        setClassroomTasks((prev) => {
+          const merged = mergeTasksLists(prev, tasks);
+          if (groupId) {
+            try {
+              localStorage.setItem(`schedule:classroom_group_tasks:${groupId}`, JSON.stringify(merged));
+            } catch {}
+          }
+          return merged;
+        });
+      }
+      if (lastSynced) {
+        setClassroomLastSyncedAt(lastSynced);
+      }
+    },
+    [returnTarget, groupId, setGroupId]
+  );
+
+  const allTasks = useMemo(
+    () =>
+      aggregateClassroomTasks({
+        mode,
+        week,
+        classroomTasks,
+        isLinked,
+        submissions,
+        personalTeachers,
+      }),
+    [mode, week, classroomTasks, isLinked, submissions, personalTeachers]
+  );
+
+  const sidebarTaskGroups = useTaskGroups(
+    allTasks,
+    "week",
+    weekAnchorDate,
+    currentWeekNumber,
+    isLinked,
+    DEFAULT_TASK_FILTERS
+  );
+
+  const guideTaskGroups = useTaskGroups(allTasks, "all", undefined, undefined, isLinked);
+
+  const overdueCount = useMemo(
+    () =>
+      countOverdueClassroomTasks(
+        allTasks,
+        isLinked,
+        KYIV_DATE_FMT.format(getKyivInitialWeekAnchor())
+      ),
+    [allTasks, isLinked]
+  );
+
+  useEffect(() => {
+    setOverdueCount(isLinked ? overdueCount : 0);
+  }, [isLinked, overdueCount, setOverdueCount]);
+
+  return {
+    isLinked,
+    classroomLastSyncedAt,
+    formattedSyncTime,
+    hasGroupTaskAccess,
+    allTasks,
+    sidebarTaskGroups,
+    guideTaskGroups,
+    handleToolbarClassroomSynced,
+  };
+}

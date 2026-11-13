@@ -4,11 +4,14 @@ import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
 import { api } from "./api";
 import { clearScheduleLocalStorageCache, invalidateScheduleCache } from "./hooks";
 
-export interface PersonalSubmission {
-  state: string;
-  grade?: number | null;
-  maxPoints?: number | null;
-}
+import {
+  PersonalSubmission,
+  extractClassroomTaskKey,
+  isOwnTask,
+} from "./classroomTaskFilter";
+
+export type { PersonalSubmission };
+export { extractClassroomTaskKey, isOwnTask };
 
 const LINKED_EMAIL_KEY = "schedule:classroom_linked_email";
 const GOOGLE_USER_ID_KEY = "schedule:classroom_google_user_id";
@@ -152,41 +155,7 @@ export function clearClassroomAccessToken(): void {
   } catch {}
 }
 
-export function extractClassroomTaskKey(url?: string | null): string | null {
-  if (!url) return null;
-  const m = url.match(/\/c\/([^\/\?#]+)\/a\/([^\/\?#]+)/i);
-  if (m) {
-    return `${m[1]}_${m[2]}`;
-  }
-  return url.split("?")[0].split("#")[0].replace(/\/details\/?$/i, "").replace(/\/+$/, "");
-}
-
-// Завдання, які є в Google Classroom у студента, відображаються всі незалежно від обраної підгрупи!
-export function isOwnTask(
-  isLinked: boolean,
-  submissions: Record<string, PersonalSubmission>,
-  url: string | null | undefined,
-  _taskTeacher?: string | null,
-  _personalTeachers?: string[],
-  _taskTitle?: string | null,
-  _explicitSubgroup?: number | null
-): boolean {
-  if (!isLinked) return true;
-
-  // Якщо користувач прив'язав акаунт і в нього є завантажені персональні завдання:
-  // показуємо ВСІ завдання, які є в Classroom цього студента (призначені йому в Google Classroom),
-  // незалежно від вибраної підгрупи у розкладі!
-  const hasSubmissions = Object.keys(submissions).length > 0;
-  if (hasSubmissions && url) {
-    const key = extractClassroomTaskKey(url);
-    const isMyTask = Boolean(submissions[url] || (key && submissions[key]));
-    if (!isMyTask) {
-      return false;
-    }
-  }
-
-  return true;
-}
+// Ре-експорт чистих фільтрів із ./classroomTaskFilter
 
 export function unlinkClassroomEmail(): void {
   if (typeof window === "undefined") return;
