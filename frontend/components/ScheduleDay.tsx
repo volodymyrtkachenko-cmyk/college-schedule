@@ -6,6 +6,7 @@ import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
 import { LessonCard, QuickJumpTarget, getKyivNow, subscribeKyivNow } from "./LessonCard";
+import type { SubjectHubTarget } from "../lib/schedule";
 import { SchedulePeriodCard, CompactSchedulePeriodCard } from "./SchedulePeriodCard";
 import { ClockIcon, CoffeeIcon } from "./ui/Icons";
 import { useTheme } from "../lib/useTheme";
@@ -41,6 +42,7 @@ export function ScheduleDay({
   currentTeacherName,
   compactPeriod = false,
   daySlideDir = 0,
+  onOpenSubjectHub,
 }: {
   schedule: ScheduleResponse;
   isToday?: boolean;
@@ -62,6 +64,7 @@ export function ScheduleDay({
   currentTeacherName?: string | null;
   compactPeriod?: boolean;
   daySlideDir?: number;
+  onOpenSubjectHub?: (target: SubjectHubTarget) => void;
 }) {
   const { showToast } = useToast();
   const { resolvedTheme } = useTheme();
@@ -301,6 +304,7 @@ export function ScheduleDay({
                   onQuickJump={onQuickJump}
                   currentTeacherId={currentTeacherId}
                   currentTeacherName={currentTeacherName}
+                  onOpenSubjectHub={onOpenSubjectHub}
                 />
               </div>
             );

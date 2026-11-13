@@ -9,6 +9,7 @@ import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
 import { QuickJumpTarget, parseLessonTeachers, parseLessonGroups } from "../lib/quickJump";
+import type { SubjectHubTarget } from "../lib/schedule";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 import { useViewportTier } from "../lib/useViewportTier";
 import {
@@ -90,6 +91,7 @@ export interface LessonCardProps {
   onDeleteTemplate?: (lesson: Lesson) => void;
   currentTeacherId?: number | null;
   currentTeacherName?: string | null;
+  onOpenSubjectHub?: (target: SubjectHubTarget) => void;
 }
 
 export const LessonCard = memo(function LessonCard({
@@ -116,6 +118,7 @@ export const LessonCard = memo(function LessonCard({
   learningMode = null,
   currentTeacherId = null,
   currentTeacherName = null,
+  onOpenSubjectHub,
 }: LessonCardProps) {
   const { isMounted, isMobile } = useViewportTier();
   const showSmPlus = !isMounted || !isMobile;
@@ -125,6 +128,47 @@ export const LessonCard = memo(function LessonCard({
   const isEvent = Boolean(lesson.event_type || lesson.event_id);
   const canEditAction = canEdit && !lesson.is_cancelled;
   const canMove = canEditAction && !!onMoveSelect;
+  const canOpenSubjectHub = Boolean(
+    onOpenSubjectHub && !canMove && !isSelected && !onSwapSelect && lesson.subject_name
+  );
+  const handleSubjectClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (!onOpenSubjectHub || !lesson.subject_name) return;
+      e.stopPropagation();
+      vibrateTap(8);
+      onOpenSubjectHub({
+        subjectId: lesson.subject_id > 0 ? lesson.subject_id : null,
+        subjectName: lesson.subject_name,
+        groupId: lesson.group_id ?? null,
+        groupName: lesson.group_name ?? null,
+        teacherId: scheduleMode === "teacher" ? currentTeacherId : null,
+        teacherName: scheduleMode === "teacher" ? currentTeacherName : null,
+        sourceLesson: lesson,
+      });
+    },
+    [onOpenSubjectHub, lesson, scheduleMode, currentTeacherId]
+  );
+  const renderSubjectTitle = (sizeClasses: string, titleAttr?: string) => (
+    <h3
+      title={titleAttr}
+      className={`${sizeClasses} break-words ${
+        lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"
+      }`}
+    >
+      {canOpenSubjectHub ? (
+        <button
+          type="button"
+          onClick={handleSubjectClick}
+          aria-haspopup="dialog"
+          className="text-left cursor-pointer hover:text-sys-accent hover:underline decoration-sys-accent/45 underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent/70 rounded-sm transition-colors"
+        >
+          {lesson.subject_name}
+        </button>
+      ) : (
+        lesson.subject_name
+      )}
+    </h3>
+  );
   const [startT, endT] = lesson.time.split("-");
 
   const [isHwOpen, setIsHwOpen] = useState(false);
@@ -560,9 +604,7 @@ export const LessonCard = memo(function LessonCard({
           <div className="flex-1 min-w-0 flex flex-col justify-between gap-2.5 pl-1 sm:pl-2">
             <div className="flex items-start justify-between gap-4 w-full">
               <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-                <h3 className={`font-bold leading-snug text-base sm:text-[18px] lg:text-[19px] break-words ${lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"}`}>
-                  {lesson.subject_name}
-                </h3>
+                {renderSubjectTitle("font-bold leading-snug text-base sm:text-[18px] lg:text-[19px]")}
                 {lesson.event_title && lesson.event_title !== lesson.subject_name && (
                   <span className="text-xs sm:text-sm font-semibold text-sys-text-secondary">
                     {lesson.event_title}
@@ -692,9 +734,7 @@ export const LessonCard = memo(function LessonCard({
           )}
 
           <div>
-            <h3 className={`font-semibold leading-snug text-base break-words ${lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"}`}>
-              {lesson.subject_name}
-            </h3>
+            {renderSubjectTitle("font-semibold leading-snug text-base")}
             {lesson.event_title && lesson.event_title !== lesson.subject_name && (
               <span className="text-xs font-medium text-sys-text-secondary mt-0.5 block">
                 {lesson.event_title}
@@ -784,14 +824,7 @@ export const LessonCard = memo(function LessonCard({
 
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="min-w-0">
-              <h3
-                title={lesson.subject_name}
-                className={`font-semibold leading-snug text-sm sm:text-[15px] break-words ${
-                  lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"
-                }`}
-              >
-                {lesson.subject_name}
-              </h3>
+              {renderSubjectTitle("font-semibold leading-snug text-sm sm:text-[15px]", lesson.subject_name)}
               {lesson.event_title && lesson.event_title !== lesson.subject_name && (
                 <span className="mt-0.5 block text-xs font-medium text-sys-text-secondary">
                   {lesson.event_title}

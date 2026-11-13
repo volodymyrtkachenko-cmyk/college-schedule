@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { WeekDayMini } from "../../lib/schedule";
+import type { SubjectHubTarget, WeekDayMini } from "../../lib/schedule";
 import { formatTaskWord, type TaskGroupsResult } from "../../lib/useTaskGroups";
 import { ClassroomSyncButton } from "../ClassroomSyncButton";
 import type { FullTaskItem } from "../TaskCardItem";
@@ -36,6 +36,7 @@ interface DesktopScheduleSidebarProps {
     lastSynced?: string | null,
     isSilent?: boolean
   ) => void;
+  onOpenSubjectHub?: (target: SubjectHubTarget) => void;
 }
 
 export function DesktopScheduleSidebar({
@@ -60,6 +61,7 @@ export function DesktopScheduleSidebar({
   onSelectDayIndex,
   onChangeSidebarTab,
   onClassroomSynced,
+  onOpenSubjectHub,
 }: DesktopScheduleSidebarProps) {
   if (!visible) return null;
 
@@ -282,6 +284,16 @@ export function DesktopScheduleSidebar({
                 isLinked={isLinked}
                 onSyncClassroom={() =>
                   window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
+                }
+                onOpenSubjectHub={
+                  onOpenSubjectHub
+                    ? (subjectName) =>
+                        onOpenSubjectHub({
+                          subjectId: null,
+                          subjectName,
+                          groupId,
+                        })
+                    : undefined
                 }
               />
             </div>

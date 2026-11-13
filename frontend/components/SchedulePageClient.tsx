@@ -7,6 +7,7 @@ import { canAccessAdmin, useAuth } from "../lib/auth";
 import { ReferenceRecord } from "../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../lib/hooks";
 import { resolveScheduleSubtabFromSearch } from "../lib/navigation";
+import type { SubjectHubTarget } from "../lib/schedule";
 import { useMobileNav } from "../lib/useMobileNav";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useTheme } from "../lib/useTheme";
@@ -37,6 +38,7 @@ const TeacherPinModal = dynamic(() => import("./TeacherPinModal").then((m) => m.
 const MobileTasksView = dynamic(() => import("./MobileTasksView").then((m) => m.MobileTasksView), { ssr: false });
 const ScheduleWeekGrid = dynamic(() => import("./ScheduleWeekGrid").then((m) => m.ScheduleWeekGrid), { ssr: false });
 const GuideHubModal = dynamic(() => import("./GuideHubModal").then((m) => m.GuideHubModal), { ssr: false });
+const SubjectHubModal = dynamic(() => import("./schedule/SubjectHubModal").then((m) => m.SubjectHubModal), { ssr: false });
 const InstallPrompt = dynamic(() => import("./InstallPrompt").then((m) => m.InstallPrompt), { ssr: false });
 const ClassroomRelinkBanner = dynamic(() => import("./ClassroomRelinkBanner").then((m) => m.ClassroomRelinkBanner), { ssr: false });
 
@@ -127,6 +129,25 @@ export function SchedulePageClient({
   useEffect(() => {
     if (guideHubOpen) setGuideHubMounted(true);
   }, [guideHubOpen]);
+  const [subjectHubOpen, setSubjectHubOpen] = useState(false);
+  const [subjectHubMounted, setSubjectHubMounted] = useState(false);
+  const [subjectHubTarget, setSubjectHubTarget] = useState<SubjectHubTarget | null>(null);
+  const handleOpenSubjectHub = useCallback(
+    (target: SubjectHubTarget) => {
+      const effectiveGroupId = target.groupId ?? (mode === "student" ? groupId : null);
+      const resolvedGroupName =
+        target.groupName ??
+        (effectiveGroupId ? groups.find((g) => g.id === effectiveGroupId)?.name ?? null : null);
+      setSubjectHubTarget({
+        ...target,
+        groupId: effectiveGroupId,
+        groupName: resolvedGroupName,
+      });
+      setSubjectHubMounted(true);
+      setSubjectHubOpen(true);
+    },
+    [groups, groupId, mode]
+  );
   const [desktopSidebarTab, setDesktopSidebarTab] = useState<"tasks" | "grades">("tasks");
   const { urlSearch } = useMobileNav();
   const tasksPanelRef = useRef<HTMLDivElement | null>(null);
@@ -207,6 +228,7 @@ export function SchedulePageClient({
       datePickerOpen ||
       teacherPinModalOpen ||
       guideHubOpen ||
+      subjectHubOpen ||
       contextModalOpen,
     onOpenContextModal: () => setContextModalOpen(true),
     onJumpToToday: sel.handleJumpToToday,
@@ -343,6 +365,7 @@ export function SchedulePageClient({
                           setGroupId(detectedId);
                         }
                       }}
+                      onOpenSubjectHub={handleOpenSubjectHub}
                     />
                   </div>
                 ) : null}
@@ -384,6 +407,7 @@ export function SchedulePageClient({
                       scheduleMode={mode}
                       canEdit={false}
                       onQuickJump={sel.handleQuickJump}
+                      onOpenSubjectHub={handleOpenSubjectHub}
                       onNextDay={sel.goToNextDay}
                       onPrevDay={sel.goToPrevDay}
                       onJumpToToday={sel.handleJumpToToday}
@@ -407,6 +431,7 @@ export function SchedulePageClient({
                       scheduleMode={mode}
                       canEdit={false}
                       onQuickJump={sel.handleQuickJump}
+                      onOpenSubjectHub={handleOpenSubjectHub}
                       weekNumber={sel.currentWeekNumber}
                       currentTeacherId={mode === "teacher" ? teacherId : null}
                       currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
@@ -504,6 +529,7 @@ export function SchedulePageClient({
                                 isToday={sel.selectedDaySchedule?.date === sel.todayActualIso && !sel.isWeekend}
                                 scheduleMode={mode}
                                 onQuickJump={sel.handleQuickJump}
+                                onOpenSubjectHub={handleOpenSubjectHub}
                                 hideHeaderOnMobile={false}
                                 weekNumber={sel.currentWeekNumber}
                                 hideDayTitle={sel.isFocusEffective}
@@ -537,6 +563,7 @@ export function SchedulePageClient({
                           onToggleFocusMode={sel.toggleFocusMode}
                           onSelectDayIndex={sel.handleSelectDayIndex}
                           onChangeSidebarTab={setDesktopSidebarTab}
+                          onOpenSubjectHub={handleOpenSubjectHub}
                         />
                       </div>
                     ) : (
@@ -560,6 +587,7 @@ export function SchedulePageClient({
                           scheduleMode={mode}
                           canEdit={false}
                           onQuickJump={sel.handleQuickJump}
+                          onOpenSubjectHub={handleOpenSubjectHub}
                           weekNumber={sel.currentWeekNumber}
                           currentTeacherId={mode === "teacher" ? teacherId : null}
                           currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
@@ -622,6 +650,26 @@ export function SchedulePageClient({
                   : null
               }
               onClose={() => setGuideHubOpen(false)}
+            />
+          )}
+
+          {subjectHubMounted && (
+            <SubjectHubModal
+              isOpen={subjectHubOpen}
+              target={subjectHubTarget}
+              mode={mode}
+              groupName={
+                subjectHubTarget?.groupName ??
+                (groupId ? groups.find((g) => g.id === groupId)?.name ?? null : null)
+              }
+              teacherName={sel.selectedTeacher?.name ?? null}
+              currentWeek={week}
+              allTasks={allTasks}
+              onClose={() => setSubjectHubOpen(false)}
+              onQuickJump={(jumpTarget) => {
+                setSubjectHubOpen(false);
+                sel.handleQuickJump(jumpTarget);
+              }}
             />
           )}
         </>

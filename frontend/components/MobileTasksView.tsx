@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { resolveScheduleSubtabFromSearch } from "../lib/navigation";
+import type { SubjectHubTarget } from "../lib/schedule";
 import { useMobileNav } from "../lib/useMobileNav";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import {
@@ -474,6 +475,7 @@ export function MobileTasksView({
   weekStart,
   lastSyncedAt,
   onSynced,
+  onOpenSubjectHub,
 }: {
   tasks: FullTaskItem[];
   summaryTaskGroups?: TaskGroupsResult;
@@ -492,6 +494,7 @@ export function MobileTasksView({
     lastSyncedAt?: string | null,
     isSilent?: boolean
   ) => void;
+  onOpenSubjectHub?: (target: SubjectHubTarget) => void;
 }) {
   const [viewMode, setViewMode] = useState<"tasks" | "grades">(() => {
     if (typeof window === "undefined") return "tasks";
@@ -676,6 +679,16 @@ export function MobileTasksView({
                   isLinked={isLinked}
                   onSyncClassroom={() =>
                     window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
+                  }
+                  onOpenSubjectHub={
+                    onOpenSubjectHub
+                      ? (subjectName) =>
+                          onOpenSubjectHub({
+                            subjectId: null,
+                            subjectName,
+                            groupId: groupId ?? null,
+                          })
+                      : undefined
                   }
                 />
               </div>

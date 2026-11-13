@@ -5,6 +5,7 @@ import { canMoveLesson } from "../lib/scheduleMove";
 import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
 import { ScheduleDay } from "./ScheduleDay";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
+import type { SubjectHubTarget } from "../lib/schedule";
 import { CompactSchedulePeriodCard, getPeriodMeta } from "./SchedulePeriodCard";
 import { ClockIcon } from "./ui/Icons";
 import { useViewportTier } from "../lib/useViewportTier";
@@ -67,6 +68,7 @@ export function ScheduleWeekGrid({
   weekNumber,
   currentTeacherId,
   currentTeacherName,
+  onOpenSubjectHub,
 }: {
   week: ScheduleResponse[];
   scheduleMode?: "student" | "teacher";
@@ -107,6 +109,7 @@ export function ScheduleWeekGrid({
   weekNumber?: number | null;
   currentTeacherId?: number | null;
   currentTeacherName?: string | null;
+  onOpenSubjectHub?: (target: SubjectHubTarget) => void;
 }) {
   const canMoveTo = (lesson: Lesson, date: string, lessonNumber: number) =>
     canMoveLesson(lesson, date, lessonNumber, week, availabilityWeek);
@@ -366,6 +369,7 @@ export function ScheduleWeekGrid({
                         mode="week"
                         currentTeacherId={currentTeacherId}
                         currentTeacherName={currentTeacherName}
+                        onOpenSubjectHub={onOpenSubjectHub}
                       />
                     ))}
                   </div>
@@ -521,6 +525,7 @@ export function ScheduleWeekGrid({
                             mode="week"
                             currentTeacherId={currentTeacherId}
                             currentTeacherName={currentTeacherName}
+                            onOpenSubjectHub={onOpenSubjectHub}
                           />
                         ))}
                       </div>
@@ -565,6 +570,7 @@ export function ScheduleWeekGrid({
                 isToday={day.date === kyivTodayIso}
                 weekNumber={weekNumber}
                 compactPeriod={allDaysInPeriod}
+                onOpenSubjectHub={onOpenSubjectHub}
               />
             </div>
           ))}

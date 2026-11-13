@@ -10,6 +10,7 @@ interface GradesViewProps {
   isLinked: boolean;
   groupId?: number | null;
   onSyncClassroom?: () => void;
+  onOpenSubjectHub?: (subjectName: string) => void;
 }
 
 function formatGradesWord(count: number): string {
@@ -30,7 +31,7 @@ function formatSubjectsWord(count: number): string {
   return "предметів";
 }
 
-export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: GradesViewProps) {
+export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSubjectHub }: GradesViewProps) {
   const {
     overallGpa5,
     overallAverage12,
@@ -447,8 +448,21 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: Grades
                 >
                   <div className="min-h-0">
                     <div className="px-3 sm:px-4 pb-3.5 pt-1 border-t border-sys-border/50 bg-sys-bg/40 space-y-2">
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-sys-text-muted pt-2 pb-0.5">
-                        Деталізація оцінок
+                      <div className="flex items-center justify-between gap-2 pt-2 pb-0.5">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-sys-text-muted">
+                          Деталізація оцінок
+                        </div>
+                        {onOpenSubjectHub && (
+                          <button
+                            type="button"
+                            tabIndex={isExpanded ? undefined : -1}
+                            onClick={() => onOpenSubjectHub(subj.subject)}
+                            aria-haspopup="dialog"
+                            className="text-[11px] font-semibold text-sys-accent hover:underline shrink-0 cursor-pointer py-0.5 px-1 -mr-1 rounded focus-visible:outline-2 focus-visible:outline-sys-accent focus-visible:outline-offset-2"
+                          >
+                            Картка предмета →
+                          </button>
+                        )}
                       </div>
 
                       <div className="space-y-1.5">

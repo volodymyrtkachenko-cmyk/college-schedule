@@ -5,6 +5,7 @@ import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { LessonCard, QuickJumpTarget, getKyivNow, subscribeKyivNow } from "./LessonCard";
+import type { SubjectHubTarget } from "../lib/schedule";
 import { SchedulePeriodCard } from "./SchedulePeriodCard";
 import { CoffeeIcon } from "./ui/Icons";
 import { useTheme } from "../lib/useTheme";
@@ -55,6 +56,7 @@ export function DayPager({
   canNextDay = true,
   minDateIso,
   maxDateIso,
+  onOpenSubjectHub,
 }: {
   schedule: ScheduleResponse;
   todayDate?: string;
@@ -84,6 +86,7 @@ export function DayPager({
   canNextDay?: boolean;
   minDateIso?: string | null;
   maxDateIso?: string | null;
+  onOpenSubjectHub?: (target: SubjectHubTarget) => void;
 }) {
   const { showToast } = useToast();
   const { resolvedTheme } = useTheme();
@@ -534,6 +537,7 @@ export function DayPager({
                     onQuickJump={onQuickJump}
                     currentTeacherId={currentTeacherId}
                     currentTeacherName={currentTeacherName}
+                    onOpenSubjectHub={onOpenSubjectHub}
                   />
                 </div>
               );
