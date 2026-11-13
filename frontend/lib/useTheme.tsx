@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { flushSync } from "react-dom";
 import { startTypedViewTransition } from "@/lib/viewTransition";
 import {
   type AccentSelection,
@@ -165,21 +166,39 @@ function syncMetaThemeColor(
   metas.forEach((meta) => meta.setAttribute("content", bgHex));
 }
 
-function disableTransitionsTemporarily() {
+function removeTransitionBlockers() {
   if (typeof document === "undefined") return;
+  document
+    .querySelectorAll('style[data-theme-transition-blocker="true"]')
+    .forEach((node) => {
+      try {
+        node.remove();
+      } catch {}
+    });
+}
+
+function injectTransitionBlocker(): () => void {
+  if (typeof document === "undefined") return () => {};
+  removeTransitionBlockers();
   const css = document.createElement("style");
   css.setAttribute("data-theme-transition-blocker", "true");
   css.appendChild(
     document.createTextNode(`*, *::before, *::after { transition: none !important; }`)
   );
   document.head.appendChild(css);
+  return () => {
+    try {
+      if (css.isConnected) css.remove();
+    } catch {}
+  };
+}
+
+function disableTransitionsTemporarily() {
+  if (typeof document === "undefined") return;
+  const cleanup = injectTransitionBlocker();
   void window.getComputedStyle(document.body).opacity;
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      try {
-        document.head.removeChild(css);
-      } catch {}
-    });
+    requestAnimationFrame(cleanup);
   });
 }
 
@@ -276,22 +295,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       nextConfig: VisualStudioConfig,
       options?: { suppressTransitions?: boolean; viewTransition?: boolean }
     ) => {
-      stateRef.current = {
-        theme: nextTheme,
-        resolvedTheme: nextResolved,
-        accent: nextAccent,
-        visualConfig: nextConfig,
-      };
-      setThemeState(nextTheme);
-      setResolvedTheme(nextResolved);
-      setAccentState(nextAccent);
-      setVisualConfigState(nextConfig);
-
-      const performDomUpdate = () => {
-        if (options?.suppressTransitions) {
-          disableTransitionsTemporarily();
-        }
-        applyDomState(nextResolved, nextAccent, nextConfig);
+      const runReactStateCommit = () => {
+        stateRef.current = {
+          theme: nextTheme,
+          resolvedTheme: nextResolved,
+          accent: nextAccent,
+          visualConfig: nextConfig,
+        };
+        setThemeState(nextTheme);
+        setResolvedTheme(nextResolved);
+        setAccentState(nextAccent);
+        setVisualConfigState(nextConfig);
       };
 
       const isReduced =
@@ -303,10 +317,47 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         typeof (document as any).startViewTransition === "function";
 
       if (options?.viewTransition && hasViewTransition && !isReduced) {
-        startTypedViewTransition(["theme-change"], performDomUpdate);
-      } else {
-        performDomUpdate();
+        let removeBlocker: (() => void) | null = null;
+        let failsafeTimer: number | null = null;
+        const releaseBlocker = () => {
+          if (failsafeTimer !== null) {
+            window.clearTimeout(failsafeTimer);
+            failsafeTimer = null;
+          }
+          removeBlocker?.();
+          removeBlocker = null;
+        };
+
+        startTypedViewTransition(
+          ["theme-change"],
+          () => {
+            removeBlocker = injectTransitionBlocker();
+            failsafeTimer = window.setTimeout(releaseBlocker, 250);
+            try {
+              flushSync(runReactStateCommit);
+            } catch {
+              runReactStateCommit();
+            }
+            applyDomState(nextResolved, nextAccent, nextConfig);
+            void window.getComputedStyle(document.documentElement).colorScheme;
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent(VISUAL_CHANGE_EVENT));
+            }
+          },
+          {
+            kind: "theme",
+            onReady: releaseBlocker,
+            onFinish: releaseBlocker,
+          }
+        );
+        return;
       }
+
+      runReactStateCommit();
+      if (options?.suppressTransitions) {
+        disableTransitionsTemporarily();
+      }
+      applyDomState(nextResolved, nextAccent, nextConfig);
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(VISUAL_CHANGE_EVENT));
@@ -359,9 +410,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       } catch {}
       const effective = resolveSystemTheme(newTheme);
       const curr = stateRef.current;
+      const visualThemeChanged = effective !== curr.resolvedTheme;
       commitState(newTheme, effective, curr.accent, curr.visualConfig, {
-        viewTransition: true,
-        suppressTransitions: true,
+        viewTransition: visualThemeChanged,
+        suppressTransitions: visualThemeChanged,
       });
     },
     [commitState, resolveSystemTheme]

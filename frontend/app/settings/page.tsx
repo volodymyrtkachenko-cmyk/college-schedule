@@ -199,7 +199,7 @@ export default function SettingsPage() {
   const roleLabel = (auth?.user && (ROLE_NAMES[auth.user.role] || auth.user.role)) || "";
 
   return (
-    <div className="min-h-screen bg-sys-bg text-sys-text-primary transition-colors duration-200">
+    <div className="min-h-screen bg-sys-bg text-sys-text-primary">
       <SubpageHeader
         title="Налаштування"
         subtitle="Параметри пристрою та інтеграції"

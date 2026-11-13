@@ -173,6 +173,8 @@ export function SubjectHubModal({
   const [enriching, setEnriching] = useState(false);
   const [taskTab, setTaskTab] = useState<"pending" | "overdue" | "done">("pending");
   const [userPickedTaskTab, setUserPickedTaskTab] = useState(false);
+  const [hasSwitchedTaskTab, setHasSwitchedTaskTab] = useState(false);
+  const [taskSlideDir, setTaskSlideDir] = useState<"next" | "prev">("next");
 
   const isTeacherView = mode === "teacher";
   const effectiveGroupId = target?.groupId ?? null;
@@ -186,6 +188,7 @@ export function SubjectHubModal({
 
   useEffect(() => {
     setUserPickedTaskTab(false);
+    setHasSwitchedTaskTab(false);
     setTaskTab("pending");
   }, [isOpen, target?.subjectName, target?.subjectId]);
 
@@ -964,24 +967,46 @@ export function SubjectHubModal({
                   )}
 
                   {/* Tasks Switcher matching ordinary Tasks tab: До здачі | Борги | Здано */}
-                  {subjectTasks.all.length > 0 ? (
+                  {subjectTasks.all.length > 0 ? (() => {
+                    const tabOrder: Array<"pending" | "overdue" | "done"> = isLinked
+                      ? ["pending", "overdue", "done"]
+                      : ["pending", "overdue"];
+                    const activeTaskIdx = Math.max(0, tabOrder.indexOf(effectiveTaskTab));
+                    const selectHubTaskTab = (next: "pending" | "overdue" | "done") => {
+                      const prevIdx = tabOrder.indexOf(effectiveTaskTab);
+                      const nextIdx = tabOrder.indexOf(next);
+                      if (next !== effectiveTaskTab) {
+                        setTaskSlideDir(nextIdx >= prevIdx ? "next" : "prev");
+                        setHasSwitchedTaskTab(true);
+                      }
+                      setUserPickedTaskTab(true);
+                      setTaskTab(next);
+                    };
+
+                    return (
                     <div className="space-y-2.5">
                       <div
                         role="tablist"
                         aria-label="Категорії завдань предмета"
-                        className={`grid ${isLinked ? "grid-cols-3" : "grid-cols-2"} gap-1 rounded-xl border border-sys-border/70 bg-sys-bg p-1 text-[11px] font-semibold`}
+                        className={`relative grid ${isLinked ? "grid-cols-3" : "grid-cols-2"} rounded-xl border border-sys-border/70 bg-sys-bg p-1 text-[11px] font-semibold isolate`}
                       >
+                        <div
+                          aria-hidden="true"
+                          className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-card border border-sys-border shadow-2xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                          style={{
+                            width: `calc((100% - 8px) / ${tabOrder.length})`,
+                            transform: `translate3d(calc(${activeTaskIdx} * 100%), 0, 0)`,
+                          }}
+                        />
+
                         <button
                           type="button"
                           role="tab"
                           aria-selected={effectiveTaskTab === "pending"}
-                          onClick={() => {
-                            setUserPickedTaskTab(true);
-                            setTaskTab("pending");
-                          }}
-                          className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors cursor-pointer ${
+                          onClick={() => selectHubTaskTab("pending")}
+                          className={`relative z-10 flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors duration-fast cursor-pointer ${
                             effectiveTaskTab === "pending"
-                              ? "bg-sys-card text-sys-text-primary border border-sys-border shadow-2xs font-bold"
+                              ? "text-sys-text-primary font-bold"
                               : "text-sys-text-secondary hover:text-sys-text-primary"
                           }`}
                         >
@@ -995,15 +1020,12 @@ export function SubjectHubModal({
                           type="button"
                           role="tab"
                           aria-selected={effectiveTaskTab === "overdue"}
-                          onClick={() => {
-                            setUserPickedTaskTab(true);
-                            setTaskTab("overdue");
-                          }}
-                          className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors cursor-pointer ${
+                          onClick={() => selectHubTaskTab("overdue")}
+                          className={`relative z-10 flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors duration-fast cursor-pointer ${
                             effectiveTaskTab === "overdue"
-                              ? "bg-sys-card text-rose-700 dark:text-rose-300 border border-sys-border shadow-2xs font-bold"
+                              ? "text-rose-700 dark:text-rose-300 font-bold"
                               : subjectTasks.overdue.length > 0 && isLinked
-                                ? "text-rose-700 dark:text-rose-300 hover:bg-sys-card/40"
+                                ? "text-rose-700 dark:text-rose-300"
                                 : "text-sys-text-secondary hover:text-sys-text-primary"
                           }`}
                         >
@@ -1018,13 +1040,10 @@ export function SubjectHubModal({
                             type="button"
                             role="tab"
                             aria-selected={effectiveTaskTab === "done"}
-                            onClick={() => {
-                              setUserPickedTaskTab(true);
-                              setTaskTab("done");
-                            }}
-                            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors cursor-pointer ${
+                            onClick={() => selectHubTaskTab("done")}
+                            className={`relative z-10 flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors duration-fast cursor-pointer ${
                               effectiveTaskTab === "done"
-                                ? "bg-sys-card text-emerald-700 dark:text-emerald-300 border border-sys-border shadow-2xs font-bold"
+                                ? "text-emerald-700 dark:text-emerald-300 font-bold"
                                 : "text-sys-text-secondary hover:text-sys-text-primary"
                             }`}
                           >
@@ -1036,6 +1055,11 @@ export function SubjectHubModal({
                         )}
                       </div>
 
+                      <div
+                        key={effectiveTaskTab}
+                        data-slide-dir={hasSwitchedTaskTab ? taskSlideDir : undefined}
+                        className={hasSwitchedTaskTab ? "guide-step-slide" : undefined}
+                      >
                       {effectiveTaskTab === "pending" && (
                         subjectTasks.active.length > 0 ? (
                           <div className="space-y-2">
@@ -1199,8 +1223,10 @@ export function SubjectHubModal({
                           </p>
                         )
                       )}
+                      </div>
                     </div>
-                  ) : (
+                    );
+                  })() : (
                     <p className="text-xs text-sys-text-secondary">
                       Завдань із цього предмета у Classroom не знайдено.
                     </p>

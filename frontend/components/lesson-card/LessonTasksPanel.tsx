@@ -11,6 +11,7 @@ import {
   vibrateTap,
 } from "../../lib/lesson-card";
 import { PersonalSubmission, extractClassroomTaskKey } from "../../lib/useClassroomSubmissions";
+import { useAnimatedDisclosure } from "../../lib/useAnimatedDisclosure";
 import { CloseIcon } from "../ui/Icons";
 
 interface GroupedTasks {
@@ -516,12 +517,14 @@ export function WeekTasksPopover({
   onClose: () => void;
   onToggleHw: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
-  if (!show) return null;
+  const { shouldRender, isClosing } = useAnimatedDisclosure(show, 170);
+  if (!shouldRender) return null;
 
   return (
     <>
       <div
-        className="popup-backdrop-enter fixed inset-0 z-40"
+        data-closing={isClosing ? "true" : undefined}
+        className="discrete-popup-backdrop fixed inset-0 z-40"
         onClick={(e) => {
           e.stopPropagation();
           onClose();
@@ -529,9 +532,10 @@ export function WeekTasksPopover({
       />
       <div
         id={`hw-list-${lesson.id}-${lesson.lesson_number}`}
+        data-closing={isClosing ? "true" : undefined}
         onClick={(e) => e.stopPropagation()}
         style={{ "--popup-y": lesson.lesson_number >= 3 ? "8px" : "-8px" } as React.CSSProperties}
-        className={`popup-panel-enter absolute left-0 right-0 ${
+        className={`discrete-popup absolute left-0 right-0 ${
           lesson.lesson_number >= 3 ? "bottom-full mb-1.5" : "top-full mt-1.5"
         } z-50 max-h-64 overflow-y-auto rounded-xl border border-sys-border bg-sys-card p-2.5 shadow-lg sm:shadow-2xl min-w-[220px]`}
       >

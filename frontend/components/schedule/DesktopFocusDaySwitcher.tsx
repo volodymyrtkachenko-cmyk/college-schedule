@@ -38,7 +38,7 @@ export function DesktopFocusDaySwitcher({
         marginBottom: visible ? 20 : 0,
         transition: shouldReduceMotion
           ? "none"
-          : "grid-template-rows 0.18s cubic-bezier(0.2, 0, 0, 1), opacity 0.15s ease, margin-bottom 0.18s cubic-bezier(0.2, 0, 0, 1)",
+          : "grid-template-rows 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, margin-bottom 0.24s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
       className={`w-full overflow-hidden ${visible ? "" : "pointer-events-none"}`}
     >

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AppDialog } from "@/components/ui/AppDialog";
 import { CloseIcon } from "@/components/ui/Icons";
 import { ACCENT_OPTIONS, useTheme, type AccentColor, type Theme } from "@/lib/useTheme";
@@ -83,6 +83,74 @@ export function AppearanceStudioModal({
   const importInputId = useId();
 
   const [activeTab, setActiveTab] = useState<StudioTab>(initialTab);
+  const [hasSwitchedTab, setHasSwitchedTab] = useState(false);
+  const [tabSlideDir, setTabSlideDir] = useState<"next" | "prev">("next");
+  const tabListRef = useRef<HTMLDivElement | null>(null);
+  const tabButtonRefs = useRef<Partial<Record<StudioTab, HTMLButtonElement | null>>>({});
+  const [tabPill, setTabPill] = useState<{ left: number; width: number; ready: boolean }>({
+    left: 0,
+    width: 0,
+    ready: false,
+  });
+
+  const handleSelectTab = useCallback(
+    (nextTab: StudioTab) => {
+      if (nextTab === activeTab) return;
+      const prevIdx = STUDIO_TABS.findIndex((t) => t.id === activeTab);
+      const nextIdx = STUDIO_TABS.findIndex((t) => t.id === nextTab);
+      setTabSlideDir(nextIdx >= prevIdx ? "next" : "prev");
+      setHasSwitchedTab(true);
+      setActiveTab(nextTab);
+    },
+    [activeTab]
+  );
+
+  const measureTabPill = useCallback(
+    (allowAnimate: boolean) => {
+      const btn = tabButtonRefs.current[activeTab];
+      if (!btn) return;
+      const nextLeft = btn.offsetLeft;
+      const nextWidth = btn.offsetWidth;
+      if (nextWidth <= 0) return;
+      setTabPill((prev) => ({
+        left: nextLeft,
+        width: nextWidth,
+        ready: allowAnimate ? prev.ready || prev.width > 0 : false,
+      }));
+    },
+    [activeTab]
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      setHasSwitchedTab(false);
+      setActiveTab(initialTab);
+      setTabPill((prev) => ({ ...prev, ready: false }));
+    }
+  }, [isOpen, initialTab]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    measureTabPill(tabPill.width > 0);
+    const btn = tabButtonRefs.current[activeTab];
+    if (btn && hasSwitchedTab) {
+      btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+    // Note: tabPill.width intentionally excluded to avoid re-running measurement on its own update
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activeTab, hasSwitchedTab]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const listEl = tabListRef.current;
+    if (!listEl || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      measureTabPill(false);
+    });
+    ro.observe(listEl);
+    return () => ro.disconnect();
+  }, [isOpen, measureTabPill]);
+
   const [previewLive, setPreviewLive] = useState<boolean>(true);
   const [wallpaperMeta, setWallpaperMeta] = useState<WallpaperMeta | null>(null);
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
@@ -93,12 +161,6 @@ export function AppearanceStudioModal({
   const [importFeedback, setImportFeedback] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   const previewObjectUrlRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setActiveTab(initialTab);
-    }
-  }, [isOpen, initialTab]);
 
   useEffect(() => {
     setWallpaperMeta(readWallpaperMeta());
@@ -368,7 +430,7 @@ export function AppearanceStudioModal({
               </div>
 
               {/* Mini-Stage Container reflecting live backdrop + surface + font + radius + density */}
-              <div className="relative overflow-hidden rounded-2xl border border-sys-border bg-sys-bg p-2.5 sm:p-3.5 md:p-4">
+              <div className="studio-preview-stage relative overflow-hidden rounded-2xl border border-sys-border bg-sys-bg p-2.5 sm:p-3.5 md:p-4">
                 <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden select-none">
                   {effectivePreviewBackdrop === "none" && visualConfig.surface === "glass" && (
                     <div className="app-backdrop-glass-sheen absolute inset-0" />
@@ -523,25 +585,46 @@ export function AppearanceStudioModal({
 
           {/* Controls Column (Scrollable Tabs Content) */}
           <div className="order-2 md:order-1 flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
-            {/* Scrollable Horizontal Tab Bar */}
+            {/* Scrollable Horizontal Tab Bar with GPU sliding pill */}
             <div
+              ref={tabListRef}
               role="tablist"
               aria-label="Розділи налаштування стилю"
-              className="shrink-0 flex items-center gap-1.5 overflow-x-auto custom-scrollbar border-b border-sys-border bg-sys-card px-4 py-2.5"
+              className="relative shrink-0 flex items-center gap-1.5 overflow-x-auto custom-scrollbar border-b border-sys-border bg-sys-card px-4 py-2.5 isolate"
             >
+              {tabPill.width > 0 && (
+                <div
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute top-2.5 bottom-2.5 left-0 z-0 rounded-xl border border-sys-accent bg-sys-accent/15 shadow-xs transform-gpu ${
+                    tabPill.ready
+                      ? "transition-[transform,width] duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                      : ""
+                  }`}
+                  style={{
+                    width: `${tabPill.width}px`,
+                    transform: `translate3d(${tabPill.left}px, 0, 0)`,
+                  }}
+                />
+              )}
               {STUDIO_TABS.map((tab) => {
                 const active = activeTab === tab.id;
+                const showStaticActive = active && tabPill.width === 0;
                 return (
                   <button
                     key={tab.id}
+                    ref={(el) => {
+                      tabButtonRefs.current[tab.id] = el;
+                    }}
                     role="tab"
                     aria-selected={active}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`shrink-0 whitespace-nowrap min-h-[36px] rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                      active
+                    onClick={() => handleSelectTab(tab.id)}
+                    className={`relative z-10 shrink-0 whitespace-nowrap min-h-[36px] rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors duration-fast cursor-pointer active:scale-[0.97] ${
+                      showStaticActive
                         ? "border-sys-accent bg-sys-accent/15 text-sys-accent shadow-xs"
-                        : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border"
+                        : active
+                        ? "border-transparent text-sys-accent"
+                        : "border-sys-border bg-sys-bg/75 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border"
                     }`}
                   >
                     {tab.label}
@@ -554,7 +637,12 @@ export function AppearanceStudioModal({
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-4">
               {/* Tab 1: Curated Presets */}
               {activeTab === "presets" && (
-                <div className="space-y-3" role="tabpanel">
+                <div
+                  key="tab-presets"
+                  data-slide-dir={hasSwitchedTab ? tabSlideDir : undefined}
+                  className={`${hasSwitchedTab ? "guide-step-slide " : ""}space-y-3`}
+                  role="tabpanel"
+                >
                   <p className="text-xs text-sys-text-secondary leading-relaxed">
                     Оберіть готовий образ в один клік або доналаштуйте колір, матеріал, фон і шрифт на сусідніх вкладках.
                   </p>
@@ -607,12 +695,28 @@ export function AppearanceStudioModal({
 
               {/* Tab 2: Mode + Palette + Custom Hue Generator */}
               {activeTab === "color" && (
-                <div className="space-y-4" role="tabpanel">
+                <div
+                  key="tab-color"
+                  data-slide-dir={hasSwitchedTab ? tabSlideDir : undefined}
+                  className={`${hasSwitchedTab ? "guide-step-slide " : ""}space-y-4`}
+                  role="tabpanel"
+                >
                   <div className="space-y-2">
                     <span className="block text-xs font-semibold text-sys-text-secondary">
                       Режим освітлення
                     </span>
-                    <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1">
+                    <div className="relative grid grid-cols-3 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 isolate">
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                        style={{
+                          width: "calc((100% - 8px - 12px) / 3)",
+                          transform: `translate3d(calc(${Math.max(
+                            0,
+                            THEME_MODES.findIndex((m) => m.id === theme)
+                          )} * (100% + 6px)), 0, 0)`,
+                        }}
+                      />
                       {THEME_MODES.map((m) => {
                         const active = theme === m.id;
                         return (
@@ -621,9 +725,9 @@ export function AppearanceStudioModal({
                             type="button"
                             aria-pressed={active}
                             onClick={() => setTheme(m.id)}
-                            className={`min-h-[38px] rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                            className={`relative z-10 min-h-[38px] rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors duration-fast cursor-pointer active:scale-[0.98] ${
                               active
-                                ? "bg-sys-accentSolid text-white shadow-xs"
+                                ? "text-white font-bold"
                                 : "text-sys-text-secondary hover:text-sys-text-primary"
                             }`}
                           >
@@ -693,8 +797,13 @@ export function AppearanceStudioModal({
                     </div>
                   </div>
 
-                  {accent === "custom" && (
-                    <div className="rounded-xl border border-sys-border bg-sys-bg p-3.5 space-y-3">
+                  <div
+                    className="grid-accordion"
+                    data-open={accent === "custom" ? "true" : "false"}
+                    aria-hidden={accent === "custom" ? undefined : true}
+                  >
+                    <div className="grid-accordion-inner">
+                      <div className="rounded-xl border border-sys-border bg-sys-bg p-3.5 space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span
@@ -790,13 +899,19 @@ export function AppearanceStudioModal({
                         ))}
                       </div>
                     </div>
-                  )}
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Tab 3: Surface Material */}
               {activeTab === "surface" && (
-                <div className="space-y-3" role="tabpanel">
+                <div
+                  key="tab-surface"
+                  data-slide-dir={hasSwitchedTab ? tabSlideDir : undefined}
+                  className={`${hasSwitchedTab ? "guide-step-slide " : ""}space-y-3`}
+                  role="tabpanel"
+                >
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {SURFACE_OPTIONS.map((opt) => {
                       const active = visualConfig.surface === opt.id;
@@ -858,7 +973,12 @@ export function AppearanceStudioModal({
 
               {/* Tab 4: Backdrop & Custom Wallpaper */}
               {activeTab === "backdrop" && (
-                <div className="space-y-4" role="tabpanel">
+                <div
+                  key="tab-backdrop"
+                  data-slide-dir={hasSwitchedTab ? tabSlideDir : undefined}
+                  className={`${hasSwitchedTab ? "guide-step-slide " : ""}space-y-4`}
+                  role="tabpanel"
+                >
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                     {BACKDROP_OPTIONS.map((opt) => {
                       const active = visualConfig.backdrop === opt.id;
@@ -986,8 +1106,21 @@ export function AppearanceStudioModal({
                       </p>
                     )}
 
-                    {(visualConfig.backdrop === "custom" || wallpaperMeta?.hasCustom) && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2 border-t border-sys-border/60">
+                    <div
+                      className="grid-accordion"
+                      data-open={
+                        visualConfig.backdrop === "custom" || Boolean(wallpaperMeta?.hasCustom)
+                          ? "true"
+                          : "false"
+                      }
+                      aria-hidden={
+                        visualConfig.backdrop === "custom" || Boolean(wallpaperMeta?.hasCustom)
+                          ? undefined
+                          : true
+                      }
+                    >
+                      <div className="grid-accordion-inner">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2 border-t border-sys-border/60">
                         <div>
                           <div className="flex items-center justify-between text-xs mb-1">
                             <label htmlFor={blurInputId} className="font-medium text-sys-text-secondary">
@@ -1032,14 +1165,20 @@ export function AppearanceStudioModal({
                           />
                         </div>
                       </div>
-                    )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Tab 5: Typography, Radius, Density & Share Code */}
               {activeTab === "layout" && (
-                <div className="space-y-4" role="tabpanel">
+                <div
+                  key="tab-layout"
+                  data-slide-dir={hasSwitchedTab ? tabSlideDir : undefined}
+                  className={`${hasSwitchedTab ? "guide-step-slide " : ""}space-y-4`}
+                  role="tabpanel"
+                >
                   {/* Font Preset */}
                   <div className="space-y-2">
                     <span className="block text-xs font-semibold text-sys-text-secondary">

@@ -3,8 +3,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   cancelPendingTopLayerClose,
+  canTransitionTopLayer,
   closeTopLayer,
   openTopLayer,
+  prefersReducedMotion,
   setupClosedByFallback,
 } from "@/lib/dialogTopLayer";
 
@@ -48,6 +50,9 @@ export function AppDialog({
 }: AppDialogProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const [keepMountedForExit, setKeepMountedForExit] = useState(isOpen);
+  if (isOpen && !keepMountedForExit) {
+    setKeepMountedForExit(true);
+  }
   const isOpenRef = useRef(isOpen);
   const onCloseRef = useRef(onClose);
   const closeDisabledRef = useRef(closeDisabled);
@@ -76,9 +81,19 @@ export function AppDialog({
     if (!dialog) return;
 
     if (isOpen) {
-      setKeepMountedForExit(true);
-      openTopLayer(dialog);
-      return;
+      cancelPendingTopLayerClose(dialog);
+      if (dialog.open || prefersReducedMotion()) {
+        openTopLayer(dialog);
+        return;
+      }
+      // Schedule showModal() on the next animation frame so React's newly committed
+      // children prepare layout before `@starting-style` starts its timer.
+      const rafId = window.requestAnimationFrame(() => {
+        if (isOpenRef.current) {
+          openTopLayer(dialog);
+        }
+      });
+      return () => window.cancelAnimationFrame(rafId);
     }
 
     const cancelClose = closeTopLayer(dialog, () => {
@@ -109,6 +124,12 @@ export function AppDialog({
     const handleCancel = (e: Event) => {
       if (closeDisabledRef.current) {
         e.preventDefault();
+        return;
+      }
+      // Intercept Escape / light-dismiss on engines needing `data-closing` fallback so exit animates.
+      if (!canTransitionTopLayer()) {
+        e.preventDefault();
+        onCloseRef.current();
       }
     };
 

@@ -6,6 +6,7 @@ import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { resolveScheduleSubtabFromSearch } from "../lib/navigation";
 import type { SubjectHubTarget } from "../lib/schedule";
 import { useMobileNav } from "../lib/useMobileNav";
+import { useAnimatedDisclosure } from "../lib/useAnimatedDisclosure";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import {
   useTaskGroups,
@@ -37,6 +38,8 @@ export function TasksTodoBoard({
   const [activeTab, setActiveTab] = useState<TasksTabMode>("pending");
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [subjectMenuOpen, setSubjectMenuOpen] = useState(false);
+  const { shouldRender: shouldRenderSubjectMenu, isClosing: isSubjectMenuClosing } =
+    useAnimatedDisclosure(subjectMenuOpen, 170);
   const [showAllDone, setShowAllDone] = useState(false);
 
   const filters: TaskFilterState = useMemo(
@@ -270,8 +273,12 @@ export function TasksTodoBoard({
             )}
           </div>
 
-          {subjectMenuOpen && (
-            <div className="mt-1.5 max-h-60 overflow-y-auto custom-scrollbar rounded-xl border border-sys-border bg-sys-card p-1.5 shadow-lg space-y-0.5">
+          {shouldRenderSubjectMenu && (
+            <div
+              data-closing={isSubjectMenuClosing ? "true" : undefined}
+              style={{ "--popup-y": "-6px" } as React.CSSProperties}
+              className="discrete-popup mt-1.5 max-h-60 overflow-y-auto custom-scrollbar rounded-xl border border-sys-border bg-sys-card p-1.5 shadow-lg space-y-0.5"
+            >
               <button
                 type="button"
                 onClick={() => {

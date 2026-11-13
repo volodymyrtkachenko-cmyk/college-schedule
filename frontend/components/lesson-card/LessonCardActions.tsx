@@ -4,6 +4,7 @@ import React from "react";
 import { EditIcon, MoveIcon } from "../LessonIcons";
 import { HistoryIcon, MessageSquareIcon } from "../ui/Icons";
 import { Lesson } from "../../lib/api";
+import { useAnimatedDisclosure } from "../../lib/useAnimatedDisclosure";
 
 function CopyIcon() {
   return (
@@ -99,21 +100,24 @@ export function LessonMoreMenu({
   onOpenPermanentSchedule?: (lesson: Lesson) => void;
   onOpenNoteModal: (mode: "edit" | "history") => void;
 }) {
-  if (!open) return null;
+  const { shouldRender, isClosing } = useAnimatedDisclosure(open, 170);
+  if (!shouldRender) return null;
 
   return (
     <>
       <div
-        className="popup-backdrop-enter fixed inset-0 z-40"
+        data-closing={isClosing ? "true" : undefined}
+        className="discrete-popup-backdrop fixed inset-0 z-40"
         onClick={(e) => {
           e.stopPropagation();
           onClose();
         }}
       />
       <div
+        data-closing={isClosing ? "true" : undefined}
         onClick={(e) => e.stopPropagation()}
         style={{ "--popup-y": alignTop ? "6px" : "-6px" } as React.CSSProperties}
-        className={`popup-panel-enter absolute right-0 ${
+        className={`discrete-popup absolute right-0 ${
           alignTop ? "bottom-full mb-1" : "top-full mt-1"
         } z-50 min-w-[200px] rounded-xl border border-sys-border bg-sys-card shadow-lg sm:shadow-2xl p-1 text-xs space-y-0.5`}
       >

@@ -1,19 +1,47 @@
 "use client";
 
 const pendingCloseCleanups = new WeakMap<HTMLDialogElement, () => void>();
+let cachedDisplayTransitionSupport: boolean | undefined;
+
+/**
+ * Probes whether the browser actually delays `display: none` during discrete transitions.
+ * Protects against Firefox 129+ where `CSS.supports("transition-behavior", "allow-discrete")`
+ * returns true without actually transitioning `display`.
+ */
+export function canTransitionDisplay(): boolean {
+  if (cachedDisplayTransitionSupport !== undefined) {
+    return cachedDisplayTransitionSupport;
+  }
+  if (
+    typeof window === "undefined" ||
+    typeof document === "undefined" ||
+    !document.body ||
+    !window.CSS?.supports?.("transition-behavior", "allow-discrete")
+  ) {
+    return false;
+  }
+
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "transition: display 1s allow-discrete !important; display: block;";
+  document.body.appendChild(probe);
+  window.getComputedStyle(probe).display;
+  probe.style.display = "none";
+  cachedDisplayTransitionSupport =
+    window.getComputedStyle(probe).display === "block";
+  probe.remove();
+  return cachedDisplayTransitionSupport;
+}
 
 /**
  * Checks whether the browser supports discrete top-layer exit transitions
- * (`transition-behavior: allow-discrete` and transitioning `overlay`).
+ * (transitionable `display` + `overlay: auto`).
  */
 export function canTransitionTopLayer(): boolean {
-  if (typeof window === "undefined" || typeof CSS === "undefined" || typeof CSS.supports !== "function") {
+  if (typeof window === "undefined" || !window.CSS?.supports) {
     return false;
   }
-  return (
-    CSS.supports("transition-behavior", "allow-discrete") &&
-    CSS.supports("transition-property", "overlay")
-  );
+  return window.CSS.supports("overlay", "auto") && canTransitionDisplay();
 }
 
 /** Checks if the user prefers reduced motion. */
@@ -84,7 +112,7 @@ export function closeTopLayer(
   const waitForExitAnimations = (shouldCloseAfter: boolean): () => void => {
     const animations =
       typeof dialog.getAnimations === "function"
-        ? dialog.getAnimations({ subtree: false })
+        ? dialog.getAnimations({ subtree: true })
         : [];
 
     const finish = () => {
@@ -102,7 +130,7 @@ export function closeTopLayer(
       return () => {};
     }
 
-    timeoutId = window.setTimeout(finish, 320);
+    timeoutId = window.setTimeout(finish, 450);
     Promise.allSettled(animations.map((a) => a.finished)).then(finish);
     return cleanup;
   };

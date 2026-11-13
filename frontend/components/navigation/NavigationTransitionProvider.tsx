@@ -207,7 +207,7 @@ export function NavigationTransitionProvider({
         });
       };
 
-      // Same-pathname query updates, mobile viewports (< 1024px), or reduced-motion/unsupported VT: navigate immediately
+      // Same-pathname query updates or reduced-motion/unsupported VT: navigate immediately
       const isDesktopViewport =
         typeof window !== "undefined" &&
         (window.matchMedia?.("(min-width: 1024px)")?.matches ?? false);
@@ -219,7 +219,7 @@ export function NavigationTransitionProvider({
         typeof window !== "undefined" &&
         (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false);
 
-      if (!direction || !isDesktopViewport || !hasNativeVT || prefersReduced) {
+      if (!direction || !hasNativeVT || prefersReduced) {
         runRouterNav();
         return;
       }
@@ -233,20 +233,24 @@ export function NavigationTransitionProvider({
 
       lastNavTargetRef.current = targetPath;
 
-      const handle = startTypedViewTransition([direction], () => {
-        return new Promise<void>((resolve) => {
-          pendingResolverRef.current = resolve;
-          // Hard upper bound so an uncached route never freezes the viewport
-          pendingTimerRef.current = window.setTimeout(() => {
-            pendingTimerRef.current = null;
-            if (pendingResolverRef.current === resolve) {
-              pendingResolverRef.current = null;
-              resolve();
-            }
-          }, 90);
-          runRouterNav();
-        });
-      });
+      const handle = startTypedViewTransition(
+        isDesktopViewport ? [direction] : ["route-mobile"],
+        () => {
+          return new Promise<void>((resolve) => {
+            pendingResolverRef.current = resolve;
+            // Hard upper bound so an uncached route never freezes the viewport
+            pendingTimerRef.current = window.setTimeout(() => {
+              pendingTimerRef.current = null;
+              if (pendingResolverRef.current === resolve) {
+                pendingResolverRef.current = null;
+                resolve();
+              }
+            }, 90);
+            runRouterNav();
+          });
+        },
+        { kind: "route" },
+      );
 
       activeVtRef.current = handle;
       handle?.finished

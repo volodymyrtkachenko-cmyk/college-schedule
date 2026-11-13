@@ -58,15 +58,7 @@ html[data-theme="dark"] {
   --sys-status-neutral-text: 186 203 227;  /* #bacbe3 */
   --sys-status-neutral-bg: 148 163 184;
 
-  /* B1. Motion Tokens */
-  --duration-fast: 150ms;
-  --duration-base: 240ms;
-  --duration-slow: 320ms;
-  --duration-page: 280ms;
-  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
-  interpolate-size: allow-keywords;
+  /* B1. Motion Tokens (inherited from :root; kept non-duplicated across themes) */
 }
 
 html.light,
@@ -123,16 +115,6 @@ html[data-theme="light"] {
   --sys-status-denom-bg: 147 51 234;
   --sys-status-neutral-text: 51 65 85;     /* #334155 */
   --sys-status-neutral-bg: 100 116 139;
-
-  /* B1. Motion Tokens */
-  --duration-fast: 150ms;
-  --duration-base: 240ms;
-  --duration-slow: 320ms;
-  --duration-page: 280ms;
-  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
-  interpolate-size: allow-keywords;
 }
 
 /* ==========================================================================
@@ -697,12 +679,31 @@ html[data-theme="light"][data-accent="cyan"] {
 }
 
 :root {
+  --duration-micro: 140ms;
+  --duration-fast: 150ms;
+  --duration-panel: 200ms;
+  --duration-base: 240ms;
+  --duration-slow: 320ms;
+  --duration-dialog-in: 350ms;
+  --duration-dialog-out: 200ms;
+  --duration-page: 280ms;
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring-snappy: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring-gentle: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring-gentle: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring-modal: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  interpolate-size: allow-keywords;
 }
 
 @supports (animation-timing-function: linear(0, 1)) {
   :root {
+    --ease-spring: linear(
+      0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%,
+      0.849 31.5%, 0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%,
+      1.015 55%, 1.017 63.9%, 1.001
+    );
     --ease-spring-snappy: linear(
       0, 0.008, 0.032 2.4%, 0.125, 0.268 7.5%, 0.648 15%, 0.879 22%,
       0.985 28%, 1.024 34%, 1.032 39%, 1.028 45%, 1.012 56%,
@@ -712,6 +713,11 @@ html[data-theme="light"][data-accent="cyan"] {
       0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%,
       0.849 31.5%, 0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%,
       1.015 55%, 1.017 63.9%, 1.001
+    );
+    --ease-spring-modal: linear(
+      0, 0.007, 0.028 2.6%, 0.112 6%, 0.548 18.5%, 0.735 25%,
+      0.865 31.5%, 0.946 38.5%, 0.983 45%, 1.001 52%, 1.006 60%,
+      1.004 72%, 1
     );
   }
 }
@@ -886,15 +892,15 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 }
 
-/* Іменовані шари View Transitions: увімкнено лише на desktop (>= 1024px) */
+/* Іменовані шари View Transitions:
+   - на desktop (>= 1024px) анімується виключно main-content без конфліктів з модалками при зміні теми
+   - на mobile (< 1024px) під час навігації нижня панель фіксується на своєму місці */
 @media (min-width: 1024px) {
-  .vt-main-content {
+  html:not([data-vt-kind="theme"]) .vt-main-content {
     view-transition-name: main-content;
   }
-}
 
-@media (min-width: 1024px) {
-  .vt-desktop-header {
+  html:not([data-vt-kind="theme"]) .vt-desktop-header {
     view-transition-name: desktop-header;
   }
 }
@@ -903,12 +909,20 @@ html[data-theme="light"][data-accent="cyan"] {
   .vt-bottom-nav {
     contain: layout style;
   }
+
+  html[data-vt-kind="route"] .vt-bottom-nav {
+    view-transition-name: bottom-nav;
+  }
+}
+
+html[data-vt-kind="theme"] :is(.vt-desktop-header, .vt-main-content, .vt-bottom-nav) {
+  view-transition-name: none !important;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   /* Нижню панель тримаємо закріпленою без подвійного змішування буферів */
   ::view-transition-group(bottom-nav) {
-    animation-duration: 0.01ms;
+    animation: none;
   }
   ::view-transition-old(bottom-nav) {
     display: none;
@@ -919,33 +933,55 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 
   ::view-transition-group(desktop-header) {
-    animation-duration: 0.2s;
+    animation-duration: 0.18s;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* Напрямлений слайд між сторінками */
-  :active-view-transition-type(route-forward)::view-transition-old(main-content) {
-    animation: 0.17s cubic-bezier(0.4, 0, 1, 1) both vt-forward-out;
-  }
-  :active-view-transition-type(route-forward)::view-transition-new(main-content) {
-    animation: 0.25s cubic-bezier(0.22, 1, 0.36, 1) both vt-forward-in;
+  /* Десктопна навігація: блокуємо миготіння root-фону і плавно рухаємо main-content */
+  @media (min-width: 1024px) {
+    html[data-vt-kind="route"]::view-transition-old(root),
+    html[data-vt-kind="route"]::view-transition-new(root) {
+      animation: none;
+      mix-blend-mode: normal;
+    }
+
+    :active-view-transition-type(route-forward)::view-transition-old(main-content) {
+      animation: 0.17s cubic-bezier(0.4, 0, 1, 1) both vt-forward-out;
+    }
+    :active-view-transition-type(route-forward)::view-transition-new(main-content) {
+      animation: 0.25s cubic-bezier(0.22, 1, 0.36, 1) both vt-forward-in;
+    }
+
+    :active-view-transition-type(route-backward)::view-transition-old(main-content) {
+      animation: 0.17s cubic-bezier(0.4, 0, 1, 1) both vt-backward-out;
+    }
+    :active-view-transition-type(route-backward)::view-transition-new(main-content) {
+      animation: 0.25s cubic-bezier(0.22, 1, 0.36, 1) both vt-backward-in;
+    }
   }
 
-  :active-view-transition-type(route-backward)::view-transition-old(main-content) {
-    animation: 0.17s cubic-bezier(0.4, 0, 1, 1) both vt-backward-out;
-  }
-  :active-view-transition-type(route-backward)::view-transition-new(main-content) {
-    animation: 0.25s cubic-bezier(0.22, 1, 0.36, 1) both vt-backward-in;
+  /* Мобільна навігація: легкий безрозривний кроссфейд 160ms із закріпленою BottomNav */
+  @media (max-width: 1023px) {
+    html[data-vt-kind="route"]::view-transition-old(root) {
+      animation: none;
+      mix-blend-mode: normal;
+    }
+    html[data-vt-kind="route"]::view-transition-new(root) {
+      animation: 160ms cubic-bezier(0.22, 1, 0.36, 1) both vt-fade-in;
+      mix-blend-mode: normal;
+    }
   }
 
-  /* При перемиканні теми — лише м'яке розчинення без зсуву контенту */
-  :active-view-transition-type(theme-change)::view-transition-old(main-content),
+  /* При перемиканні теми: старий кадр залишається суцільною підкладкою, новий проявляється поверх */
+  html[data-vt-kind="theme"]::view-transition-old(root),
   :active-view-transition-type(theme-change)::view-transition-old(root) {
-    animation: 0.15s ease-out both vt-fade-out;
+    animation: none;
+    mix-blend-mode: normal;
   }
-  :active-view-transition-type(theme-change)::view-transition-new(main-content),
+  html[data-vt-kind="theme"]::view-transition-new(root),
   :active-view-transition-type(theme-change)::view-transition-new(root) {
-    animation: 0.22s cubic-bezier(0.22, 1, 0.36, 1) both vt-fade-in;
+    animation: 240ms cubic-bezier(0.22, 1, 0.36, 1) both vt-fade-in;
+    mix-blend-mode: normal;
   }
 
   .mobile-day-slide[data-slide-dir="next"] {
@@ -1010,41 +1046,45 @@ dialog.app-dialog {
   max-height: min(92dvh, var(--dialog-max-h, 760px));
   margin: auto;
   opacity: 0;
-  transition:
-    opacity 220ms var(--ease-spring),
-    transform 260ms var(--ease-spring),
-    overlay 260ms,
-    display 260ms;
+  transition-property: opacity, transform, overlay, display;
+  transition-duration:
+    var(--duration-dialog-out),
+    var(--duration-dialog-out),
+    var(--duration-dialog-out),
+    var(--duration-dialog-out);
+  transition-timing-function: var(--ease-exit), var(--ease-exit), ease-out, ease-out;
   transition-behavior: allow-discrete;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   dialog.app-dialog {
-    transform: translate3d(0, 10px, 0) scale(0.985);
+    transform: translate3d(0, 16px, 0) scale(0.955);
   }
 }
 
 dialog.app-dialog[open] {
   display: flex;
   flex-direction: column;
+}
+
+dialog.app-dialog[open]:where(:not([data-closing="true"])) {
   opacity: 1;
+  transition-duration:
+    210ms,
+    var(--duration-dialog-in),
+    var(--duration-dialog-in),
+    var(--duration-dialog-in);
+  transition-timing-function: var(--ease-out), var(--ease-spring-modal), ease-out, ease-out;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  dialog.app-dialog[open] {
+  dialog.app-dialog[open]:where(:not([data-closing="true"])) {
     transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
 dialog.app-dialog[data-closing="true"] {
-  opacity: 0;
   pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  dialog.app-dialog[data-closing="true"] {
-    transform: translate3d(0, 10px, 0) scale(0.985);
-  }
 }
 
 dialog.app-dialog:modal {
@@ -1056,19 +1096,15 @@ dialog.app-dialog::backdrop {
   overflow: hidden;
   overscroll-behavior: contain;
   opacity: 0;
-  transition:
-    opacity 220ms var(--ease-out),
-    overlay 260ms,
-    display 260ms;
+  transition-property: opacity, overlay, display;
+  transition-duration: 190ms, var(--duration-dialog-out), var(--duration-dialog-out);
+  transition-timing-function: var(--ease-out), ease-out, ease-out;
   transition-behavior: allow-discrete;
 }
 
-dialog.app-dialog[open]::backdrop {
+dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
   opacity: 1;
-}
-
-dialog.app-dialog[data-closing="true"]::backdrop {
-  opacity: 0;
+  transition-duration: 240ms, var(--duration-dialog-in), var(--duration-dialog-in);
 }
 
 @media (max-width: 639px) {
@@ -1082,55 +1118,53 @@ dialog.app-dialog[data-closing="true"]::backdrop {
 
 @media (max-width: 639px) and (prefers-reduced-motion: no-preference) {
   dialog.app-dialog[data-variant="sheet"] {
-    transform: translate3d(0, 28px, 0);
+    transform: translate3d(0, 56px, 0);
   }
 
-  dialog.app-dialog[data-variant="sheet"][open] {
+  dialog.app-dialog[data-variant="sheet"][open]:where(:not([data-closing="true"])) {
     transform: translate3d(0, 0, 0);
-  }
-
-  dialog.app-dialog[data-variant="sheet"][data-closing="true"] {
-    transform: translate3d(0, 28px, 0);
   }
 }
 
 @media (min-width: 1024px) {
   dialog.app-dialog::backdrop {
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
   }
 }
 
 @starting-style {
-  dialog.app-dialog[open] {
+  dialog.app-dialog[open]:where(:not([data-closing="true"])) {
     opacity: 0;
   }
 
-  dialog.app-dialog[open]::backdrop {
+  dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
     opacity: 0;
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   @starting-style {
-    dialog.app-dialog[open] {
-      transform: translate3d(0, 10px, 0) scale(0.985);
+    dialog.app-dialog[open]:where(:not([data-closing="true"])) {
+      transform: translate3d(0, 18px, 0) scale(0.95);
     }
   }
 }
 
 @media (max-width: 639px) and (prefers-reduced-motion: no-preference) {
   @starting-style {
-    dialog.app-dialog[data-variant="sheet"][open] {
-      transform: translate3d(0, 28px, 0);
+    dialog.app-dialog[data-variant="sheet"][open]:where(:not([data-closing="true"])) {
+      transform: translate3d(0, 56px, 0);
     }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   dialog.app-dialog,
-  dialog.app-dialog::backdrop {
-    transition-duration: 100ms !important;
+  dialog.app-dialog[open]:where(:not([data-closing="true"])),
+  dialog.app-dialog::backdrop,
+  dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
+    transition-duration: 110ms !important;
   }
 }
 
@@ -1207,7 +1241,7 @@ dialog.app-dialog[data-closing="true"]::backdrop {
   }
 }
 
-/* Дискретна поява спливаючих панелей на підтримуваних браузерах */
+/* Дискретна поява і плавний вихід спливаючих поповерів, меню, тостів та акордеонів */
 .discrete-panel {
   transition-property: opacity, display;
   transition-duration: 160ms;
@@ -1227,6 +1261,165 @@ dialog.app-dialog[data-closing="true"]::backdrop {
       opacity: 0;
       transform: translate3d(0, 8px, 0);
     }
+  }
+}
+
+.discrete-popup {
+  opacity: 1;
+  transition-property: opacity, transform;
+  transition-duration: 150ms, 200ms;
+  transition-timing-function: var(--ease-out), var(--ease-spring-gentle);
+}
+
+.discrete-popup[data-closing="true"] {
+  opacity: 0;
+  pointer-events: none;
+  transition-duration: 140ms, 160ms;
+  transition-timing-function: var(--ease-exit), var(--ease-exit);
+}
+
+.discrete-popup-backdrop {
+  opacity: 1;
+  transition: opacity 150ms ease-out;
+}
+
+.discrete-popup-backdrop[data-closing="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .discrete-popup {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  .discrete-popup[data-closing="true"] {
+    transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.96);
+  }
+
+  @starting-style {
+    .discrete-popup {
+      opacity: 0;
+      transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.96);
+    }
+
+    .discrete-popup-backdrop {
+      opacity: 0;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .discrete-popup,
+  .discrete-popup[data-closing="true"],
+  .discrete-popup-backdrop {
+    transition-duration: 90ms !important;
+  }
+}
+
+/* Тости з плавною пружинною появою та м'яким зникненням */
+.toast-item {
+  opacity: 1;
+  transition-property: opacity, transform;
+  transition-duration: 180ms, 240ms;
+  transition-timing-function: var(--ease-out), var(--ease-spring-snappy);
+}
+
+.toast-item[data-leaving="true"] {
+  opacity: 0;
+  pointer-events: none;
+  transition-duration: 180ms, 200ms;
+  transition-timing-function: var(--ease-exit), var(--ease-exit);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast-item {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  .toast-item[data-leaving="true"] {
+    transform: translate3d(0, 10px, 0) scale(0.96);
+  }
+
+  @starting-style {
+    .toast-item {
+      opacity: 0;
+      transform: translate3d(0, 14px, 0) scale(0.95);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-item,
+  .toast-item[data-leaving="true"] {
+    transition-duration: 100ms !important;
+  }
+}
+
+/* Крос-браузерний CSS Grid акордеон (Chrome / Safari / Firefox) */
+.grid-accordion {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 240ms var(--ease-spring),
+    opacity 180ms var(--ease-out);
+}
+
+.grid-accordion[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.grid-accordion-inner {
+  min-height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  transition: visibility 240ms linear;
+}
+
+.grid-accordion[data-open="true"] > .grid-accordion-inner {
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid-accordion {
+    transition: opacity 90ms ease-out !important;
+  }
+}
+
+/* Синхронне згортання правої панелі у фокус-режимі десктопа (без зламу sticky) */
+@media (min-width: 1024px) {
+  .desktop-sidebar-shell {
+    overflow-x: clip;
+    width: 360px;
+    margin-left: 2rem;
+    opacity: 1;
+    visibility: visible;
+    transition:
+      width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      margin-left 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 180ms ease-out,
+      visibility 240ms linear;
+  }
+
+  .desktop-sidebar-shell[data-visible="false"] {
+    overflow: hidden;
+    width: 0;
+    margin-left: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .desktop-sidebar-shell[data-reduced-motion="true"] {
+    transition: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-sidebar-shell {
+    transition: none !important;
   }
 }
 
@@ -1450,8 +1643,7 @@ html[data-surface="glass"] :is(header.bg-sys-card, nav.bg-sys-card, .vt-bottom-n
 
 html[data-surface="glass"] :is(dialog.app-dialog, [role="dialog"]) .bg-sys-card {
   background-color: rgb(var(--sys-card) / var(--glass-dialog-alpha)) !important;
-  backdrop-filter: blur(22px) saturate(1.3);
-  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  box-shadow: var(--glass-shadow);
 }
 
 html[data-surface="glass"] :is(dialog.app-dialog, [role="dialog"]) .bg-sys-card.studio-preview-card {
@@ -1498,8 +1690,22 @@ html.light .app-backdrop-aurora {
 .app-aurora-orb {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(72px);
+  filter: blur(44px);
   will-change: transform;
+}
+
+@media (min-width: 1024px) {
+  .app-aurora-orb {
+    filter: blur(64px);
+  }
+}
+
+/* Прев'ю у Студії оформлення використовує м'які градієнти без дорогого blur,
+   щоб перший кадр модального вікна рендерився миттєво на 120fps */
+.studio-preview-stage .app-aurora-orb {
+  filter: none;
+  will-change: auto;
+  animation: none !important;
 }
 
 html.dark .app-aurora-orb-1 {

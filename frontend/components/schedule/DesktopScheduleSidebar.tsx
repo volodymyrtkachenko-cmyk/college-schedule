@@ -63,12 +63,15 @@ export function DesktopScheduleSidebar({
   onClassroomSynced,
   onOpenSubjectHub,
 }: DesktopScheduleSidebarProps) {
-  if (!visible) return null;
-
   const clampedDayIndex = Math.max(0, Math.min(selectedDayIndex, Math.max(0, weekDaysMini.length - 1)));
 
   return (
-    <aside className="ml-8 hidden lg:block w-[360px] shrink-0">
+    <aside
+      data-visible={visible ? "true" : "false"}
+      data-reduced-motion={shouldReduceMotion ? "true" : undefined}
+      aria-hidden={!visible}
+      className="desktop-sidebar-shell hidden lg:block shrink-0"
+    >
       <div className="w-[360px] flex flex-col gap-6 sticky top-[72px]">
         {/* Week & Navigator Card */}
         <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
