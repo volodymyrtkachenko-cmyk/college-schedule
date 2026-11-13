@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { m, AnimatePresence } from "framer-motion";
 import { AppDialog } from "./ui/AppDialog";
 import { useTheme, ACCENT_OPTIONS, AccentColor } from "../lib/useTheme";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
@@ -50,6 +49,14 @@ export function TeacherOnboardingModal({
   ];
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [slideDir, setSlideDir] = useState<1 | -1>(1);
+  const [hasStepped, setHasStepped] = useState(false);
+
+  const goToStep = (nextIndex: number) => {
+    setSlideDir(nextIndex >= currentStepIndex ? 1 : -1);
+    setHasStepped(true);
+    setCurrentStepIndex(nextIndex);
+  };
   const currentStep = steps[currentStepIndex] || steps[0];
 
   const handleVerifyPin = async (e?: React.FormEvent) => {
@@ -91,7 +98,7 @@ export function TeacherOnboardingModal({
       closeDisabled={isVerifyingPin}
       labelledBy="teacher-onboarding-title"
     >
-      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden select-none">
+      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-lg sm:shadow-2xl overflow-hidden select-none">
         <header className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2">
             <h2 id="teacher-onboarding-title" className="text-sm sm:text-base font-bold text-sys-text-primary truncate">
@@ -114,8 +121,8 @@ export function TeacherOnboardingModal({
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => setCurrentStepIndex(idx)}
-                  className={`py-1.5 px-2 rounded-lg transition-colors cursor-pointer truncate inline-flex items-center justify-center gap-1 ${
+                  onClick={() => goToStep(idx)}
+                  className={`py-1.5 px-2 rounded-lg transition-colors duration-200 cursor-pointer truncate inline-flex items-center justify-center gap-1 ${
                     isCurrent
                       ? "bg-sys-card text-sys-accent font-bold border border-sys-border shadow-2xs"
                       : isDone
@@ -137,18 +144,14 @@ export function TeacherOnboardingModal({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] custom-scrollbar p-4">
-          <AnimatePresence mode="wait" initial={false}>
-            <m.div
-              key={currentStep.id}
-              initial={{ opacity: 0, x: 14 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -14 }}
-              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-              className="space-y-4"
-            >
-              {/* Живий прев'ю-макет реальної LessonCard викладача */}
-              <div className="rounded-2xl border border-sys-border bg-sys-bg p-3.5 shadow-inner">
+        <main className="flex-1 overflow-y-auto overflow-x-clip lg:[scrollbar-gutter:stable] custom-scrollbar p-4">
+          <div
+            key={currentStep.id}
+            data-slide-dir={hasStepped ? (slideDir >= 0 ? "next" : "prev") : undefined}
+            className="guide-step-slide space-y-4"
+          >
+            {/* Живий прев'ю-макет реальної LessonCard викладача */}
+            <div className="rounded-2xl border border-sys-border bg-sys-bg p-3.5">
                 <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -278,15 +281,14 @@ export function TeacherOnboardingModal({
                     </div>
                   </div>
                 )}
-              </div>
-            </m.div>
-          </AnimatePresence>
+            </div>
+          </div>
         </main>
 
         <footer className="flex items-center justify-between gap-2 px-4 py-3 border-t border-sys-border bg-sys-surface shrink-0">
           <button
             type="button"
-            onClick={() => setCurrentStepIndex((p) => Math.max(0, p - 1))}
+            onClick={() => goToStep(Math.max(0, currentStepIndex - 1))}
             disabled={currentStepIndex === 0}
             className="rounded-xl border border-sys-border bg-sys-card px-3.5 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary disabled:opacity-40 disabled:pointer-events-none active:scale-95 transition-colors cursor-pointer"
           >
@@ -301,7 +303,7 @@ export function TeacherOnboardingModal({
             type="button"
             onClick={() => {
               if (currentStepIndex < steps.length - 1) {
-                setCurrentStepIndex((p) => p + 1);
+                goToStep(currentStepIndex + 1);
               } else {
                 handleFinish();
               }

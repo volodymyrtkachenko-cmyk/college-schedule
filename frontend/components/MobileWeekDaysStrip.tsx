@@ -60,10 +60,10 @@ export function MobileWeekDaysStrip({
       {/* Sliding indicator line at bottom */}
       <div
         aria-hidden="true"
-        className="absolute bottom-0 left-0 h-[3px] bg-sys-accent rounded-full transition-transform duration-base ease-spring motion-reduce:transition-none shadow-[0_0_8px_rgba(59,130,246,0.35)]"
+        className="absolute bottom-0 left-0 h-[3px] bg-sys-accent rounded-full transition-transform duration-base ease-spring transform-gpu motion-reduce:transition-none shadow-[0_0_8px_rgba(59,130,246,0.35)]"
         style={{
           width: "20%",
-          transform: `translateX(${selectedDayIndex * 100}%)`,
+          transform: `translate3d(${selectedDayIndex * 100}%, 0, 0)`,
         }}
       />
 

@@ -35,7 +35,7 @@ export function MobileWeekBar({
           type="button"
           onClick={onPrevWeek}
           aria-label="Попередній тиждень"
-          className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/60 active:scale-[0.94] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-sys-accent"
+          className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/60 active:scale-[0.94] transition-[color,background-color,transform] duration-fast ease-smooth focus:outline-none focus:ring-1 focus:ring-sys-accent"
         >
           <svg
             width="20"
@@ -101,7 +101,7 @@ export function MobileWeekBar({
           type="button"
           onClick={onNextWeek}
           aria-label="Наступний тиждень"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/60 active:scale-[0.94] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-sys-accent"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/60 active:scale-[0.94] transition-[color,background-color,transform] duration-fast ease-smooth focus:outline-none focus:ring-1 focus:ring-sys-accent"
         >
           <svg
             width="20"

@@ -180,7 +180,7 @@ export function DesktopScheduleSidebar({
                   className={`pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 z-0 rounded-md bg-sys-accentSolid shadow-xs transform-gpu ${
                     shouldReduceMotion
                       ? ""
-                      : "transition-transform duration-150 ease-out"
+                      : "transition-transform duration-base ease-spring"
                   }`}
                   style={{
                     width: "calc((100% - 4px) / 2)",

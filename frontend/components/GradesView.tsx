@@ -197,7 +197,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: Grades
               <button
                 type="button"
                 onClick={() => setActiveFilter(activeFilter === "grade-5" ? "all" : "grade-5")}
-                className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all cursor-pointer ${
+                className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-colors duration-fast ease-smooth cursor-pointer ${
                   activeFilter === "grade-5"
                     ? "bg-emerald-500/25 border-emerald-500 ring-1 ring-emerald-500 shadow-xs"
                     : "bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/15"
@@ -213,7 +213,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: Grades
               <button
                 type="button"
                 onClick={() => setActiveFilter(activeFilter === "grade-4" ? "all" : "grade-4")}
-                className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all cursor-pointer ${
+                className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-colors duration-fast ease-smooth cursor-pointer ${
                   activeFilter === "grade-4"
                     ? "bg-blue-500/25 border-blue-500 ring-1 ring-blue-500 shadow-xs"
                     : "bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15"
@@ -229,7 +229,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: Grades
               <button
                 type="button"
                 onClick={() => setActiveFilter(activeFilter === "grade-3" ? "all" : "grade-3")}
-                className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all cursor-pointer ${
+                className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-colors duration-fast ease-smooth cursor-pointer ${
                   activeFilter === "grade-3"
                     ? "bg-amber-500/25 border-amber-500 ring-1 ring-amber-500 shadow-xs"
                     : distribution.count3 > 0
@@ -247,7 +247,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: Grades
               <button
                 type="button"
                 onClick={() => setActiveFilter(activeFilter === "grade-2" ? "all" : "grade-2")}
-                className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all cursor-pointer ${
+                className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-colors duration-fast ease-smooth cursor-pointer ${
                   activeFilter === "grade-2"
                     ? "bg-rose-500/25 border-rose-500 ring-1 ring-rose-500 shadow-xs"
                     : distribution.count2 > 0
@@ -333,7 +333,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: Grades
                     key={flt.id}
                     type="button"
                     onClick={() => setActiveFilter(flt.id)}
-                    className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all duration-fast ease-smooth cursor-pointer border ${
+                    className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer border ${
                       isSelected
                         ? "bg-sys-accent text-white border-sys-accent shadow-xs"
                         : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border/80"
@@ -356,7 +356,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: Grades
             return (
               <div
                 key={subj.subject}
-                className="rounded-2xl border border-sys-border bg-sys-card transition-all duration-fast ease-smooth overflow-hidden shadow-xs hover:border-sys-border/90"
+                className="rounded-2xl border border-sys-border bg-sys-card transition-colors duration-fast ease-smooth overflow-hidden shadow-xs hover:border-sys-border/90"
               >
                 {/* Subject Header Button */}
                 <button

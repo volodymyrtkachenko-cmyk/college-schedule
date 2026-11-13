@@ -160,7 +160,7 @@ export function DesktopToolbar({
           >
             <div
               aria-hidden="true"
-              className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu z-0"
+              className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base ease-spring transform-gpu z-0"
               style={{
                 left: "4px",
                 width: "calc((100% - 8px) / 2)",

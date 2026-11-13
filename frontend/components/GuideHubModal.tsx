@@ -223,7 +223,7 @@ export function GuideHubModal({
               <div className="relative inline-grid grid-cols-2 rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs font-semibold isolate">
                 <div
                   aria-hidden="true"
-                  className="absolute top-0.5 bottom-0.5 pointer-events-none transition-transform duration-200 ease-out transform-gpu will-change-transform z-0"
+                  className="absolute top-0.5 bottom-0.5 pointer-events-none transition-transform duration-base ease-spring transform-gpu will-change-transform z-0"
                   style={{
                     left: "2px",
                     width: "calc((100% - 4px) / 2)",
@@ -281,7 +281,7 @@ export function GuideHubModal({
                   role="tab"
                   aria-selected={isCurrent}
                   onClick={() => goToStep(idx)}
-                  className={`shrink-0 flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap ${
+                  className={`shrink-0 flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg transition-colors duration-200 cursor-pointer whitespace-nowrap ${
                     isCurrent
                       ? "bg-sys-card text-sys-accent font-bold border border-sys-border shadow-2xs"
                       : "text-sys-text-secondary hover:text-sys-text-primary"

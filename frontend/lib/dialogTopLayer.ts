@@ -102,7 +102,7 @@ export function closeTopLayer(
       return () => {};
     }
 
-    timeoutId = window.setTimeout(finish, 280);
+    timeoutId = window.setTimeout(finish, 320);
     Promise.allSettled(animations.map((a) => a.finished)).then(finish);
     return cleanup;
   };

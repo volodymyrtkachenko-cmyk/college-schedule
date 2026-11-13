@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
-import { m } from "framer-motion";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { canMoveLesson } from "../lib/scheduleMove";
 import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
@@ -244,12 +243,9 @@ export function ScheduleWeekGrid({
     <DesktopSpotlightGrid className="w-full pb-4">
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
       {renderDesktop && (
-        <m.div
+        <div
           key={`desktop-week-${week[0]?.date ?? "week"}`}
-          initial={{ opacity: 0, scale: 0.988, y: 8 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-          className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4"
+          className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4 week-grid-enter"
         >
         {/* Row 0: Column Headers */}
         {weekDaysMeta.map(({ day, periodMeta }, dIdx) => {
@@ -398,17 +394,14 @@ export function ScheduleWeekGrid({
             <span>{summaryText}</span>
           </div>
         ))}
-        </m.div>
+        </div>
       )}
 
       {/* Tablet (640px – 1023px): horizontal scroll with snap-start */}
       {renderTablet && (
-        <m.div
+        <div
           key={`tablet-week-${week[0]?.date ?? "week"}`}
-          initial={{ opacity: 0, scale: 0.988, y: 8 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto overscroll-x-contain custom-scrollbar snap-x snap-mandatory pb-4"
+          className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto overscroll-x-contain custom-scrollbar snap-x snap-mandatory pb-4 week-grid-enter"
         >
         {weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum, periodMeta }, dIdx) => {
           const isToday = day.date === kyivTodayIso;
@@ -550,7 +543,7 @@ export function ScheduleWeekGrid({
             </div>
           );
         })}
-        </m.div>
+        </div>
       )}
 
       {/* Mobile (< 640px): Day list with day headers */}

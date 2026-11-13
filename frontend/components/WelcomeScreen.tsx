@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { m, AnimatePresence } from "framer-motion";
 import { ReferenceRecord } from "../lib/api";
 import { filterAndRankEntities, getGroupSearchBadge } from "../lib/quickJump";
 import { getGroupCourse } from "../lib/groupInfo";
@@ -32,22 +31,6 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | null>(null);
   const [showTeacherGuide, setShowTeacherGuide] = useState(false);
 
-  const variants = {
-    enter: (dir: number) => ({
-      x: dir === 0 ? 0 : dir > 0 ? 50 : -50,
-      y: dir === 0 ? 20 : 0,
-      opacity: 0
-    }),
-    center: {
-      x: 0,
-      y: 0,
-      opacity: 1
-    },
-    exit: (dir: number) => ({
-      x: dir > 0 ? -50 : 50,
-      opacity: 0
-    })
-  };
   const { isDesktop } = useViewportTier();
   const [mode, setMode] = useState<"student" | "teacher">(initialMode);
   const [search, setSearch] = useState("");
@@ -91,17 +74,12 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-sys-bg p-4 sm:p-6 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-sys-accent/5 to-transparent pointer-events-none" />
       
-      <AnimatePresence mode="wait" custom={direction}>
-        {step === 1 ? (
-          <m.div
-            key="step1"
-            custom={direction}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            className="w-full max-w-md space-y-8 relative z-10"
-          >
+      {step === 1 ? (
+        <div
+          key="step1"
+          data-slide-dir={direction < 0 ? "prev" : undefined}
+          className={`w-full max-w-md space-y-8 relative z-10 ${direction === 0 ? "week-grid-enter" : "guide-step-slide"}`}
+        >
             <div className="text-center space-y-2.5">
               <div className="mx-auto w-16 h-16 rounded-2xl bg-sys-card border border-sys-border flex items-center justify-center mb-5 shadow-lg shadow-sys-bg">
                 <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
@@ -139,17 +117,13 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                 </div>
               </button>
             </div>
-          </m.div>
-        ) : (
-          <m.div
-            key="step2"
-            custom={direction}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            className="w-full max-w-md flex flex-col h-[85dvh] relative z-10"
-          >
+        </div>
+      ) : (
+        <div
+          key="step2"
+          data-slide-dir={direction > 0 ? "next" : "prev"}
+          className="guide-step-slide w-full max-w-md flex flex-col h-[85dvh] relative z-10"
+        >
              <div className="mb-4">
                 <button onClick={() => { setDirection(-1); setStep(1); setSearch(""); setCourseFilter(null); }} className="mb-3 flex items-center gap-2 text-sm text-sys-text-secondary hover:text-sys-text-primary transition-colors">
                   <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
@@ -279,9 +253,8 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                   </div>
                 )}
              </div>
-          </m.div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
       {showStudentGuide && selectedStudentGroupId !== null && (
         <StudentOnboardingModal

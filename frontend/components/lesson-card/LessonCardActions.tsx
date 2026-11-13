@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { m, AnimatePresence } from "framer-motion";
 import { EditIcon, MoveIcon } from "../LessonIcons";
 import { HistoryIcon, MessageSquareIcon } from "../ui/Icons";
 import { Lesson } from "../../lib/api";
@@ -100,33 +99,24 @@ export function LessonMoreMenu({
   onOpenPermanentSchedule?: (lesson: Lesson) => void;
   onOpenNoteModal: (mode: "edit" | "history") => void;
 }) {
+  if (!open) return null;
+
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <m.div
-            key="more-menu-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-40"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-          />
-          <m.div
-            key="more-menu-popup"
-            initial={{ opacity: 0, scale: 0.95, y: alignTop ? 4 : -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: alignTop ? 4 : -4 }}
-            transition={{ type: "spring", stiffness: 420, damping: 28 }}
-            onClick={(e) => e.stopPropagation()}
-            className={`absolute right-0 ${
-              alignTop ? "bottom-full mb-1" : "top-full mt-1"
-            } z-50 min-w-[200px] rounded-xl border border-sys-border bg-sys-card shadow-2xl p-1 text-xs space-y-0.5`}
-          >
+    <>
+      <div
+        className="popup-backdrop-enter fixed inset-0 z-40"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+      />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ "--popup-y": alignTop ? "6px" : "-6px" } as React.CSSProperties}
+        className={`popup-panel-enter absolute right-0 ${
+          alignTop ? "bottom-full mb-1" : "top-full mt-1"
+        } z-50 min-w-[200px] rounded-xl border border-sys-border bg-sys-card shadow-lg sm:shadow-2xl p-1 text-xs space-y-0.5`}
+      >
             {isTemplateMode ? (
               <>
                 {onCopySelect && !movingLesson && (
@@ -306,10 +296,8 @@ export function LessonMoreMenu({
                 )}
               </>
             )}
-          </m.div>
-        </>
-      )}
-    </AnimatePresence>
+      </div>
+    </>
   );
 }
 

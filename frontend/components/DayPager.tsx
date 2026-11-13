@@ -203,7 +203,7 @@ export function DayPager({
       }
 
       el.style.willChange = "transform";
-      el.style.transition = "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)";
+      el.style.transition = "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)";
       el.style.transform = "translate3d(0, 0, 0)";
 
       const onEnd = (ev: TransitionEvent) => {
@@ -233,7 +233,7 @@ export function DayPager({
         }
         resetTimerRef.current = null;
         clearStyles();
-      }, 260);
+      }, 300);
     },
     [cancelPendingMotion],
   );

@@ -83,7 +83,7 @@ function DemoCursor({
       className="pointer-events-none absolute inset-0 z-30 will-change-transform"
       style={{
         transform: `translate3d(${x}, ${y}, 0)`,
-        transition: "transform 650ms cubic-bezier(0.22, 1, 0.36, 1)",
+        transition: "transform 760ms cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
       <div
@@ -91,7 +91,7 @@ function DemoCursor({
         style={{
           transform: `translate3d(-4px, -4px, 0) scale(${clicking ? 0.84 : 1})`,
           opacity: hidden ? 0 : 1,
-          transition: "transform 160ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease",
+          transition: "transform 200ms cubic-bezier(0.22, 1, 0.36, 1), opacity 260ms ease",
         }}
       >
         <span
@@ -149,10 +149,10 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
     setStage(0);
     setCursorHidden(false);
 
-    const t1 = window.setTimeout(() => setStage(1), 650);
-    const t2 = window.setTimeout(() => setStage(2), 1550);
-    const t3 = window.setTimeout(() => setStage(3), 2000);
-    const t4 = window.setTimeout(() => setCursorHidden(true), 3150);
+    const t1 = window.setTimeout(() => setStage(1), 780);
+    const t2 = window.setTimeout(() => setStage(2), 1680);
+    const t3 = window.setTimeout(() => setStage(3), 2150);
+    const t4 = window.setTimeout(() => setCursorHidden(true), 3350);
 
     return () => {
       window.clearTimeout(t1);
@@ -187,7 +187,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
               <div className="inline-grid">
                 <span
                   aria-hidden={stage >= 3}
-                  className={`col-start-1 row-start-1 inline-flex h-8 px-2.5 items-center justify-self-end gap-1.5 rounded-lg border border-sys-status-warnBg/40 bg-sys-status-warnBg/15 text-sys-status-warnText text-xs font-bold transition-[opacity,transform] duration-150 ${
+                  className={`col-start-1 row-start-1 inline-flex h-8 px-2.5 items-center justify-self-end gap-1.5 rounded-lg border border-sys-status-warnBg/40 bg-sys-status-warnBg/15 text-sys-status-warnText text-xs font-bold transition-[opacity,transform] duration-base ease-spring ${
                     stage < 3
                       ? `opacity-100 ${stage === 2 ? "scale-95" : "scale-100"}`
                       : "opacity-0 scale-95 pointer-events-none"
@@ -198,7 +198,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
                 </span>
                 <span
                   aria-hidden={stage < 3}
-                  className={`col-start-1 row-start-1 inline-flex h-8 px-2.5 items-center justify-self-end gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold shadow-xs transition-[opacity,transform] duration-150 ${
+                  className={`col-start-1 row-start-1 inline-flex h-8 px-2.5 items-center justify-self-end gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold shadow-xs transition-[opacity,transform] duration-base ease-spring ${
                     stage >= 3 ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
                   }`}
                 >
@@ -220,7 +220,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
             </div>
 
             <div
-              className={`flex items-center justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs transition-[opacity,transform] duration-200 ${
+              className={`flex items-center justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs transition-[opacity,transform] duration-base ease-spring ${
                 stage >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none"
               }`}
               style={{ boxShadow: "inset 3px 0 0 #8b5cf6" }}
@@ -262,7 +262,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
                 <span className="text-xs font-semibold text-sys-text-secondary">10:40–12:00</span>
               </div>
               <span
-                className={`inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold transition-[opacity,transform] duration-200 ${
+                className={`inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold transition-[opacity,transform] duration-base ease-spring ${
                   stage >= 3 ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
                 }`}
               >
@@ -280,7 +280,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
             <div className="flex items-center justify-between gap-2 h-7">
               <div className="flex items-center gap-2 min-w-0">
                 <span
-                  className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold transition-colors duration-150 ${
+                  className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold transition-colors duration-200 ${
                     stage >= 3
                       ? "border-sys-accent/35 bg-sys-accent/15 text-sys-accent"
                       : stage >= 1
@@ -298,7 +298,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
               </div>
 
               <span
-                className={`inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-semibold transition-opacity duration-200 ${
+                className={`inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-semibold transition-opacity duration-base ease-spring ${
                   stage < 3 ? "opacity-100" : "opacity-0 pointer-events-none"
                 }`}
               >
@@ -310,7 +310,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
             {/* Subgroup 2 Row — GPU-only fade & slight shift without layout reflow */}
             <div
               aria-hidden={stage >= 3}
-              className={`transition-[transform,opacity] duration-200 ease-out ${
+              className={`transition-[transform,opacity] duration-base ease-spring ${
                 stage < 3 ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none"
               }`}
             >
@@ -355,7 +355,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
               </div>
 
               <span
-                className={`inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-infoBg/50 bg-sys-status-infoBg/15 text-sys-status-infoText text-xs font-bold shadow-xs transition-transform duration-150 ${
+                className={`inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-infoBg/50 bg-sys-status-infoBg/15 text-sys-status-infoText text-xs font-bold shadow-xs transition-transform duration-base ease-spring ${
                   stage === 2 ? "scale-95" : ""
                 }`}
               >
@@ -377,7 +377,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
           </div>
 
           <div
-            className={`flex items-center gap-2 rounded-[8px] border border-sys-status-okBg/40 bg-sys-card px-3.5 py-2.5 text-xs font-semibold text-sys-status-okText shadow-sm transition-[opacity,transform] duration-200 ${
+            className={`flex items-center gap-2 rounded-[8px] border border-sys-status-okBg/40 bg-sys-card px-3.5 py-2.5 text-xs font-semibold text-sys-status-okText shadow-sm transition-[opacity,transform] duration-base ease-spring ${
               stage >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1.5 pointer-events-none"
             }`}
             aria-hidden={stage < 3}
@@ -404,7 +404,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
 
           <div className="relative grid grid-cols-3 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold isolate">
             <div
-              className="absolute top-1 bottom-1 transition-transform duration-150 ease-out transform-gpu z-0"
+              className="absolute top-1 bottom-1 transition-transform duration-base ease-spring transform-gpu z-0"
               style={{
                 left: "4px",
                 width: "calc((100% - 8px) / 3)",
@@ -449,7 +449,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
           <div className="grid min-h-[82px]">
             <div
               aria-hidden={stage >= 3}
-              className={`col-start-1 row-start-1 rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1 min-h-[80px] transition-opacity duration-150 ${
+              className={`col-start-1 row-start-1 rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1 min-h-[80px] transition-opacity duration-base ease-spring ${
                 stage < 3 ? "opacity-100" : "opacity-0 pointer-events-none"
               }`}
               style={{ boxShadow: "inset 3px 0 0 #f59e0b" }}
@@ -466,7 +466,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
             </div>
             <div
               aria-hidden={stage < 3}
-              className={`col-start-1 row-start-1 rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1 min-h-[80px] transition-opacity duration-150 ${
+              className={`col-start-1 row-start-1 rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1 min-h-[80px] transition-opacity duration-base ease-spring ${
                 stage >= 3 ? "opacity-100" : "opacity-0 pointer-events-none"
               }`}
               style={{ boxShadow: "inset 3px 0 0 #ef4444" }}
@@ -546,7 +546,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
             <div className="grid min-h-[36px] items-center">
               <div
                 aria-hidden={stage >= 3}
-                className={`col-start-1 row-start-1 flex items-center gap-1 pt-1.5 border-t border-sys-border/40 w-full transition-opacity duration-150 ${
+                className={`col-start-1 row-start-1 flex items-center gap-1 pt-1.5 border-t border-sys-border/40 w-full transition-opacity duration-base ease-spring ${
                   stage < 3 ? "opacity-100" : "opacity-0 pointer-events-none"
                 }`}
               >
@@ -561,7 +561,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
               </div>
               <div
                 aria-hidden={stage < 3}
-                className={`col-start-1 row-start-1 flex items-center justify-between w-full rounded-xl border border-sys-border/60 bg-sys-bg/60 px-2.5 py-1.5 text-xs transition-opacity duration-150 ${
+                className={`col-start-1 row-start-1 flex items-center justify-between w-full rounded-xl border border-sys-border/60 bg-sys-bg/60 px-2.5 py-1.5 text-xs transition-opacity duration-base ease-spring ${
                   stage >= 3 ? "opacity-100" : "opacity-0 pointer-events-none"
                 }`}
               >
@@ -589,7 +589,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
           />
 
           <div
-            className={`absolute inset-x-0 top-2 transition-[opacity,transform] duration-200 ${
+            className={`absolute inset-x-0 top-2 transition-[opacity,transform] duration-base ease-spring ${
               stage < 3 ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none"
             }`}
             aria-hidden={stage >= 3}
@@ -613,7 +613,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
               <div className="flex items-center gap-1.5 text-xs">
                 <UserSvg />
                 <span
-                  className={`font-medium transition-colors duration-150 ${
+                  className={`font-medium transition-colors duration-200 ${
                     stage >= 1 ? "text-sys-accent underline underline-offset-2" : "text-sys-text-secondary"
                   } ${stage === 2 ? "scale-95" : ""}`}
                 >
@@ -624,7 +624,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
           </div>
 
           <div
-            className={`absolute inset-x-0 top-1 space-y-2.5 transition-[opacity,transform] duration-200 ${
+            className={`absolute inset-x-0 top-1 space-y-2.5 transition-[opacity,transform] duration-base ease-spring ${
               stage >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none"
             }`}
             aria-hidden={stage < 3}
@@ -669,7 +669,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
           />
 
           <div
-            className={`absolute inset-x-0 top-2 transition-[opacity,transform] duration-200 ${
+            className={`absolute inset-x-0 top-2 transition-[opacity,transform] duration-base ease-spring ${
               stage < 3 ? "opacity-100 scale-100" : "opacity-0 scale-[0.98] pointer-events-none"
             }`}
             aria-hidden={stage >= 3}
@@ -694,7 +694,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
                   Скасувати
                 </span>
                 <span
-                  className={`flex-1 h-8 rounded-xl bg-sys-accent text-white text-xs font-bold flex items-center justify-center transition-transform duration-150 ${
+                  className={`flex-1 h-8 rounded-xl bg-sys-accent text-white text-xs font-bold flex items-center justify-center transition-transform duration-base ease-spring ${
                     stage === 2 ? "scale-95" : ""
                   }`}
                 >
@@ -705,7 +705,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
           </div>
 
           <div
-            className={`absolute inset-x-0 top-3 transition-[opacity,transform] duration-200 ${
+            className={`absolute inset-x-0 top-3 transition-[opacity,transform] duration-base ease-spring ${
               stage >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none"
             }`}
             aria-hidden={stage < 3}
@@ -820,7 +820,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
 
           <div className="relative flex h-10 w-full rounded-xl border border-sys-border bg-sys-card overflow-hidden text-xs">
             <div
-              className="absolute bottom-0 left-0 h-[3px] bg-sys-accent transition-transform duration-200 ease-out"
+              className="absolute bottom-0 left-0 h-[3px] bg-sys-accent transition-transform duration-base ease-spring"
               style={{
                 width: "20%",
                 transform: `translate3d(${(stage >= 3 ? 3 : 2) * 100}%, 0, 0)`,
@@ -831,7 +831,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
               return (
                 <div
                   key={d}
-                  className={`flex-1 flex items-center justify-center font-semibold transition-colors duration-150 ${
+                  className={`flex-1 flex items-center justify-center font-semibold transition-colors duration-200 ${
                     active ? "text-sys-text-primary font-bold" : "text-sys-text-secondary"
                   }`}
                 >
@@ -844,7 +844,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
           <div className="grid min-h-[112px]">
             <div
               aria-hidden={stage >= 3}
-              className={`col-start-1 row-start-1 rounded-2xl border border-sys-status-dangerBg/40 border-dashed bg-sys-card p-3.5 space-y-1.5 min-h-[108px] transition-opacity duration-150 ${
+              className={`col-start-1 row-start-1 rounded-2xl border border-sys-status-dangerBg/40 border-dashed bg-sys-card p-3.5 space-y-1.5 min-h-[108px] transition-opacity duration-200 ease-smooth ${
                 stage < 3 ? "opacity-100" : "opacity-0 pointer-events-none"
               }`}
             >
@@ -861,7 +861,7 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
             </div>
             <div
               aria-hidden={stage < 3}
-              className={`col-start-1 row-start-1 rounded-2xl border border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-card p-3.5 space-y-1.5 min-h-[108px] transition-opacity duration-150 ${
+              className={`col-start-1 row-start-1 rounded-2xl border border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-card p-3.5 space-y-1.5 min-h-[108px] transition-opacity duration-200 ease-smooth ${
                 stage >= 3 ? "opacity-100" : "opacity-0 pointer-events-none"
               }`}
             >

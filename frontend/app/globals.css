@@ -551,14 +551,14 @@ html[data-theme="light"][data-accent="cyan"] {
 
   /* View Transitions API: напрямлені переходи сторінок + окремий плавний перехід теми */
   ::view-transition-group(root) {
-    animation-duration: 0.16s;
+    animation-duration: 0.22s;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
   ::view-transition-old(root) {
-    animation: 0.11s cubic-bezier(0.4, 0, 1, 1) both vt-fade-out;
+    animation: 0.15s cubic-bezier(0.4, 0, 1, 1) both vt-fade-out;
   }
   ::view-transition-new(root) {
-    animation: 0.16s cubic-bezier(0.22, 1, 0.36, 1) both vt-fade-in;
+    animation: 0.22s cubic-bezier(0.22, 1, 0.36, 1) both vt-fade-in;
   }
 
   @keyframes fade-out {
@@ -704,10 +704,9 @@ html[data-theme="light"][data-accent="cyan"] {
 @supports (animation-timing-function: linear(0, 1)) {
   :root {
     --ease-spring-snappy: linear(
-      0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%,
-      1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%,
-      1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%,
-      0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1.004 83.8%, 1
+      0, 0.008, 0.032 2.4%, 0.125, 0.268 7.5%, 0.648 15%, 0.879 22%,
+      0.985 28%, 1.024 34%, 1.032 39%, 1.028 45%, 1.012 56%,
+      1.003 68%, 1
     );
     --ease-spring-gentle: linear(
       0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%,
@@ -735,14 +734,14 @@ html[data-theme="light"][data-accent="cyan"] {
   }
   to {
     opacity: 0;
-    transform: translate3d(-16px, 0, 0);
+    transform: translate3d(-20px, 0, 0);
   }
 }
 
 @keyframes vt-forward-in {
   from {
     opacity: 0;
-    transform: translate3d(20px, 0, 0);
+    transform: translate3d(26px, 0, 0);
   }
   to {
     opacity: 1;
@@ -757,14 +756,14 @@ html[data-theme="light"][data-accent="cyan"] {
   }
   to {
     opacity: 0;
-    transform: translate3d(16px, 0, 0);
+    transform: translate3d(20px, 0, 0);
   }
 }
 
 @keyframes vt-backward-in {
   from {
     opacity: 0;
-    transform: translate3d(-20px, 0, 0);
+    transform: translate3d(-26px, 0, 0);
   }
   to {
     opacity: 1;
@@ -786,7 +785,7 @@ html[data-theme="light"][data-accent="cyan"] {
 @keyframes desktop-view-enter {
   from {
     opacity: 0;
-    transform: translate3d(0, 6px, 0);
+    transform: translate3d(0, 8px, 0);
   }
   to {
     opacity: 1;
@@ -794,10 +793,37 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 }
 
+@keyframes week-grid-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes popup-panel-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--popup-y, -4px), 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes popup-backdrop-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @keyframes mobile-day-enter-next {
   from {
     opacity: 0;
-    transform: translate3d(18px, 0, 0);
+    transform: translate3d(24px, 0, 0);
   }
   to {
     opacity: 1;
@@ -808,7 +834,7 @@ html[data-theme="light"][data-accent="cyan"] {
 @keyframes mobile-day-enter-prev {
   from {
     opacity: 0;
-    transform: translate3d(-18px, 0, 0);
+    transform: translate3d(-24px, 0, 0);
   }
   to {
     opacity: 1;
@@ -819,7 +845,7 @@ html[data-theme="light"][data-accent="cyan"] {
 @keyframes guide-step-enter-next {
   from {
     opacity: 0;
-    transform: translate3d(12px, 0, 0);
+    transform: translate3d(22px, 0, 0);
   }
   to {
     opacity: 1;
@@ -830,7 +856,7 @@ html[data-theme="light"][data-accent="cyan"] {
 @keyframes guide-step-enter-prev {
   from {
     opacity: 0;
-    transform: translate3d(-12px, 0, 0);
+    transform: translate3d(-22px, 0, 0);
   }
   to {
     opacity: 1;
@@ -893,53 +919,65 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 
   ::view-transition-group(desktop-header) {
-    animation-duration: 0.14s;
+    animation-duration: 0.2s;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   /* Напрямлений слайд між сторінками */
   :active-view-transition-type(route-forward)::view-transition-old(main-content) {
-    animation: 0.13s cubic-bezier(0.4, 0, 1, 1) both vt-forward-out;
+    animation: 0.17s cubic-bezier(0.4, 0, 1, 1) both vt-forward-out;
   }
   :active-view-transition-type(route-forward)::view-transition-new(main-content) {
-    animation: 0.18s cubic-bezier(0.22, 1, 0.36, 1) both vt-forward-in;
+    animation: 0.25s cubic-bezier(0.22, 1, 0.36, 1) both vt-forward-in;
   }
 
   :active-view-transition-type(route-backward)::view-transition-old(main-content) {
-    animation: 0.13s cubic-bezier(0.4, 0, 1, 1) both vt-backward-out;
+    animation: 0.17s cubic-bezier(0.4, 0, 1, 1) both vt-backward-out;
   }
   :active-view-transition-type(route-backward)::view-transition-new(main-content) {
-    animation: 0.18s cubic-bezier(0.22, 1, 0.36, 1) both vt-backward-in;
+    animation: 0.25s cubic-bezier(0.22, 1, 0.36, 1) both vt-backward-in;
   }
 
   /* При перемиканні теми — лише м'яке розчинення без зсуву контенту */
   :active-view-transition-type(theme-change)::view-transition-old(main-content),
   :active-view-transition-type(theme-change)::view-transition-old(root) {
-    animation: 0.12s ease-out both vt-fade-out;
+    animation: 0.15s ease-out both vt-fade-out;
   }
   :active-view-transition-type(theme-change)::view-transition-new(main-content),
   :active-view-transition-type(theme-change)::view-transition-new(root) {
-    animation: 0.16s cubic-bezier(0.22, 1, 0.36, 1) both vt-fade-in;
+    animation: 0.22s cubic-bezier(0.22, 1, 0.36, 1) both vt-fade-in;
   }
 
   .mobile-day-slide[data-slide-dir="next"] {
-    animation: mobile-day-enter-next 170ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: mobile-day-enter-next 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
   .mobile-day-slide[data-slide-dir="prev"] {
-    animation: mobile-day-enter-prev 170ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: mobile-day-enter-prev 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
   .guide-step-slide[data-slide-dir="next"] {
-    animation: guide-step-enter-next 160ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: guide-step-enter-next 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
   .guide-step-slide[data-slide-dir="prev"] {
-    animation: guide-step-enter-prev 160ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: guide-step-enter-prev 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
   .guide-cursor-ripple[data-clicking="true"] {
-    animation: guide-cursor-ripple 480ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: guide-cursor-ripple 560ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .week-grid-enter {
+    animation: week-grid-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .popup-panel-enter {
+    animation: popup-panel-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .popup-backdrop-enter {
+    animation: popup-backdrop-enter 180ms ease-out backwards;
   }
 }
 
@@ -972,25 +1010,41 @@ dialog.app-dialog {
   max-height: min(92dvh, var(--dialog-max-h, 760px));
   margin: auto;
   opacity: 0;
-  transform: translate3d(0, 8px, 0) scale(0.985);
   transition:
-    opacity 160ms var(--ease-spring),
-    transform 180ms var(--ease-spring),
-    overlay 180ms allow-discrete,
-    display 180ms allow-discrete;
+    opacity 220ms var(--ease-spring),
+    transform 260ms var(--ease-spring),
+    overlay 260ms,
+    display 260ms;
+  transition-behavior: allow-discrete;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  dialog.app-dialog {
+    transform: translate3d(0, 10px, 0) scale(0.985);
+  }
 }
 
 dialog.app-dialog[open] {
   display: flex;
   flex-direction: column;
   opacity: 1;
-  transform: translate3d(0, 0, 0) scale(1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  dialog.app-dialog[open] {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 dialog.app-dialog[data-closing="true"] {
   opacity: 0;
-  transform: translate3d(0, 8px, 0) scale(0.985);
   pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  dialog.app-dialog[data-closing="true"] {
+    transform: translate3d(0, 10px, 0) scale(0.985);
+  }
 }
 
 dialog.app-dialog:modal {
@@ -1003,9 +1057,10 @@ dialog.app-dialog::backdrop {
   overscroll-behavior: contain;
   opacity: 0;
   transition:
-    opacity 160ms var(--ease-out),
-    overlay 180ms allow-discrete,
-    display 180ms allow-discrete;
+    opacity 220ms var(--ease-out),
+    overlay 260ms,
+    display 260ms;
+  transition-behavior: allow-discrete;
 }
 
 dialog.app-dialog[open]::backdrop {
@@ -1021,7 +1076,12 @@ dialog.app-dialog[data-closing="true"]::backdrop {
     width: 100vw;
     max-width: 100vw;
     margin: auto auto 0 auto;
-    transform: translate3d(0, 24px, 0);
+  }
+}
+
+@media (max-width: 639px) and (prefers-reduced-motion: no-preference) {
+  dialog.app-dialog[data-variant="sheet"] {
+    transform: translate3d(0, 28px, 0);
   }
 
   dialog.app-dialog[data-variant="sheet"][open] {
@@ -1029,7 +1089,7 @@ dialog.app-dialog[data-closing="true"]::backdrop {
   }
 
   dialog.app-dialog[data-variant="sheet"][data-closing="true"] {
-    transform: translate3d(0, 24px, 0);
+    transform: translate3d(0, 28px, 0);
   }
 }
 
@@ -1043,7 +1103,6 @@ dialog.app-dialog[data-closing="true"]::backdrop {
 @starting-style {
   dialog.app-dialog[open] {
     opacity: 0;
-    transform: translate3d(0, 8px, 0) scale(0.985);
   }
 
   dialog.app-dialog[open]::backdrop {
@@ -1051,10 +1110,18 @@ dialog.app-dialog[data-closing="true"]::backdrop {
   }
 }
 
-@media (max-width: 639px) {
+@media (prefers-reduced-motion: no-preference) {
+  @starting-style {
+    dialog.app-dialog[open] {
+      transform: translate3d(0, 10px, 0) scale(0.985);
+    }
+  }
+}
+
+@media (max-width: 639px) and (prefers-reduced-motion: no-preference) {
   @starting-style {
     dialog.app-dialog[data-variant="sheet"][open] {
-      transform: translate3d(0, 24px, 0);
+      transform: translate3d(0, 28px, 0);
     }
   }
 }
@@ -1062,7 +1129,7 @@ dialog.app-dialog[data-closing="true"]::backdrop {
 @media (prefers-reduced-motion: reduce) {
   dialog.app-dialog,
   dialog.app-dialog::backdrop {
-    transition-duration: 0.01ms !important;
+    transition-duration: 100ms !important;
   }
 }
 
@@ -1122,12 +1189,12 @@ dialog.app-dialog[data-closing="true"]::backdrop {
   }
 
   .desktop-stagger-card {
-    animation: desktop-card-rise 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-    animation-delay: calc(min(var(--stagger-index, 0), 6) * 24ms);
+    animation: desktop-card-rise 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(min(var(--stagger-index, 0), 6) * 28ms);
   }
 
   .desktop-view-enter {
-    animation: desktop-view-enter 160ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: desktop-view-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
   @supports ((animation-timeline: view()) and (animation-range: entry)) {
