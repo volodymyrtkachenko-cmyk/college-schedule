@@ -7,9 +7,9 @@ from typing import Optional, List
 
 from app.database import get_db
 from app.models import ScheduleOverride, User, Group, Subject, Teacher, LessonOccurrenceNote, ImportedScheduleChange
-from app.routers.auth import get_current_user
+from app.core.security import get_current_user
 
-from app.routers.schedule_versions import lock_versions
+from app.services.versions import lock_versions
 from app.services.lesson_notes import active_note, archive_note, authorize_group
 from app.services.projection import build_projection
 

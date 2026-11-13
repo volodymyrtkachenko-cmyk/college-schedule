@@ -12,9 +12,11 @@ from app.core.security import require_roles
 from app.core.time import today_local
 from app.schemas.common import ScheduleItem, LessonMutation
 from app.services.schedule import conflicting_lesson
+from app.services.bells import get_bell_times
+from app.services.schedule_serializer import to_item
 from app.services.lesson_notes import authorize_group
-from app.routers.schedule import get_bell_times, to_item
-from app.routers.schedule_versions import lock_versions, ScheduleVersionResponse
+from app.services.versions import lock_versions
+from app.schemas.schedule_versions import ScheduleVersionResponse
 
 router = APIRouter(prefix="/schedule/template", tags=["Schedule Template"])
 

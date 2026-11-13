@@ -21,8 +21,8 @@ from app.routers.classroom import router as classroom_router
 from app.routers.events import router as events_router
 from app.routers.schedule_now import router as schedule_now_router
 
-from app.routers.classroom import classroom_auto_sync_loop
-from app.routers.admin_import import schedule_auto_import_loop
+from app.services.classroom.worker import classroom_auto_sync_loop
+from app.services.importer.worker import schedule_auto_import_loop
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -153,7 +153,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-from app.routers.auth import limiter
+from app.core.rate_limit import limiter
 from fastapi.responses import JSONResponse
 import traceback
 import logging

@@ -14,7 +14,7 @@ from app.schemas import (
     SubjectResource, SubjectUpdate, TeacherCreate, TeacherResource, TeacherUpdate,
 )
 
-from typing import Any
+from app.services.directory_cache import _DIR_CACHE, invalidate_directory_cache
 
 router = APIRouter(tags=["directory"])
 admin_router = APIRouter(
@@ -22,13 +22,6 @@ admin_router = APIRouter(
     tags=["admin-directory"],
     dependencies=[Depends(require_roles("admin", "editor"))],
 )
-
-
-_DIR_CACHE: dict[tuple[Any, int], Any] = {}
-
-
-def invalidate_directory_cache() -> None:
-    _DIR_CACHE.clear()
 
 
 async def items(model, db: AsyncSession):

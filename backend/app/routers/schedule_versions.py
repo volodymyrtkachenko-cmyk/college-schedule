@@ -1,56 +1,23 @@
 from datetime import date, datetime
-from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError, model_validator
-from sqlalchemy import select, insert, update, delete, func, text
+from pydantic import ValidationError
+from sqlalchemy import select, insert, update, delete, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.entities import ScheduleVersion, Schedule, User, SchedulePublication, ScheduleOverride
 from app.core.security import require_roles
+from app.schemas.schedule_versions import (
+    PublicationResponse,
+    ScheduleVersionBase,
+    ScheduleVersionCreate,
+    ScheduleVersionResponse,
+    ScheduleVersionUpdate,
+    VersionName,
+)
+from app.services.versions import lock_versions
 
 router = APIRouter(prefix="/schedule-versions", tags=["Schedule Versions"])
-VersionName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
-
-class ScheduleVersionBase(BaseModel):
-    name: VersionName
-    valid_from: date
-    valid_until: date
-    is_active: bool = True
-
-    @model_validator(mode="after")
-    def valid_dates(self):
-        if self.valid_from > self.valid_until:
-            raise ValueError("valid_from must not be after valid_until")
-        return self
-
-class ScheduleVersionCreate(ScheduleVersionBase):
-    pass
-
-class ScheduleVersionUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    name: VersionName | None = None
-    valid_from: date | None = None
-    valid_until: date | None = None
-    is_active: bool | None = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def reject_explicit_null(cls, value):
-        if isinstance(value, dict):
-            for key in ("name", "valid_from", "valid_until", "is_active"):
-                if key in value and value[key] is None:
-                    raise ValueError(f"{key} must not be null")
-        return value
-
-class ScheduleVersionResponse(ScheduleVersionBase):
-    id: int
-    lessons_count: int = 0
-    model_config = ConfigDict(from_attributes=True)
-
-async def lock_versions(db: AsyncSession):
-    if db.get_bind().dialect.name == "postgresql":
-        await db.execute(text("SELECT pg_advisory_xact_lock(424243)"))
 
 async def require_no_overlap(db: AsyncSession, data: ScheduleVersionBase, exclude_id=None):
     if not data.is_active:
@@ -334,15 +301,6 @@ async def revert_publication(
 
 from typing import List
 
-class PublicationResponse(BaseModel):
-    id: int
-    version_id: int | None
-    actor_id: int | None
-    timestamp: datetime
-    scope_manifest: str
-    is_reverted: bool
-    source: str = "manual"
-    changes_count: int = 0
 
 @router.get("/publications", response_model=List[PublicationResponse])
 async def get_publications(

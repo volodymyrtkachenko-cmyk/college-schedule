@@ -79,7 +79,7 @@ async def test_sync_all_endpoint_requires_auth_or_cron_key(classroom_db):
 
     # 2. With valid cron key -> 200
     with patch("app.routers.classroom.settings.IMPORT_CRON_SECRET", "super_secret_cron_123"), \
-         patch("app.routers.classroom.sync_all_connected_groups_once", return_value={"checked_groups": 0, "processed": []}):
+         patch("app.services.classroom.worker.sync_all_connected_groups_once", return_value={"checked_groups": 0, "processed": []}):
         r_cron = await client.post("/api/classroom/sync-all", headers={"X-Cron-Key": "super_secret_cron_123"})
         assert r_cron.status_code == 200
 

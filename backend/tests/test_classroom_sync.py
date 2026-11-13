@@ -1453,8 +1453,8 @@ async def test_background_sync_skips_broken_account_and_syncs_healthy_one(classr
         return None, "missing_or_corrupt_refresh_token", 400
 
     with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client), \
-         patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh), \
-         patch("app.routers.classroom._get_classroom_min_sync_gap_seconds", return_value=510.0):
+         patch("app.services.classroom.tokens._refresh_google_token_detailed", side_effect=fake_refresh), \
+         patch("app.services.classroom.worker._get_classroom_min_sync_gap_seconds", return_value=510.0):
 
         async with state["sessions"]() as db:
             await classroom_router.trigger_background_sync_if_needed(db, group_id, force=True)
@@ -1526,8 +1526,8 @@ async def test_classroom_sync_interval_and_gap_allows_10_min_cycles(classroom_db
         return "ya29.token_for_10min", None, 200
 
     with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client), \
-         patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh), \
-         patch("app.routers.classroom._get_classroom_min_sync_gap_seconds", return_value=510.0):
+         patch("app.services.classroom.tokens._refresh_google_token_detailed", side_effect=fake_refresh), \
+         patch("app.services.classroom.worker._get_classroom_min_sync_gap_seconds", return_value=510.0):
 
         # Trigger background sync with force=False (simulating the cron loop on subsequent cycles)
         async with state["sessions"]() as db:
@@ -1541,7 +1541,7 @@ async def test_classroom_sync_interval_and_gap_allows_10_min_cycles(classroom_db
             assert c_ts > eleven_mins_ago
 
         # Now try to sync AGAIN immediately (0 minutes passed < min_gap)
-        with patch.object(classroom_router, "perform_course_sync") as mock_perform:
+        with patch("app.services.classroom.sync.perform_course_sync") as mock_perform:
             async with state["sessions"]() as db:
                 await classroom_router.trigger_background_sync_if_needed(db, group_id, force=False)
             # Should be skipped due to min_gap throttling!
@@ -1762,7 +1762,7 @@ async def test_user_submissions_endpoint(classroom_db):
         return "ya29.refreshed_access_token_123", None, 200
 
     with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client), \
-         patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh):
+         patch("app.services.classroom.tokens._refresh_google_token_detailed", side_effect=fake_refresh):
 
         # Запит через POST з X-Classroom-User-Id заголовком (як надсилає фронтенд)
         res_post = await client.post(
@@ -2012,7 +2012,7 @@ async def test_group_detection_prioritizes_explicit_payload_group_id_and_reconst
         # Імітуємо перезапуск сервера: очищуємо оперативний кеш _latest_group_tasks
         classroom_router._latest_group_tasks.clear()
 
-        with patch("app.routers.classroom.run_background_sync_task") as mock_bg_sync:
+        with patch("app.services.classroom.worker.run_background_sync_task") as mock_bg_sync:
             # Гість без авторизації не отримує завдання групи
             guest_resp = await client.get(f"/api/classroom/groups/{group_85_id}/status")
             assert guest_resp.status_code == 200
@@ -2238,7 +2238,7 @@ async def test_transient_courses_429_does_not_deactivate_or_overwrite_refresh_to
         return "ya29.fresh_ok", None, 200
 
     with (
-        patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh_ok),
+        patch("app.services.classroom.tokens._refresh_google_token_detailed", side_effect=fake_refresh_ok),
         patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client),
     ):
         res_sub = await client.post(
@@ -2375,9 +2375,9 @@ async def test_auto_recovery_and_five_account_rotation_without_cap(classroom_db)
         return "ya29.rot_tok", None, 200
 
     with (
-        patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh),
+        patch("app.services.classroom.tokens._refresh_google_token_detailed", side_effect=fake_refresh),
         patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client),
-        patch("app.routers.classroom.get_google_client_secret", return_value="secret_ok"),
+        patch("app.services.classroom.tokens.get_google_client_secret", return_value="secret_ok"),
     ):
         async with state["sessions"]() as db:
             await classroom_router.trigger_background_sync_if_needed(db, gid, force=False)
@@ -2459,7 +2459,7 @@ async def test_admin_sync_group_now_endpoint(classroom_db):
         return "ya29.force_ok", None, 200
 
     with (
-        patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh),
+        patch("app.services.classroom.tokens._refresh_google_token_detailed", side_effect=fake_refresh),
         patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client),
     ):
         resp = await client.post(f"/api/classroom/groups/{gid}/sync-now", headers=admin_headers)
@@ -2516,8 +2516,8 @@ async def test_sync_all_connected_groups_once_isolates_timeout_and_persists_hear
         return None
 
     with (
-        patch.object(classroom_router, "async_session_factory", state["sessions"]),
-        patch.object(classroom_router, "trigger_background_sync_if_needed", side_effect=fake_trigger),
+        patch("app.services.classroom.worker.async_session_factory", state["sessions"]),
+        patch("app.services.classroom.worker.trigger_background_sync_if_needed", side_effect=fake_trigger),
         patch.object(classroom_router.asyncio, "sleep", side_effect=noop_sleep),
     ):
         result = await classroom_router.sync_all_connected_groups_once(force=False)

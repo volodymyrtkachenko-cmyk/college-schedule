@@ -30,7 +30,7 @@ _dt = datetime
 
 from app.services.notes_reconciliation import reconcile_notes_after_publish
 from app.services.import_slot_safety import normalize_base_slots, version_for_import
-from app.routers.schedule_versions import lock_versions
+from app.services.versions import lock_versions
 
 router = APIRouter(prefix="/drafts", tags=["Drafts"])
 
@@ -610,7 +610,7 @@ async def publish_draft(
 
     from app.core.time import today_local
     from app.models.entities import SchedulePublication, SchedulePublicationSnapshot, ScheduleVersion, ImportedScheduleChange
-    from app.routers.admin_import import import_payload_hash
+    from app.services.importer.hashing import import_payload_hash
     import json
     from datetime import datetime
 

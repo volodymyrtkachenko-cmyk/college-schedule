@@ -13,8 +13,17 @@ from app.core.security import require_roles
 from app.models import Group, Teacher, ImportedScheduleChange, Schedule, Subject, User, ScheduleVersion, SchedulePeriod
 from sqlalchemy import and_
 from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicting_lesson, save_schedule_item, resolve_active_period_info, _active_periods
-
-from app.routers.schedule_versions import lock_versions
+from app.services.bells import (
+    SHORTENED_BELL_TIMES,
+    get_bell_times,
+    invalidate_bell_cache,
+)
+from app.services.schedule_serializer import (
+    effective_to_item,
+    serialize_schedule_items,
+    to_item,
+)
+from app.services.versions import lock_versions
 
 from app.services.lesson_notes import attach_notes
 from app.services.learning_mode import (
@@ -27,51 +36,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-from app.services.projection import EffectiveLesson
-
-def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, bell_times=None) -> ScheduleItem:
-    if bell_times is None:
-        bell_times = {}
-    
-    # Додатний ID дозволено лише для базових записів таблиці Schedule
-    item_id = item.id
-    time_val = item.time or (f"{b[0]}-{b[1]}" if (b := (bell_times or {}).get(item.lesson_number)) else "Невідомо")
-
-    return ScheduleItem(
-        id=item_id,
-        group_id=item.group_id,
-        subject_id=item.subject_id,
-        teacher_id=item.teacher_id,
-        second_teacher_id=item.second_teacher_id,
-        day_of_week=target_date.isoweekday(),
-        lesson_number=item.lesson_number,
-        time=time_val,
-        subject=item.subject_name or "Unknown",
-        teacher=item.teacher_name,
-        room=item.room,
-        room_override=item.room,
-        teacher_room=getattr(item, "teacher_room", None),
-        second_teacher_room=getattr(item, "second_teacher_room", None),
-        subject_name=item.subject_name or "Unknown",
-        teacher_name=item.teacher_name,
-        stream_id=item.stream_id,
-        week_type=week_type,
-        is_relevant_this_week=True,
-        is_replacement=item.is_replacement,
-        is_cancelled=getattr(item, "is_cancelled", False),
-        group_name=item.group_name,
-        note=item.note_text,
-        note_id=item.note_id,
-        note_revision=item.note_revision,
-        event_type=item.event_type,
-        event_title=item.event_title,
-        custom_subject=item.custom_subject,
-        event_id=item.event_id,
-        moved_to_date=getattr(item, "moved_to_date", None),
-        moved_to_lesson=getattr(item, "moved_to_lesson", None),
-        has_template=getattr(item, "has_template", True),
-    )
-
 def check_group_access(user: User, user_allowed_groups: list[int], group_id: int):
 
     if user.role == "admin": return
@@ -81,102 +45,6 @@ def check_group_access(user: User, user_allowed_groups: list[int], group_id: int
 async def load_user_groups(db: AsyncSession, user: User) -> list[int]:
     u = await db.scalar(select(User).options(selectinload(User.allowed_groups)).where(User.id == user.id))
     return [g.id for g in u.allowed_groups] if u else []
-
-
-
-import time as _time
-from app.models import BellSchedule
-
-_bell_cache: tuple[float, dict[int, tuple[str, str]]] | None = None
-
-def invalidate_bell_cache() -> None:
-    global _bell_cache
-    _bell_cache = None
-
-async def get_bell_times(db):
-    global _bell_cache
-    now = _time.monotonic()
-    if _bell_cache is not None and now - _bell_cache[0] < 300.0:
-        return _bell_cache[1]
-    records = (await db.scalars(select(BellSchedule).where(BellSchedule.is_active == True))).all()
-    result = (
-        {r.lesson_number: (r.start_time.strftime("%H:%M"), r.end_time.strftime("%H:%M")) for r in records}
-        if records
-        else {
-            1: ("09:00", "10:20"),
-            2: ("10:40", "12:00"),
-            3: ("12:30", "13:50"),
-            4: ("14:00", "15:20"),
-        }
-    )
-    if result:
-        _bell_cache = (now, result)
-    return result
-
-SHORTENED_BELL_TIMES: dict[int, tuple[str, str]] = {
-    1: ("09:00", "09:50"),
-    2: ("10:00", "10:50"),
-    3: ("11:00", "11:50"),
-    4: ("12:00", "12:50"),
-    5: ("13:00", "13:50"),
-}
-
-def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_replacement=None):
-    if bell_times is None:
-        bell_times = {}
-
-    matching_note = None
-    t_names = []
-    t_rooms = []
-    if item.teacher:
-        t_names.append(item.teacher.name)
-        if item.teacher.room:
-            t_rooms.append(item.teacher.room)
-    if getattr(item, "second_teacher", None):
-        t_names.append(item.second_teacher.name)
-        if item.second_teacher.room:
-            t_rooms.append(item.second_teacher.room)
-
-    teacher_name = " / ".join(t_names) if t_names else None
-    room_name = getattr(item, 'room_override', None) or (" / ".join(t_rooms) if t_rooms else None)
-    return ScheduleItem(id=item.id if item_id is None else item_id, group_id=item.group_id, subject_id=item.subject_id, teacher_id=item.teacher_id, second_teacher_id=item.second_teacher_id,
-        day_of_week=item.day_of_week, lesson_number=item.lesson_number,
-        time=f"{b[0]}-{b[1]}" if (b := (bell_times or {}).get(item.lesson_number)) else "",
-        subject=item.subject.name, teacher=teacher_name, room=room_name, room_override=getattr(item, 'room_override', None),
-        teacher_room=(item.teacher.room or None) if item.teacher else None,
-        second_teacher_room=(item.second_teacher.room or None) if getattr(item, "second_teacher", None) else None,
-        subject_name=item.subject.name, teacher_name=teacher_name,
-        stream_id=getattr(item, "stream_id", None),
-        week_type=item.week_type,
-        is_relevant_this_week=item.week_type in ("both", week_type),
-        is_replacement=getattr(item, "is_replacement", False) if is_replacement is None else is_replacement,
-        is_cancelled=getattr(item, "is_cancelled", False),
-        group_name=getattr(item.group, "name", None),
-        note=matching_note.note if matching_note else None,
-        note_id=matching_note.id if matching_note else None)
-
-
-def serialize_schedule_items(lessons, week_type, target_date, bell_times):
-    items = []
-    for lesson in lessons:
-        if isinstance(lesson, EffectiveLesson):
-            item = effective_to_item(lesson, week_type, target_date, bell_times)
-        else:
-            is_replacement = (
-                True
-                if hasattr(lesson, "period_id") or hasattr(lesson, "is_published")
-                else None
-            )
-            item = to_item(
-                lesson,
-                week_type,
-                target_date,
-                bell_times,
-                is_replacement=is_replacement,
-            )
-        if item is not None:
-            items.append(item)
-    return sorted(items, key=lambda item: (item.lesson_number, item.group_name or "", item.id))
 
 
 async def _has_admin_or_editor_access(request: Request | None, db: AsyncSession) -> bool:
@@ -342,7 +210,7 @@ async def today(
     include_cancelled: bool = Query(False),
     db: AsyncSession = Depends(get_db)
 ):
-    from app.routers.classroom import run_background_sync_task, should_trigger_background_sync
+    from app.services.classroom.worker import run_background_sync_task, should_trigger_background_sync
     if should_trigger_background_sync(group_id):
         background_tasks.add_task(run_background_sync_task, group_id)
 
@@ -436,7 +304,7 @@ async def week(
     include_cancelled: bool = Query(False),
     db: AsyncSession = Depends(get_db)
 ):
-    from app.routers.classroom import run_background_sync_task, should_trigger_background_sync
+    from app.services.classroom.worker import run_background_sync_task, should_trigger_background_sync
     if should_trigger_background_sync(group_id):
         background_tasks.add_task(run_background_sync_task, group_id)
 

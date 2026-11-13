@@ -18,6 +18,7 @@ from app.models import (
 )
 from app.models.entities import SchedulePublication, SchedulePublicationSnapshot
 from app.routers import admin_import, schedule_versions
+from app.services.importer import orchestrator as importer_orchestrator
 from app.services.settings import settings_service
 
 
@@ -515,7 +516,7 @@ async def test_main_page_hash_fast_exit(ctx, monkeypatch):
     fetcher_mock.fetch_html = AsyncMock(return_value="<html>test</html>")
     fetcher_mock.get_all_group_ids = AsyncMock(return_value=["test-grp"])
     fetcher_mock.last_main_page_hash = test_hash
-    monkeypatch.setattr(admin_import, "ScheduleFetcher", lambda: fetcher_mock)
+    monkeypatch.setattr(importer_orchestrator, "ScheduleFetcher", lambda: fetcher_mock)
 
     # 1. Автоімпорт (actor_id=None): сторінка не змінилася -> повертає unchanged=True без парсингу груп
     res = await admin_import._do_import(db, 2, "hash-test", actor_id=None)

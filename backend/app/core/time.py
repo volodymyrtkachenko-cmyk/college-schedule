@@ -2,6 +2,8 @@ from datetime import datetime, date
 from zoneinfo import ZoneInfo
 from app.config import settings
 
+KYIV_TZ = ZoneInfo("Europe/Kyiv")
+
 def get_tz():
     return ZoneInfo(getattr(settings, 'APP_TIMEZONE', 'Europe/Kyiv'))
 

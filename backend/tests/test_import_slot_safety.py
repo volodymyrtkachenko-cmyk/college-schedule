@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import create_async_engine,async_sessionmaker
 from app.database import Base
 from app.models import Group,Subject,Teacher,Schedule,ScheduleDraft,ScheduleSlot,Curriculum,ScheduleVersion,ImportedScheduleChange
 from app.routers import admin_import,drafts
+from app.services.importer import orchestrator as importer_orchestrator
 from app.services.schedule import fetch_schedule
 from app.services.import_slot_safety import normalize_base_slots,version_for_import
 
@@ -69,7 +70,7 @@ def setup_source(monkeypatch,ids,substitution=False):
 @pytest.mark.anyio
 async def test_new_draft_then_same_pending_runs_full_import_body(context,monkeypatch):
     db,ids=context;setup_source(monkeypatch,ids)
-    monkeypatch.setattr(admin_import,'matches_published_schedule',AsyncMock(return_value=False))
+    monkeypatch.setattr(importer_orchestrator,'matches_published_schedule',AsyncMock(return_value=False))
     first=await admin_import._do_import(db,2,'new-draft-test')
     second=await admin_import._do_import(db,2,'same-pending-test')
     assert first['meta']['reason']=='draft_created'
@@ -82,7 +83,7 @@ async def test_new_draft_then_same_pending_runs_full_import_body(context,monkeyp
 @pytest.mark.anyio
 async def test_unchanged_runs_full_import_body(context,monkeypatch):
     db,ids=context;setup_source(monkeypatch,ids)
-    monkeypatch.setattr(admin_import,'matches_published_schedule',AsyncMock(return_value=True))
+    monkeypatch.setattr(importer_orchestrator,'matches_published_schedule',AsyncMock(return_value=True))
     result=await admin_import._do_import(db,2,'unchanged-test')
     assert result['meta']['unchanged'] is True
     assert result['meta']['auto_published'] is False
@@ -106,7 +107,7 @@ async def test_restoration_does_not_copy_historical_version(context,monkeypatch)
     db.add_all([Schedule(**ids,day_of_week=2,lesson_number=4,week_type='denominator',version_id=old.id,room_override='999') for _ in range(20)])
     db.add(Schedule(**ids,day_of_week=2,lesson_number=4,week_type='denominator',version_id=current.id,room_override='212'))
     await db.commit()
-    monkeypatch.setattr(admin_import,'matches_published_schedule',AsyncMock(return_value=False))
+    monkeypatch.setattr(importer_orchestrator,'matches_published_schedule',AsyncMock(return_value=False))
     result=await admin_import._do_import(db,2,'historical-version-test')
     assert len(result['report']['base_slots'])==1
     assert result['report']['base_slots'][0]['room']=='212'
@@ -118,7 +119,7 @@ async def test_twenty_restored_rows_produce_one_draft_slot(context,monkeypatch):
     db,ids=context;setup_source(monkeypatch,ids,substitution=True)
     db.add_all([Schedule(**ids,day_of_week=2,lesson_number=4,week_type='denominator',room_override='212') for _ in range(20)])
     await db.commit()
-    monkeypatch.setattr(admin_import,'matches_published_schedule',AsyncMock(return_value=False))
+    monkeypatch.setattr(importer_orchestrator,'matches_published_schedule',AsyncMock(return_value=False))
     result=await admin_import._do_import(db,2,'twenty-rows-test')
     assert len(result['report']['base_slots'])==1
     assert await db.scalar(select(func.count()).select_from(ScheduleSlot))==0
@@ -158,7 +159,7 @@ async def test_import_crossing_versions_rejected(context):
 @pytest.mark.anyio
 async def test_farther_denominators_have_one_pair_after_safe_explicit_publish(context,monkeypatch):
     db,ids=context;setup_source(monkeypatch,ids,substitution=True)
-    monkeypatch.setattr(admin_import,'matches_published_schedule',AsyncMock(return_value=False))
+    monkeypatch.setattr(importer_orchestrator,'matches_published_schedule',AsyncMock(return_value=False))
     result=await admin_import._do_import(db,2,'calendar-test')
     draft = await db.get(ScheduleDraft, result['meta']['draft_created'])
     await drafts.publish_draft(result['meta']['draft_created'],expected_revision=draft.revision,db=db,current_user=SimpleNamespace(id=None, role="admin"))

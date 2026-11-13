@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pydantic import BaseModel, Field
+from app.core.rate_limit import limiter
 from app.core.security import require_roles
 from app.database import get_db
-from app.routers.auth import limiter
 from app.schemas import (
     LearningModeConfig,
     SemesterDatesSetting,

@@ -23,6 +23,7 @@ from app.models import (
 from app.models.entities import SchedulePublication, SchedulePublicationSnapshot
 from app.models.lesson_notes import LessonNoteRevision, LessonOccurrenceNote
 from app.routers import admin_import, drafts
+from app.services.importer import orchestrator as importer_orchestrator
 from app.routers.classroom import (
     _matches_lesson,
     _parse_announcement,
@@ -167,7 +168,7 @@ async def test_import_only_denominator_does_not_mutate_schedule_or_delete_numera
         }],
         "skipped_base_slots": [],
     }))
-    monkeypatch.setattr(admin_import, "matches_published_schedule", AsyncMock(return_value=False))
+    monkeypatch.setattr(importer_orchestrator, "matches_published_schedule", AsyncMock(return_value=False))
 
     from app.services.settings import settings_service
     await settings_service.set(db, "import_auto_publish", "true")
@@ -237,7 +238,7 @@ async def test_anomaly_draft_requires_force_to_publish(ctx, monkeypatch):
         "base_slots": [],
         "skipped_base_slots": [],
     }))
-    monkeypatch.setattr(admin_import, "matches_published_schedule", AsyncMock(return_value=False))
+    monkeypatch.setattr(importer_orchestrator, "matches_published_schedule", AsyncMock(return_value=False))
 
     result = await admin_import._do_import(db, 2, "anomaly-test", actor_id=None)
     assert result["meta"]["auto_published"] is True

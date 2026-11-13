@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import require_roles
 from app.database import get_db
 from app.models import LessonOccurrenceNote, LessonNoteRevision, User, Group
-from app.routers.schedule_versions import lock_versions
+from app.services.versions import lock_versions
 from app.schemas.lesson_notes import NoteWrite, NoteResponse, NoteRevisionResponse
 from app.services.lesson_notes import authorize_group, active_note, archive_note, write_note, reject
 

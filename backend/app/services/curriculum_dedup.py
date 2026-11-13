@@ -223,7 +223,7 @@ async def deduplicate_subjects_and_curriculums(db: AsyncSession) -> dict[str, in
 
     await db.commit()
 
-    from app.routers.directory import invalidate_directory_cache
+    from app.services.directory_cache import invalidate_directory_cache
     invalidate_directory_cache()
 
     return {
