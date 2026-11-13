@@ -192,12 +192,20 @@ export function useScheduleSelection({
     });
   }, []);
 
+  const exitFocusMode = useCallback(() => {
+    setIsFocusMode(false);
+    try {
+      localStorage.setItem("desktop_focus_mode", "false");
+    } catch {}
+  }, []);
+
   const {
     homeTab: mobileTab,
     setHomeTab: setMobileTab,
     setOverdueCount,
     setHideTasksTab,
     setScheduleMode,
+    urlSearch,
   } = useMobileNav();
   const isFocusEffective = isFocusMode || mode === "teacher";
 
@@ -215,15 +223,22 @@ export function useScheduleSelection({
   }, [mode, setScheduleMode]);
 
   useEffect(() => {
-    if (mode === "teacher" && mobileTab === "tasks") {
+    const pendingStudentOverride =
+      new URLSearchParams(urlSearch).get("mode") === "student";
+    if (mode === "teacher" && mobileTab === "tasks" && !pendingStudentOverride) {
       setMobileTab("schedule");
     }
-  }, [mode, mobileTab, setMobileTab]);
+  }, [mode, mobileTab, setMobileTab, urlSearch]);
 
+  const lastSyncedSearchRef = useRef<string | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const rawSearch = urlSearch || window.location.search.replace(/^\?/, "");
+    if (lastSyncedSearchRef.current === rawSearch) return;
+    lastSyncedSearchRef.current = rawSearch;
+    if (!rawSearch) return;
     try {
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams(rawSearch);
       const urlMode = params.get("mode");
       const urlTab = params.get("tab");
       if (urlMode === "teacher" || urlMode === "student") {
@@ -233,9 +248,7 @@ export function useScheduleSelection({
         setMobileTab(urlTab);
       }
     } catch {}
-    // Run only once on initial mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [urlSearch, toggleMode, setMobileTab]);
 
   const { recentGroupIds, recentTeacherIds, recordRecentGroup, recordRecentTeacher } = useRecentSelections();
 
@@ -642,6 +655,7 @@ export function useScheduleSelection({
     handleViewChange,
     isFocusMode,
     toggleFocusMode,
+    exitFocusMode,
     isFocusEffective,
     mobileTab,
     setOverdueCount,

@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useEffect, useState, startTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { m, AnimatePresence } from "framer-motion";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
 import { useMobileNav } from "../lib/useMobileNav";
+import { buildGuideTasksHref, isScheduleRoutePath } from "../lib/navigation";
 import { AppDialog } from "./ui/AppDialog";
 import { CheckIcon, CloseIcon } from "./ui/Icons";
 import { GuideDemoStage } from "./GuideDemoStage";
@@ -130,6 +131,7 @@ export function GuideHubModal({
   taskCounts = null,
 }: GuideHubModalProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { setHomeTab } = useMobileNav();
   const { isLinked, linkedEmail } = useClassroomSubmissions();
   const { isTeacherUnlocked } = useTeacherAccess();
@@ -392,8 +394,22 @@ export function GuideHubModal({
                       <button
                         type="button"
                         onClick={() => {
+                          const subtab = safeIdx === 4 ? "grades" : "tasks";
+                          const onStudentScheduleRoute =
+                            isScheduleRoutePath(pathname) &&
+                            !pathname?.startsWith("/teacher/") &&
+                            mode !== "teacher";
                           onClose();
-                          setHomeTab("tasks");
+                          if (onStudentScheduleRoute) {
+                            setHomeTab("tasks");
+                            window.dispatchEvent(
+                              new CustomEvent("schedule:open-tasks-panel", {
+                                detail: { subtab },
+                              })
+                            );
+                          } else {
+                            router.push(buildGuideTasksHref(subtab));
+                          }
                         }}
                         className="shrink-0 rounded-lg bg-sys-accent px-3 py-1.5 text-[11px] font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
                       >
@@ -414,7 +430,11 @@ export function GuideHubModal({
                       type="button"
                       onClick={() => {
                         onClose();
-                        router.push("/settings?mode=teacher");
+                        if (pathname?.startsWith("/settings")) {
+                          router.replace("/settings?mode=teacher");
+                        } else {
+                          router.push("/settings?mode=teacher");
+                        }
                       }}
                       className="w-full rounded-xl bg-sys-accent py-2 text-xs font-bold text-white hover:opacity-95 active:scale-[0.99] transition-opacity cursor-pointer"
                     >
@@ -427,7 +447,7 @@ export function GuideHubModal({
                       type="button"
                       onClick={() => {
                         onClose();
-                        router.push("/statistics");
+                        router.push("/statistics?mode=teacher");
                       }}
                       className="w-full rounded-xl bg-sys-accent/15 border border-sys-accent/35 py-2 text-xs font-bold text-sys-accent hover:bg-sys-accent/25 active:scale-[0.99] transition-colors cursor-pointer"
                     >

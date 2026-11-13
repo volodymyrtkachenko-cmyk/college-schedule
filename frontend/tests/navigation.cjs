@@ -77,3 +77,58 @@ test("getCurrentAcademicYear handles August boundary", () => {
   assert.equal(cacheSnapshot.getCurrentAcademicYear(new Date("2026-08-15T12:00:00Z")), 2026);
   assert.equal(cacheSnapshot.getCurrentAcademicYear(new Date("2026-05-15T12:00:00Z")), 2025);
 });
+
+test("resolveHomeTabFromLocation resets mobile tab to schedule unless explicit tab=tasks", () => {
+  assert.equal(nav.resolveHomeTabFromLocation("/", ""), "schedule");
+  assert.equal(nav.resolveHomeTabFromLocation("/", "?mode=teacher"), "schedule");
+  assert.equal(nav.resolveHomeTabFromLocation("/group/КІ-24-1", ""), "schedule");
+  assert.equal(nav.resolveHomeTabFromLocation("/teacher/ivanenko", ""), "schedule");
+  assert.equal(nav.resolveHomeTabFromLocation("/", "?tab=tasks"), "tasks");
+  assert.equal(nav.resolveHomeTabFromLocation("/group/КІ-24-1", "tab=tasks"), "tasks");
+  assert.equal(nav.resolveHomeTabFromLocation("/bells", "?tab=tasks"), "schedule");
+});
+
+test("resolveActiveMobileTab hides active bottom tab indicator on auxiliary subpages", () => {
+  assert.equal(nav.resolveActiveMobileTab("/", "schedule"), "schedule");
+  assert.equal(nav.resolveActiveMobileTab("/", "tasks"), "tasks");
+  assert.equal(nav.resolveActiveMobileTab("/group/КІ-24-1", "tasks"), "tasks");
+  assert.equal(nav.resolveActiveMobileTab("/settings", "tasks"), "settings");
+  assert.equal(nav.resolveActiveMobileTab("/bells", "tasks"), null);
+  assert.equal(nav.resolveActiveMobileTab("/statistics", "schedule"), null);
+  assert.equal(nav.resolveActiveMobileTab("/educational-process", "tasks"), null);
+  assert.equal(nav.resolveActiveMobileTab("/groups", "tasks"), null);
+  assert.equal(nav.resolveActiveMobileTab("/teachers", "tasks"), null);
+});
+
+test("isScheduleRoutePath distinguishes schedule routes from group/teacher indexes", () => {
+  assert.equal(nav.isScheduleRoutePath("/"), true);
+  assert.equal(nav.isScheduleRoutePath("/group/КІ-24-1"), true);
+  assert.equal(nav.isScheduleRoutePath("/teacher/ivanenko"), true);
+  assert.equal(nav.isScheduleRoutePath("/groups"), false);
+  assert.equal(nav.isScheduleRoutePath("/teachers"), false);
+  assert.equal(nav.isScheduleRoutePath("/bells"), false);
+});
+
+test("resolveEffectiveScheduleMode honors query param over stored mode", () => {
+  assert.equal(nav.resolveEffectiveScheduleMode("?mode=teacher", "student"), "teacher");
+  assert.equal(nav.resolveEffectiveScheduleMode("?mode=student", "teacher"), "student");
+  assert.equal(nav.resolveEffectiveScheduleMode("", "teacher"), "teacher");
+  assert.equal(nav.resolveEffectiveScheduleMode("", null), "student");
+});
+
+test("buildGuideTasksHref and resolveScheduleSubtabFromSearch wire tasks and grades CTAs", () => {
+  assert.equal(nav.buildGuideTasksHref("tasks"), "/?tab=tasks&mode=student");
+  assert.equal(nav.buildGuideTasksHref("grades"), "/?tab=tasks&mode=student&subtab=grades");
+  assert.equal(nav.resolveScheduleSubtabFromSearch("?tab=tasks&subtab=grades"), "grades");
+  assert.equal(nav.resolveScheduleSubtabFromSearch("?tab=tasks"), null);
+});
+
+test("sanitizeInternalRedirect blocks open redirects and login self-loops", () => {
+  assert.equal(nav.sanitizeInternalRedirect("/admin"), "/admin");
+  assert.equal(nav.sanitizeInternalRedirect("/settings?mode=teacher", "/"), "/settings?mode=teacher");
+  assert.equal(nav.sanitizeInternalRedirect("https://evil.com", "/"), "/");
+  assert.equal(nav.sanitizeInternalRedirect("//evil.com", "/"), "/");
+  assert.equal(nav.sanitizeInternalRedirect("/\\evil.com", "/"), "/");
+  assert.equal(nav.sanitizeInternalRedirect("/login?redirect=/admin", "/"), "/");
+  assert.equal(nav.sanitizeInternalRedirect(null, "/admin"), "/admin");
+});

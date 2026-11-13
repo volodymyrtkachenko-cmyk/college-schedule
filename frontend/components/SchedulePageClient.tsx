@@ -6,6 +6,8 @@ import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { canAccessAdmin, useAuth } from "../lib/auth";
 import { ReferenceRecord } from "../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../lib/hooks";
+import { resolveScheduleSubtabFromSearch } from "../lib/navigation";
+import { useMobileNav } from "../lib/useMobileNav";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useTheme } from "../lib/useTheme";
 import { useUserSettings } from "../lib/useUserSettings";
@@ -122,6 +124,7 @@ export function SchedulePageClient({
   const [teacherPinTargetGroup, setTeacherPinTargetGroup] = useState<string | null>(null);
   const [guideHubOpen, setGuideHubOpen] = useState(false);
   const [desktopSidebarTab, setDesktopSidebarTab] = useState<"tasks" | "grades">("tasks");
+  const { urlSearch } = useMobileNav();
   const tasksPanelRef = useRef<HTMLDivElement | null>(null);
   const schedulePanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -142,6 +145,34 @@ export function SchedulePageClient({
     setTeacherPinTargetGroup(groupName);
     setTeacherPinModalOpen(true);
   }, []);
+
+  const revealTasksPanel = useCallback(
+    (subtab: "tasks" | "grades") => {
+      setDesktopSidebarTab(subtab);
+      if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+        if (sel.view !== "today") sel.handleViewChange("today");
+        if (sel.isFocusMode) sel.exitFocusMode();
+      }
+    },
+    [sel]
+  );
+
+  useEffect(() => {
+    const subtab = resolveScheduleSubtabFromSearch(urlSearch);
+    if (subtab) {
+      revealTasksPanel(subtab);
+    }
+  }, [urlSearch, revealTasksPanel]);
+
+  useEffect(() => {
+    const onOpenTasksPanel = (event: Event) => {
+      const detail = (event as CustomEvent<{ subtab?: "tasks" | "grades" }>).detail;
+      const subtab = detail?.subtab === "grades" ? "grades" : "tasks";
+      revealTasksPanel(subtab);
+    };
+    window.addEventListener("schedule:open-tasks-panel", onOpenTasksPanel);
+    return () => window.removeEventListener("schedule:open-tasks-panel", onOpenTasksPanel);
+  }, [revealTasksPanel]);
 
   const {
     isLinked,

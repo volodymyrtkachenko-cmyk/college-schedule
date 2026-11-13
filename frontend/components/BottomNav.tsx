@@ -37,6 +37,19 @@ export function BottomNav() {
     setHomeTab("schedule");
     if (isOnSchedulePage) {
       e.preventDefault();
+      if (typeof window !== "undefined" && window.location.search) {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has("tab") || params.has("subtab")) {
+          params.delete("tab");
+          params.delete("subtab");
+          const query = params.toString();
+          window.history.replaceState(
+            null,
+            "",
+            `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`
+          );
+        }
+      }
     }
   };
 
@@ -58,8 +71,8 @@ export function BottomNav() {
     }
   };
 
-  const scheduleHref = scheduleMode === "teacher" ? "/?mode=teacher" : "/";
-  const tasksHref = scheduleMode === "teacher" ? "/?tab=tasks&mode=teacher" : "/?tab=tasks";
+  const scheduleHref = "/";
+  const tasksHref = "/?tab=tasks";
   const settingsHref = scheduleMode === "teacher" ? "/settings?mode=teacher" : "/settings";
 
   const totalTabs = hideTasksTab ? 2 : 3;
@@ -72,17 +85,19 @@ export function BottomNav() {
     >
       <div className="relative mx-auto flex h-14 max-w-lg items-stretch justify-around px-2">
         {/* Hardware-accelerated GPU sliding pill */}
-        <div
-          aria-hidden="true"
-          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
-          style={{
-            left: "8px",
-            width: `calc((100% - 16px) / ${totalTabs})`,
-            transform: `translate3d(calc(${tabIndex} * 100%), 0, 0)`,
-          }}
-        >
-          <div className="mx-1 h-full rounded-xl bg-sys-accent/15 shadow-xs" />
-        </div>
+        {activeTab !== null && (
+          <div
+            aria-hidden="true"
+            className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+            style={{
+              left: "8px",
+              width: `calc((100% - 16px) / ${totalTabs})`,
+              transform: `translate3d(calc(${tabIndex} * 100%), 0, 0)`,
+            }}
+          >
+            <div className="mx-1 h-full rounded-xl bg-sys-accent/15 shadow-xs" />
+          </div>
+        )}
 
         {/* Tab 1: Schedule */}
         <TransitionLink

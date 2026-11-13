@@ -1,79 +1,118 @@
 "use client";
 
 import React, {
+  Suspense,
   createContext,
   useContext,
   useState,
   useEffect,
   useMemo,
   useCallback,
+  useRef,
 } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import {
+  isScheduleRoutePath,
+  resolveActiveMobileTab,
+  resolveEffectiveScheduleMode,
+  resolveHomeTabFromLocation,
+  type MobileHomeTab,
+  type MobileTab,
+  type ScheduleMode,
+} from "./navigation";
 
-export type MobileTab = "schedule" | "tasks" | "settings";
+export { isScheduleRoutePath };
+export type { MobileTab };
 
 interface MobileNavContextValue {
-  activeTab: MobileTab;
-  homeTab: "schedule" | "tasks";
-  setHomeTab: (tab: "schedule" | "tasks") => void;
+  activeTab: MobileTab | null;
+  homeTab: MobileHomeTab;
+  setHomeTab: (tab: MobileHomeTab) => void;
   overdueCount: number;
   setOverdueCount: (count: number) => void;
   hideTasksTab: boolean;
   setHideTasksTab: (hide: boolean) => void;
-  scheduleMode: "student" | "teacher";
-  setScheduleMode: (mode: "student" | "teacher") => void;
+  scheduleMode: ScheduleMode;
+  setScheduleMode: (mode: ScheduleMode) => void;
+  urlSearch: string;
 }
 
 const MobileNavContext = createContext<MobileNavContextValue | null>(null);
 
-export function isScheduleRoutePath(pathname?: string | null): boolean {
-  if (!pathname) return false;
-  return (
-    pathname === "/" ||
-    pathname.startsWith("/group/") ||
-    pathname.startsWith("/teacher/")
-  );
+function MobileNavUrlSync({
+  onLocationChange,
+}: {
+  onLocationChange: (pathname: string | null, search: string, isInitial: boolean) => void;
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchStr = searchParams ? searchParams.toString() : "";
+  const prevNavKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const navKey = `${pathname ?? ""}?${searchStr}`;
+    const isInitial = prevNavKeyRef.current === null;
+    if (prevNavKeyRef.current !== navKey) {
+      prevNavKeyRef.current = navKey;
+      onLocationChange(pathname, searchStr, isInitial);
+    }
+  }, [pathname, searchStr, onLocationChange]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const currentPath = window.location.pathname;
+      const currentSearch = window.location.search.replace(/^\?/, "");
+      prevNavKeyRef.current = `${currentPath}?${currentSearch}`;
+      onLocationChange(currentPath, currentSearch, false);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [onLocationChange]);
+
+  return null;
 }
 
 export function MobileNavProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [homeTab, setHomeTabState] = useState<"schedule" | "tasks">("schedule");
+  const [homeTab, setHomeTabState] = useState<MobileHomeTab>("schedule");
   const [overdueCount, setOverdueCount] = useState<number>(0);
   const [hideTasksTab, setHideTasksTab] = useState<boolean>(false);
-  const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">("student");
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("student");
+  const [urlSearch, setUrlSearch] = useState<string>("");
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("tab") === "tasks") {
-        setHomeTabState("tasks");
-      }
-      const cachedMode = window.localStorage.getItem("schedule:mode") as "student" | "teacher" | null;
-      if (cachedMode === "student" || cachedMode === "teacher") {
-        setScheduleMode(cachedMode);
-      }
-    }
-  }, []);
+  const handleLocationChange = useCallback(
+    (nextPathname: string | null, searchStr: string, isInitial: boolean) => {
+      setUrlSearch(searchStr);
+      setHomeTabState(resolveHomeTabFromLocation(nextPathname, searchStr));
 
-  useEffect(() => {
-    if (isScheduleRoutePath(pathname) && typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("tab") === "tasks") {
-        setHomeTabState("tasks");
-      }
-    }
-  }, [pathname]);
+      if (typeof window === "undefined") return;
+      const shouldSyncStoredMode =
+        (!isScheduleRoutePath(nextPathname) && !nextPathname?.startsWith("/settings")) ||
+        (isInitial &&
+          !nextPathname?.startsWith("/group/") &&
+          !nextPathname?.startsWith("/teacher/"));
 
-  const setHomeTab = useCallback((tab: "schedule" | "tasks") => {
+      if (shouldSyncStoredMode) {
+        let storedMode: string | null = null;
+        try {
+          storedMode = window.localStorage.getItem("schedule:mode");
+        } catch {}
+        const resolved = resolveEffectiveScheduleMode(searchStr, storedMode);
+        setScheduleMode(resolved);
+        setHideTasksTab(resolved === "teacher");
+      }
+    },
+    []
+  );
+
+  const setHomeTab = useCallback((tab: MobileHomeTab) => {
     setHomeTabState(tab);
   }, []);
 
-  const activeTab: MobileTab = useMemo(() => {
-    if (pathname?.startsWith("/settings")) {
-      return "settings";
-    }
-    return homeTab;
-  }, [pathname, homeTab]);
+  const activeTab = useMemo(
+    () => resolveActiveMobileTab(pathname, homeTab),
+    [pathname, homeTab]
+  );
 
   const value = useMemo(
     () => ({
@@ -86,12 +125,16 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
       setHideTasksTab,
       scheduleMode,
       setScheduleMode,
+      urlSearch,
     }),
-    [activeTab, homeTab, setHomeTab, overdueCount, hideTasksTab, scheduleMode]
+    [activeTab, homeTab, setHomeTab, overdueCount, hideTasksTab, scheduleMode, urlSearch]
   );
 
   return (
     <MobileNavContext.Provider value={value}>
+      <Suspense fallback={null}>
+        <MobileNavUrlSync onLocationChange={handleLocationChange} />
+      </Suspense>
       {children}
     </MobileNavContext.Provider>
   );

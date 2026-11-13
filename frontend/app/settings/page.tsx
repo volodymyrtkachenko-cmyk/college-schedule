@@ -12,6 +12,7 @@ import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../components/ToastProvider";
 import { requestClassroomAuth } from "../../lib/classroomAuth";
+import { resolveEffectiveScheduleMode } from "../../lib/navigation";
 import { useMobileNav } from "../../lib/useMobileNav";
 import { api } from "../../lib/api";
 import { checkScheduleHasSubgroups, extractSubgroupTeacherHints, SubgroupTeacherHint } from "../../lib/format";
@@ -112,25 +113,23 @@ export default function SettingsPage() {
     scheduleMode: navScheduleMode,
     setScheduleMode: setNavScheduleMode,
     setHomeTab,
+    urlSearch,
   } = useMobileNav();
   const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">(navScheduleMode);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const urlMode = params.get("mode") as "student" | "teacher" | null;
-    const cached = localStorage.getItem("schedule:mode") as "student" | "teacher" | null;
-    const resolved =
-      urlMode === "student" || urlMode === "teacher"
-        ? urlMode
-        : cached === "student" || cached === "teacher"
-          ? cached
-          : "student";
+    const rawSearch = urlSearch || window.location.search;
+    let cached: string | null = null;
+    try {
+      cached = localStorage.getItem("schedule:mode");
+    } catch {}
+    const resolved = resolveEffectiveScheduleMode(rawSearch, cached);
 
     setScheduleMode(resolved);
     setHideTasksTab(resolved === "teacher");
     setNavScheduleMode(resolved);
-  }, [setHideTasksTab, setNavScheduleMode]);
+  }, [urlSearch, setHideTasksTab, setNavScheduleMode]);
 
   const [pinInput, setPinInput] = useState("");
   const [showPinInput, setShowPinInput] = useState(false);
@@ -205,7 +204,7 @@ export default function SettingsPage() {
       <SubpageHeader
         title="Налаштування"
         subtitle="Параметри пристрою та інтеграції"
-        backHref={scheduleMode === "teacher" ? "/?mode=teacher" : "/"}
+        backHref="/"
         onBackClick={() => setHomeTab("schedule")}
         maxWidthClass="max-w-2xl"
         rightSlot={
@@ -725,7 +724,7 @@ export default function SettingsPage() {
             </TransitionLink>
 
             <TransitionLink
-              href="/statistics"
+              href={scheduleMode === "teacher" ? "/statistics?mode=teacher" : "/statistics"}
               className="spring-press flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-purple-500/40 hover:bg-purple-500/5 transition-colors duration-fast ease-smooth group"
             >
               <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">

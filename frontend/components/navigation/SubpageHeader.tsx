@@ -26,8 +26,9 @@ export function SubpageHeader({
   maxWidthClass = "max-w-5xl",
 }: SubpageHeaderProps) {
   const pathname = usePathname() || "/";
-  const { setHomeTab } = useMobileNav();
+  const { setHomeTab, scheduleMode } = useMobileNav();
   const isSettingsActive = isPublicSectionActive(pathname, "settings");
+  const settingsHref = scheduleMode === "teacher" ? "/settings?mode=teacher" : "/settings";
 
   const handleBack = () => {
     setHomeTab("schedule");
@@ -79,7 +80,7 @@ export function SubpageHeader({
             {rightSlot}
             {!isSettingsActive && (
               <TransitionLink
-                href="/settings"
+                href={settingsHref}
                 aria-label="Налаштування"
                 className="spring-press hidden lg:inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-2.5 text-xs font-medium text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-text-primary transition-[color,border-color,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent"
                 title="Налаштування"

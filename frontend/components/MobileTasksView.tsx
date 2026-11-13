@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
+import { resolveScheduleSubtabFromSearch } from "../lib/navigation";
+import { useMobileNav } from "../lib/useMobileNav";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import {
   useTaskGroups,
@@ -491,8 +493,36 @@ export function MobileTasksView({
     isSilent?: boolean
   ) => void;
 }) {
-  const [viewMode, setViewMode] = useState<"tasks" | "grades">("tasks");
-  const [gradesVisited, setGradesVisited] = useState(false);
+  const [viewMode, setViewMode] = useState<"tasks" | "grades">(() => {
+    if (typeof window === "undefined") return "tasks";
+    return resolveScheduleSubtabFromSearch(window.location.search) ?? "tasks";
+  });
+  const [gradesVisited, setGradesVisited] = useState(() => viewMode === "grades");
+  const { urlSearch } = useMobileNav();
+
+  useEffect(() => {
+    const subtab = resolveScheduleSubtabFromSearch(urlSearch);
+    if (subtab === "grades") {
+      setGradesVisited(true);
+      setViewMode("grades");
+    } else if (subtab === "tasks") {
+      setViewMode("tasks");
+    }
+  }, [urlSearch]);
+
+  useEffect(() => {
+    const onOpenTasksPanel = (event: Event) => {
+      const detail = (event as CustomEvent<{ subtab?: "tasks" | "grades" }>).detail;
+      if (detail?.subtab === "grades") {
+        setGradesVisited(true);
+        setViewMode("grades");
+      } else if (detail?.subtab === "tasks") {
+        setViewMode("tasks");
+      }
+    };
+    window.addEventListener("schedule:open-tasks-panel", onOpenTasksPanel);
+    return () => window.removeEventListener("schedule:open-tasks-panel", onOpenTasksPanel);
+  }, []);
   const { isLinked, isLinkedToGroup } = useClassroomSubmissions();
   const hasAccess = Boolean(groupId && isLinkedToGroup(groupId));
 

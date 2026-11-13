@@ -5,6 +5,10 @@ export type PublicSectionId =
   | "statistics"
   | "settings";
 
+export type MobileHomeTab = "schedule" | "tasks";
+export type MobileTab = MobileHomeTab | "settings";
+export type ScheduleMode = "student" | "teacher";
+
 export type RouteTransitionDirection = "route-forward" | "route-backward";
 
 export interface PublicNavItem {
@@ -116,6 +120,103 @@ export function isPublicSectionActive(
     return path === "/" || path.startsWith("/group/") || path.startsWith("/teacher/");
   }
   return path === `/${sectionId}`;
+}
+
+/**
+ * Checks whether a pathname renders the main schedule view or a direct group/teacher schedule.
+ */
+export function isScheduleRoutePath(pathname?: string | null): boolean {
+  if (!pathname) return false;
+  const path = normalizeRoutePath(pathname);
+  return path === "/" || path.startsWith("/group/") || path.startsWith("/teacher/");
+}
+
+/**
+ * Resolves which mobile homepage tab should open for a schedule URL.
+ * Any schedule route without explicit `?tab=tasks` defaults back to `"schedule"`.
+ */
+export function resolveHomeTabFromLocation(
+  pathname?: string | null,
+  search = "",
+): MobileHomeTab {
+  if (!isScheduleRoutePath(pathname)) return "schedule";
+  const params = new URLSearchParams(search.replace(/^\?/, ""));
+  return params.get("tab") === "tasks" ? "tasks" : "schedule";
+}
+
+/**
+ * Computes the active BottomNav item (null on auxiliary subpages like /bells or /statistics).
+ */
+export function resolveActiveMobileTab(
+  pathname?: string | null,
+  homeTab: MobileHomeTab = "schedule",
+): MobileTab | null {
+  if (!pathname) return null;
+  const path = normalizeRoutePath(pathname);
+  if (path === "/settings" || path.startsWith("/settings/")) {
+    return "settings";
+  }
+  if (isScheduleRoutePath(path)) {
+    return homeTab;
+  }
+  return null;
+}
+
+/**
+ * Resolves effective student/teacher mode from URL query param first, falling back to stored preference.
+ */
+export function resolveEffectiveScheduleMode(
+  search = "",
+  storedMode?: string | null,
+): ScheduleMode {
+  const params = new URLSearchParams(search.replace(/^\?/, ""));
+  const urlMode = params.get("mode");
+  if (urlMode === "teacher" || urlMode === "student") {
+    return urlMode;
+  }
+  return storedMode === "teacher" ? "teacher" : "student";
+}
+
+/**
+ * Extracts optional tasks board subtab (`tasks` | `grades`) from URL search query.
+ */
+export function resolveScheduleSubtabFromSearch(
+  search = "",
+): "tasks" | "grades" | null {
+  const subtab = new URLSearchParams(search.replace(/^\?/, "")).get("subtab");
+  return subtab === "grades" || subtab === "tasks" ? subtab : null;
+}
+
+/**
+ * Builds homepage href for Guide CTAs opening either Classroom tasks or grades view.
+ */
+export function buildGuideTasksHref(subtab: "tasks" | "grades"): string {
+  return subtab === "grades"
+    ? "/?tab=tasks&mode=student&subtab=grades"
+    : "/?tab=tasks&mode=student";
+}
+
+/**
+ * Ensures post-login redirect targets stay within the app (blocks protocol-relative and external URLs).
+ */
+export function sanitizeInternalRedirect(
+  raw?: string | null,
+  fallback = "/",
+): string {
+  if (!raw) return fallback;
+  const trimmed = raw.trim();
+  if (
+    !trimmed.startsWith("/") ||
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/\\") ||
+    /[\r\n]/.test(trimmed) ||
+    trimmed === "/login" ||
+    trimmed.startsWith("/login?") ||
+    trimmed.startsWith("/login/")
+  ) {
+    return fallback;
+  }
+  return trimmed;
 }
 
 /**

@@ -3,12 +3,14 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, canAccessAdmin } from "../../lib/auth";
+import { sanitizeInternalRedirect } from "../../lib/navigation";
 
 function LoginForm() {
   const { user, loading, login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTarget = searchParams?.get("redirect") || (canAccessAdmin(user) ? "/admin" : "/");
+  const explicitRedirect = sanitizeInternalRedirect(searchParams?.get("redirect"), "");
+  const redirectTarget = explicitRedirect || (canAccessAdmin(user) ? "/admin" : "/");
 
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState<string | null>(null);
@@ -25,8 +27,9 @@ function LoginForm() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await login(form.username, form.password);
-      router.replace(redirectTarget);
+      const loggedInUser = await login(form.username, form.password);
+      const nextTarget = explicitRedirect || (canAccessAdmin(loggedInUser) ? "/admin" : "/");
+      router.replace(nextTarget);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не вдалося увійти. Перевірте дані та спробуйте ще раз.");
       setIsSubmitting(false);

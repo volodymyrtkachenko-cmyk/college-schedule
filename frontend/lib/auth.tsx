@@ -6,7 +6,7 @@ import { api, ApiError, AuthUser, AuthSupersededError } from "./api";
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -50,11 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { mounted = false; };
   }, []);
 
-  async function login(username: string, password: string) {
+  async function login(username: string, password: string): Promise<AuthUser> {
     const session = await api.auth.login(username, password);
     if (!api.auth.isCurrentSession(session)) throw new AuthSupersededError();
     try { localStorage.setItem("schedule:has_admin_session", "1"); } catch {}
     setUser(session.user);
+    return session.user;
   }
 
   // Proactive background silent refresh while active or when tab gains focus

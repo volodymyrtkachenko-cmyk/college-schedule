@@ -16,6 +16,8 @@ import {
 import { useAuth } from "@/lib/auth";
 import { readCacheSnapshot, writeCacheSnapshot } from "@/lib/cacheSnapshot";
 import { getProgressPercentage } from "@/lib/format";
+import { resolveEffectiveScheduleMode } from "@/lib/navigation";
+import { useMobileNav } from "@/lib/useMobileNav";
 import { useRecentSelections } from "@/lib/useRecentSelections";
 
 function formatDate(value: string) {
@@ -31,6 +33,11 @@ function formatDate(value: string) {
 
 export function StatisticsClient() {
   const { user } = useAuth();
+  const {
+    urlSearch,
+    setScheduleMode: setNavScheduleMode,
+    setHideTasksTab,
+  } = useMobileNav();
   const [mode, setMode] = useState<"student" | "teacher">("student");
   const [teacherView, setTeacherView] = useState<"subjects" | "groups">("subjects");
   const [groups, setGroups] = useState<ReferenceRecord[]>([]);
@@ -47,6 +54,7 @@ export function StatisticsClient() {
 
   useEffect(() => {
     let active = true;
+    const rawSearch = typeof window !== "undefined" ? window.location.search : "";
     const storedMode = window.localStorage.getItem("schedule:mode");
     const storedGroupId = Number(window.localStorage.getItem("schedule:groupId")) || null;
     const storedTeacherId = Number(window.localStorage.getItem("schedule:teacherId")) || null;
@@ -57,12 +65,15 @@ export function StatisticsClient() {
           ? allGroups.filter((group) => (user.allowed_groups || []).includes(group.id))
           : allGroups;
       const availableTeachers = user?.role === "editor" ? [] : allTeachers;
+      const resolvedMode = resolveEffectiveScheduleMode(rawSearch, storedMode);
       const initialMode =
-        storedMode === "teacher" && availableTeachers.length ? "teacher" : "student";
+        resolvedMode === "teacher" && availableTeachers.length ? "teacher" : "student";
 
       setGroups(availableGroups);
       setTeachers(availableTeachers);
       setMode(initialMode);
+      setNavScheduleMode(initialMode);
+      setHideTasksTab(initialMode === "teacher");
       setGroupId((prev) =>
         prev && availableGroups.some((g) => g.id === prev)
           ? prev
@@ -110,7 +121,18 @@ export function StatisticsClient() {
     return () => {
       active = false;
     };
-  }, [user?.id, user?.role]);
+  }, [user?.id, user?.role, setNavScheduleMode, setHideTasksTab]);
+
+  useEffect(() => {
+    if (!urlSearch || teachers.length === 0) return;
+    const params = new URLSearchParams(urlSearch);
+    const urlMode = params.get("mode");
+    if (urlMode === "teacher" || urlMode === "student") {
+      setMode(urlMode);
+      setNavScheduleMode(urlMode);
+      setHideTasksTab(urlMode === "teacher");
+    }
+  }, [urlSearch, teachers.length, setNavScheduleMode, setHideTasksTab]);
 
   useEffect(() => {
     if (referencesLoading) return;
@@ -212,6 +234,8 @@ export function StatisticsClient() {
   const changeMode = (value: "student" | "teacher") => {
     setMode(value);
     window.localStorage.setItem("schedule:mode", value);
+    setNavScheduleMode(value);
+    setHideTasksTab(value === "teacher");
   };
 
   const changeGroup = (id: number | null) => {
@@ -235,7 +259,7 @@ export function StatisticsClient() {
       <SubpageHeader
         title="Статистика занять ДФКР"
         subtitle="Виконання навчального плану та навантаження"
-        backHref={mode === "teacher" ? "/?mode=teacher" : "/"}
+        backHref="/"
         maxWidthClass="max-w-5xl"
       />
 
