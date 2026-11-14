@@ -46,32 +46,34 @@ export default async function HomePage() {
 
       <SchedulePageClient initialGroups={groups} initialTeachers={teachers} ssrNowIso={ssrNowIso} />
 
-      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-4 pt-4 pb-24 text-xs text-sys-text-secondary sm:px-6 lg:pb-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            Дніпровський фаховий коледж радіоелектроніки (ДФКР)
+      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-3 pt-3 pb-20 text-[11px] text-sys-text-secondary sm:px-6 sm:pt-4 sm:pb-24 sm:text-xs lg:pb-8">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <p className="truncate sm:whitespace-normal">
+            <span className="sm:hidden">ДФКР — розклад занять</span>
+            <span className="hidden sm:inline">Дніпровський фаховий коледж радіоелектроніки (ДФКР)</span>
           </p>
-          <nav aria-label="Розділи розкладу ДФКР" className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            <TransitionLink href="/groups" className="hover:text-sys-accent hover:underline">
+          <nav aria-label="Розділи розкладу ДФКР" className="flex flex-wrap items-center gap-x-2 min-[390px]:gap-x-2.5 gap-y-1 sm:gap-x-4 sm:gap-y-1.5">
+            <TransitionLink href="/groups" className="hover:text-sys-accent hover:underline whitespace-nowrap">
               Групи
             </TransitionLink>
-            <TransitionLink href="/teachers" className="hover:text-sys-accent hover:underline">
+            <TransitionLink href="/teachers" className="hover:text-sys-accent hover:underline whitespace-nowrap">
               Викладачі
             </TransitionLink>
-            <TransitionLink href="/bells" className="hover:text-sys-accent hover:underline">
+            <TransitionLink href="/bells" className="hover:text-sys-accent hover:underline whitespace-nowrap">
               Дзвінки
             </TransitionLink>
-            <TransitionLink href="/educational-process" className="hover:text-sys-accent hover:underline">
-              Графік процесу
+            <TransitionLink href="/educational-process" className="hover:text-sys-accent hover:underline whitespace-nowrap">
+              <span className="sm:hidden">Графік</span>
+              <span className="hidden sm:inline">Графік процесу</span>
             </TransitionLink>
-            <TransitionLink href="/statistics" className="hover:text-sys-accent hover:underline">
+            <TransitionLink href="/statistics" className="hover:text-sys-accent hover:underline whitespace-nowrap">
               Статистика
             </TransitionLink>
             <a
               href="https://kre.dp.ua/"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-sys-accent hover:underline"
+              className="hover:text-sys-accent hover:underline whitespace-nowrap"
             >
               kre.dp.ua
             </a>

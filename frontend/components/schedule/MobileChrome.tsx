@@ -48,15 +48,15 @@ export function MobileChrome({
 }: MobileChromeProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card pt-[env(safe-area-inset-top)] lg:hidden">
-      {/* Tier 1 (min-h-14): [ДФКР Група ▾]   ‹ 19–25 жовт. ›   [💡] */}
-      <div className="flex min-h-[3.5rem] py-1 items-center justify-between px-2.5 sm:px-3 gap-1 sm:gap-1.5 overflow-hidden">
+      {/* Tier 1 (h-14): [ДФКР Група ▾]   ‹ 19–25 жовт. ›   [💡] */}
+      <div className="flex h-14 items-center justify-between px-2.5 sm:px-3 gap-1 sm:gap-1.5 overflow-hidden">
         {/* Left: Brand + Context Selector */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <a
             href="https://kre.dp.ua/"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center shrink-0 hover:opacity-85 transition-opacity"
+            className={`${mode === "teacher" ? "hidden sm:flex" : "hidden min-[400px]:flex"} items-center shrink-0 hover:opacity-85 transition-opacity`}
             title="Дніпровський фаховий коледж радіоелектроніки"
           >
             <span className="rounded bg-sys-accent/15 px-1.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-sys-accent border border-sys-accent/20">
@@ -67,10 +67,10 @@ export function MobileChrome({
             type="button"
             onClick={onOpenContextModal}
             aria-label="Обрати групу або викладача"
-            className={`flex h-10 items-center gap-1 rounded-xl border border-sys-border bg-sys-bg/90 px-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth truncate shrink-0 ${
+            className={`flex h-9 sm:h-10 items-center gap-1 rounded-xl border border-sys-border bg-sys-bg/90 px-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth truncate shrink-0 ${
               mode === "teacher" && !isTeacherUnlocked
-                ? "max-w-[100px] sm:max-w-[175px]"
-                : "max-w-[118px] sm:max-w-[200px]"
+                ? "max-w-[96px] min-[390px]:max-w-[116px] sm:max-w-[175px]"
+                : "max-w-[98px] min-[390px]:max-w-[120px] sm:max-w-[200px]"
             }`}
           >
             <span className="truncate">
@@ -82,7 +82,7 @@ export function MobileChrome({
             <button
               type="button"
               onClick={onOpenTeacherPinModal}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-accent transition-colors duration-fast ease-smooth active:scale-95 shrink-0"
+              className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-accent transition-colors duration-fast ease-smooth active:scale-95 shrink-0"
               title="Вхід для викладача (PIN)"
               aria-label="Вхід для викладача (PIN)"
             >
@@ -96,20 +96,20 @@ export function MobileChrome({
 
         {/* Center: Week Navigator & week type info */}
         {mobileTab === "tasks" ? (
-          <div className="flex flex-col items-center justify-center flex-1 min-w-0">
-            <span className="text-sm font-bold text-sys-text-primary">Завдання</span>
+          <div className="flex flex-col items-center justify-center flex-1 min-w-0 overflow-hidden">
+            <span className="text-sm font-bold text-sys-text-primary truncate">Завдання</span>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center flex-1 min-w-0">
-            <div className="flex items-center gap-0.5">
+          <div className="flex flex-col items-center justify-center flex-1 min-w-0 overflow-hidden">
+            <div className="flex items-center justify-center gap-0.5 max-w-full">
               <button
                 type="button"
                 disabled={!canNavigatePrevWeek}
                 onClick={() => onShiftWeekPreservingDay(-1)}
                 aria-label="Попередній тиждень"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
               >
-                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m15 18-6-6 6-6" />
                 </svg>
               </button>
@@ -119,9 +119,9 @@ export function MobileChrome({
                 onClick={onOpenDatePicker}
                 aria-label="Обрати дату в календарі"
                 title="Відкрити календар для вибору дати"
-                className="flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-lg hover:bg-sys-bg text-center truncate min-w-0 max-w-[135px] sm:max-w-[185px] transition-colors active:scale-95 cursor-pointer"
+                className="flex items-center justify-center gap-1 px-1 sm:px-1.5 py-0.5 rounded-lg hover:bg-sys-bg text-center truncate min-w-0 max-w-[140px] sm:max-w-[185px] transition-colors active:scale-95 cursor-pointer"
               >
-                <span className="text-xs sm:text-[13px] font-bold text-sys-text-primary block truncate leading-tight">
+                <span className="text-[11px] sm:text-[13px] font-bold text-sys-text-primary block truncate leading-tight whitespace-nowrap">
                   {compactWeekRange}
                 </span>
                 <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent opacity-90">
@@ -137,9 +137,9 @@ export function MobileChrome({
                 disabled={!canNavigateNextWeek}
                 onClick={() => onShiftWeekPreservingDay(1)}
                 aria-label="Наступний тиждень"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
               >
-                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m9 18 6-6-6-6" />
                 </svg>
               </button>
@@ -148,34 +148,38 @@ export function MobileChrome({
             <button
               type="button"
               onClick={onOpenWeekTypeSheet}
-              className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-[10px] sm:text-[11px] text-sys-text-muted hover:text-sys-text-secondary leading-tight py-0.5 max-w-full cursor-pointer"
+              className="flex items-center justify-center gap-1 text-[10px] sm:text-[11px] text-sys-text-muted hover:text-sys-text-secondary leading-none py-0.5 px-1 rounded whitespace-nowrap max-w-full overflow-hidden cursor-pointer"
             >
-              {currentWeekNumber ? <span className="whitespace-nowrap">{currentWeekNumber} тиждень</span> : null}
+              {currentWeekNumber ? (
+                <span className="shrink-0 whitespace-nowrap">
+                  {currentWeekNumber} <span className="sm:hidden">тиж.</span><span className="hidden sm:inline">тиждень</span>
+                </span>
+              ) : null}
               {weekType !== "both" && (
                 <>
-                  {currentWeekNumber ? <span aria-hidden="true">·</span> : null}
-                  <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
-                    <span className="underline decoration-dotted underline-offset-2">
+                  {currentWeekNumber ? <span aria-hidden="true" className="shrink-0">·</span> : null}
+                  <span className="inline-flex items-center gap-0.5 whitespace-nowrap truncate">
+                    <span className="underline decoration-dotted underline-offset-2 truncate">
                       {weekType === "numerator" ? "чисельник" : "знаменник"}
                     </span>
-                    <span className="text-[10px]">ⓘ</span>
+                    <span className="hidden sm:inline text-[10px] shrink-0">ⓘ</span>
                   </span>
                 </>
               )}
               {headerLearningModeData && (
-                <>
+                <span className="hidden sm:inline-flex items-center gap-1 whitespace-nowrap">
                   {(currentWeekNumber || weekType !== "both") && <span aria-hidden="true">·</span>}
                   <span className="font-semibold text-sys-text-secondary whitespace-nowrap">
                     {headerLearningModeData.baseLabel}
                   </span>
-                </>
+                </span>
               )}
               {activeWeekPeriodMeta && (
                 <>
-                  {(currentWeekNumber || weekType !== "both" || headerLearningModeData) && <span className="shrink-0">·</span>}
-                  <span className="inline-flex items-center gap-1 font-semibold text-violet-700 dark:text-violet-400 shrink-0">
+                  {(currentWeekNumber || weekType !== "both") && <span aria-hidden="true" className="shrink-0">·</span>}
+                  <span className="inline-flex items-center gap-0.5 font-semibold text-violet-700 dark:text-violet-400 shrink-0 max-w-[76px] sm:max-w-none truncate">
                     <PeriodIcon periodType={activeWeekPeriodMeta.periodType} className="h-3 w-3 shrink-0" />
-                    <span>{activeWeekPeriodMeta.shortLabel}</span>
+                    <span className="truncate">{activeWeekPeriodMeta.shortLabel}</span>
                   </span>
                 </>
               )}
@@ -190,7 +194,7 @@ export function MobileChrome({
             onClick={onOpenGuideHub}
             aria-label="Гід та довідник можливостей"
             title="Гід та довідник"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-accent hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-accent hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth"
           >
             <LightbulbIcon className="h-[18px] w-[18px]" />
           </button>

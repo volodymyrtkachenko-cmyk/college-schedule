@@ -186,28 +186,31 @@ export default async function TeacherSchedulePage({
         ssrNowIso={new Date().toISOString()}
       />
 
-      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-4 pt-4 pb-24 text-xs text-sys-text-secondary sm:px-6 lg:pb-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p>
+      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-3 pt-3 pb-20 text-[11px] text-sys-text-secondary sm:px-6 sm:pt-4 sm:pb-24 sm:text-xs lg:pb-8">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <p className="truncate sm:whitespace-normal">
             Викладач <strong className="text-sys-text-primary">{teacherName}</strong> · ДФКР
           </p>
-          <nav aria-label="Розділи розкладу ДФКР" className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            <TransitionLink href="/" className="hover:text-sys-accent hover:underline">
+          <nav aria-label="Розділи розкладу ДФКР" className="flex flex-wrap items-center gap-x-2 min-[390px]:gap-x-2.5 gap-y-1 sm:gap-x-4 sm:gap-y-1.5">
+            <TransitionLink href="/" className="hover:text-sys-accent hover:underline whitespace-nowrap">
               Головна
             </TransitionLink>
-            <TransitionLink href="/teachers" className="hover:text-sys-accent hover:underline">
-              Усі викладачі
+            <TransitionLink href="/teachers" className="hover:text-sys-accent hover:underline whitespace-nowrap">
+              <span className="sm:hidden">Викладачі</span>
+              <span className="hidden sm:inline">Усі викладачі</span>
             </TransitionLink>
-            <TransitionLink href="/groups" className="hover:text-sys-accent hover:underline">
-              Навчальні групи
+            <TransitionLink href="/groups" className="hover:text-sys-accent hover:underline whitespace-nowrap">
+              <span className="sm:hidden">Групи</span>
+              <span className="hidden sm:inline">Навчальні групи</span>
             </TransitionLink>
-            <TransitionLink href="/bells" className="hover:text-sys-accent hover:underline">
+            <TransitionLink href="/bells" className="hover:text-sys-accent hover:underline whitespace-nowrap">
               Дзвінки
             </TransitionLink>
-            <TransitionLink href="/educational-process" className="hover:text-sys-accent hover:underline">
-              Графік процесу
+            <TransitionLink href="/educational-process" className="hover:text-sys-accent hover:underline whitespace-nowrap">
+              <span className="sm:hidden">Графік</span>
+              <span className="hidden sm:inline">Графік процесу</span>
             </TransitionLink>
-            <TransitionLink href="/statistics" className="hover:text-sys-accent hover:underline">
+            <TransitionLink href="/statistics" className="hover:text-sys-accent hover:underline whitespace-nowrap">
               Статистика
             </TransitionLink>
           </nav>
