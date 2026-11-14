@@ -550,13 +550,6 @@ export function AtlasCanvas({
         ctx.lineWidth = 1;
         ctx.arc(originScreenX, originScreenY, rScreen, 0, Math.PI * 2);
         ctx.stroke();
-
-        // Only draw ring category headers in multi-ring constellation mode so 12-o'clock orbit nodes stay unobstructed
-        if (rScreen > 80 && curLayoutMode === "constellation" && !curIntersection) {
-          ctx.setLineDash([]);
-          ctx.fillStyle = rgba(palette.textMuted, 0.7);
-          ctx.fillText(ring.label.toUpperCase(), originScreenX, originScreenY - rScreen - 10);
-        }
       }
       ctx.restore();
     }
@@ -818,7 +811,26 @@ export function AtlasCanvas({
     labelCandidates.sort((a, b) => b.priority - a.priority);
     const placedBoxes: LabelBox[] = [];
     const isEgoView = curLayoutMode === "ego" && !curIntersection && Boolean(curSelectedNodeId);
-    const useFullLabel = cam.zoom >= 0.7 || isEgoView || Boolean(curIntersection);
+    const isConstellationView = curLayoutMode === "constellation" && !curIntersection;
+    const useFullLabel = cam.zoom >= 0.72 || isEgoView || Boolean(curIntersection);
+
+    // Strict all-or-nothing threshold for outer teacher labels in Constellation overview
+    let totalOuterTeachers = 0;
+    if (isConstellationView) {
+      for (const id of Array.from(curLayout.visibleNodeIds)) {
+        if (id.startsWith("teacher:")) totalOuterTeachers++;
+      }
+    }
+    const teacherRing = isConstellationView
+      ? curLayout.rings.find((r) => r.label.toLowerCase().includes("виклад"))
+      : undefined;
+    const teacherRingChordPx =
+      teacherRing && totalOuterTeachers > 0
+        ? (2 * Math.PI * (teacherRing.radius * cam.zoom)) / totalOuterTeachers
+        : 0;
+    const showAllConstellationTeachers =
+      isConstellationView && cam.zoom >= 0.92 && teacherRingChordPx >= 42;
+    const focusNeighbors = focusId ? curGraph.adjacency.get(focusId) ?? null : null;
 
     ctx.textBaseline = "middle";
 
@@ -917,16 +929,33 @@ export function AtlasCanvas({
           item.node.kind === "group" &&
           item.node.course === curCourseFilter,
       );
-      const isForceShown =
-        isEgoView ||
+      const isFocusedNeighbor = Boolean(focusNeighbors?.has(item.node.id));
+      const isConstellationGroup = isConstellationView && item.node.kind === "group";
+      const isConstellationTeacher = isConstellationView && item.node.kind === "teacher";
+      const isInteracted =
         item.node.id === curSelectedNodeId ||
         item.node.id === curCompareNodeId ||
-        item.node.id === curHoveredNodeId ||
+        item.node.id === curHoveredNodeId;
+
+      const isForceShown =
+        isEgoView ||
+        isInteracted ||
         isSharedNode ||
         isCompareDiffNode ||
-        isCourseTargetGroup;
+        isCourseTargetGroup ||
+        (Boolean(focusId) && isFocusedNeighbor);
 
-      if (!isForceShown && cam.zoom < 0.34 && !hasHighlightContext && item.node.kind !== "group") {
+      // Strict all-or-nothing rule in Constellation mode:
+      // 1) Outer-ring teachers appear either ALL together when zoomed in enough, or only on hover/focus.
+      // 2) Inner-ring groups ALWAYS appear ALL together (never dropping individual siblings).
+      if (
+        isConstellationTeacher &&
+        !isForceShown &&
+        !showAllConstellationTeachers
+      ) {
+        continue;
+      }
+      if (isConstellationGroup && !isForceShown && cam.zoom < 0.16 && !hasHighlightContext) {
         continue;
       }
 
@@ -946,7 +975,16 @@ export function AtlasCanvas({
         ? wrapSubtitleText(subtitleText, maxSubChars, singleLineSub)
         : [];
 
-      const fontSize = isCenterInEgo ? 13 : isForceShown ? 11.5 : item.node.kind === "group" ? 11.5 : 10.5;
+      const compactGroupConstellation = isConstellationGroup && !isInteracted && !isCenterInEgo;
+      const fontSize = isCenterInEgo
+        ? 13
+        : isForceShown && !compactGroupConstellation
+          ? 11.5
+          : item.node.kind === "group"
+            ? width < 480
+              ? 9.5
+              : 10.5
+            : 10.5;
       const fontWeight = isForceShown || item.node.kind === "group" ? "700" : "600";
       const font = `${fontWeight} ${fontSize}px var(--font-manrope), system-ui, sans-serif`;
       ctx.font = font;
@@ -974,13 +1012,15 @@ export function AtlasCanvas({
         ctx.font = font;
       }
 
-      const padX = isForceShown ? 9 : 5;
+      const padX = isForceShown && !compactGroupConstellation ? 9 : width < 480 && compactGroupConstellation ? 3.5 : 4.5;
       const pillW = Math.max(textW, subW) + padX * 2;
       const pillH =
         subLines.length === 0
-          ? isForceShown
+          ? isForceShown && !compactGroupConstellation
             ? 22
-            : 18
+            : width < 480 && compactGroupConstellation
+              ? 15
+              : 17
           : subLines.length === 1
             ? 34
             : 20 + subLines.length * 14;
@@ -994,23 +1034,37 @@ export function AtlasCanvas({
       if (radialDist > 40 && !curIntersection) {
         const cos = item.pos.x / radialDist;
         const sin = item.pos.y / radialDist;
-        const sideThreshold = width >= 440 ? 0.15 : 0.42;
-        if (Math.abs(cos) > sideThreshold) {
-          const offset = item.sr + 7;
-          if (cos >= 0) {
-            align = "left";
-            cx = item.sx + offset + pillW * 0.5;
-          } else {
-            align = "right";
-            cx = item.sx - offset - pillW * 0.5;
-          }
-          cy = item.sy + sin * 5;
-        } else {
+        if (isConstellationView) {
+          // Pure polar ray outward positioning eliminates horizontal-stack jumps near 12/2/6 o'clock
+          // so every group code around the inner ring sits cleanly on its ray without touching neighbors
+          const radialGap = item.node.kind === "group" ? 4 : 6;
+          const d =
+            item.sr +
+            radialGap +
+            Math.abs(cos) * (pillW * 0.5) +
+            Math.abs(sin) * (pillH * 0.5);
           align = "center";
-          cx = item.sx;
-          cy = sin >= 0
-            ? item.sy + item.sr + pillH * 0.5 + 5
-            : item.sy - item.sr - pillH * 0.5 - 5;
+          cx = item.sx + cos * d;
+          cy = item.sy + sin * d;
+        } else {
+          const sideThreshold = width >= 440 ? 0.15 : 0.42;
+          if (Math.abs(cos) > sideThreshold) {
+            const offset = item.sr + 7;
+            if (cos >= 0) {
+              align = "left";
+              cx = item.sx + offset + pillW * 0.5;
+            } else {
+              align = "right";
+              cx = item.sx - offset - pillW * 0.5;
+            }
+            cy = item.sy + sin * 5;
+          } else {
+            align = "center";
+            cx = item.sx;
+            cy = sin >= 0
+              ? item.sy + item.sr + pillH * 0.5 + 5
+              : item.sy - item.sr - pillH * 0.5 - 5;
+          }
         }
       } else if (curIntersection) {
         if (item.node.id === curIntersection.nodeAId || item.node.id === curIntersection.nodeBId) {
@@ -1083,9 +1137,32 @@ export function AtlasCanvas({
         return false;
       };
 
-      if (!isForceShown) {
+      if (isConstellationGroup) {
+        // Never drop any group label on the inner ring in Constellation mode; all groups stay visible together
+      } else if (isConstellationTeacher && hasCollision(box)) {
+        // Step radially outward along spoke so zoomed-in outer-ring teachers all stay visible without colliding
+        const cos = radialDist > 1 ? item.pos.x / radialDist : 0;
+        const sin = radialDist > 1 ? item.pos.y / radialDist : -1;
+        for (const stepR of [22, 42, -22, 62]) {
+          const nudged: LabelBox = {
+            x1: box.x1 + cos * stepR,
+            y1: box.y1 + sin * stepR,
+            x2: box.x2 + cos * stepR,
+            y2: box.y2 + sin * stepR,
+          };
+          if (!hasCollision(nudged)) {
+            cx += cos * stepR;
+            cy += sin * stepR;
+            box = nudged;
+            break;
+          }
+        }
+      } else if (
+        !isForceShown &&
+        !showAllConstellationTeachers
+      ) {
         if (hasCollision(box)) continue;
-      } else if ((isOrbitNeighbor || Boolean(curIntersection) || isCourseTargetGroup) && hasCollision(box)) {
+      } else if ((isOrbitNeighbor || Boolean(curIntersection) || isCourseTargetGroup || isFocusedNeighbor) && hasCollision(box)) {
         // Test candidate placements (vertical nudges, above/below node, opposite side) so force-shown labels never stack
         const candidateCenters: Array<{ cx: number; cy: number }> = [];
         for (const dy of [-14, 14, -28, 28, -42, 42, -58, 58]) {
@@ -1618,7 +1695,7 @@ export function AtlasCanvas({
             disabled={!selectedNodeId}
             onClick={() => onLayoutModeChange("ego")}
             title={selectedNodeId ? "Поставити обраний вузол у центр" : "Оберіть вузол на мапі"}
-            className={`px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed ${
+            className={`spring-press px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed ${
               isEgoActive
                 ? "bg-sys-accent text-white shadow-xs"
                 : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -1629,7 +1706,7 @@ export function AtlasCanvas({
           <button
             type="button"
             onClick={() => onLayoutModeChange("constellation")}
-            className={`px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+            className={`spring-press px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap ${
               !isEgoActive
                 ? "bg-sys-accent text-white shadow-xs"
                 : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -1712,7 +1789,9 @@ export function AtlasCanvas({
           <span>
             {intersection
               ? "Клік по вузлу — перейти у його орбіту · Колесо для зуму"
-              : "Клік по сусіду — перехід у його орбіту · Колесо для зуму"}
+              : isEgoActive
+                ? "Клік по сусіду — перехід у його орбіту · Колесо для зуму"
+                : "Клік по вузлу — відкрити орбіту · Наблизьте, щоб побачити всіх викладачів"}
           </span>
         </div>
       </div>

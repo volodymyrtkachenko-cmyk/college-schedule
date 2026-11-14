@@ -356,7 +356,7 @@ test("buildAtlasGraph and computeEgoLayout order groups sequentially by course a
     .filter((n) => n.kind === "group")
     .sort((a, b) => a.angle - b.angle)
     .map((n) => n.label);
-  assert.deepEqual(groupsByAngle, ["85", "86", "101", "102"]);
+  assert.deepEqual(groupsByAngle, ["86", "85", "102", "101"]);
 
   const teacherEgo = engine.computeEgoLayout(graph, engine.makeAtlasNodeId("teacher", 100));
   const egoGroupsByAngle = Array.from(teacherEgo.positions.entries())
@@ -364,7 +364,7 @@ test("buildAtlasGraph and computeEgoLayout order groups sequentially by course a
     .map(([id, pos]) => ({ label: graph.nodeMap.get(id).label, angle: pos.angle }))
     .sort((a, b) => a.angle - b.angle)
     .map((item) => item.label);
-  assert.deepEqual([...egoGroupsByAngle], ["85", "86", "101", "102"]);
+  assert.deepEqual([...egoGroupsByAngle], ["86", "85", "102", "101"]);
 });
 
 test("sortAtlasRelationRows and filterAtlasRelationRows sort and filter by lessons, alpha, room, day, and course", () => {
@@ -448,14 +448,76 @@ test("getCompareCandidates returns only same-kind nodes and prioritizes same-cou
   // Sister group 86 (3rd course) must be the very first candidate for group 85 (3rd course)
   assert.equal(candidates[0].node.label, "86");
   assert.equal(candidates[0].sharedCount, 2);
+  assert.equal(candidates[0].sharedLessonsCount, 24);
   assert.ok(candidates[0].reasonHint && candidates[0].reasonHint.includes("3к"));
+  assert.ok(candidates[0].reasonHint && candidates[0].reasonHint.includes("24 сп. пар"));
 
   const course1Only = engine.getCompareCandidates(graph, g85Id, { courseFilter: 1 });
-  assert.deepEqual([...course1Only.map((c) => c.node.label)], ["92", "93"]);
+  assert.deepEqual([...course1Only.map((c) => c.node.label)], ["93", "92"]);
 
   const t100Id = engine.makeAtlasNodeId("teacher", 100);
   const teacherCandidates = engine.getCompareCandidates(graph, t100Id);
   assert.equal(teacherCandidates.length, 1);
   assert.ok(teacherCandidates.every((c) => c.node.kind === "teacher"));
   assert.equal(teacherCandidates[0].node.label, "Бойко М. С.");
+  assert.equal(teacherCandidates[0].sharedCount, 2);
+});
+
+test("getCompareCandidates supports shared-pairs sorting/filtering for groups and shared-groups filtering for teachers", () => {
+  const engine = loadAtlasEngine();
+  const payload = {
+    summary: { groups_count: 4, teachers_count: 3, subjects_count: 1, rooms_count: 1, edges_count: 6 },
+    groups: [
+      { id: 1, name: "92", course: 1, faculty_id: 1, faculty_name: "КІ", curator_id: null, lessons_count: 10 },
+      { id: 2, name: "99", course: 1, faculty_id: 1, faculty_name: "КІ", curator_id: null, lessons_count: 3 },
+      { id: 3, name: "85", course: 3, faculty_id: 1, faculty_name: "КІ", curator_id: null, lessons_count: 10 },
+      { id: 4, name: "75", course: 4, faculty_id: 2, faculty_name: "РТ", curator_id: null, lessons_count: 4 },
+    ],
+    teachers: [
+      { id: 100, name: "Коваль О. І.", full_name: null, room: "205", groups_count: 2, subjects_count: 1, lessons_count: 16 },
+      { id: 101, name: "Бойко М. С.", full_name: null, room: "104", groups_count: 1, subjects_count: 1, lessons_count: 10 },
+      { id: 102, name: "Швець А. А.", full_name: null, room: "301", groups_count: 1, subjects_count: 1, lessons_count: 4 },
+    ],
+    subjects: [
+      { id: 200, name: "Алгоритми", short_name: "Алг", groups_count: 4, teachers_count: 3, lessons_count: 30 },
+    ],
+    rooms: [{ id: "205", name: "205", floor: 2, groups_count: 4, teachers_count: 3, lessons_count: 30 }],
+    edges: [
+      { group_id: 3, teacher_id: 100, second_teacher_id: null, subject_id: 200, room: "205", lessons_count: 8, days: [1] },
+      { group_id: 3, teacher_id: 101, second_teacher_id: null, subject_id: 200, room: "104", lessons_count: 2, days: [2] },
+      { group_id: 1, teacher_id: 100, second_teacher_id: null, subject_id: 200, room: "205", lessons_count: 10, days: [1] },
+      { group_id: 2, teacher_id: 101, second_teacher_id: null, subject_id: 200, room: "104", lessons_count: 3, days: [3] },
+      { group_id: 4, teacher_id: 102, second_teacher_id: null, subject_id: 200, room: "301", lessons_count: 4, days: [4] },
+    ],
+  };
+
+  const graph = engine.buildAtlasGraph(payload);
+  const g85Id = engine.makeAtlasNodeId("group", 3);
+
+  // Course sort for 1st course groups places higher code first (99 before 92)
+  const defaultCands = engine.getCompareCandidates(graph, g85Id);
+  assert.deepEqual([...defaultCands.map((c) => c.node.label)], ["99", "92", "75"]);
+
+  // Sort by shared lessons puts group 92 (shares teacher 100: 8 + 10 = 18 pairs) ahead of 99 (shares 101: 2 + 3 = 5 pairs)
+  const sharedSort = engine.getCompareCandidates(graph, g85Id, { sortBy: "shared" });
+  assert.deepEqual([...sharedSort.map((c) => c.node.label)], ["92", "99", "75"]);
+  assert.equal(sharedSort[0].sharedLessonsCount, 18);
+  assert.equal(sharedSort[1].sharedLessonsCount, 5);
+  assert.equal(sharedSort[2].sharedLessonsCount, 0);
+
+  // Filtering out groups with 0 shared lessons excludes 75
+  const onlySharedGroups = engine.getCompareCandidates(graph, g85Id, {
+    onlyWithShared: true,
+    sortBy: "shared",
+  });
+  assert.deepEqual([...onlySharedGroups.map((c) => c.node.label)], ["92", "99"]);
+
+  // Teacher filter: Коваль shares group 85 with Бойко (1 shared group), and shares 0 groups with Швець
+  const t100Id = engine.makeAtlasNodeId("teacher", 100);
+  const allTeacherCands = engine.getCompareCandidates(graph, t100Id);
+  assert.equal(allTeacherCands.length, 2);
+
+  const sharedTeacherOnly = engine.getCompareCandidates(graph, t100Id, { onlyWithShared: true });
+  assert.deepEqual([...sharedTeacherOnly.map((c) => c.node.label)], ["Бойко М. С."]);
+  assert.equal(sharedTeacherOnly[0].sharedCount, 1);
 });
