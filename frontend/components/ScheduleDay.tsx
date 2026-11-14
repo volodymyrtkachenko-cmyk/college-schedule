@@ -42,6 +42,7 @@ export function ScheduleDay({
   currentTeacherName,
   compactPeriod = false,
   daySlideDir = 0,
+  shouldReduceMotion = false,
   onOpenSubjectHub,
 }: {
   schedule: ScheduleResponse;
@@ -64,6 +65,7 @@ export function ScheduleDay({
   currentTeacherName?: string | null;
   compactPeriod?: boolean;
   daySlideDir?: number;
+  shouldReduceMotion?: boolean;
   onOpenSubjectHub?: (target: SubjectHubTarget) => void;
 }) {
   const { showToast } = useToast();
@@ -143,7 +145,18 @@ export function ScheduleDay({
   const timeToStart = isBeforeDayStart && firstStart !== null && kyivNow ? firstStart - kyivNow.minutes : 0;
 
   return (
-    <section className="min-w-0">
+    <section className={mode === "day" ? "min-w-0 overflow-x-clip" : "min-w-0"}>
+      <div
+        key={mode === "day" ? `day-stage-${schedule.date}` : undefined}
+        data-slide-dir={
+          mode === "day" && !shouldReduceMotion && daySlideDir !== 0
+            ? daySlideDir > 0
+              ? "next"
+              : "prev"
+            : undefined
+        }
+        className={mode === "day" ? "desktop-day-slide" : undefined}
+      >
       {(!hideDayTitle || (mode === "day" && orderedLessons.length > 0)) && (
         <header
           className={`mb-3.5 flex items-center ${
@@ -273,7 +286,6 @@ export function ScheduleDay({
                 style={
                   {
                     "--stagger-index": idx,
-                    "--day-slide-x": daySlideDir ? `${daySlideDir * 14}px` : "0px",
                   } as React.CSSProperties
                 }
                 className="desktop-stagger-card flex flex-col gap-2.5 relative has-[[data-open]]:z-50"
@@ -328,6 +340,7 @@ export function ScheduleDay({
           <p className="text-xs text-sys-text-secondary mt-1">Розклад на цей день вільний</p>
         </div>
       )}
+      </div>
     </section>
   );
 }

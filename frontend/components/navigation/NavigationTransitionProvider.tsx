@@ -146,13 +146,21 @@ export function NavigationTransitionProvider({
     [router],
   );
 
-  // Keep core routes (/ and /settings) warm in Next.js Router Cache without idle API storms
+  // Keep core routes (/ and /settings + active mode query & public subpages) warm in Next.js Router Cache
   useEffect(() => {
     if (shouldSkipBackgroundWarmup()) return;
 
     const warmCoreRoutes = () => {
       const now = Date.now();
-      for (const route of CORE_PREFETCH_ROUTES) {
+      let storedMode: string | null = null;
+      try {
+        storedMode = window.localStorage.getItem("schedule:mode");
+      } catch {}
+      const activeSettingsRoute =
+        storedMode === "teacher" ? "/settings?mode=teacher" : "/settings?mode=student";
+      const targets = [...CORE_PREFETCH_ROUTES, activeSettingsRoute];
+
+      for (const route of targets) {
         if (normalizeRoutePath(route) === normalizeRoutePath(pathname)) continue;
         const last = prefetchedAtRef.current.get(route) ?? 0;
         if (now - last > PREFETCH_TTL_MS) {
@@ -179,13 +187,13 @@ export function NavigationTransitionProvider({
     };
 
     if (typeof win.requestIdleCallback === "function") {
-      const id = win.requestIdleCallback(warmCoreRoutes, { timeout: 1400 });
+      const id = win.requestIdleCallback(warmCoreRoutes, { timeout: 850 });
       return () => {
         document.removeEventListener("visibilitychange", handleVisibility);
         win.cancelIdleCallback?.(id);
       };
     }
-    const timer = window.setTimeout(warmCoreRoutes, 700);
+    const timer = window.setTimeout(warmCoreRoutes, 350);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.clearTimeout(timer);
@@ -238,14 +246,14 @@ export function NavigationTransitionProvider({
         () => {
           return new Promise<void>((resolve) => {
             pendingResolverRef.current = resolve;
-            // Hard upper bound so an uncached route never freezes the viewport
+            // Hard upper bound so an uncached route never freezes a 120Hz viewport
             pendingTimerRef.current = window.setTimeout(() => {
               pendingTimerRef.current = null;
               if (pendingResolverRef.current === resolve) {
                 pendingResolverRef.current = null;
                 resolve();
               }
-            }, 90);
+            }, 64);
             runRouterNav();
           });
         },

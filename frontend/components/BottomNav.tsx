@@ -18,11 +18,16 @@ export function BottomNav() {
   const pathname = usePathname();
   const {
     activeTab,
+    setPendingTab,
     setHomeTab,
     overdueCount,
     hideTasksTab,
     scheduleMode,
   } = useMobileNav();
+
+  const preloadTasksChunk = () => {
+    void import("./MobileTasksView");
+  };
 
   const isHiddenRoute = pathname?.startsWith("/admin") || pathname?.startsWith("/login");
   if (isHiddenRoute) {
@@ -35,6 +40,9 @@ export function BottomNav() {
   const handleScheduleClick = (e: React.MouseEvent) => {
     vibrateTap(8);
     setHomeTab("schedule");
+    if (!isOnSchedulePage) {
+      setPendingTab("schedule");
+    }
     if (isOnSchedulePage) {
       e.preventDefault();
       if (typeof window !== "undefined" && window.location.search) {
@@ -55,7 +63,11 @@ export function BottomNav() {
 
   const handleTasksClick = (e: React.MouseEvent) => {
     vibrateTap(8);
+    preloadTasksChunk();
     setHomeTab("tasks");
+    if (!isOnSchedulePage) {
+      setPendingTab("tasks");
+    }
     if (isOnSchedulePage) {
       e.preventDefault();
     }
@@ -63,6 +75,9 @@ export function BottomNav() {
 
   const handleSettingsClick = (e: React.MouseEvent) => {
     vibrateTap(8);
+    if (!isSettings) {
+      setPendingTab("settings");
+    }
     if (isSettings) {
       e.preventDefault();
       if (typeof window !== "undefined") {
@@ -135,6 +150,9 @@ export function BottomNav() {
           <TransitionLink
             href={tasksHref}
             prefetch={true}
+            onMouseEnter={preloadTasksChunk}
+            onTouchStart={preloadTasksChunk}
+            onFocus={preloadTasksChunk}
             onClick={handleTasksClick}
             aria-label={`Завдання${overdueCount > 0 ? `, прострочено ${overdueCount}` : ""}`}
             aria-pressed={activeTab === "tasks"}

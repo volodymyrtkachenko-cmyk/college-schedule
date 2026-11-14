@@ -38,7 +38,13 @@ export const PUBLIC_NAV_ITEMS: readonly PublicNavItem[] = [
   },
 ];
 
-export const CORE_PREFETCH_ROUTES: readonly string[] = ["/", "/settings"];
+export const CORE_PREFETCH_ROUTES: readonly string[] = [
+  "/",
+  "/settings",
+  "/bells",
+  "/educational-process",
+  "/statistics",
+];
 
 /**
  * Normalizes a Next.js href or path into a canonical pathname without query/hash.

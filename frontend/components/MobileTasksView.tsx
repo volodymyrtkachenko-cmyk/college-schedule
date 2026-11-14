@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { resolveScheduleSubtabFromSearch } from "../lib/navigation";
@@ -17,12 +17,24 @@ import {
 import { FullTaskItem, renderTaskCard, TaskCardItem } from "./TaskCardItem";
 import { BarChartIcon, ClipboardListIcon, CloseIcon } from "./ui/Icons";
 
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+const preloadGradesChunk = () => {
+  void import("./GradesView");
+};
+
 const GradesView = dynamic(() => import("./GradesView").then((m) => m.GradesView), { ssr: false });
 
 export type { FullTaskItem };
 export { renderTaskCard };
 
 export type TasksTabMode = "pending" | "overdue" | "done";
+
+const TASKS_TAB_ORDER: Record<TasksTabMode, number> = {
+  pending: 0,
+  overdue: 1,
+  done: 2,
+};
 
 const EMPTY_TASKS: FullTaskItem[] = [];
 const DONE_INITIAL_LIMIT = 15;
@@ -36,6 +48,12 @@ export function TasksTodoBoard({
   layoutPrefix?: string;
 }) {
   const [activeTab, setActiveTab] = useState<TasksTabMode>("pending");
+  const [prevTab, setPrevTab] = useState<TasksTabMode>("pending");
+  const [tabSlideDir, setTabSlideDir] = useState<"next" | "prev" | null>(null);
+  if (activeTab !== prevTab) {
+    setTabSlideDir(TASKS_TAB_ORDER[activeTab] > TASKS_TAB_ORDER[prevTab] ? "next" : "prev");
+    setPrevTab(activeTab);
+  }
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [subjectMenuOpen, setSubjectMenuOpen] = useState(false);
   const { shouldRender: shouldRenderSubjectMenu, isClosing: isSubjectMenuClosing } =
@@ -117,7 +135,7 @@ export function TasksTodoBoard({
       >
         <div
           aria-hidden="true"
-          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu z-0"
+          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
           style={{
             left: "4px",
             width: `calc((100% - 8px) / ${totalStatusTabs})`,
@@ -351,8 +369,9 @@ export function TasksTodoBoard({
       )}
 
       {/* Tasks List by Selected Tab */}
+      <div className="overflow-x-clip">
       {activeTab === "pending" && (
-        <div className="space-y-4">
+        <div key="pending" className="guide-step-slide space-y-4" data-slide-dir={tabSlideDir ?? undefined}>
           {activeTasks.length === 0 && noDateTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-7 text-center">
               <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
@@ -419,7 +438,7 @@ export function TasksTodoBoard({
       )}
 
       {activeTab === "overdue" && (
-        <div className="space-y-2">
+        <div key="overdue" className="guide-step-slide space-y-2" data-slide-dir={tabSlideDir ?? undefined}>
           {overdueTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-7 text-center">
               <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
@@ -443,7 +462,7 @@ export function TasksTodoBoard({
       )}
 
       {activeTab === "done" && (
-        <div className="space-y-2">
+        <div key="done" className="guide-step-slide space-y-2" data-slide-dir={tabSlideDir ?? undefined}>
           {turnedInTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-7 text-center">
               <p className="text-sm font-semibold text-sys-text-primary">
@@ -471,6 +490,7 @@ export function TasksTodoBoard({
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -507,8 +527,48 @@ export function MobileTasksView({
     if (typeof window === "undefined") return "tasks";
     return resolveScheduleSubtabFromSearch(window.location.search) ?? "tasks";
   });
+  const [prevViewMode, setPrevViewMode] = useState<"tasks" | "grades">(viewMode);
+  const [viewSlideDir, setViewSlideDir] = useState<"next" | "prev" | null>(null);
+  if (viewMode !== prevViewMode) {
+    setViewSlideDir(viewMode === "grades" ? "next" : "prev");
+    setPrevViewMode(viewMode);
+  }
   const [gradesVisited, setGradesVisited] = useState(() => viewMode === "grades");
+  if (viewMode === "grades" && !gradesVisited) {
+    setGradesVisited(true);
+  }
   const { urlSearch } = useMobileNav();
+  const tasksViewRef = useRef<HTMLDivElement | null>(null);
+  const gradesViewRef = useRef<HTMLDivElement | null>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    const tEl = tasksViewRef.current;
+    if (tEl) {
+      if (viewMode !== "tasks") tEl.setAttribute("inert", "");
+      else tEl.removeAttribute("inert");
+    }
+    const gEl = gradesViewRef.current;
+    if (gEl) {
+      if (viewMode !== "grades") gEl.setAttribute("inert", "");
+      else gEl.removeAttribute("inert");
+    }
+  }, [viewMode, gradesVisited]);
+
+  useEffect(() => {
+    let idleId: number | null = null;
+    let timerId: number | null = null;
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(preloadGradesChunk, { timeout: 1400 });
+    } else {
+      timerId = globalThis.setTimeout(preloadGradesChunk, 600) as unknown as number;
+    }
+    return () => {
+      if (idleId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timerId !== null) globalThis.clearTimeout(timerId);
+    };
+  }, []);
 
   useEffect(() => {
     const subtab = resolveScheduleSubtabFromSearch(urlSearch);
@@ -605,7 +665,7 @@ export function MobileTasksView({
       <div className="relative mb-4 grid grid-cols-2 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs select-none isolate">
         <div
           aria-hidden="true"
-          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu z-0"
+          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
           style={{
             left: "4px",
             width: "calc((100% - 8px) / 2)",
@@ -629,7 +689,10 @@ export function MobileTasksView({
         </button>
         <button
           type="button"
+          onPointerEnter={preloadGradesChunk}
+          onFocus={preloadGradesChunk}
           onClick={() => {
+            preloadGradesChunk();
             setGradesVisited(true);
             setViewMode("grades");
           }}
@@ -644,7 +707,7 @@ export function MobileTasksView({
         </button>
       </div>
 
-      <div className="w-full">
+      <div className="w-full overflow-x-clip">
         {!hasAccess ? (
           <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-6 text-center mt-6">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20">
@@ -676,11 +739,23 @@ export function MobileTasksView({
           </div>
         ) : (
           <>
-            <div className={viewMode === "tasks" ? "block" : "hidden"}>
+            <div
+              ref={tasksViewRef}
+              data-inactive={viewMode !== "tasks"}
+              data-slide-dir={viewSlideDir ?? undefined}
+              aria-hidden={viewMode !== "tasks"}
+              className="spa-tab-panel"
+            >
               <TasksTodoBoard tasks={tasks} isLinked={isLinked} />
             </div>
             {(gradesVisited || viewMode === "grades") && (
-              <div className={viewMode === "grades" ? "block" : "hidden"}>
+              <div
+                ref={gradesViewRef}
+                data-inactive={viewMode !== "grades"}
+                data-slide-dir={viewSlideDir ?? undefined}
+                aria-hidden={viewMode !== "grades"}
+                className="spa-tab-panel"
+              >
                 <GradesView
                   tasks={tasks}
                   isLinked={isLinked}

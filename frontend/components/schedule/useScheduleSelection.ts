@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReferenceRecord, ScheduleResponse } from "../../lib/api";
 import {
   KYIV_DATE_FMT,
@@ -33,24 +33,53 @@ import { useMobileNav } from "../../lib/useMobileNav";
 import { useRecentSelections } from "../../lib/useRecentSelections";
 import { getPeriodMeta } from "../SchedulePeriodCard";
 
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+function resolveClockDate(ssrNowIso?: string): Date {
+  if (ssrNowIso) {
+    const parsed = new Date(ssrNowIso);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return getSyncedNow();
+}
+
 export interface ReturnTarget {
   mode: "student" | "teacher";
   id: number;
   label: string;
 }
 
-export function useWeekAnchor() {
-  const [weekAnchorDate, setWeekAnchorDate] = useState(getKyivInitialWeekAnchor);
-  const lastActiveDateRef = useRef<string>(KYIV_DATE_FMT.format(getSyncedNow()));
+export function useWeekAnchor(ssrNowIso?: string) {
+  const [nowRefDate, setNowRefDate] = useState<Date>(() => resolveClockDate(ssrNowIso));
+  const [weekAnchorDate, setWeekAnchorDate] = useState<Date>(() =>
+    getKyivInitialWeekAnchor(resolveClockDate(ssrNowIso))
+  );
+  const lastActiveDateRef = useRef<string>(KYIV_DATE_FMT.format(resolveClockDate(ssrNowIso)));
+
+  useIsomorphicLayoutEffect(() => {
+    const liveNow = getSyncedNow();
+    const liveIso = KYIV_DATE_FMT.format(liveNow);
+    const liveAnchor = getKyivInitialWeekAnchor(liveNow);
+    setNowRefDate(liveNow);
+    if (liveIso !== lastActiveDateRef.current) {
+      const ssrAnchor = getKyivInitialWeekAnchor(resolveClockDate(ssrNowIso));
+      lastActiveDateRef.current = liveIso;
+      setWeekAnchorDate((prev) =>
+        Math.abs(prev.getTime() - ssrAnchor.getTime()) < 1000 * 60 * 60 * 24 ? liveAnchor : prev
+      );
+    }
+  }, [ssrNowIso]);
 
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        const todayStr = KYIV_DATE_FMT.format(getSyncedNow());
+        const liveNow = getSyncedNow();
+        const todayStr = KYIV_DATE_FMT.format(liveNow);
         if (todayStr !== lastActiveDateRef.current) {
           lastActiveDateRef.current = todayStr;
+          setNowRefDate(liveNow);
           setWeekAnchorDate((prev) => {
-            const currentAnchor = getKyivInitialWeekAnchor();
+            const currentAnchor = getKyivInitialWeekAnchor(liveNow);
             const wasCurrentWeek = Math.abs(prev.getTime() - currentAnchor.getTime()) < 1000 * 60 * 60 * 24 * 7;
             return wasCurrentWeek ? currentAnchor : prev;
           });
@@ -62,9 +91,9 @@ export function useWeekAnchor() {
   }, []);
 
   const isCurrentWeek = useMemo(() => {
-    const currentAnchor = getKyivInitialWeekAnchor();
+    const currentAnchor = getKyivInitialWeekAnchor(nowRefDate);
     return Math.abs(weekAnchorDate.getTime() - currentAnchor.getTime()) < 1000 * 60 * 60 * 24;
-  }, [weekAnchorDate]);
+  }, [weekAnchorDate, nowRefDate]);
 
   const weekStartStr = useMemo(() => {
     return `${weekAnchorDate.getFullYear()}-${String(weekAnchorDate.getMonth() + 1).padStart(2, "0")}-${String(weekAnchorDate.getDate()).padStart(2, "0")}`;
@@ -92,6 +121,7 @@ interface UseScheduleSelectionParams {
   completeSetup: () => void;
   isPrivilegedUser: boolean;
   setToast: (msg: string, type?: "success" | "error" | "info") => void;
+  ssrNowIso?: string;
 }
 
 export function useScheduleSelection({
@@ -113,8 +143,11 @@ export function useScheduleSelection({
   completeSetup,
   isPrivilegedUser,
   setToast,
+  ssrNowIso,
 }: UseScheduleSelectionParams) {
   const [daySlideDir, setDaySlideDir] = useState<number>(0);
+  const [weekSlideDir, setWeekSlideDir] = useState<number>(0);
+  const [clockNow, setClockNow] = useState<Date>(() => resolveClockDate(ssrNowIso));
   const selectedTeacher = useMemo(
     () => teachers.find((t) => t.id === teacherId) || null,
     [teachers, teacherId]
@@ -122,8 +155,8 @@ export function useScheduleSelection({
 
   const minDateIso = isPrivilegedUser ? null : (semesterStart ?? null);
   const maxDateIso = useMemo(
-    () => (isPrivilegedUser ? null : getKyivMaxPublicDateIso()),
-    [isPrivilegedUser]
+    () => (isPrivilegedUser ? null : getKyivMaxPublicDateIso(clockNow)),
+    [isPrivilegedUser, clockNow]
   );
 
   const canNavigatePrevWeek = useMemo(
@@ -139,6 +172,7 @@ export function useScheduleSelection({
     (offset: number) => {
       if (offset < 0 && !canNavigatePrevWeek) return;
       if (offset > 0 && !canNavigateNextWeek) return;
+      setWeekSlideDir(offset > 0 ? 1 : -1);
       startTransition(() => {
         setWeekAnchorDate((date) => {
           const next = new Date(date);
@@ -209,10 +243,10 @@ export function useScheduleSelection({
   } = useMobileNav();
   const isFocusEffective = isFocusMode || mode === "teacher";
 
-  const [tasksTabMounted, setTasksTabMounted] = useState(false);
-  useEffect(() => {
-    if (mobileTab === "tasks") setTasksTabMounted(true);
-  }, [mobileTab]);
+  const [tasksTabMounted, setTasksTabMounted] = useState(() => mobileTab === "tasks");
+  if (mobileTab === "tasks" && !tasksTabMounted) {
+    setTasksTabMounted(true);
+  }
 
   useEffect(() => {
     setHideTasksTab(mode === "teacher");
@@ -418,10 +452,36 @@ export function useScheduleSelection({
     [today, week]
   );
 
-  // SSR uses current Kyiv day index; post-15:20 evening advance runs after hydration to avoid mismatch
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(() => getActualTodayIndex());
+  // SSR uses injected Kyiv reference clock; live clock and post-15:20 evening advance sync on client
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(() =>
+    getActualTodayIndex(resolveClockDate(ssrNowIso))
+  );
+
+  useIsomorphicLayoutEffect(() => {
+    const syncLiveClock = () => {
+      const liveNow = getSyncedNow();
+      setClockNow(liveNow);
+      if (ssrNowIso) {
+        const ssrDate = resolveClockDate(ssrNowIso);
+        if (KYIV_DATE_FMT.format(ssrDate) !== KYIV_DATE_FMT.format(liveNow)) {
+          const ssrIdx = getActualTodayIndex(ssrDate);
+          const liveIdx = getActualTodayIndex(liveNow);
+          setSelectedDayIndex((prev) => (prev === ssrIdx ? liveIdx : prev));
+        }
+      }
+    };
+    syncLiveClock();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        setClockNow(getSyncedNow());
+      }
+    };
+    window.addEventListener("visibilitychange", onVisible);
+    return () => window.removeEventListener("visibilitychange", onVisible);
+  }, [ssrNowIso]);
+
   useEffect(() => {
-    const eveningIdx = getEveningSelectedDayIndex();
+    const eveningIdx = getEveningSelectedDayIndex(getSyncedNow());
     if (eveningIdx !== null) {
       setSelectedDayIndex(eveningIdx);
     }
@@ -433,9 +493,9 @@ export function useScheduleSelection({
     return KYIV_DATE_FMT.format(d);
   }, [weekAnchorDate, selectedDayIndex]);
 
-  const todayActualIso = useMemo(() => KYIV_DATE_FMT.format(getSyncedNow()), []);
-  const tomorrowActualIso = useMemo(() => getKyivTomorrowDateIso(), []);
-  const isEveningAfterLessons = useMemo(() => isEveningAfterLessonsTime(), []);
+  const todayActualIso = useMemo(() => KYIV_DATE_FMT.format(clockNow), [clockNow]);
+  const tomorrowActualIso = useMemo(() => getKyivTomorrowDateIso(clockNow), [clockNow]);
+  const isEveningAfterLessons = useMemo(() => isEveningAfterLessonsTime(clockNow), [clockNow]);
 
   const resetScroll = useCallback(() => {
     if (typeof window !== "undefined" && window.scrollY > 0) {
@@ -474,12 +534,15 @@ export function useScheduleSelection({
       resetScroll();
     } else {
       setDaySlideDir(-1);
-      setWeekAnchorDate((prev) => {
-        const prevAnchor = new Date(prev);
-        prevAnchor.setDate(prevAnchor.getDate() - 7);
-        return prevAnchor;
+      setWeekSlideDir(-1);
+      startTransition(() => {
+        setWeekAnchorDate((prev) => {
+          const prevAnchor = new Date(prev);
+          prevAnchor.setDate(prevAnchor.getDate() - 7);
+          return prevAnchor;
+        });
+        setSelectedDayIndex(4);
       });
-      setSelectedDayIndex(4);
       resetScroll();
     }
   }, [canNavigatePrevDay, selectedDayIndex, setWeekAnchorDate, resetScroll]);
@@ -492,12 +555,15 @@ export function useScheduleSelection({
       resetScroll();
     } else {
       setDaySlideDir(1);
-      setWeekAnchorDate((prev) => {
-        const nextAnchor = new Date(prev);
-        nextAnchor.setDate(nextAnchor.getDate() + 7);
-        return nextAnchor;
+      setWeekSlideDir(1);
+      startTransition(() => {
+        setWeekAnchorDate((prev) => {
+          const nextAnchor = new Date(prev);
+          nextAnchor.setDate(nextAnchor.getDate() + 7);
+          return nextAnchor;
+        });
+        setSelectedDayIndex(0);
       });
-      setSelectedDayIndex(0);
       resetScroll();
     }
   }, [canNavigateNextDay, selectedDayIndex, setWeekAnchorDate, resetScroll]);
@@ -506,6 +572,7 @@ export function useScheduleSelection({
     (offset: number) => {
       if (offset < 0 && !canNavigatePrevWeek) return;
       if (offset > 0 && !canNavigateNextWeek) return;
+      setWeekSlideDir(offset > 0 ? 1 : -1);
       setDaySlideDir(offset > 0 ? 1 : -1);
       startTransition(() => {
         setWeekAnchorDate((prev) => {
@@ -520,26 +587,34 @@ export function useScheduleSelection({
   );
 
   const resetWeekPreservingDay = useCallback(() => {
-    const currentAnchor = getKyivInitialWeekAnchor();
+    const currentAnchor = getKyivInitialWeekAnchor(getSyncedNow());
+    const diff = currentAnchor.getTime() - weekAnchorDate.getTime();
+    setWeekSlideDir(Math.abs(diff) < 1000 * 60 * 60 * 24 ? 0 : diff > 0 ? 1 : -1);
     startTransition(() => {
       setWeekAnchorDate(currentAnchor);
     });
     resetScroll();
-  }, [setWeekAnchorDate, resetScroll]);
+  }, [weekAnchorDate, setWeekAnchorDate, resetScroll]);
 
   const handleJumpToToday = useCallback(() => {
-    const currentAnchor = getKyivInitialWeekAnchor();
+    const liveNow = getSyncedNow();
+    const currentAnchor = getKyivInitialWeekAnchor(liveNow);
+    const diff = currentAnchor.getTime() - weekAnchorDate.getTime();
+    setWeekSlideDir(Math.abs(diff) < 1000 * 60 * 60 * 24 ? 0 : diff > 0 ? 1 : -1);
     startTransition(() => {
       setWeekAnchorDate(currentAnchor);
-      setSelectedDayIndex(getActualTodayIndex());
+      setSelectedDayIndex(getActualTodayIndex(liveNow));
       setDaySlideDir(0);
     });
     resetScroll();
-  }, [setWeekAnchorDate, resetScroll]);
+  }, [weekAnchorDate, setWeekAnchorDate, resetScroll]);
 
   const handleJumpToTomorrow = useCallback(() => {
-    const currentAnchor = getKyivInitialWeekAnchor();
-    const dow = getSyncedNow().getDay();
+    const liveNow = getSyncedNow();
+    const currentAnchor = getKyivInitialWeekAnchor(liveNow);
+    const dow = getKyivWeekday(liveNow);
+    const diff = currentAnchor.getTime() - weekAnchorDate.getTime();
+    setWeekSlideDir(Math.abs(diff) < 1000 * 60 * 60 * 24 ? 0 : diff > 0 ? 1 : -1);
     startTransition(() => {
       setWeekAnchorDate(currentAnchor);
       if (dow >= 1 && dow <= 4) {
@@ -548,7 +623,7 @@ export function useScheduleSelection({
       setDaySlideDir(0);
     });
     resetScroll();
-  }, [setWeekAnchorDate, resetScroll]);
+  }, [weekAnchorDate, setWeekAnchorDate, resetScroll]);
 
   const handleDatePickerSelect = useCallback(
     (targetDate: Date) => {
@@ -556,6 +631,8 @@ export function useScheduleSelection({
       if ((minDateIso && targetIso < minDateIso) || (maxDateIso && targetIso > maxDateIso)) return;
       const newAnchor = getMondayOf(targetDate);
       const kyivDow = getKyivWeekday(targetDate);
+      const diff = newAnchor.getTime() - weekAnchorDate.getTime();
+      setWeekSlideDir(Math.abs(diff) < 1000 * 60 * 60 * 24 ? 0 : diff > 0 ? 1 : -1);
       startTransition(() => {
         setWeekAnchorDate(newAnchor);
         setSelectedDayIndex(kyivDow >= 1 && kyivDow <= 5 ? kyivDow - 1 : 0);
@@ -563,7 +640,7 @@ export function useScheduleSelection({
       });
       resetScroll();
     },
-    [minDateIso, maxDateIso, setWeekAnchorDate, resetScroll]
+    [minDateIso, maxDateIso, weekAnchorDate, setWeekAnchorDate, resetScroll]
   );
 
   const handleViewChange = useCallback(
@@ -596,17 +673,19 @@ export function useScheduleSelection({
     [resetScroll]
   );
 
-  const resetWeek = useCallback(
-    () => setWeekAnchorDate(getKyivInitialWeekAnchor()),
-    [setWeekAnchorDate]
-  );
+  const resetWeek = useCallback(() => {
+    const currentAnchor = getKyivInitialWeekAnchor(getSyncedNow());
+    const diff = currentAnchor.getTime() - weekAnchorDate.getTime();
+    setWeekSlideDir(Math.abs(diff) < 1000 * 60 * 60 * 24 ? 0 : diff > 0 ? 1 : -1);
+    startTransition(() => setWeekAnchorDate(currentAnchor));
+  }, [weekAnchorDate, setWeekAnchorDate]);
 
   const activeWeekPeriodMeta = useMemo(() => {
     const p = week?.find((d) => d.period_info)?.period_info;
     return p ? getPeriodMeta(p) : null;
   }, [week]);
 
-  const isWeekend = [0, 6].includes(getKyivWeekday(new Date()));
+  const isWeekend = [0, 6].includes(getKyivWeekday(clockNow));
   const isAutoSelectedWeekendDay = isWeekend && isCurrentWeek && selectedDayIndex === 0;
 
   const selectedDaySchedule: ScheduleResponse = useMemo(() => {
@@ -643,6 +722,7 @@ export function useScheduleSelection({
 
   return {
     daySlideDir,
+    weekSlideDir,
     selectedTeacher,
     minDateIso,
     maxDateIso,

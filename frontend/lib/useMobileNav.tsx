@@ -6,6 +6,7 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useCallback,
   useRef,
@@ -24,8 +25,13 @@ import {
 export { isScheduleRoutePath };
 export type { MobileTab };
 
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 interface MobileNavContextValue {
   activeTab: MobileTab | null;
+  pendingTab: MobileTab | null;
+  setPendingTab: (tab: MobileTab | null) => void;
   homeTab: MobileHomeTab;
   setHomeTab: (tab: MobileHomeTab) => void;
   overdueCount: number;
@@ -49,7 +55,7 @@ function MobileNavUrlSync({
   const searchStr = searchParams ? searchParams.toString() : "";
   const prevNavKeyRef = useRef<string | null>(null);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const navKey = `${pathname ?? ""}?${searchStr}`;
     const isInitial = prevNavKeyRef.current === null;
     if (prevNavKeyRef.current !== navKey) {
@@ -75,13 +81,40 @@ function MobileNavUrlSync({
 export function MobileNavProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [homeTab, setHomeTabState] = useState<MobileHomeTab>("schedule");
+  const [pendingTab, setPendingTabState] = useState<MobileTab | null>(null);
   const [overdueCount, setOverdueCount] = useState<number>(0);
   const [hideTasksTab, setHideTasksTab] = useState<boolean>(false);
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("student");
   const [urlSearch, setUrlSearch] = useState<string>("");
+  const pendingTimeoutRef = useRef<number | null>(null);
+
+  const clearPendingTimeout = useCallback(() => {
+    if (pendingTimeoutRef.current !== null) {
+      window.clearTimeout(pendingTimeoutRef.current);
+      pendingTimeoutRef.current = null;
+    }
+  }, []);
+
+  const setPendingTab = useCallback(
+    (tab: MobileTab | null) => {
+      clearPendingTimeout();
+      setPendingTabState(tab);
+      if (tab !== null && typeof window !== "undefined") {
+        pendingTimeoutRef.current = window.setTimeout(() => {
+          pendingTimeoutRef.current = null;
+          setPendingTabState(null);
+        }, 1200);
+      }
+    },
+    [clearPendingTimeout]
+  );
+
+  useEffect(() => clearPendingTimeout, [clearPendingTimeout]);
 
   const handleLocationChange = useCallback(
     (nextPathname: string | null, searchStr: string, isInitial: boolean) => {
+      clearPendingTimeout();
+      setPendingTabState(null);
       setUrlSearch(searchStr);
       setHomeTabState(resolveHomeTabFromLocation(nextPathname, searchStr));
 
@@ -102,21 +135,28 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
         setHideTasksTab(resolved === "teacher");
       }
     },
-    []
+    [clearPendingTimeout]
   );
 
-  const setHomeTab = useCallback((tab: MobileHomeTab) => {
-    setHomeTabState(tab);
-  }, []);
+  const setHomeTab = useCallback(
+    (tab: MobileHomeTab) => {
+      clearPendingTimeout();
+      setPendingTabState(null);
+      setHomeTabState(tab);
+    },
+    [clearPendingTimeout]
+  );
 
   const activeTab = useMemo(
-    () => resolveActiveMobileTab(pathname, homeTab),
-    [pathname, homeTab]
+    () => pendingTab ?? resolveActiveMobileTab(pathname, homeTab),
+    [pendingTab, pathname, homeTab]
   );
 
   const value = useMemo(
     () => ({
       activeTab,
+      pendingTab,
+      setPendingTab,
       homeTab,
       setHomeTab,
       overdueCount,
@@ -127,7 +167,7 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
       setScheduleMode,
       urlSearch,
     }),
-    [activeTab, homeTab, setHomeTab, overdueCount, hideTasksTab, scheduleMode, urlSearch]
+    [activeTab, pendingTab, setPendingTab, homeTab, setHomeTab, overdueCount, hideTasksTab, scheduleMode, urlSearch]
   );
 
   return (

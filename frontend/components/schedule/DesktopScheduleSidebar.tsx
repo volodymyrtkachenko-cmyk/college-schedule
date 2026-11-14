@@ -1,10 +1,21 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { SubjectHubTarget, WeekDayMini } from "../../lib/schedule";
 import { formatTaskWord, type TaskGroupsResult } from "../../lib/useTaskGroups";
 import { ClassroomSyncButton } from "../ClassroomSyncButton";
 import type { FullTaskItem } from "../TaskCardItem";
+
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+const preloadTasksBoardChunk = () => {
+  void import("../MobileTasksView");
+};
+
+const preloadGradesChunk = () => {
+  void import("../GradesView");
+};
 
 const TasksTodoBoard = dynamic(() => import("../MobileTasksView").then((m) => m.TasksTodoBoard), { ssr: false });
 const GradesView = dynamic(() => import("../GradesView").then((m) => m.GradesView), { ssr: false });
@@ -64,6 +75,55 @@ export function DesktopScheduleSidebar({
   onOpenSubjectHub,
 }: DesktopScheduleSidebarProps) {
   const clampedDayIndex = Math.max(0, Math.min(selectedDayIndex, Math.max(0, weekDaysMini.length - 1)));
+
+  const [tasksMounted, setTasksMounted] = useState(() => desktopSidebarTab === "tasks");
+  const [gradesMounted, setGradesMounted] = useState(() => desktopSidebarTab === "grades");
+  if (desktopSidebarTab === "tasks" && !tasksMounted) setTasksMounted(true);
+  if (desktopSidebarTab === "grades" && !gradesMounted) setGradesMounted(true);
+
+  const [prevSidebarTab, setPrevSidebarTab] = useState(desktopSidebarTab);
+  const [tabSlideDir, setTabSlideDir] = useState<"next" | "prev" | null>(null);
+  if (desktopSidebarTab !== prevSidebarTab) {
+    setTabSlideDir(desktopSidebarTab === "grades" ? "next" : "prev");
+    setPrevSidebarTab(desktopSidebarTab);
+  }
+
+  const tasksPanelRef = useRef<HTMLDivElement | null>(null);
+  const gradesPanelRef = useRef<HTMLDivElement | null>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    const tasksEl = tasksPanelRef.current;
+    if (tasksEl) {
+      if (desktopSidebarTab !== "tasks") tasksEl.setAttribute("inert", "");
+      else tasksEl.removeAttribute("inert");
+    }
+    const gradesEl = gradesPanelRef.current;
+    if (gradesEl) {
+      if (desktopSidebarTab !== "grades") gradesEl.setAttribute("inert", "");
+      else gradesEl.removeAttribute("inert");
+    }
+  }, [desktopSidebarTab, tasksMounted, gradesMounted, hasGroupTaskAccess]);
+
+  useEffect(() => {
+    if (!visible || mode !== "student" || !hasGroupTaskAccess) return;
+    let idleId: number | null = null;
+    let timerId: number | null = null;
+    const preload = () => {
+      preloadTasksBoardChunk();
+      preloadGradesChunk();
+    };
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(preload, { timeout: 1400 });
+    } else {
+      timerId = globalThis.setTimeout(preload, 600) as unknown as number;
+    }
+    return () => {
+      if (idleId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timerId !== null) globalThis.clearTimeout(timerId);
+    };
+  }, [visible, mode, hasGroupTaskAccess]);
 
   return (
     <aside
@@ -185,7 +245,7 @@ export function DesktopScheduleSidebar({
                   className={`pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 z-0 rounded-md bg-sys-accentSolid shadow-xs transform-gpu ${
                     shouldReduceMotion
                       ? ""
-                      : "transition-transform duration-base ease-spring"
+                      : "transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
                   }`}
                   style={{
                     width: "calc((100% - 4px) / 2)",
@@ -194,6 +254,8 @@ export function DesktopScheduleSidebar({
                 />
                 <button
                   type="button"
+                  onPointerEnter={preloadTasksBoardChunk}
+                  onFocus={preloadTasksBoardChunk}
                   onClick={() => onChangeSidebarTab("tasks")}
                   className={`relative z-10 rounded-md px-2 py-0.5 font-semibold transition-colors duration-150 cursor-pointer text-center ${
                     desktopSidebarTab === "tasks"
@@ -205,6 +267,8 @@ export function DesktopScheduleSidebar({
                 </button>
                 <button
                   type="button"
+                  onPointerEnter={preloadGradesChunk}
+                  onFocus={preloadGradesChunk}
                   onClick={() => onChangeSidebarTab("grades")}
                   className={`relative z-10 rounded-md px-2 py-0.5 font-semibold transition-colors duration-150 cursor-pointer text-center ${
                     desktopSidebarTab === "grades"
@@ -280,33 +344,50 @@ export function DesktopScheduleSidebar({
                 <span>Прив&apos;язати Google Classroom</span>
               </button>
             </div>
-          ) : desktopSidebarTab === "grades" ? (
-            <div className="mt-4">
-              <GradesView
-                tasks={allTasks}
-                isLinked={isLinked}
-                onSyncClassroom={() =>
-                  window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
-                }
-                onOpenSubjectHub={
-                  onOpenSubjectHub
-                    ? (subjectName) =>
-                        onOpenSubjectHub({
-                          subjectId: null,
-                          subjectName,
-                          groupId,
-                        })
-                    : undefined
-                }
-              />
-            </div>
           ) : (
             <div className="mt-4">
-              <TasksTodoBoard
-                tasks={allTasks}
-                isLinked={isLinked}
-                layoutPrefix="desktop-sidebar-tasks"
-              />
+              {tasksMounted && (
+                <div
+                  ref={tasksPanelRef}
+                  data-inactive={desktopSidebarTab !== "tasks"}
+                  data-slide-dir={tabSlideDir ?? undefined}
+                  aria-hidden={desktopSidebarTab !== "tasks"}
+                  className="spa-tab-panel"
+                >
+                  <TasksTodoBoard
+                    tasks={allTasks}
+                    isLinked={isLinked}
+                    layoutPrefix="desktop-sidebar-tasks"
+                  />
+                </div>
+              )}
+              {gradesMounted && (
+                <div
+                  ref={gradesPanelRef}
+                  data-inactive={desktopSidebarTab !== "grades"}
+                  data-slide-dir={tabSlideDir ?? undefined}
+                  aria-hidden={desktopSidebarTab !== "grades"}
+                  className="spa-tab-panel"
+                >
+                  <GradesView
+                    tasks={allTasks}
+                    isLinked={isLinked}
+                    onSyncClassroom={() =>
+                      window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
+                    }
+                    onOpenSubjectHub={
+                      onOpenSubjectHub
+                        ? (subjectName) =>
+                            onOpenSubjectHub({
+                              subjectId: null,
+                              subjectName,
+                              groupId,
+                            })
+                        : undefined
+                    }
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

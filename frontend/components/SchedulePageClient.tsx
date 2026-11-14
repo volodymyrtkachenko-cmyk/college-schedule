@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 import dynamic from "next/dynamic";
 import { useReducedMotion } from "framer-motion";
 import { canAccessAdmin, useAuth } from "../lib/auth";
@@ -48,6 +50,7 @@ export interface SchedulePageClientProps {
   initialGroupId?: number;
   initialTeacherId?: number;
   initialMode?: "student" | "teacher";
+  ssrNowIso?: string;
 }
 
 export function SchedulePageClient({
@@ -56,6 +59,7 @@ export function SchedulePageClient({
   initialGroupId,
   initialTeacherId,
   initialMode,
+  ssrNowIso,
 }: SchedulePageClientProps) {
   const { resolvedTheme, toggleTheme } = useTheme();
   const { isMounted, isDesktop } = useViewportTier();
@@ -69,7 +73,7 @@ export function SchedulePageClient({
   const showMobile = !isMounted || !isDesktop;
   const isPrivilegedUser = Boolean(user && canAccessAdmin(user));
 
-  const { weekAnchorDate, setWeekAnchorDate, isCurrentWeek, weekStartStr } = useWeekAnchor();
+  const { weekAnchorDate, setWeekAnchorDate, isCurrentWeek, weekStartStr } = useWeekAnchor(ssrNowIso);
   const {
     isSetupComplete,
     completeSetup,
@@ -117,6 +121,7 @@ export function SchedulePageClient({
     completeSetup,
     isPrivilegedUser,
     setToast,
+    ssrNowIso,
   });
 
   const [contextModalOpen, setContextModalOpen] = useState(false);
@@ -126,9 +131,30 @@ export function SchedulePageClient({
   const [teacherPinTargetGroup, setTeacherPinTargetGroup] = useState<string | null>(null);
   const [guideHubOpen, setGuideHubOpen] = useState(false);
   const [guideHubMounted, setGuideHubMounted] = useState(false);
+  if (guideHubOpen && !guideHubMounted) {
+    setGuideHubMounted(true);
+  }
+
   useEffect(() => {
-    if (guideHubOpen) setGuideHubMounted(true);
-  }, [guideHubOpen]);
+    if (mode !== "student") return;
+    let idleId: number | null = null;
+    let timerId: number | null = null;
+    const preload = () => {
+      void import("./MobileTasksView");
+      void import("./GradesView");
+    };
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(preload, { timeout: 1500 });
+    } else {
+      timerId = globalThis.setTimeout(preload, 700) as unknown as number;
+    }
+    return () => {
+      if (idleId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timerId !== null) globalThis.clearTimeout(timerId);
+    };
+  }, [mode]);
   const [subjectHubOpen, setSubjectHubOpen] = useState(false);
   const [subjectHubMounted, setSubjectHubMounted] = useState(false);
   const [subjectHubTarget, setSubjectHubTarget] = useState<SubjectHubTarget | null>(null);
@@ -153,7 +179,14 @@ export function SchedulePageClient({
   const tasksPanelRef = useRef<HTMLDivElement | null>(null);
   const schedulePanelRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
+  const [prevMobileTab, setPrevMobileTab] = useState(sel.mobileTab);
+  const [mobileTabDir, setMobileTabDir] = useState<"next" | "prev" | null>(null);
+  if (sel.mobileTab !== prevMobileTab) {
+    setMobileTabDir(sel.mobileTab === "tasks" ? "next" : "prev");
+    setPrevMobileTab(sel.mobileTab);
+  }
+
+  useIsomorphicLayoutEffect(() => {
     const tasksEl = tasksPanelRef.current;
     if (tasksEl) {
       if (sel.mobileTab !== "tasks") tasksEl.setAttribute("inert", "");
@@ -349,6 +382,7 @@ export function SchedulePageClient({
                   <div
                     ref={tasksPanelRef}
                     data-inactive={sel.mobileTab !== "tasks"}
+                    data-slide-dir={mobileTabDir ?? undefined}
                     aria-hidden={sel.mobileTab !== "tasks"}
                     className="spa-tab-panel"
                   >
@@ -373,6 +407,7 @@ export function SchedulePageClient({
                 <div
                   ref={schedulePanelRef}
                   data-inactive={sel.mobileTab === "tasks"}
+                  data-slide-dir={mobileTabDir ?? undefined}
                   aria-hidden={sel.mobileTab === "tasks"}
                   className="spa-tab-panel"
                 >
@@ -428,6 +463,7 @@ export function SchedulePageClient({
                   ) : (
                     <ScheduleWeekGrid
                       week={week}
+                      todayDate={sel.todayActualIso}
                       scheduleMode={mode}
                       canEdit={false}
                       onQuickJump={sel.handleQuickJump}
@@ -436,6 +472,7 @@ export function SchedulePageClient({
                       currentTeacherId={mode === "teacher" ? teacherId : null}
                       currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
                       onSelectDay={sel.handleSelectDayFromWeek}
+                      weekSlideDir={sel.weekSlideDir}
                     />
                   )}
 
@@ -537,6 +574,7 @@ export function SchedulePageClient({
                                 currentTeacherId={mode === "teacher" ? teacherId : null}
                                 currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
                                 daySlideDir={sel.daySlideDir}
+                                shouldReduceMotion={shouldReduceMotion}
                               />
                           </div>
                         </div>
@@ -584,6 +622,7 @@ export function SchedulePageClient({
                         />
                         <ScheduleWeekGrid
                           week={week}
+                          todayDate={sel.todayActualIso}
                           scheduleMode={mode}
                           canEdit={false}
                           onQuickJump={sel.handleQuickJump}
@@ -592,6 +631,7 @@ export function SchedulePageClient({
                           currentTeacherId={mode === "teacher" ? teacherId : null}
                           currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
                           onSelectDay={sel.handleSelectDayFromWeek}
+                          weekSlideDir={sel.weekSlideDir}
                         />
                       </div>
                     )}

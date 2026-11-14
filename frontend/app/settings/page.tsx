@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
 import { SubpageHeader } from "@/components/navigation/SubpageHeader";
 import dynamic from "next/dynamic";
@@ -27,6 +27,13 @@ import {
   UserCheckIcon,
 } from "../../components/ui/Icons";
 
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+const preloadGuideHubModal = () => {
+  void import("../../components/GuideHubModal");
+};
+
 const GuideHubModal = dynamic(
   () => import("../../components/GuideHubModal").then((m) => m.GuideHubModal),
   { ssr: false }
@@ -48,12 +55,35 @@ export default function SettingsPage() {
   const [isLinkingClassroom, setIsLinkingClassroom] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showGuideMounted, setShowGuideMounted] = useState(false);
-  useEffect(() => {
-    if (showGuideModal) setShowGuideMounted(true);
-  }, [showGuideModal]);
+  if (showGuideModal && !showGuideMounted) {
+    setShowGuideMounted(true);
+  }
 
   const [groupHasSubgroups, setGroupHasSubgroups] = useState<boolean>(false);
   const [subgroupHints, setSubgroupHints] = useState<{ sub1: SubgroupTeacherHint[]; sub2: SubgroupTeacherHint[] }>({ sub1: [], sub2: [] });
+
+  // Синхронно читаємо кеш підгруп до першого кадру (0 CLS під час View Transition)
+  useIsomorphicLayoutEffect(() => {
+    try {
+      const gid =
+        Number(localStorage.getItem("schedule:groupId")) ||
+        Number(localStorage.getItem("schedule:classroom_linked_group_id"));
+      if (!gid) return;
+
+      const cachedFlag = localStorage.getItem(`schedule:has_subgroups:${gid}`);
+      if (cachedFlag !== null) {
+        setGroupHasSubgroups(cachedFlag === "1");
+      }
+
+      const cachedHintsRaw = localStorage.getItem(`schedule:subgroup_hints:${gid}`);
+      if (cachedHintsRaw) {
+        const parsed = JSON.parse(cachedHintsRaw);
+        if (parsed && Array.isArray(parsed.sub1) && Array.isArray(parsed.sub2)) {
+          setSubgroupHints(parsed);
+        }
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     const gid =
@@ -62,20 +92,7 @@ export default function SettingsPage() {
     if (!gid) return;
 
     const cachedFlag = localStorage.getItem(`schedule:has_subgroups:${gid}`);
-    if (cachedFlag !== null) {
-      setGroupHasSubgroups(cachedFlag === "1");
-    }
-
     const cachedHintsRaw = localStorage.getItem(`schedule:subgroup_hints:${gid}`);
-    if (cachedHintsRaw) {
-      try {
-        const parsed = JSON.parse(cachedHintsRaw);
-        if (parsed && Array.isArray(parsed.sub1) && Array.isArray(parsed.sub2)) {
-          setSubgroupHints(parsed);
-        }
-      } catch {}
-    }
-
     if (cachedFlag !== null && cachedHintsRaw) {
       return;
     }
@@ -116,7 +133,7 @@ export default function SettingsPage() {
   } = useMobileNav();
   const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">(navScheduleMode);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (typeof window === "undefined") return;
     const rawSearch = urlSearch || window.location.search;
     let cached: string | null = null;
@@ -324,13 +341,26 @@ export default function SettingsPage() {
             <p className="text-xs text-sys-text-secondary leading-relaxed">
               На широких екранах (комп&apos;ютер, планшет): що відкривається першим. На телефоні завжди день.
             </p>
-            <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
+            <div
+              role="group"
+              aria-label="Початковий вигляд"
+              className="relative grid grid-cols-2 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs isolate select-none"
+            >
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu"
+                style={{
+                  width: "calc((100% - 8px) / 2)",
+                  transform: `translate3d(${settings.defaultViewDesktop === "week" ? "100%" : "0%"}, 0, 0)`,
+                }}
+              />
               <button
                 type="button"
+                aria-pressed={settings.defaultViewDesktop === "today"}
                 onClick={() => updateSetting("defaultViewDesktop", "today")}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer ${
+                className={`relative z-10 py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
                   settings.defaultViewDesktop === "today"
-                    ? "bg-sys-accent text-white shadow-xs"
+                    ? "text-white font-bold"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
@@ -338,10 +368,11 @@ export default function SettingsPage() {
               </button>
               <button
                 type="button"
+                aria-pressed={settings.defaultViewDesktop === "week"}
                 onClick={() => updateSetting("defaultViewDesktop", "week")}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer ${
+                className={`relative z-10 py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
                   settings.defaultViewDesktop === "week"
-                    ? "bg-sys-accent text-white shadow-xs"
+                    ? "text-white font-bold"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
@@ -564,8 +595,15 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <button
               type="button"
-              onClick={() => setShowGuideModal(true)}
-              className="sm:col-span-2 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 p-3 hover:border-sys-accent/60 hover:bg-sys-accent/15 transition-colors duration-fast ease-smooth group text-left"
+              onPointerEnter={preloadGuideHubModal}
+              onTouchStart={preloadGuideHubModal}
+              onFocus={preloadGuideHubModal}
+              onClick={() => {
+                preloadGuideHubModal();
+                setShowGuideMounted(true);
+                setShowGuideModal(true);
+              }}
+              className="spring-press sm:col-span-2 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 p-3 hover:border-sys-accent/60 hover:bg-sys-accent/15 transition-colors duration-fast ease-smooth group text-left cursor-pointer"
             >
               <span className="flex items-center gap-2.5">
                 <LightbulbIcon className="h-4 w-4 shrink-0 text-sys-accent" />

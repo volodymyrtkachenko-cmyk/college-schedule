@@ -36,6 +36,7 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const { groups, teachers } = await fetchDirectoryForSsr();
+  const ssrNowIso = new Date().toISOString();
 
   return (
     <div className="min-h-dvh bg-transparent text-sys-text-primary">
@@ -43,7 +44,7 @@ export default async function HomePage() {
         Розклад ДФКР — Дніпровський фаховий коледж радіоелектроніки
       </h1>
 
-      <SchedulePageClient initialGroups={groups} initialTeachers={teachers} />
+      <SchedulePageClient initialGroups={groups} initialTeachers={teachers} ssrNowIso={ssrNowIso} />
 
       <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-4 pt-4 pb-24 text-xs text-sys-text-secondary sm:px-6 lg:pb-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

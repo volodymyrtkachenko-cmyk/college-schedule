@@ -179,6 +179,8 @@ export default async function GroupSchedulePage({
     ],
   };
 
+  const ssrNowIso = new Date().toISOString();
+
   return (
     <div className="min-h-dvh bg-transparent text-sys-text-primary">
       <script
@@ -195,6 +197,7 @@ export default async function GroupSchedulePage({
         initialTeachers={teachers}
         initialGroupId={groupId}
         initialMode="student"
+        ssrNowIso={ssrNowIso}
       />
 
       <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-4 pt-4 pb-24 text-xs text-sys-text-secondary sm:px-6 lg:pb-8">

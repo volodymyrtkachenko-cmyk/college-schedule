@@ -777,10 +777,54 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 }
 
+@keyframes spa-tab-enter-next {
+  from {
+    opacity: 0;
+    transform: translate3d(12px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes spa-tab-enter-prev {
+  from {
+    opacity: 0;
+    transform: translate3d(-12px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes desktop-day-enter-next {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes desktop-day-enter-prev {
+  from {
+    opacity: 0;
+    transform: translate3d(-16px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 @keyframes desktop-card-rise {
   from {
     opacity: 0;
-    transform: translate3d(var(--day-slide-x, 0px), 10px, 0);
+    transform: translate3d(0, 6px, 0);
   }
   to {
     opacity: 1;
@@ -803,6 +847,28 @@ html[data-theme="light"][data-accent="cyan"] {
   from {
     opacity: 0;
     transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes week-grid-enter-next {
+  from {
+    opacity: 0;
+    transform: translate3d(20px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes week-grid-enter-prev {
+  from {
+    opacity: 0;
+    transform: translate3d(-20px, 0, 0);
   }
   to {
     opacity: 1;
@@ -984,20 +1050,36 @@ html[data-vt-kind="theme"] :is(.vt-desktop-header, .vt-main-content, .vt-bottom-
     mix-blend-mode: normal;
   }
 
+  .spa-tab-panel[data-inactive="false"][data-slide-dir="next"] {
+    animation: spa-tab-enter-next 180ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .spa-tab-panel[data-inactive="false"][data-slide-dir="prev"] {
+    animation: spa-tab-enter-prev 180ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
   .mobile-day-slide[data-slide-dir="next"] {
-    animation: mobile-day-enter-next 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: mobile-day-enter-next 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
   .mobile-day-slide[data-slide-dir="prev"] {
-    animation: mobile-day-enter-prev 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: mobile-day-enter-prev 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .desktop-day-slide[data-slide-dir="next"] {
+    animation: desktop-day-enter-next 200ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .desktop-day-slide[data-slide-dir="prev"] {
+    animation: desktop-day-enter-prev 200ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
   .guide-step-slide[data-slide-dir="next"] {
-    animation: guide-step-enter-next 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: guide-step-enter-next 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
   .guide-step-slide[data-slide-dir="prev"] {
-    animation: guide-step-enter-prev 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: guide-step-enter-prev 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
   .guide-cursor-ripple[data-clicking="true"] {
@@ -1005,7 +1087,15 @@ html[data-vt-kind="theme"] :is(.vt-desktop-header, .vt-main-content, .vt-bottom-
   }
 
   .week-grid-enter {
-    animation: week-grid-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: week-grid-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .week-grid-enter[data-slide-dir="next"] {
+    animation: week-grid-enter-next 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .week-grid-enter[data-slide-dir="prev"] {
+    animation: week-grid-enter-prev 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
   .popup-panel-enter {
@@ -1224,8 +1314,8 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
   }
 
   .desktop-stagger-card {
-    animation: desktop-card-rise 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-    animation-delay: calc(min(var(--stagger-index, 0), 6) * 28ms);
+    animation: desktop-card-rise 210ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(min(var(--stagger-index, 0), 3) * 12ms);
   }
 
   .desktop-view-enter {
@@ -1772,6 +1862,9 @@ html.light .app-aurora-orb-3 {
   }
   .app-aurora-orb-2 {
     animation: aurora-float-2 28s ease-in-out infinite;
+  }
+  html[data-vt-kind] :is(.app-aurora-orb-1, .app-aurora-orb-2) {
+    animation-play-state: paused !important;
   }
 }
 

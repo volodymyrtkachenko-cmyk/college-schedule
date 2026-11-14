@@ -36,6 +36,7 @@ export function ContextSelectionModal({
   onSelect,
 }: ContextSelectionModalProps) {
   const [modalTab, setModalTab] = useState<"student" | "teacher">(mode);
+  const [tabSlideDir, setTabSlideDir] = useState<"next" | "prev" | null>(null);
   const [modalSearch, setModalSearch] = useState("");
   const [modalCourseFilter, setModalCourseFilter] = useState<number | null>(null);
   const [modalHighlightedIndex, setModalHighlightedIndex] = useState(0);
@@ -44,6 +45,7 @@ export function ContextSelectionModal({
   useEffect(() => {
     if (isOpen) {
       setModalTab(mode);
+      setTabSlideDir(null);
       setModalSearch("");
       setModalCourseFilter(null);
       setModalHighlightedIndex(0);
@@ -53,6 +55,15 @@ export function ContextSelectionModal({
       }
     }
   }, [isOpen, mode, isDesktop]);
+
+  const handleTabSwitch = (nextTab: "student" | "teacher") => {
+    if (nextTab !== modalTab) {
+      setTabSlideDir(nextTab === "teacher" ? "next" : "prev");
+      setModalTab(nextTab);
+    }
+    setModalSearch("");
+    setModalCourseFilter(null);
+  };
 
   const filteredModalOptions = useMemo(() => {
     const baseList =
@@ -96,29 +107,37 @@ export function ContextSelectionModal({
             </h2>
             {/* Header with tabs */}
             <div className="flex items-center justify-between gap-2 pb-3 border-b border-sys-border/60 shrink-0">
-              <div className="flex rounded-xl border border-sys-border bg-sys-bg p-1 flex-1">
+              <div
+                role="tablist"
+                aria-label="Режим пошуку"
+                className="relative grid grid-cols-2 rounded-xl border border-sys-border bg-sys-bg p-1 flex-1 isolate select-none"
+              >
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                  style={{
+                    width: "calc((100% - 8px) / 2)",
+                    transform: `translate3d(${modalTab === "teacher" ? "100%" : "0%"}, 0, 0)`,
+                  }}
+                />
                 <button
                   type="button"
-                  onClick={() => {
-                    setModalTab("student");
-                    setModalSearch("");
-                    setModalCourseFilter(null);
-                  }}
-                  className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth ${
-                    modalTab === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                  role="tab"
+                  aria-selected={modalTab === "student"}
+                  onClick={() => handleTabSwitch("student")}
+                  className={`relative z-10 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                    modalTab === "student" ? "text-white font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
                   Групи ({groups.length})
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setModalTab("teacher");
-                    setModalSearch("");
-                    setModalCourseFilter(null);
-                  }}
-                  className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth ${
-                    modalTab === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                  role="tab"
+                  aria-selected={modalTab === "teacher"}
+                  onClick={() => handleTabSwitch("teacher")}
+                  className={`relative z-10 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                    modalTab === "teacher" ? "text-white font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
                   Викладачі ({teachers.length})
@@ -223,10 +242,15 @@ export function ContextSelectionModal({
             {/* List of items */}
             <div
               role="listbox"
-              className={`mt-2.5 flex-1 min-h-0 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain custom-scrollbar pr-1 pb-2 ${
-                modalTab === "student" ? "grid grid-cols-2 sm:grid-cols-3 gap-2 content-start" : "space-y-1"
-              }`}
+              className="mt-2.5 flex-1 min-h-0 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain custom-scrollbar pr-1 pb-2"
             >
+              <div
+                key={modalTab}
+                data-slide-dir={tabSlideDir ?? undefined}
+                className={`guide-step-slide ${
+                  modalTab === "student" ? "grid grid-cols-2 sm:grid-cols-3 gap-2 content-start" : "space-y-1"
+                }`}
+              >
               {filteredModalOptions.map((opt, idx) => {
                 const isSelected = modalTab === "student" ? opt.id === groupId : opt.id === teacherId;
                 const isHighlighted = idx === modalHighlightedIndex;
@@ -275,6 +299,7 @@ export function ContextSelectionModal({
                   Нічого не знайдено
                 </p>
               )}
+              </div>
             </div>
       </div>
     </AppDialog>

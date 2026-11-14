@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { canMoveLesson } from "../lib/scheduleMove";
@@ -12,7 +12,9 @@ import { useViewportTier } from "../lib/useViewportTier";
 
 const ScheduleEditGrid = dynamic(() => import("./ScheduleEditGrid").then((m) => m.ScheduleEditGrid), { ssr: false });
 
-import { KYIV_DATE_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT } from "../lib/date";
+import { KYIV_DATE_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT, getSyncedNow } from "../lib/date";
+
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 function longWeekday(dateStr: string): string {
   try {
@@ -32,6 +34,8 @@ function shortDateUk(dateStr: string): string {
 
 export function ScheduleWeekGrid({
   week,
+  todayDate,
+  weekSlideDir = 0,
   availabilityWeek,
   availabilityError,
   scheduleMode = "student",
@@ -71,6 +75,8 @@ export function ScheduleWeekGrid({
   onOpenSubjectHub,
 }: {
   week: ScheduleResponse[];
+  todayDate?: string;
+  weekSlideDir?: number;
   scheduleMode?: "student" | "teacher";
   canEdit?: boolean;
   onEdit?: (lesson: Lesson) => void;
@@ -171,9 +177,11 @@ export function ScheduleWeekGrid({
     );
   }
 
-  const kyivTodayIso = useMemo(() => {
-    return KYIV_DATE_FMT.format(new Date());
-  }, []);
+  const [clientTodayIso, setClientTodayIso] = useState<string>(() => todayDate ?? "");
+  useIsomorphicLayoutEffect(() => {
+    setClientTodayIso(todayDate ?? KYIV_DATE_FMT.format(getSyncedNow()));
+  }, [todayDate]);
+  const kyivTodayIso = todayDate ?? clientTodayIso;
 
   const allLessonNumbers = useMemo(() => {
     let max = 4;
@@ -242,12 +250,15 @@ export function ScheduleWeekGrid({
   const renderTablet = !isMounted || isTablet;
   const renderMobile = !isMounted || isMobile;
 
+  const weekSlideAttr = weekSlideDir ? (weekSlideDir > 0 ? "next" : "prev") : undefined;
+
   return (
-    <DesktopSpotlightGrid className="w-full pb-4">
+    <DesktopSpotlightGrid className="w-full pb-4 overflow-x-clip">
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
       {renderDesktop && (
         <div
           key={`desktop-week-${week[0]?.date ?? "week"}`}
+          data-slide-dir={weekSlideAttr}
           className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4 week-grid-enter"
         >
         {/* Row 0: Column Headers */}
@@ -405,6 +416,7 @@ export function ScheduleWeekGrid({
       {renderTablet && (
         <div
           key={`tablet-week-${week[0]?.date ?? "week"}`}
+          data-slide-dir={weekSlideAttr}
           className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto overscroll-x-contain custom-scrollbar snap-x snap-mandatory pb-4 week-grid-enter"
         >
         {weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum, periodMeta }, dIdx) => {
@@ -553,7 +565,11 @@ export function ScheduleWeekGrid({
 
       {/* Mobile (< 640px): Day list with day headers */}
       {renderMobile && (
-        <div className="flex w-full flex-col gap-6 sm:hidden">
+        <div
+          key={`mobile-week-${week[0]?.date ?? "week"}`}
+          data-slide-dir={weekSlideAttr}
+          className="flex w-full flex-col gap-6 sm:hidden week-grid-enter"
+        >
           {week.map((day, dIdx) => (
             <div
               key={`mobile-week-day-${day.date}`}
