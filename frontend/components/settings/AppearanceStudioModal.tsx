@@ -462,8 +462,16 @@ export function AppearanceStudioModal({
                         <img
                           src={previewBlobUrl || wallpaperMeta?.tinyPlaceholder || ""}
                           alt=""
-                          className="absolute inset-0 h-full w-full object-cover scale-[1.08]"
-                          style={{ filter: `blur(${visualConfig.wallpaperBlur}px)` }}
+                          decoding="async"
+                          className="absolute inset-0 h-full w-full object-cover"
+                          style={
+                            visualConfig.wallpaperBlur > 0
+                              ? {
+                                  filter: `blur(${visualConfig.wallpaperBlur}px)`,
+                                  transform: "scale(1.06)",
+                                }
+                              : undefined
+                          }
                         />
                       )}
                       <div

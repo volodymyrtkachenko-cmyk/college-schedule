@@ -154,17 +154,7 @@ export function AppBackdrop() {
       {effectiveBackdrop === "silk" && (
         <div className="app-backdrop-silk absolute inset-0">
           <div className="app-backdrop-silk-gradient absolute inset-0" />
-          <svg className="app-backdrop-silk-grain absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
-            <filter id="dfkr-silk-noise">
-              <feTurbulence
-                type="fractalNoise"
-                baseFrequency="0.78"
-                numOctaves="2"
-                stitchTiles="stitch"
-              />
-            </filter>
-            <rect width="100%" height="100%" filter="url(#dfkr-silk-noise)" />
-          </svg>
+          <div className="app-backdrop-silk-grain absolute inset-0" />
         </div>
       )}
 
@@ -179,6 +169,7 @@ export function AppBackdrop() {
             <img
               src={tinyFallback}
               alt=""
+              decoding="async"
               className="h-full w-full object-cover scale-[1.12] opacity-85"
               style={{ filter: "blur(24px)" }}
             />
@@ -188,13 +179,19 @@ export function AppBackdrop() {
             <img
               src={blobUrl}
               alt=""
+              decoding="async"
               onLoad={() => setPhotoReady(true)}
-              className={`absolute inset-0 h-full w-full object-cover scale-[1.08] transition-opacity duration-300 ${
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
                 photoReady ? "opacity-100" : "opacity-0"
               }`}
-              style={{
-                filter: "blur(var(--backdrop-blur, 10px))",
-              }}
+              style={
+                visualConfig.wallpaperBlur > 0
+                  ? {
+                      filter: "blur(var(--backdrop-blur, 10px))",
+                      transform: "scale(1.06)",
+                    }
+                  : undefined
+              }
             />
           )}
           <div

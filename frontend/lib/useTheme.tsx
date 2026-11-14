@@ -202,10 +202,70 @@ function disableTransitionsTemporarily() {
   });
 }
 
+function syncCustomVarsStorage(
+  activeAccent: AccentColor,
+  config: VisualStudioConfig,
+  precomputed?: {
+    theme: ResolvedTheme;
+    bundle: ReturnType<typeof buildCustomAccentVars>;
+  }
+) {
+  if (typeof window === "undefined") return;
+  try {
+    if (activeAccent === "custom") {
+      const darkBundle =
+        precomputed?.theme === "dark"
+          ? precomputed.bundle
+          : buildCustomAccentVars(
+              config.customHue,
+              config.customSaturation,
+              "dark",
+              config.surface
+            );
+      const lightBundle =
+        precomputed?.theme === "light"
+          ? precomputed.bundle
+          : buildCustomAccentVars(
+              config.customHue,
+              config.customSaturation,
+              "light",
+              config.surface
+            );
+      localStorage.setItem(
+        VISUAL_CUSTOM_VARS_STORAGE_KEY,
+        JSON.stringify({
+          dark: darkBundle.vars,
+          light: lightBundle.vars,
+          darkBgHex: darkBundle.bgHex,
+          lightBgHex: lightBundle.bgHex,
+        })
+      );
+    } else {
+      localStorage.removeItem(VISUAL_CUSTOM_VARS_STORAGE_KEY);
+    }
+  } catch {}
+}
+
+function persistVisualStorage(
+  activeAccent: AccentColor,
+  config: VisualStudioConfig,
+  precomputed?: {
+    theme: ResolvedTheme;
+    bundle: ReturnType<typeof buildCustomAccentVars>;
+  }
+) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(VISUAL_STUDIO_STORAGE_KEY, JSON.stringify(config));
+  } catch {}
+  syncCustomVarsStorage(activeAccent, config, precomputed);
+}
+
 function applyDomState(
   effectiveTheme: ResolvedTheme,
   activeAccent: AccentColor,
-  config: VisualStudioConfig
+  config: VisualStudioConfig,
+  options?: { deferStorage?: boolean }
 ) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
@@ -228,44 +288,31 @@ function applyDomState(
   }
 
   let customBgHex: string | undefined;
+  let precomputedBundle:
+    | { theme: ResolvedTheme; bundle: ReturnType<typeof buildCustomAccentVars> }
+    | undefined;
+
   if (activeAccent === "custom") {
-    const darkBundle = buildCustomAccentVars(
+    const activeBundle = buildCustomAccentVars(
       config.customHue,
       config.customSaturation,
-      "dark",
+      effectiveTheme,
       config.surface
     );
-    const lightBundle = buildCustomAccentVars(
-      config.customHue,
-      config.customSaturation,
-      "light",
-      config.surface
-    );
-    const activeBundle = effectiveTheme === "dark" ? darkBundle : lightBundle;
     customBgHex = activeBundle.bgHex;
+    precomputedBundle = { theme: effectiveTheme, bundle: activeBundle };
 
     for (const [varKey, varValue] of Object.entries(activeBundle.vars)) {
       root.style.setProperty(varKey, varValue);
     }
-
-    try {
-      localStorage.setItem(
-        VISUAL_CUSTOM_VARS_STORAGE_KEY,
-        JSON.stringify({
-          dark: darkBundle.vars,
-          light: lightBundle.vars,
-          darkBgHex: darkBundle.bgHex,
-          lightBgHex: lightBundle.bgHex,
-        })
-      );
-    } catch {}
   } else {
     for (const key of CUSTOM_CSS_VAR_KEYS) {
       root.style.removeProperty(key);
     }
-    try {
-      localStorage.removeItem(VISUAL_CUSTOM_VARS_STORAGE_KEY);
-    } catch {}
+  }
+
+  if (!options?.deferStorage) {
+    syncCustomVarsStorage(activeAccent, config, precomputedBundle);
   }
 
   syncMetaThemeColor(effectiveTheme, activeAccent, config, customBgHex);
@@ -287,13 +334,52 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     visualConfig: { ...DEFAULT_VISUAL_CONFIG } as VisualStudioConfig,
   });
 
+  const persistTimerRef = useRef<number | null>(null);
+
+  const cancelPendingPersist = useCallback(() => {
+    if (persistTimerRef.current !== null && typeof window !== "undefined") {
+      window.clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+  }, []);
+
+  const schedulePersist = useCallback(() => {
+    cancelPendingPersist();
+    if (typeof window === "undefined") return;
+    persistTimerRef.current = window.setTimeout(() => {
+      persistTimerRef.current = null;
+      const curr = stateRef.current;
+      persistVisualStorage(curr.accent, curr.visualConfig);
+    }, 150);
+  }, [cancelPendingPersist]);
+
+  useEffect(() => {
+    const flushIfPending = () => {
+      if (persistTimerRef.current !== null) {
+        window.clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+        const curr = stateRef.current;
+        persistVisualStorage(curr.accent, curr.visualConfig);
+      }
+    };
+    window.addEventListener("pagehide", flushIfPending);
+    return () => {
+      window.removeEventListener("pagehide", flushIfPending);
+      flushIfPending();
+    };
+  }, []);
+
   const commitState = useCallback(
     (
       nextTheme: Theme,
       nextResolved: ResolvedTheme,
       nextAccent: AccentColor,
       nextConfig: VisualStudioConfig,
-      options?: { suppressTransitions?: boolean; viewTransition?: boolean }
+      options?: {
+        suppressTransitions?: boolean;
+        viewTransition?: boolean;
+        deferStorage?: boolean;
+      }
     ) => {
       const runReactStateCommit = () => {
         stateRef.current = {
@@ -317,6 +403,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         typeof (document as any).startViewTransition === "function";
 
       if (options?.viewTransition && hasViewTransition && !isReduced) {
+        cancelPendingPersist();
         let removeBlocker: (() => void) | null = null;
         let failsafeTimer: number | null = null;
         const releaseBlocker = () => {
@@ -357,13 +444,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       if (options?.suppressTransitions) {
         disableTransitionsTemporarily();
       }
-      applyDomState(nextResolved, nextAccent, nextConfig);
+      if (options?.deferStorage) {
+        applyDomState(nextResolved, nextAccent, nextConfig, { deferStorage: true });
+        schedulePersist();
+      } else {
+        cancelPendingPersist();
+        applyDomState(nextResolved, nextAccent, nextConfig);
+      }
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(VISUAL_CHANGE_EVENT));
       }
     },
-    []
+    [cancelPendingPersist, schedulePersist]
   );
 
   const resolveSystemTheme = useCallback((target: Theme): ResolvedTheme => {
@@ -440,14 +533,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     (patch: Partial<VisualStudioConfig>) => {
       const curr = stateRef.current;
       const merged = sanitizeVisualConfig({ ...curr.visualConfig, ...patch });
-      try {
-        localStorage.setItem(VISUAL_STUDIO_STORAGE_KEY, JSON.stringify(merged));
-      } catch {}
       commitState(curr.theme, curr.resolvedTheme, curr.accent, merged, {
         suppressTransitions:
-          patch.surface !== undefined ||
-          patch.customHue !== undefined ||
-          patch.customSaturation !== undefined,
+          patch.surface !== undefined && patch.surface !== curr.visualConfig.surface,
+        deferStorage: true,
       });
     },
     [commitState]

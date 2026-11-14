@@ -1693,18 +1693,24 @@ html[data-theme="light"][data-surface="oled"] {
 /* Surface Material 3: Frosted Glassmorphism */
 html[data-theme="dark"][data-surface="glass"] {
   --glass-alpha: 0.68;
+  --glass-nested-alpha: 0.78;
+  --glass-card-fast-alpha: 0.78;
   --glass-chrome-alpha: 0.78;
   --glass-dialog-alpha: 0.96;
-  --glass-blur: 14px;
+  --glass-blur: 10px;
+  --glass-chrome-blur: 12px;
   --glass-specular: rgb(255 255 255 / 0.08);
   --glass-shadow: 0 10px 30px -14px rgb(0 0 0 / 0.55);
 }
 
 html[data-theme="light"][data-surface="glass"] {
   --glass-alpha: 0.74;
+  --glass-nested-alpha: 0.84;
+  --glass-card-fast-alpha: 0.84;
   --glass-chrome-alpha: 0.82;
   --glass-dialog-alpha: 0.96;
-  --glass-blur: 14px;
+  --glass-blur: 10px;
+  --glass-chrome-blur: 12px;
   --glass-specular: rgb(255 255 255 / 0.88);
   --glass-shadow: 0 10px 28px -14px rgb(15 23 42 / 0.14);
 }
@@ -1712,23 +1718,54 @@ html[data-theme="light"][data-surface="glass"] {
 @media (prefers-reduced-transparency: reduce) {
   html[data-surface="glass"] {
     --glass-alpha: 0.96;
+    --glass-nested-alpha: 0.96;
+    --glass-card-fast-alpha: 0.96;
     --glass-chrome-alpha: 0.98;
     --glass-blur: 0px;
+    --glass-chrome-blur: 0px;
+  }
+
+  html[data-surface="glass"] :is(.bg-sys-card, .bg-sys-surface, .surface-panel, header, nav, .vt-bottom-nav) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 }
 
+/* Base glass tint + specular highlight + shadow without costly per-card blur
+   on mobile viewports or dense Week grid cells */
 html[data-surface="glass"]
-  :is(.bg-sys-card, .bg-sys-surface, .surface-panel):not([class*="bg-sys-card/"]):not(dialog *):not([role="dialog"] *) {
-  background-color: rgb(var(--sys-card) / var(--glass-alpha)) !important;
-  backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+  :is(.bg-sys-card, .bg-sys-surface, .surface-panel):not([class*="bg-sys-card/"]):not(header):not(nav):not(.vt-bottom-nav):not(dialog *):not([role="dialog"] *) {
+  background-color: rgb(var(--sys-card) / var(--glass-card-fast-alpha)) !important;
   box-shadow: inset 0 1px 0 var(--glass-specular), var(--glass-shadow);
 }
 
+/* Desktop hardware backdrop blur (>= 768px) for top-level cards,
+   excluding dense Week grid (.lesson-card-week) and nested surfaces */
+@media (min-width: 768px) {
+  html[data-surface="glass"]
+    :is(.bg-sys-card, .bg-sys-surface, .surface-panel):not([class*="bg-sys-card/"]):not(.lesson-card-week):not(header):not(nav):not(.vt-bottom-nav):not(dialog *):not([role="dialog"] *) {
+    background-color: rgb(var(--sys-card) / var(--glass-alpha)) !important;
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+  }
+}
+
+/* Nested surfaces inside another glass card/header/nav/sidebar never stack a 2nd blur pass */
+html[data-surface="glass"]
+  :is(.bg-sys-card, .bg-sys-surface, .surface-panel, header, nav, aside.bg-sys-card, aside.bg-sys-surface)
+  :is(.bg-sys-card, .bg-sys-surface, .surface-panel):not([class*="bg-sys-card/"]):not(header):not(nav):not(.vt-bottom-nav):not(dialog *):not([role="dialog"] *) {
+  background-color: rgb(var(--sys-card) / var(--glass-nested-alpha)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: inset 0 1px 0 var(--glass-specular);
+}
+
+/* Sticky/fixed navigation chrome keeps real frosted blur across mobile & desktop */
 html[data-surface="glass"] :is(header.bg-sys-card, nav.bg-sys-card, .vt-bottom-nav) {
   background-color: rgb(var(--sys-card) / var(--glass-chrome-alpha)) !important;
-  backdrop-filter: blur(16px) saturate(1.3);
-  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(var(--glass-chrome-blur)) saturate(1.28);
+  -webkit-backdrop-filter: blur(var(--glass-chrome-blur)) saturate(1.28);
+  box-shadow: inset 0 1px 0 var(--glass-specular), var(--glass-shadow);
 }
 
 html[data-surface="glass"] :is(dialog.app-dialog, [role="dialog"]) .bg-sys-card {
@@ -1763,6 +1800,14 @@ html[data-surface="outline"] .shadow-md {
 /* ==========================================================================
    Stock Backdrops (Aurora, Dots, Radio Blueprint, Silk Mesh)
    ========================================================================== */
+.app-backdrop {
+  contain: strict;
+  pointer-events: none;
+  user-select: none;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+}
+
 .app-backdrop-glass-sheen {
   background:
     radial-gradient(60% 50% at 15% 15%, rgb(var(--sys-accent) / 0.16), transparent 70%),
@@ -1780,18 +1825,10 @@ html.light .app-backdrop-aurora {
 .app-aurora-orb {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(44px);
-  will-change: transform;
+  filter: none;
 }
 
-@media (min-width: 1024px) {
-  .app-aurora-orb {
-    filter: blur(64px);
-  }
-}
-
-/* Прев'ю у Студії оформлення використовує м'які градієнти без дорогого blur,
-   щоб перший кадр модального вікна рендерився миттєво на 120fps */
+/* Прев'ю у Студії оформлення завжди статичне для миттєвого 120fps першого кадру */
 .studio-preview-stage .app-aurora-orb {
   filter: none;
   will-change: auto;
@@ -1799,71 +1836,107 @@ html.light .app-backdrop-aurora {
 }
 
 html.dark .app-aurora-orb-1 {
-  width: min(72vw, 680px);
-  height: min(72vw, 680px);
-  top: -18%;
-  left: -10%;
-  background: radial-gradient(circle, rgb(var(--sys-accent) / 0.28) 0%, transparent 70%);
+  width: min(80vw, 760px);
+  height: min(80vw, 760px);
+  top: -20%;
+  left: -12%;
+  background: radial-gradient(
+    circle,
+    rgb(var(--sys-accent) / 0.28) 0%,
+    rgb(var(--sys-accent) / 0.16) 30%,
+    rgb(var(--sys-accent) / 0.05) 56%,
+    transparent 78%
+  );
 }
 
 html.dark .app-aurora-orb-2 {
-  width: min(65vw, 620px);
-  height: min(65vw, 620px);
-  top: 22%;
-  right: -12%;
-  background: radial-gradient(circle, rgb(var(--sys-info) / 0.22) 0%, transparent 70%);
+  width: min(73vw, 700px);
+  height: min(73vw, 700px);
+  top: 20%;
+  right: -14%;
+  background: radial-gradient(
+    circle,
+    rgb(var(--sys-info) / 0.22) 0%,
+    rgb(var(--sys-info) / 0.13) 30%,
+    rgb(var(--sys-info) / 0.04) 56%,
+    transparent 78%
+  );
 }
 
 html.dark .app-aurora-orb-3 {
-  width: min(60vw, 560px);
-  height: min(60vw, 560px);
-  bottom: -22%;
-  left: 24%;
-  background: radial-gradient(circle, rgb(var(--sys-status-ok-bg) / 0.16) 0%, transparent 72%);
+  width: min(68vw, 640px);
+  height: min(68vw, 640px);
+  bottom: -24%;
+  left: 22%;
+  background: radial-gradient(
+    circle,
+    rgb(var(--sys-status-ok-bg) / 0.16) 0%,
+    rgb(var(--sys-status-ok-bg) / 0.095) 30%,
+    rgb(var(--sys-status-ok-bg) / 0.03) 56%,
+    transparent 78%
+  );
 }
 
 html.light .app-aurora-orb-1 {
-  width: min(72vw, 680px);
-  height: min(72vw, 680px);
-  top: -16%;
-  left: -10%;
-  background: radial-gradient(circle, rgb(var(--sys-accent) / 0.24) 0%, transparent 72%);
+  width: min(80vw, 760px);
+  height: min(80vw, 760px);
+  top: -18%;
+  left: -12%;
+  background: radial-gradient(
+    circle,
+    rgb(var(--sys-accent) / 0.24) 0%,
+    rgb(var(--sys-accent) / 0.14) 30%,
+    rgb(var(--sys-accent) / 0.045) 56%,
+    transparent 78%
+  );
 }
 
 html.light .app-aurora-orb-2 {
-  width: min(65vw, 620px);
-  height: min(65vw, 620px);
-  top: 25%;
-  right: -12%;
-  background: radial-gradient(circle, rgb(var(--sys-info) / 0.2) 0%, transparent 72%);
+  width: min(73vw, 700px);
+  height: min(73vw, 700px);
+  top: 23%;
+  right: -14%;
+  background: radial-gradient(
+    circle,
+    rgb(var(--sys-info) / 0.2) 0%,
+    rgb(var(--sys-info) / 0.115) 30%,
+    rgb(var(--sys-info) / 0.035) 56%,
+    transparent 78%
+  );
 }
 
 html.light .app-aurora-orb-3 {
-  width: min(60vw, 560px);
-  height: min(60vw, 560px);
-  bottom: -20%;
-  left: 25%;
-  background: radial-gradient(circle, rgb(var(--sys-status-ok-bg) / 0.14) 0%, transparent 72%);
+  width: min(68vw, 640px);
+  height: min(68vw, 640px);
+  bottom: -22%;
+  left: 23%;
+  background: radial-gradient(
+    circle,
+    rgb(var(--sys-status-ok-bg) / 0.14) 0%,
+    rgb(var(--sys-status-ok-bg) / 0.08) 30%,
+    rgb(var(--sys-status-ok-bg) / 0.025) 56%,
+    transparent 78%
+  );
 }
 
 @keyframes aurora-float-1 {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(5%, 7%, 0) scale(1.08); }
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(5%, 7%, 0); }
 }
 
 @keyframes aurora-float-2 {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1.04); }
-  50% { transform: translate3d(-6%, -5%, 0) scale(0.95); }
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-6%, -5%, 0); }
 }
 
-@media (prefers-reduced-motion: no-preference) {
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
   .app-aurora-orb-1 {
     animation: aurora-float-1 22s ease-in-out infinite;
   }
   .app-aurora-orb-2 {
     animation: aurora-float-2 28s ease-in-out infinite;
   }
-  html[data-vt-kind] :is(.app-aurora-orb-1, .app-aurora-orb-2) {
+  html:is([data-vt-kind], :has(dialog[open])) :is(.app-aurora-orb-1, .app-aurora-orb-2) {
     animation-play-state: paused !important;
   }
 }
@@ -1916,6 +1989,9 @@ html.light .app-backdrop-silk-gradient {
 
 .app-backdrop-silk-grain {
   opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128' viewBox='0 0 128 128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
 }
 
 html.light .app-backdrop-silk-grain {
