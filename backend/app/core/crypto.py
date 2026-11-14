@@ -24,60 +24,82 @@ def _fernet_from_raw(raw: str) -> Fernet:
         return Fernet(base64.urlsafe_b64encode(digest))
 
 
+def _candidate_key_sources(override_key: Optional[str] = None) -> list[tuple[str, Optional[str]]]:
+    """Ordered encryption seed candidates shared across crypto and diagnostics (names only exposed)."""
+    sources: list[tuple[str, Optional[str]]] = []
+    if override_key and override_key.strip():
+        sources.append(("override", override_key))
+    sources.extend([
+        ("ENCRYPTION_KEY", os.getenv("ENCRYPTION_KEY")),
+        ("CLASSROOM_FERNET_KEY", os.getenv("CLASSROOM_FERNET_KEY")),
+        ("CLASSROOM_FERNET_KEY", getattr(settings, "classroom_fernet_key", None)),
+        ("FERNET_KEY", os.getenv("FERNET_KEY")),
+        ("GOOGLE_CLIENT_SECRET", os.getenv("GOOGLE_CLIENT_SECRET")),
+        ("DATABASE_URL", os.getenv("DATABASE_URL")),
+        ("fallback_default", "dfkr-college-schedule-persistent-key-2026"),
+    ])
+    return sources
+
+
+def get_encryption_key_source() -> str:
+    """Return only the name of the active encryption seed source (never key material)."""
+    for name, seed in _candidate_key_sources():
+        if seed and str(seed).strip():
+            return name
+    return "fallback_default"
+
+
+def has_primary_encryption_key() -> bool:
+    """True when a dedicated Fernet/encryption key env var is configured."""
+    return get_encryption_key_source() in {"ENCRYPTION_KEY", "CLASSROOM_FERNET_KEY", "FERNET_KEY"}
+
+
 def get_primary_raw_key(override_key: Optional[str] = None) -> str:
     """Return the raw string for the primary encryption key."""
-    raw = (
-        override_key
-        or os.getenv("ENCRYPTION_KEY")
-        or os.getenv("CLASSROOM_FERNET_KEY")
-        or os.getenv("FERNET_KEY")
-        or getattr(settings, "classroom_fernet_key", "")
-        or os.getenv("GOOGLE_CLIENT_SECRET")
-        or os.getenv("DATABASE_URL")
-        or "dfkr-college-schedule-persistent-key-2026"
-    ).strip()
-    if raw:
-        return raw
+    for _, seed in _candidate_key_sources(override_key):
+        if seed and str(seed).strip():
+            return str(seed).strip()
     return (getattr(settings, "jwt_secret_key", "") or LEGACY_FALLBACK_KEY).strip()
 
 
 def get_fernet(override_key: Optional[str] = None) -> Fernet:
-    """Return the primary Fernet instance using CLASSROOM_FERNET_KEY (or fallback secret)."""
+    """Return the primary Fernet instance using primary key source."""
     return _fernet_from_raw(get_primary_raw_key(override_key))
 
 
 def get_candidate_fernets(override_key: Optional[str] = None) -> list[Fernet]:
     """
     Return ordered list of Fernet instances to try during decryption.
-    Primary key is always index 0. Subsequent keys include historical keys.
+    Primary key is always index 0. Subsequent keys include SHA-256 and historical keys.
     """
-    primary = get_fernet(override_key)
-    fernets: list[Fernet] = [primary]
+    fernets: list[Fernet] = []
     seen_hashes: set[bytes] = set()
-
-    raw_primary = get_primary_raw_key(override_key)
-    seen_hashes.add(hashlib.sha256(raw_primary.encode("utf-8")).digest())
 
     def _add_raw(raw_key: Optional[str]):
         if not raw_key:
             return
-        cleaned = raw_key.strip()
+        cleaned = str(raw_key).strip()
         if not cleaned:
             return
-        f = _fernet_from_raw(cleaned)
-        h = hashlib.sha256(cleaned.encode("utf-8")).digest()
-        if h not in seen_hashes:
-            seen_hashes.add(h)
-            fernets.append(f)
+        # Add direct Fernet key if valid, plus SHA-256 derived Fernet for legacy compatibility
+        try:
+            f_direct = Fernet(cleaned.encode("utf-8"))
+            h_direct = hashlib.sha256(f"direct:{cleaned}".encode("utf-8")).digest()
+            if h_direct not in seen_hashes:
+                seen_hashes.add(h_direct)
+                fernets.append(f_direct)
+        except Exception:
+            pass
+        digest = hashlib.sha256(cleaned.encode("utf-8")).digest()
+        h_sha = hashlib.sha256(b"sha256:" + digest).digest()
+        if h_sha not in seen_hashes:
+            seen_hashes.add(h_sha)
+            fernets.append(Fernet(base64.urlsafe_b64encode(digest)))
 
-    # 0. Persistent fallback seeds
-    _add_raw(os.getenv("ENCRYPTION_KEY"))
-    _add_raw(os.getenv("SECRET_KEY"))
-    _add_raw(os.getenv("GOOGLE_CLIENT_SECRET"))
-    _add_raw(os.getenv("DATABASE_URL"))
-    _add_raw("dfkr-college-schedule-persistent-key-2026")
+    for _, seed in _candidate_key_sources(override_key):
+        _add_raw(seed)
 
-    # 1. Configured old keys (comma-separated)
+    # Configured old keys (comma-separated)
     old_keys_str = (
         os.getenv("CLASSROOM_FERNET_OLD_KEYS")
         or getattr(settings, "classroom_fernet_old_keys", "")
@@ -87,13 +109,12 @@ def get_candidate_fernets(override_key: Optional[str] = None) -> list[Fernet]:
         for k in old_keys_str.split(","):
             _add_raw(k)
 
-    # 2. JWT-derived keys (fallback during migration away from JWT secret)
+    # Secondary & legacy fallback seeds
+    _add_raw(os.getenv("SECRET_KEY"))
     _add_raw(getattr(settings, "jwt_secret_key", ""))
     _add_raw(os.getenv("JWT_SECRET_KEY", ""))
-
-    # 3. Environment or config fallbacks
-    _add_raw(os.getenv("CLASSROOM_FERNET_KEY", ""))
-    _add_raw(getattr(settings, "classroom_fernet_key", ""))
+    _add_raw(getattr(settings, "google_client_secret", ""))
+    _add_raw(getattr(settings, "database_url", ""))
     _add_raw(LEGACY_DEV_KEY)
     _add_raw(LEGACY_FALLBACK_KEY)
 
@@ -190,10 +211,10 @@ def decrypt_token(cipher_or_plain: Optional[str], override_key: Optional[str] = 
 
 
 def check_crypto_config() -> None:
-    """Log guidance on startup regarding CLASSROOM_FERNET_KEY configuration."""
-    raw_key = os.getenv("CLASSROOM_FERNET_KEY") or getattr(settings, "classroom_fernet_key", "")
-    if not raw_key and getattr(settings, "environment", "").lower() == "production":
+    """Log guidance on startup regarding dedicated Classroom encryption key configuration."""
+    if not has_primary_encryption_key() and getattr(settings, "environment", "").lower() == "production":
         logger.warning(
-            "CLASSROOM_FERNET_KEY is not set in production! Tokens are deriving their encryption from "
-            "JWT_SECRET_KEY. Please set CLASSROOM_FERNET_KEY in Heroku Config Vars to ensure token persistence."
+            "Dedicated CLASSROOM_FERNET_KEY / ENCRYPTION_KEY is not set in production! "
+            "Tokens are deriving encryption from %s. Set CLASSROOM_FERNET_KEY in Heroku Config Vars.",
+            get_encryption_key_source(),
         )

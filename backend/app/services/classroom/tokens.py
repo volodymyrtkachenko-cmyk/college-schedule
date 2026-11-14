@@ -1,5 +1,3 @@
-import base64
-import hashlib
 import os
 import re
 from datetime import datetime, timedelta
@@ -9,6 +7,15 @@ import httpx
 from cryptography.fernet import Fernet
 
 from app.config import settings
+from app.core.crypto import (
+    decrypt_token as _core_decrypt_token,
+    decrypt_token_detailed as _core_decrypt_token_detailed,
+    encrypt_token as _core_encrypt_token,
+    get_candidate_fernets,
+    get_encryption_key_source,
+    has_primary_encryption_key,
+    rotate_token as _core_rotate_token,
+)
 from app.models import ClassroomCredential
 
 DEFAULT_GOOGLE_CLIENT_ID = "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com"
@@ -24,107 +31,24 @@ RECOMMENDED_CLASSROOM_SCOPES = [
 
 
 def _get_stable_fernet_keys() -> list[Fernet]:
-    """Возвращает список ключей Fernet (основной + резервные), которые не сбрасываются при рестарте сервера."""
-    raw_seeds = [
-        os.getenv("ENCRYPTION_KEY"),
-        os.getenv("SECRET_KEY"),
-        os.getenv("GOOGLE_CLIENT_SECRET"),
-        os.getenv("DATABASE_URL"),
-        "dfkr-college-schedule-persistent-key-2026",
-        os.getenv("CLASSROOM_FERNET_KEY"),
-        os.getenv("FERNET_KEY"),
-        getattr(settings, "classroom_fernet_key", None),
-        getattr(settings, "jwt_secret_key", None),
-        "college-schedule-local-dev-secret-change-me",
-        "college-schedule-fernet",
-    ]
-    old_keys_str = (
-        os.getenv("CLASSROOM_FERNET_OLD_KEYS")
-        or getattr(settings, "classroom_fernet_old_keys", "")
-        or ""
-    ).strip()
-    if old_keys_str:
-        for k in old_keys_str.split(","):
-            raw_seeds.append(k.strip())
-
-    fernets: list[Fernet] = []
-    seen: set[bytes] = set()
-    for seed in raw_seeds:
-        if not seed:
-            continue
-        try:
-            f_direct = Fernet(seed.encode("utf-8"))
-            h_direct = hashlib.sha256(seed.encode("utf-8")).digest()
-            if h_direct not in seen:
-                seen.add(h_direct)
-                fernets.append(f_direct)
-        except Exception:
-            pass
-        digest = hashlib.sha256(seed.strip().encode("utf-8")).digest()
-        fkey = base64.urlsafe_b64encode(digest)
-        if fkey not in seen:
-            seen.add(fkey)
-            fernets.append(Fernet(fkey))
-    return fernets
+    """Делегує список Fernet-ключів у єдине джерело правди `app.core.crypto`."""
+    return get_candidate_fernets()
 
 
 def encrypt_token(token: Optional[str]) -> str:
-    if not token:
-        return ""
-    clean = token.strip()
-    if not clean:
-        return ""
-    # Используем стабильный ключ от GOOGLE_CLIENT_SECRET / DATABASE_URL, если ENCRYPTION_KEY не задан
-    stable_seed = (
-        os.getenv("ENCRYPTION_KEY")
-        or os.getenv("GOOGLE_CLIENT_SECRET")
-        or os.getenv("DATABASE_URL")
-        or "dfkr-college-schedule-persistent-key-2026"
-    )
-    fkey = base64.urlsafe_b64encode(hashlib.sha256(stable_seed.strip().encode("utf-8")).digest())
-    return Fernet(fkey).encrypt(clean.encode("utf-8")).decode("utf-8")
+    return _core_encrypt_token(token) or ""
 
 
 def decrypt_token(token_enc: Optional[str]) -> str:
-    if not token_enc:
-        return ""
-    clean = token_enc.strip()
-    if not clean:
-        return ""
-    # Если в БД уже лежит открытый Google refresh_token (1//...) или access_token (ya29.)
-    if clean.startswith("1//") or clean.startswith("ya29."):
-        return clean
-    for f in _get_stable_fernet_keys():
-        try:
-            return f.decrypt(clean.encode("utf-8")).decode("utf-8")
-        except Exception:
-            continue
-    return ""
+    return _core_decrypt_token(token_enc) or ""
 
 
 def decrypt_token_detailed(token_enc: Optional[str]) -> tuple[Optional[str], str]:
-    if not token_enc:
-        return None, "empty"
-    clean = token_enc.strip()
-    if not clean:
-        return None, "empty"
-    if clean.startswith("1//") or clean.startswith("ya29."):
-        return clean, "plaintext"
-    for idx, f in enumerate(_get_stable_fernet_keys()):
-        try:
-            return f.decrypt(clean.encode("utf-8")).decode("utf-8"), f"ok:key_{idx}"
-        except Exception:
-            continue
-    return None, "undecryptable"
+    return _core_decrypt_token_detailed(token_enc)
 
 
 def rotate_token(token_enc: Optional[str]) -> Optional[str]:
-    if not token_enc:
-        return None
-    plain = decrypt_token(token_enc)
-    if not plain:
-        return None
-    return encrypt_token(plain)
+    return _core_rotate_token(token_enc)
 
 
 def get_google_client_id() -> str:
@@ -200,6 +124,39 @@ def _is_permanent_token_error(err_msg: Optional[str]) -> bool:
         or "token_is_access_token_not_refresh_token" in msg
         or "unauthorized_client" in msg
     )
+
+
+def classify_relink_reason_code(
+    err_msg: Optional[str],
+    has_refresh_token: bool = True,
+    token_status: Optional[str] = None,
+) -> str:
+    """Map stored token/API errors onto stable frontend relink reason codes."""
+    msg = (err_msg or "").lower()
+    t_status = (token_status or "").lower()
+    if t_status == "undecryptable" or "undecryptable" in msg or "fernet" in msg:
+        return "key_changed"
+    if (
+        not has_refresh_token
+        or t_status == "empty"
+        or "no_refresh_token" in msg
+        or "missing_or_corrupt_refresh_token:empty" in msg
+        or "token_is_access_token_not_refresh_token" in msg
+    ):
+        return "no_refresh_token"
+    if "courses_error_403" in msg or "courses_http_403" in msg or "scope" in msg:
+        return "missing_scopes"
+    if (
+        "invalid_grant" in msg
+        or "unauthorized_client" in msg
+        or "revoked" in msg
+        or "courses_error_401" in msg
+        or "courses_http_401" in msg
+    ):
+        return "revoked"
+    if "missing_or_corrupt_refresh_token" in msg:
+        return "key_changed"
+    return "token_refresh_failed"
 
 
 def _is_permanent_courses_error(status_code: int, response_text: str = "") -> bool:

@@ -16,6 +16,15 @@ on:
         options:
           - scale
           - logs
+      log_dyno:
+        description: "Dyno filter when operation is logs"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - web
+          - worker
 
 jobs:
   scale-heroku-worker:
@@ -53,17 +62,19 @@ jobs:
 
   heroku-logs:
     if: github.event_name == 'workflow_dispatch' && inputs.operation == 'logs'
-    name: Read Heroku worker logs
+    name: Read Heroku logs (${{ inputs.log_dyno || 'all' }})
     runs-on: ubuntu-latest
     steps:
     - name: Fetch recent logs
       env:
         HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
         HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+        LOG_DYNO: ${{ inputs.log_dyno || 'all' }}
       run: |
         set -eu
         test -n "$HEROKU_API_KEY"
         test -n "$HEROKU_APP_NAME"
+        payload="$(python -c 'import json, os; d = {"source": "app", "lines": 500, "tail": False}; dyno = os.environ.get("LOG_DYNO", "all").strip(); d.update({"dyno": dyno} if dyno in ("web", "worker") else {}); print(json.dumps(d))')"
         session="$(
           curl --fail-with-body --silent --show-error \
             --request POST \
@@ -71,7 +82,7 @@ jobs:
             --header "Accept: application/vnd.heroku+json; version=3" \
             --header "Authorization: Bearer ${HEROKU_API_KEY}" \
             --header "Content-Type: application/json" \
-            --data '{"source":"app","dyno":"worker","lines":200,"tail":false}' |
+            --data "$payload" |
           python -c 'import json, sys; print(json.load(sys.stdin)["logplex_url"])'
         )"
         curl --fail-with-body --silent --show-error "$session" \

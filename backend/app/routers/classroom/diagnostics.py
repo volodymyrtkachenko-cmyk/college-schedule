@@ -15,6 +15,7 @@ from app.database import get_db
 from app.models import (
     ClassroomCredential,
     ClassroomGroupBinding,
+    Group,
     User,
 )
 from app.models.lesson_notes import LessonOccurrenceNote
@@ -168,22 +169,59 @@ async def get_classroom_credentials_diagnostics(
             )
         )
     ).all()
+    group_rows = (await db.scalars(select(Group))).all()
+    group_names = {g.id: g.name for g in group_rows}
+
+    now_utc = datetime.now(timezone.utc)
     results = []
+    by_token_status: dict[str, int] = {}
+    by_reason_code: dict[str, int] = {}
+    active_count = 0
+    needs_relink_count = 0
+    in_backoff_count = 0
+    inactive_count = 0
+
     for c in creds:
         plain, status = decrypt_token_detailed(c.refresh_token)
         has_plain = bool(plain)
-        prefix = plain[:4] if plain else None
+        needs_relink = bool(getattr(c, "needs_relink", False))
+        status_bucket = status.split(":", 1)[0]
+        by_token_status[status_bucket] = by_token_status.get(status_bucket, 0) + 1
+
+        if c.is_active and not needs_relink:
+            active_count += 1
+        if needs_relink:
+            needs_relink_count += 1
+        if not c.is_active:
+            inactive_count += 1
+        next_att = c.next_attempt_at
+        if next_att is not None:
+            next_att_utc = next_att if next_att.tzinfo else next_att.replace(tzinfo=timezone.utc)
+            if next_att_utc > now_utc:
+                in_backoff_count += 1
+
+        reason_code: Optional[str] = None
+        if needs_relink or not c.is_active or status in ("empty", "undecryptable") or c.last_error:
+            reason_code = classroom_tokens.classify_relink_reason_code(
+                c.last_error,
+                has_refresh_token=bool(c.refresh_token),
+                token_status=status,
+            )
+            by_reason_code[reason_code] = by_reason_code.get(reason_code, 0) + 1
+
         results.append({
             "id": c.id,
             "group_id": c.group_id,
+            "group_name": group_names.get(c.group_id),
             "google_user_id": c.google_user_id,
             "email": c.email,
             "student_name": c.student_name,
             "subgroup": c.subgroup,
             "is_active": c.is_active,
-            "needs_relink": getattr(c, "needs_relink", False),
+            "needs_relink": needs_relink,
             "fail_count": c.fail_count,
             "last_error": c.last_error,
+            "reason_code": reason_code,
             "next_attempt_at": _iso_utc(c.next_attempt_at),
             "last_synced_at": c.last_synced_at.isoformat() if c.last_synced_at else None,
             "last_refresh_ok_at": c.last_refresh_ok_at.isoformat() if getattr(c, "last_refresh_ok_at", None) else None,
@@ -191,24 +229,35 @@ async def get_classroom_credentials_diagnostics(
             "granted_scopes": getattr(c, "granted_scopes", None),
             "token_status": status,
             "token_format_valid": has_plain and not (plain or "").startswith("ya29."),
-            "token_prefix": prefix,
         })
-    now_utc = datetime.now(timezone.utc)
+
     now_mono = _time.monotonic()
     group_backoffs = {}
     for gid, (fails, next_allowed) in _sync_backoff_state.items():
         rem = next_allowed - now_mono
         if rem > 0:
             group_backoffs[str(gid)] = {
+                "group_name": group_names.get(gid),
                 "failures": fails,
                 "backoff_until": _iso_utc(now_utc + timedelta(seconds=rem)),
                 "remaining_seconds": int(rem),
             }
-    primary_key_configured = bool(os.getenv("CLASSROOM_FERNET_KEY") or getattr(settings, "classroom_fernet_key", ""))
+
+    primary_key_configured = classroom_tokens.has_primary_encryption_key()
+    encryption_key_source = classroom_tokens.get_encryption_key_source()
     worker_heartbeat = await _read_classroom_heartbeat(db)
     return {
         "primary_key_configured": primary_key_configured,
+        "encryption_key_source": encryption_key_source,
         "total_credentials": len(results),
+        "active_credentials": active_count,
+        "needs_relink_credentials": needs_relink_count,
+        "error_summary": {
+            "by_token_status": by_token_status,
+            "by_reason_code": by_reason_code,
+            "in_backoff_count": in_backoff_count,
+            "inactive_count": inactive_count,
+        },
         "worker_heartbeat": worker_heartbeat,
         "group_backoffs": group_backoffs,
         "credentials": results,

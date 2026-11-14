@@ -365,6 +365,14 @@ async def trigger_background_sync_if_needed(
                     await db.flush()
                     continue
 
+                if classroom_tokens._is_permanent_courses_error(courses_resp.status_code, courses_resp.text):
+                    cred.is_active = False
+                    cred.needs_relink = True
+                    cred.fail_count = (cred.fail_count or 0) + 1
+                    cred.last_error = f"needs_relink: courses_error_{courses_resp.status_code}"
+                    cred.next_attempt_at = None
+                    await db.flush()
+                    continue
                 if courses_resp.status_code in (401, 403, 429):
                     _apply_credential_backoff(
                         cred,

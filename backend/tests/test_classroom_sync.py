@@ -2653,6 +2653,206 @@ async def test_perform_course_sync_preserves_history_and_maps_distant_weeks(clas
         assert preserved_note is not None and "Старе завдання" in preserved_note.note
 
 
+@pytest.mark.anyio
+async def test_user_submissions_returns_needs_relink_and_protects_transient_401_refresh(classroom_db):
+    from sqlalchemy import select
+    from app.models import ClassroomCredential
+
+    client, state = classroom_db
+    gid = state["group_id"]
+
+    async with state["sessions"]() as db:
+        c_corrupt = ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_corrupt_sub",
+            email="corrupt_sub@kre.dp.ua",
+            student_name="Битий Токен",
+            refresh_token="gAAAAABnInvalidCiphertextPaddingTestLength123456789012345678901234567890",
+            is_active=False,
+            needs_relink=True,
+            last_error="missing_or_corrupt_refresh_token:undecryptable",
+        )
+        c_revoked = ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_revoked_sub",
+            email="revoked_sub@kre.dp.ua",
+            student_name="Відкликаний Токен",
+            refresh_token=encrypt_token("1//rt_will_revoke"),
+            is_active=True,
+            needs_relink=False,
+        )
+        c_transient = ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_transient_sub",
+            email="transient_sub@kre.dp.ua",
+            student_name="Тимчасова Помилка",
+            refresh_token=encrypt_token("1//rt_transient_ok"),
+            is_active=True,
+            needs_relink=False,
+        )
+        db.add_all([c_corrupt, c_revoked, c_transient])
+        await db.commit()
+
+    # 1. Deactivated / undecryptable credential surfaces needs_relink + reason_code="key_changed"
+    r_corrupt = await client.post(
+        "/api/classroom/user-submissions",
+        json={"group_id": gid, "google_user_id": "uid_corrupt_sub", "email": "corrupt_sub@kre.dp.ua"},
+    )
+    assert r_corrupt.status_code == 200
+    d_corrupt = r_corrupt.json()
+    assert d_corrupt["connected"] is False
+    assert d_corrupt["needs_relink"] is True
+    assert d_corrupt["reason_code"] == "key_changed"
+
+    # 2. Active credential hitting invalid_grant gets persisted as needs_relink=True + reason_code="revoked"
+    async def refresh_invalid_grant(rt: str):
+        return None, "invalid_grant: Token has been expired or revoked.", 400
+
+    with patch("app.services.classroom.tokens._refresh_google_token_detailed", side_effect=refresh_invalid_grant):
+        r_rev = await client.post(
+            "/api/classroom/user-submissions",
+            json={"group_id": gid, "google_user_id": "uid_revoked_sub", "email": "revoked_sub@kre.dp.ua"},
+        )
+    assert r_rev.status_code == 200
+    d_rev = r_rev.json()
+    assert d_rev["connected"] is False
+    assert d_rev["needs_relink"] is True
+    assert d_rev["reason_code"] == "revoked"
+
+    async with state["sessions"]() as db:
+        saved_corrupt = await db.scalar(
+            select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_corrupt_sub")
+        )
+        saved_rev = await db.scalar(
+            select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_revoked_sub")
+        )
+        assert saved_corrupt is not None and saved_corrupt.last_client_seen_at is not None
+        assert saved_rev is not None
+        assert saved_rev.is_active is False
+        assert saved_rev.needs_relink is True
+        assert "invalid_grant" in (saved_rev.last_error or "")
+
+    # 3. Expired client ya29 access token -> /courses 401 -> OAuth 503 transient failure must NOT deactivate!
+    transport_401 = _make_fake_google_transport(
+        courses_by_token={},
+        profiles_by_token={},
+        teachers_by_course={},
+        announcements_by_course={},
+        coursework_by_course={},
+        courses_status_by_token={"ya29.expired_client_tok": 401},
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport_401
+        return real_async_client(*args, **kwargs)
+
+    async def refresh_transient_503(rt: str):
+        return None, "http_503", 503
+
+    with (
+        patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client),
+        patch("app.services.classroom.tokens._refresh_google_token_detailed", side_effect=refresh_transient_503),
+    ):
+        r_trans = await client.post(
+            "/api/classroom/user-submissions",
+            headers={"Authorization": "Bearer ya29.expired_client_tok"},
+            json={"group_id": gid, "google_user_id": "uid_transient_sub", "email": "transient_sub@kre.dp.ua"},
+        )
+    assert r_trans.status_code == 200
+    d_trans = r_trans.json()
+    assert d_trans["connected"] is False
+    assert d_trans["needs_relink"] is False
+    assert d_trans["reason_code"] == "temporary_error"
+
+    async with state["sessions"]() as db:
+        saved_trans = await db.scalar(
+            select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_transient_sub")
+        )
+        assert saved_trans is not None
+        assert saved_trans.is_active is True
+        assert saved_trans.needs_relink is False
+        assert saved_trans.fail_count == 1
+        assert saved_trans.next_attempt_at is not None
+
+
+@pytest.mark.anyio
+async def test_worker_sync_marks_needs_relink_on_courses_401_and_backoff_on_429(classroom_db):
+    from sqlalchemy import select
+    from app.models import ClassroomCredential
+
+    _, state = classroom_db
+    gid = state["group_id"]
+
+    async with state["sessions"]() as db:
+        c_401 = ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_worker_401",
+            email="worker401@kre.dp.ua",
+            refresh_token=encrypt_token("1//rt_worker_401"),
+            is_active=True,
+            needs_relink=False,
+        )
+        c_429 = ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_worker_429",
+            email="worker429@kre.dp.ua",
+            refresh_token=encrypt_token("1//rt_worker_429"),
+            is_active=True,
+            needs_relink=False,
+        )
+        db.add_all([c_401, c_429])
+        await db.commit()
+
+    transport = _make_fake_google_transport(
+        courses_by_token={},
+        profiles_by_token={},
+        teachers_by_course={},
+        announcements_by_course={},
+        coursework_by_course={},
+        courses_status_by_token={
+            "ya29.tok_401": 401,
+            "ya29.tok_429": 429,
+        },
+        token_refresh_map={
+            "1//rt_worker_401": (200, {"access_token": "ya29.tok_401"}),
+            "1//rt_worker_429": (200, {"access_token": "ya29.tok_429"}),
+        },
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    with (
+        patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client),
+        patch.object(classroom_router.settings, "google_client_secret", "test_secret"),
+        patch.object(classroom_router.settings, "google_client_id", "test_client_id"),
+    ):
+        async with state["sessions"]() as db:
+            await classroom_router.trigger_background_sync_if_needed(db, gid, force=True)
+
+    async with state["sessions"]() as db:
+        res_401 = await db.scalar(
+            select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_worker_401")
+        )
+        res_429 = await db.scalar(
+            select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_worker_429")
+        )
+        assert res_401 is not None
+        assert res_401.is_active is False
+        assert res_401.needs_relink is True
+        assert res_401.last_error == "needs_relink: courses_error_401"
+        assert res_401.next_attempt_at is None
+
+        assert res_429 is not None
+        assert res_429.is_active is True
+        assert res_429.needs_relink is False
+        assert res_429.last_error == "courses_http_429"
+        assert res_429.next_attempt_at is not None
+
+
 
 
 

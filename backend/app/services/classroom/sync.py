@@ -59,6 +59,7 @@ from app.services.classroom.tokens import (
     _is_permanent_courses_error,
     _is_permanent_token_error,
     _sanitize_error_msg,
+    classify_relink_reason_code,
     decrypt_token,
     encrypt_token,
     rotate_token,
@@ -2075,50 +2076,102 @@ async def _fetch_user_submissions(
 
     # БЕЗПЕКА: Шукаємо ClassroomCredential ВИКЛЮЧНО за особистим google_user_id або email користувача!
     # Жодних фолбеків за самим лише group_id, щоб ніколи не підтягнути чужий акаунт одногрупника.
-    if eff_user_id or eff_email:
-        if eff_user_id and eff_email:
-            # Якщо є обидва — пріоритет точному збігу ID або пошти цього студента
-            cred = await db.scalar(
-                select(ClassroomCredential)
-                .where(
-                    ClassroomCredential.is_active.is_(True),
-                    (ClassroomCredential.google_user_id == eff_user_id)
-                    | (func.lower(ClassroomCredential.email) == eff_email.lower()),
-                )
-                .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
-            )
-        elif eff_user_id:
-            cred = await db.scalar(
-                select(ClassroomCredential)
-                .where(
-                    ClassroomCredential.is_active.is_(True),
-                    ClassroomCredential.google_user_id == eff_user_id,
-                )
-                .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
-            )
-        elif eff_email:
-            cred = await db.scalar(
-                select(ClassroomCredential)
-                .where(
-                    ClassroomCredential.is_active.is_(True),
-                    func.lower(ClassroomCredential.email) == eff_email.lower(),
-                )
-                .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
-            )
+    # Включаємо й неактивні / needs_relink записи, щоб коректно повернути needs_relink=True на клієнт.
+    if eff_user_id and eff_email:
+        identity_filter = (ClassroomCredential.google_user_id == eff_user_id) | (
+            func.lower(ClassroomCredential.email) == eff_email.lower()
+        )
+    elif eff_user_id:
+        identity_filter = ClassroomCredential.google_user_id == eff_user_id
+    elif eff_email:
+        identity_filter = func.lower(ClassroomCredential.email) == eff_email.lower()
+    else:
+        identity_filter = None
 
-    if not token and cred and cred.refresh_token:
-        fresh_tok, _, _ = await classroom_tokens._refresh_google_token_detailed(cred.refresh_token)
-        if fresh_tok:
-            token = fresh_tok
-            refreshed_access_token = fresh_tok
+    if identity_filter is not None:
+        cred = await db.scalar(
+            select(ClassroomCredential)
+            .where(identity_filter)
+            .order_by(
+                ClassroomCredential.is_active.desc(),
+                ClassroomCredential.last_synced_at.desc().nullslast(),
+                ClassroomCredential.id.desc(),
+            )
+        )
+
+    now_utc = datetime.now(timezone.utc)
+    if cred is not None:
+        cred.last_client_seen_at = now_utc
+
+    refresh_err_msg: Optional[str] = None
+    refresh_perm_err = False
+    if not token and cred:
+        if getattr(cred, "needs_relink", False) or not cred.is_active or not cred.refresh_token:
+            refresh_perm_err = True
+            refresh_err_msg = cred.last_error or (
+                "no_refresh_token" if not cred.refresh_token else "needs_relink"
+            )
+        else:
+            fresh_tok, rt_err, rt_status = await classroom_tokens._refresh_google_token_detailed(
+                cred.refresh_token
+            )
+            if fresh_tok:
+                token = fresh_tok
+                refreshed_access_token = fresh_tok
+                cred.last_refresh_ok_at = now_utc
+                cred.fail_count = 0
+                cred.next_attempt_at = None
+            else:
+                refresh_err_msg = rt_err or (
+                    f"token_http_{rt_status}" if rt_status else "token_refresh_failed"
+                )
+                refresh_perm_err = _is_permanent_token_error(refresh_err_msg)
+                if refresh_perm_err:
+                    cred.needs_relink = True
+                    cred.is_active = False
+                    cred.fail_count = (cred.fail_count or 0) + 1
+                    cred.last_error = _sanitize_error_msg(refresh_err_msg)
+                    cred.next_attempt_at = None
+                else:
+                    _apply_credential_backoff(cred, refresh_err_msg, now_utc)
 
     if not token and plain_rt:
-        fresh_tok, _, _ = await classroom_tokens._refresh_google_token_detailed(plain_rt)
+        fresh_tok, rt_err, rt_status = await classroom_tokens._refresh_google_token_detailed(plain_rt)
         if fresh_tok:
             token = fresh_tok
             refreshed_access_token = fresh_tok
+        elif not refresh_err_msg:
+            refresh_err_msg = rt_err or (
+                f"token_http_{rt_status}" if rt_status else "token_refresh_failed"
+            )
+            refresh_perm_err = _is_permanent_token_error(refresh_err_msg)
 
     if not token:
+        if cred is not None:
+            await db.commit()
+        if cred is not None and refresh_perm_err:
+            _, tok_status = classroom_tokens.decrypt_token_detailed(cred.refresh_token)
+            return {
+                "connected": False,
+                "submissions": {},
+                "tasks": [],
+                "needs_relink": True,
+                "reason": "needs_relink",
+                "reason_code": classify_relink_reason_code(
+                    cred.last_error or refresh_err_msg,
+                    has_refresh_token=bool(cred.refresh_token),
+                    token_status=tok_status,
+                ),
+            }
+        if refresh_err_msg:
+            return {
+                "connected": False,
+                "submissions": {},
+                "tasks": [],
+                "needs_relink": False,
+                "reason": "temporary_error",
+                "reason_code": "temporary_error",
+            }
         return {
             "connected": False,
             "submissions": {},
@@ -2137,16 +2190,61 @@ async def _fetch_user_submissions(
             if courses_resp.status_code == 401:
                 rt_to_try = cred.refresh_token if cred else plain_rt
                 if rt_to_try:
-                    fresh_tok, _, _ = await classroom_tokens._refresh_google_token_detailed(rt_to_try)
+                    fresh_tok, rt_err, rt_status = await classroom_tokens._refresh_google_token_detailed(rt_to_try)
                     if fresh_tok:
                         token = fresh_tok
                         refreshed_access_token = fresh_tok
+                        if cred is not None:
+                            cred.last_refresh_ok_at = now_utc
+                            cred.fail_count = 0
+                            cred.next_attempt_at = None
                         headers = {"Authorization": f"Bearer {token}"}
                         courses_resp = await client.get(
                             "https://classroom.googleapis.com/v1/courses",
                             params={"courseStates": "ACTIVE", "pageSize": 50},
                             headers=headers,
                         )
+                    else:
+                        retry_err = rt_err or (
+                            f"token_http_{rt_status}" if rt_status else "token_refresh_failed"
+                        )
+                        is_perm = _is_permanent_token_error(retry_err)
+                        if cred is not None:
+                            if is_perm:
+                                cred.needs_relink = True
+                                cred.is_active = False
+                                cred.fail_count = (cred.fail_count or 0) + 1
+                                cred.last_error = _sanitize_error_msg(retry_err)
+                                cred.next_attempt_at = None
+                            else:
+                                _apply_credential_backoff(cred, retry_err, now_utc)
+                            await db.commit()
+                        if is_perm:
+                            _, tok_status = (
+                                classroom_tokens.decrypt_token_detailed(cred.refresh_token)
+                                if cred is not None
+                                else (None, None)
+                            )
+                            return {
+                                "connected": False,
+                                "submissions": {},
+                                "tasks": [],
+                                "reason": "token_refresh_failed",
+                                "needs_relink": True,
+                                "reason_code": classify_relink_reason_code(
+                                    retry_err,
+                                    has_refresh_token=bool(cred.refresh_token if cred is not None else plain_rt),
+                                    token_status=tok_status,
+                                ),
+                            }
+                        return {
+                            "connected": False,
+                            "submissions": {},
+                            "tasks": [],
+                            "reason": "temporary_error",
+                            "needs_relink": False,
+                            "reason_code": "temporary_error",
+                        }
 
             if courses_resp.status_code != 200:
                 is_perm = _is_permanent_courses_error(courses_resp.status_code, courses_resp.text)
@@ -2177,14 +2275,18 @@ async def _fetch_user_submissions(
 
             all_courses = courses_resp.json().get("courses", [])
             if not all_courses:
-                return {
+                resp_payload = {
                     "connected": True,
                     "user_email": cred.email if cred else eff_email,
                     "submissions": {},
                     "tasks": [],
                     "access_token": refreshed_access_token or token,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
                 }
+                if cred is not None:
+                    await db.commit()
+                return resp_payload
 
             all_active_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
             target_group = await db.get(Group, group_id) if group_id else None
@@ -2338,7 +2440,7 @@ async def _fetch_user_submissions(
                         key = f"{c_id}_{cw_id}"
                         submissions_map[key] = sub_obj
 
-            return {
+            resp_payload = {
                 "connected": True,
                 "group_id": detected_group_id,
                 "user_email": cred.email if cred else eff_email,
@@ -2349,6 +2451,9 @@ async def _fetch_user_submissions(
                 "updated_at": datetime.now(timezone.utc).isoformat(),
                 "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
             }
+            if cred is not None:
+                await db.commit()
+            return resp_payload
     except Exception as exc:
         logger.error(f"User submissions fetch error: {_sanitize_error_msg(str(exc))}")
         return {

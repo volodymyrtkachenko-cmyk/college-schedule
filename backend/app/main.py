@@ -24,12 +24,28 @@ from app.routers.schedule_now import router as schedule_now_router
 from app.services.classroom.worker import classroom_auto_sync_loop
 from app.services.importer.worker import schedule_auto_import_loop
 
+def _configure_app_logging() -> None:
+    """Ensure app.* INFO logs emit under Uvicorn on the web dyno without breaking pytest caplog."""
+    import logging
+
+    app_logger = logging.getLogger("app")
+    if app_logger.level == logging.NOTSET or app_logger.level > logging.INFO:
+        app_logger.setLevel(logging.INFO)
+    root_logger = logging.getLogger()
+    if not app_logger.handlers and not root_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s: %(name)s: %(message)s"))
+        app_logger.addHandler(handler)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     import os
     import secrets
     import logging
     from sqlalchemy import text
+
+    _configure_app_logging()
 
     from app.core.crypto import check_crypto_config
     check_crypto_config()
