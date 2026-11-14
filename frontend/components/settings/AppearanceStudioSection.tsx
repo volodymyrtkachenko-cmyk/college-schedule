@@ -230,7 +230,7 @@ export function AppearanceStudioSection() {
             <div className="text-xs sm:text-sm font-bold text-sys-text-primary group-hover:text-sys-accent transition-colors">
               Студія оформлення
             </div>
-            <div className="text-xs text-sys-text-secondary truncate">
+            <div className="text-xs text-sys-text-secondary leading-snug break-words">
               {activeSurfaceLabel} · {activeBackdropLabel} · Шрифт {activeFontLabel}
             </div>
           </div>

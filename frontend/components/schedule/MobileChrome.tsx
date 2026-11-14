@@ -48,10 +48,10 @@ export function MobileChrome({
 }: MobileChromeProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card pt-[env(safe-area-inset-top)] lg:hidden">
-      {/* Tier 1 (h-14): [ДФКР Група ▾]   ‹ 19–25 жовт. ›   [💡] */}
-      <div className="flex h-14 items-center justify-between px-3 gap-1.5 overflow-hidden">
+      {/* Tier 1 (min-h-14): [ДФКР Група ▾]   ‹ 19–25 жовт. ›   [💡] */}
+      <div className="flex min-h-[3.5rem] py-1 items-center justify-between px-2.5 sm:px-3 gap-1 sm:gap-1.5 overflow-hidden">
         {/* Left: Brand + Context Selector */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <a
             href="https://kre.dp.ua/"
             target="_blank"
@@ -67,7 +67,11 @@ export function MobileChrome({
             type="button"
             onClick={onOpenContextModal}
             aria-label="Обрати групу або викладача"
-            className="flex h-10 items-center gap-1 rounded-xl border border-sys-border bg-sys-bg/90 px-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth truncate max-w-[105px] sm:max-w-[145px] shrink-0"
+            className={`flex h-10 items-center gap-1 rounded-xl border border-sys-border bg-sys-bg/90 px-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth truncate shrink-0 ${
+              mode === "teacher" && !isTeacherUnlocked
+                ? "max-w-[100px] sm:max-w-[175px]"
+                : "max-w-[118px] sm:max-w-[200px]"
+            }`}
           >
             <span className="truncate">
               {currentName || (mode === "student" ? "Група" : "Викладач")}
@@ -144,22 +148,24 @@ export function MobileChrome({
             <button
               type="button"
               onClick={onOpenWeekTypeSheet}
-              className="flex items-center justify-center gap-1 text-[11px] text-sys-text-muted hover:text-sys-text-secondary leading-none py-0.5 whitespace-nowrap overflow-hidden max-w-full"
+              className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-[10px] sm:text-[11px] text-sys-text-muted hover:text-sys-text-secondary leading-tight py-0.5 max-w-full cursor-pointer"
             >
-              {currentWeekNumber ? <span className="shrink-0">{currentWeekNumber} тиждень</span> : null}
+              {currentWeekNumber ? <span className="whitespace-nowrap">{currentWeekNumber} тиждень</span> : null}
               {weekType !== "both" && (
                 <>
-                  {currentWeekNumber ? <span className="shrink-0">·</span> : null}
-                  <span className="underline decoration-dotted underline-offset-2 shrink-0">
-                    {weekType === "numerator" ? "чисельник" : "знаменник"}
+                  {currentWeekNumber ? <span aria-hidden="true">·</span> : null}
+                  <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
+                    <span className="underline decoration-dotted underline-offset-2">
+                      {weekType === "numerator" ? "чисельник" : "знаменник"}
+                    </span>
+                    <span className="text-[10px]">ⓘ</span>
                   </span>
-                  <span className="text-[10px] shrink-0">ⓘ</span>
                 </>
               )}
               {headerLearningModeData && (
                 <>
-                  {(currentWeekNumber || weekType !== "both") && <span className="shrink-0">·</span>}
-                  <span className="font-semibold text-sys-text-secondary shrink-0">
+                  {(currentWeekNumber || weekType !== "both") && <span aria-hidden="true">·</span>}
+                  <span className="font-semibold text-sys-text-secondary whitespace-nowrap">
                     {headerLearningModeData.baseLabel}
                   </span>
                 </>

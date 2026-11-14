@@ -274,7 +274,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => updateSetting("defaultSubgroup", 1)}
-                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer min-w-0 ${
                       settings.defaultSubgroup === 1
                         ? "bg-sys-accent text-white border-sys-accent shadow-xs"
                         : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
@@ -282,11 +282,11 @@ export default function SettingsPage() {
                   >
                     <div className="text-xs font-bold">1 підгрупа</div>
                     {subgroupHints.sub1.length > 0 ? (
-                      <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
+                      <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
                         {subgroupHints.sub1.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
                       </div>
                     ) : (
-                      <div className={`text-[11px] mt-0.5 ${settings.defaultSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
+                      <div className={`text-[11px] mt-0.5 leading-snug ${settings.defaultSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
                         Перша половина групи
                       </div>
                     )}
@@ -295,7 +295,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => updateSetting("defaultSubgroup", 2)}
-                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer min-w-0 ${
                       settings.defaultSubgroup === 2
                         ? "bg-sys-accent text-white border-sys-accent shadow-xs"
                         : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
@@ -303,11 +303,11 @@ export default function SettingsPage() {
                   >
                     <div className="text-xs font-bold">2 підгрупа</div>
                     {subgroupHints.sub2.length > 0 ? (
-                      <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
+                      <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
                         {subgroupHints.sub2.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
                       </div>
                     ) : (
-                      <div className={`text-[11px] mt-0.5 ${settings.defaultSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
+                      <div className={`text-[11px] mt-0.5 leading-snug ${settings.defaultSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
                         Друга половина групи
                       </div>
                     )}
@@ -316,14 +316,14 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => updateSetting("defaultSubgroup", "all")}
-                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer min-w-0 ${
                       settings.defaultSubgroup === "all" || settings.defaultSubgroup === null
                         ? "bg-sys-accent text-white border-sys-accent shadow-xs"
                         : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
                     <div className="text-xs font-bold">Обидві підгрупи</div>
-                    <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === "all" || settings.defaultSubgroup === null ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
+                    <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === "all" || settings.defaultSubgroup === null ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
                       Показувати викладачів обох підгруп
                     </div>
                   </button>
@@ -427,14 +427,14 @@ export default function SettingsPage() {
               <div className="space-y-0.5 min-w-0">
                 <span className="text-xs font-semibold text-sys-text-secondary">Студентська пошта Google</span>
                 {isLinked && linkedEmail ? (
-                  <div className="flex items-center gap-1.5 font-bold text-sys-text-primary truncate">
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-bold text-sys-text-primary min-w-0">
                     <span
                       className={`h-2 w-2 rounded-full shrink-0 ${
                         needsRelink ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
                       }`}
                     />
                     <span
-                      className={`font-semibold mr-1 ${
+                      className={`font-semibold shrink-0 ${
                         needsRelink
                           ? "text-amber-700 dark:text-amber-400"
                           : "text-emerald-700 dark:text-emerald-400"
@@ -442,7 +442,7 @@ export default function SettingsPage() {
                     >
                       {needsRelink ? "Потрібна повторна прив'язка ·" : "Прив'язано ·"}
                     </span>
-                    <span className="truncate">{linkedEmail}</span>
+                    <span className="break-all sm:truncate min-w-0">{linkedEmail}</span>
                   </div>
                 ) : (
                   <div className="text-sys-text-muted font-medium">Не прив&apos;язано</div>
@@ -603,13 +603,13 @@ export default function SettingsPage() {
                 setShowGuideMounted(true);
                 setShowGuideModal(true);
               }}
-              className="spring-press sm:col-span-2 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 p-3 hover:border-sys-accent/60 hover:bg-sys-accent/15 transition-colors duration-fast ease-smooth group text-left cursor-pointer"
+              className="spring-press sm:col-span-2 flex items-center justify-between gap-3 rounded-xl border border-sys-accent/30 bg-sys-accent/10 p-3 hover:border-sys-accent/60 hover:bg-sys-accent/15 transition-colors duration-fast ease-smooth group text-left cursor-pointer"
             >
-              <span className="flex items-center gap-2.5">
+              <span className="flex items-center gap-2.5 min-w-0 flex-1">
                 <LightbulbIcon className="h-4 w-4 shrink-0 text-sys-accent" />
-                <span className="flex flex-col">
-                  <span className="font-semibold text-sys-text-primary text-xs sm:text-sm">Гід та довідник можливостей</span>
-                  <span className="text-[11px] text-sys-text-secondary">Усі фішки, підказки, офлайн-режим, дзвінки та робота з Classroom</span>
+                <span className="flex flex-col min-w-0">
+                  <span className="font-semibold text-sys-text-primary text-xs sm:text-sm leading-snug">Гід та довідник можливостей</span>
+                  <span className="text-[11px] text-sys-text-secondary leading-snug">Усі фішки, підказки, офлайн-режим, дзвінки та робота з Classroom</span>
                 </span>
               </span>
               <span className="text-sys-accent group-hover:translate-x-0.5 transition-transform text-xs font-bold shrink-0">Відкрити →</span>

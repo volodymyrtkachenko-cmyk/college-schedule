@@ -373,7 +373,7 @@ export function GuideHubModal({
 
                   {role === "student" && (safeIdx === 3 || safeIdx === 4) && (
                     <div className="w-full flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
-                      <span className="font-semibold text-sys-text-secondary truncate">
+                      <span className="font-semibold text-sys-text-secondary leading-snug break-words min-w-0">
                         {taskCounts ? (
                           <>
                             У вас зараз: <span className="text-sys-text-primary">{taskCounts.pending} до здачі</span>

@@ -68,14 +68,14 @@ function ActiveTasksList({
                   vibrateTap(10);
                 }}
                 title={`${task.teacher ? `[${task.teacher}] ` : ""}${task.title || "Завдання"} — Відкрити в Classroom`}
-                className="group flex items-center justify-between gap-2 rounded-lg border border-sys-border bg-sys-bg/80 px-2.5 py-1.5 text-xs text-sys-text-primary hover:border-sys-elevated-border hover:bg-sys-surface transition-colors"
+                className="group flex items-start justify-between gap-2 rounded-lg border border-sys-border bg-sys-bg/80 px-2.5 py-1.5 text-xs text-sys-text-primary hover:border-sys-elevated-border hover:bg-sys-surface transition-colors"
               >
                 <div className="flex min-w-0 flex-col">
-                  <span className="font-semibold text-sys-text-primary truncate text-xs group-hover:text-sys-accent transition-colors">
+                  <span className="font-semibold text-sys-text-primary line-clamp-2 break-words leading-snug text-xs group-hover:text-sys-accent transition-colors">
                     {task.title || "Завдання"}
                   </span>
                   {!group.teacher && task.teacher && (
-                    <span className="text-[11px] text-sys-text-muted truncate">({task.teacher})</span>
+                    <span className="text-[11px] text-sys-text-muted break-words leading-tight">({task.teacher})</span>
                   )}
                   {task.deadline.statusText ? (
                     <span className={`text-xs ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
@@ -83,7 +83,7 @@ function ActiveTasksList({
                     </span>
                   ) : null}
                 </div>
-                <span className="shrink-0 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors ml-1">
+                <span className="shrink-0 mt-0.5 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors ml-1">
                   ↗
                 </span>
               </a>
@@ -97,19 +97,19 @@ function ActiveTasksList({
                   e.stopPropagation();
                   vibrateTap(10);
                 }}
-                className={`group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors ${
+                className={`group flex items-start justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors ${
                   isMobile ? "min-h-[44px]" : ""
                 }`}
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2 min-w-0 flex-1">
+                  <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-snug">
                     {task.title || "Завдання"}
                   </span>
                   {!group.teacher && task.teacher && (
-                    <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
+                    <span className="text-sys-text-muted text-xs shrink-0 whitespace-nowrap">({task.teacher})</span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 mt-0.5 whitespace-nowrap">
                   {task.deadline.statusText ? (
                     <span className={`text-xs font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
                       {getTaskStatusText(task.deadline, isLinked)}
@@ -178,17 +178,17 @@ function CompletedTasksList({
                     e.stopPropagation();
                     vibrateTap(10);
                   }}
-                  className="group flex items-center justify-between gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-2.5 py-1.5 text-xs text-sys-text-primary hover:bg-emerald-500/10 transition-colors"
+                  className="group flex items-start justify-between gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-2.5 py-1.5 text-xs text-sys-text-primary hover:bg-emerald-500/10 transition-colors"
                 >
                   <div className="flex min-w-0 flex-col">
-                    <span className="font-semibold text-sys-text-primary truncate text-xs group-hover:text-sys-accent transition-colors">
+                    <span className="font-semibold text-sys-text-primary line-clamp-2 break-words leading-snug text-xs group-hover:text-sys-accent transition-colors">
                       {task.title || "Завдання"}
                     </span>
                     {!group.teacher && task.teacher && (
-                      <span className="text-[11px] text-sys-text-muted truncate">({task.teacher})</span>
+                      <span className="text-[11px] text-sys-text-muted break-words leading-tight">({task.teacher})</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                  <div className="flex items-center gap-1.5 shrink-0 ml-1 mt-0.5 whitespace-nowrap">
                     <span className="inline-flex items-center text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
                       {gradeText}
                     </span>
@@ -239,17 +239,17 @@ function CompletedTasksList({
                   e.stopPropagation();
                   vibrateTap(10);
                 }}
-                className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-emerald-500/10 transition-colors bg-emerald-500/[0.03] border border-emerald-500/20"
+                className="group flex items-start justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-emerald-500/10 transition-colors bg-emerald-500/[0.03] border border-emerald-500/20"
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2 min-w-0 flex-1">
+                  <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-snug">
                     {task.title || "Завдання"}
                   </span>
                   {!group.teacher && task.teacher && (
-                    <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
+                    <span className="text-sys-text-muted text-xs shrink-0 whitespace-nowrap">({task.teacher})</span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 mt-0.5 whitespace-nowrap">
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
                     {gradeText}
                   </span>
@@ -314,7 +314,7 @@ export function DayTasksSection({
         className={`group flex w-full ${
           isMobile
             ? "min-h-[44px] items-start justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-sys-border-elevated hover:bg-sys-bg transition-colors duration-fast ease-smooth shadow-xs cursor-pointer mt-1 overflow-hidden"
-            : "items-center justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-sys-border-elevated hover:bg-sys-bg transition-colors duration-fast ease-smooth shadow-xs cursor-pointer overflow-hidden"
+            : "items-start justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-sys-border-elevated hover:bg-sys-bg transition-colors duration-fast ease-smooth shadow-xs cursor-pointer overflow-hidden"
         }`}
         style={{ boxShadow: getDeadlineAccentShadow(task, isLinked) }}
       >
@@ -342,13 +342,13 @@ export function DayTasksSection({
           </>
         ) : (
           <>
-            <div className="flex items-center gap-2 min-w-0">
-              <ClipboardIcon className="shrink-0 text-sys-text-muted group-hover:text-sys-accent transition-colors" />
-              <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+            <div className="flex items-start gap-2 min-w-0 flex-1">
+              <ClipboardIcon className="shrink-0 mt-0.5 text-sys-text-muted group-hover:text-sys-accent transition-colors" />
+              <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-snug">
                 {titleLabel}
               </span>
             </div>
-            <div className="flex items-center gap-2 shrink-0 ml-3">
+            <div className="flex items-center gap-2 shrink-0 ml-3 mt-0.5 whitespace-nowrap">
               {task.deadline.statusText ? (
                 <span className={`inline-flex items-center gap-1.5 font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${getTaskDeadlineDotColor(task.deadline.badgeTone, isLinked)}`} />

@@ -150,15 +150,15 @@ export function TasksTodoBoard({
           role="tab"
           aria-selected={activeTab === "pending"}
           onClick={() => setActiveTab("pending")}
-          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
+          className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1.5 sm:px-2 text-[11px] sm:text-xs rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             activeTab === "pending"
               ? "text-white font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          <span className="truncate">До здачі</span>
+          <span className="whitespace-nowrap">До здачі</span>
           <span
-            className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
+            className={`inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
               activeTab === "pending"
                 ? "bg-white/20 text-white"
                 : "bg-sys-card text-sys-text-secondary border border-sys-border/60"
@@ -173,7 +173,7 @@ export function TasksTodoBoard({
           role="tab"
           aria-selected={activeTab === "overdue"}
           onClick={() => setActiveTab("overdue")}
-          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
+          className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1.5 sm:px-2 text-[11px] sm:text-xs rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             activeTab === "overdue"
               ? "text-white font-bold"
               : overdueTotalCount > 0 && isLinked
@@ -181,9 +181,9 @@ export function TasksTodoBoard({
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          <span className="truncate">{isLinked ? "Борги" : "Минув час"}</span>
+          <span className="whitespace-nowrap">{isLinked ? "Борги" : "Минув час"}</span>
           <span
-            className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
+            className={`inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
               activeTab === "overdue"
                 ? "bg-white/20 text-white"
                 : overdueTotalCount > 0 && isLinked
@@ -201,15 +201,15 @@ export function TasksTodoBoard({
             role="tab"
             aria-selected={activeTab === "done"}
             onClick={() => setActiveTab("done")}
-            className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
+            className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1.5 sm:px-2 text-[11px] sm:text-xs rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
               activeTab === "done"
                 ? "text-white font-bold"
                 : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
-            <span className="truncate">Здано</span>
+            <span className="whitespace-nowrap">Здано</span>
             <span
-              className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
+              className={`inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
                 activeTab === "done"
                   ? "bg-white/20 text-white"
                   : "bg-sys-card text-sys-text-secondary border border-sys-border/60"
@@ -356,9 +356,9 @@ export function TasksTodoBoard({
           onClick={() => setActiveTab("overdue")}
           className="w-full flex items-center justify-between gap-2 rounded-xl border border-rose-500/35 bg-rose-500/10 px-3.5 py-2.5 text-xs text-left transition-colors hover:bg-rose-500/15 active:scale-[0.99] cursor-pointer"
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
-            <span className="font-semibold text-rose-800 dark:text-rose-300 truncate">
+          <div className="flex items-start gap-2 min-w-0 flex-1">
+            <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0 mt-1" />
+            <span className="font-semibold text-rose-800 dark:text-rose-300 leading-snug break-words">
               У вас {overdueTotalCount} прострочених {formatTaskWord(overdueTotalCount)}
             </span>
           </div>
@@ -628,14 +628,14 @@ export function MobileTasksView({
       {/* Header */}
       <div className="mb-3 flex items-start justify-between min-h-[48px]">
         <div className="min-w-0 flex-1 pr-2">
-          <div className="h-7 flex items-center">
-            <h2 className="text-xl font-bold tracking-tight text-sys-text-primary leading-none truncate">
+          <div className="min-h-[1.75rem] flex items-center">
+            <h2 className="text-xl font-bold tracking-tight text-sys-text-primary leading-tight break-words">
               {viewMode === "grades" ? "Оцінки" : "Завдання Classroom"}
             </h2>
           </div>
           {hasAccess && (
-            <div className="flex items-center gap-1.5 mt-0.5 h-4 text-xs text-sys-text-secondary min-w-0">
-              <span className="truncate">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 min-h-[1rem] text-xs leading-snug text-sys-text-secondary min-w-0">
+              <span className="break-words">
                 {viewMode === "grades"
                   ? "Середній бал та успішність"
                   : isLinked
@@ -643,7 +643,7 @@ export function MobileTasksView({
                   : `Усього в розкладі: ${totalCount} ${formatTaskWord(totalCount)}`}
               </span>
               {formattedSyncTime && (
-                <span className="shrink-0 text-sys-text-muted">• {formattedSyncTime}</span>
+                <span className="shrink-0 whitespace-nowrap text-sys-text-muted">• {formattedSyncTime}</span>
               )}
             </div>
           )}

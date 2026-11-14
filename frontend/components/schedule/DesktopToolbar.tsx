@@ -58,10 +58,10 @@ export function DesktopToolbar({
     (view === "week" && isCurrentWeek);
 
   return (
-    <header className="vt-desktop-header sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card">
-      <div className="mx-auto flex h-full max-w-[1800px] items-center justify-between gap-3 px-4 xl:px-6">
+    <header className="vt-desktop-header sticky top-0 z-40 hidden lg:block min-h-[3.5rem] border-b border-sys-border bg-sys-card">
+      <div className="mx-auto flex min-h-[3.5rem] max-w-[1800px] items-center justify-between gap-2 xl:gap-3 px-3 lg:px-4 xl:px-6 py-1.5">
         {/* Left Zone: Brand + Context Selector */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 xl:gap-3 min-w-0">
           <a
             href="https://kre.dp.ua/"
             target="_blank"
@@ -72,7 +72,7 @@ export function DesktopToolbar({
             <span className="rounded bg-sys-accent/15 px-2 py-0.5 text-xs font-black uppercase tracking-wider text-sys-accent border border-sys-accent/20">
               ДФКР
             </span>
-            <span className="text-sm font-bold tracking-tight text-sys-text-primary">
+            <span className="hidden xl:inline text-sm font-bold tracking-tight text-sys-text-primary">
               Розклад
             </span>
           </a>
@@ -81,7 +81,7 @@ export function DesktopToolbar({
             type="button"
             onClick={onOpenContextModal}
             aria-label="Обрати групу або викладача"
-            className="flex h-10 items-center gap-2 rounded-xl border border-sys-border bg-sys-bg/80 px-3 text-sm font-medium text-sys-text-primary hover:border-sys-accent/60 hover:bg-sys-bg transition-colors duration-fast ease-smooth truncate max-w-[260px] focus:outline-none focus:ring-2 focus:ring-sys-accent"
+            className="flex h-10 items-center gap-1.5 xl:gap-2 rounded-xl border border-sys-border bg-sys-bg/80 px-2.5 xl:px-3 text-xs xl:text-sm font-medium text-sys-text-primary hover:border-sys-accent/60 hover:bg-sys-bg transition-colors duration-fast ease-smooth truncate max-w-[185px] xl:max-w-[260px] focus:outline-none focus:ring-2 focus:ring-sys-accent"
           >
             <span className="text-sys-text-muted shrink-0">
               {mode === "student" ? "Група:" : "Викладач:"}
@@ -114,7 +114,7 @@ export function DesktopToolbar({
               disabled={isTodayButtonDisabled}
               aria-label="Перейти на сьогодні"
               title="Перейти на сьогодні"
-              className={`px-3.5 h-10 rounded-lg font-medium transition-colors ${
+              className={`px-2.5 xl:px-3.5 h-10 rounded-lg font-medium transition-colors whitespace-nowrap ${
                 isTodayButtonDisabled
                   ? "text-sys-text-muted cursor-default bg-transparent opacity-50"
                   : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95"
@@ -172,7 +172,7 @@ export function DesktopToolbar({
             <button
               type="button"
               onClick={() => onViewChange("today")}
-              className={`relative z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer ${
+              className={`relative z-10 h-8 px-2.5 xl:px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer ${
                 view === "today" ? "text-white" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
@@ -181,7 +181,7 @@ export function DesktopToolbar({
             <button
               type="button"
               onClick={() => onViewChange("week")}
-              className={`relative z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer ${
+              className={`relative z-10 h-8 px-2.5 xl:px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer ${
                 view === "week" ? "text-white" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
@@ -191,7 +191,7 @@ export function DesktopToolbar({
           {headerLearningModeData && (
             <span
               title={headerLearningModeData.title}
-              className={`shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+              className={`shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full border px-2.5 xl:px-3 py-1 text-xs font-semibold transition-colors ${
                 headerLearningModeData.override
                   ? headerLearningModeData.mode === "offline"
                     ? "border-sys-accent/40 bg-sys-accent/10 text-sys-accent"
@@ -200,7 +200,7 @@ export function DesktopToolbar({
               }`}
             >
               <span
-                className={`h-1.5 w-1.5 rounded-full ${
+                className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                   headerLearningModeData.mode === "offline"
                     ? "bg-sys-accent"
                     : headerLearningModeData.override
@@ -208,7 +208,7 @@ export function DesktopToolbar({
                       : "bg-slate-400 dark:bg-slate-500"
                 }`}
               />
-              <span>{headerLearningModeData.fullLabel}</span>
+              <span className="max-w-[145px] xl:max-w-none truncate">{headerLearningModeData.fullLabel}</span>
             </span>
           )}
         </div>

@@ -262,14 +262,15 @@ export function ScheduleDay({
 
       {/* Morning pre-lesson indicator */}
       {isBeforeDayStart && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3">
+          <div className="flex items-center gap-2 shrink-0">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span>До початку занять</span>
           </div>
-          <div className="flex items-center gap-1.5 text-sys-text-primary font-medium">
-            <span>
-              {orderedLessons[0].lesson_number}-а пара о {orderedLessons[0].time.split(/[-–—]/)[0]} (через {timeToStart >= 60 ? `${Math.floor(timeToStart / 60)} год${timeToStart % 60 > 0 ? ` ${timeToStart % 60} хв` : ""}` : `${timeToStart} хв`})
+          <div className="flex items-center gap-1.5 text-sys-text-primary font-medium min-w-0">
+            <span className="leading-snug">
+              <span className="whitespace-nowrap">{orderedLessons[0].lesson_number}-а пара о {orderedLessons[0].time.split(/[-–—]/)[0]}</span>{" "}
+              <span className="whitespace-nowrap">(через {timeToStart >= 60 ? `${Math.floor(timeToStart / 60)} год${timeToStart % 60 > 0 ? ` ${timeToStart % 60} хв` : ""}` : `${timeToStart} хв`})</span>
             </span>
           </div>
         </div>
@@ -306,13 +307,13 @@ export function ScheduleDay({
                 className="desktop-stagger-card flex flex-col gap-2.5 relative has-[[data-open]]:z-50"
               >
                 {isBreakNow && (
-                  <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
-                    <span className="inline-flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center justify-center text-center gap-x-2 gap-y-0.5 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                       <CoffeeIcon className="w-3.5 h-3.5 shrink-0" />
                       <span>Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
                     </span>
-                    <span>•</span>
-                    <span>до {lesson.lesson_number}-ї пари залишилось {breakLeft} хв</span>
+                    <span aria-hidden="true">•</span>
+                    <span>до {lesson.lesson_number}-ї пари залишилось <span className="whitespace-nowrap">{breakLeft} хв</span></span>
                   </div>
                 )}
                 <LessonCard

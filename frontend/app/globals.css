@@ -520,7 +520,8 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 
   p,
-  li {
+  li,
+  dd {
     text-wrap: pretty;
   }
 

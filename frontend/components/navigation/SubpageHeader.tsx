@@ -36,9 +36,9 @@ export function SubpageHeader({
   };
 
   return (
-    <header className="vt-desktop-header sticky top-0 z-30 h-14 border-b border-sys-border bg-sys-card">
-      <div className={`mx-auto h-full ${maxWidthClass} px-3 sm:px-6`}>
-        <div className="flex h-full items-center justify-between gap-2 sm:gap-3">
+    <header className="vt-desktop-header sticky top-0 z-30 min-h-[3.5rem] border-b border-sys-border bg-sys-card">
+      <div className={`mx-auto min-h-[3.5rem] ${maxWidthClass} px-3 sm:px-6 flex items-center`}>
+        <div className="flex w-full py-1.5 items-center justify-between gap-2 sm:gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
             <TransitionLink
               href={backHref}
@@ -65,11 +65,11 @@ export function SubpageHeader({
             </TransitionLink>
 
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-sm sm:text-base font-bold tracking-tight text-sys-text-primary leading-tight">
+              <h1 className="text-sm sm:text-base font-bold tracking-tight text-sys-text-primary leading-tight break-words [text-wrap:balance]">
                 {title}
               </h1>
               {subtitle && (
-                <p className="hidden sm:block truncate text-[11px] text-sys-text-secondary leading-tight">
+                <p className="hidden sm:block text-[11px] text-sys-text-secondary leading-snug break-words">
                   {subtitle}
                 </p>
               )}

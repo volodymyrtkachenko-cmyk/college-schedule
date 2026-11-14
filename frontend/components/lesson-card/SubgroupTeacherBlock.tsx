@@ -115,10 +115,10 @@ export function SubgroupTeacherBlock({
               }}
               className={`text-left font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none ${
                 variant === "desktop-day"
-                  ? "text-xs sm:text-sm break-words"
+                  ? "text-xs sm:text-sm break-words leading-tight"
                   : variant === "mobile-day"
-                  ? "text-xs sm:text-sm truncate min-w-0"
-                  : "text-xs break-words"
+                  ? "text-xs sm:text-sm break-words leading-tight min-w-0"
+                  : "text-xs break-words leading-tight"
               }`}
               title={item.displayName}
             >
@@ -128,10 +128,10 @@ export function SubgroupTeacherBlock({
             <span
               className={`font-medium text-sys-text-secondary ${
                 variant === "desktop-day"
-                  ? "text-xs sm:text-sm break-words"
+                  ? "text-xs sm:text-sm break-words leading-tight"
                   : variant === "mobile-day"
-                  ? "text-xs sm:text-sm truncate min-w-0"
-                  : "text-xs break-words"
+                  ? "text-xs sm:text-sm break-words leading-tight min-w-0"
+                  : "text-xs break-words leading-tight"
               }`}
               title={item.displayName}
             >
@@ -280,14 +280,14 @@ export function SubgroupTeacherBlock({
                       e.stopPropagation();
                       onQuickJump(item.target);
                     }}
-                    className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none truncate min-w-0"
+                    className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words leading-tight min-w-0"
                     title={item.displayName}
                   >
                     {item.displayName}
                   </button>
                 ) : (
                   <span
-                    className="text-xs sm:text-sm font-medium text-sys-text-secondary truncate min-w-0"
+                    className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words leading-tight min-w-0"
                     title={item.displayName}
                   >
                     {item.displayName}

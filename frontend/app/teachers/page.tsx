@@ -206,7 +206,7 @@ export default async function TeachersDirectoryPage() {
                           href={`/teacher/${toTeacherSlug(teacher.name)}`}
                           className="group flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-bg px-3.5 py-2.5 hover:border-sys-accent/50 hover:bg-sys-card transition-[color,border-color,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent"
                         >
-                          <span className="truncate text-sm font-medium text-sys-text-primary group-hover:text-sys-accent transition-colors">
+                          <span className="break-words leading-snug text-sm font-medium text-sys-text-primary group-hover:text-sys-accent transition-colors">
                             {teacher.name}
                           </span>
                           <ChevronRightIcon className="h-4 w-4 shrink-0 text-sys-text-muted group-hover:text-sys-accent transition-colors" />

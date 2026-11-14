@@ -282,12 +282,18 @@ export function ContextSelectionModal({
                           }`
                     }
                   >
-                    <div className="flex items-center justify-between gap-1.5 w-full">
-                      <span className="truncate font-bold text-sm">{opt.name}</span>
+                    <div className="flex items-center justify-between gap-1.5 w-full min-w-0">
+                      <span
+                        className={`font-bold text-sm leading-snug ${
+                          modalTab === "teacher" ? "break-words text-left min-w-0" : "truncate"
+                        }`}
+                      >
+                        {opt.name}
+                      </span>
                       {isSelected && <CheckIcon className="h-3.5 w-3.5 shrink-0 text-sys-accent" />}
                     </div>
                     {groupBadge && groupBadge !== opt.name && (
-                      <span className="mt-0.5 text-[10px] text-sys-text-muted truncate block">
+                      <span className="mt-0.5 text-[10px] text-sys-text-muted line-clamp-2 leading-tight break-words block">
                         {groupBadge}
                       </span>
                     )}

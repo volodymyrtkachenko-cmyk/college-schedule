@@ -225,7 +225,7 @@ export default async function GroupsDirectoryPage() {
                                 </span>
                               )}
                             </div>
-                            <p className="mt-0.5 truncate text-xs text-sys-text-secondary">
+                            <p className="mt-0.5 line-clamp-2 leading-snug break-words text-xs text-sys-text-secondary">
                               {specialty}
                             </p>
                           </div>

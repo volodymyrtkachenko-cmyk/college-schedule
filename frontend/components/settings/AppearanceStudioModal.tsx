@@ -760,7 +760,7 @@ export function AppearanceStudioModal({
                             type="button"
                             aria-pressed={active}
                             onClick={() => setAccent(opt.id as AccentColor)}
-                            className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors cursor-pointer ${
+                            className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors cursor-pointer min-w-0 ${
                               active
                                 ? "border-sys-accent bg-sys-accent/12 text-sys-text-primary ring-1 ring-sys-accent/35"
                                 : "border-sys-border bg-sys-bg text-sys-text-secondary hover:border-sys-elevated-border hover:text-sys-text-primary"
@@ -775,7 +775,7 @@ export function AppearanceStudioModal({
                                 } 46%, ${opt.colorHex} 100%)`,
                               }}
                             />
-                            <span className="text-xs font-semibold">{opt.label}</span>
+                            <span className="text-xs font-semibold min-w-0 leading-tight break-words">{opt.label}</span>
                           </button>
                         );
                       })}
@@ -784,7 +784,7 @@ export function AppearanceStudioModal({
                         type="button"
                         aria-pressed={accent === "custom"}
                         onClick={() => setAccent("custom")}
-                        className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors cursor-pointer ${
+                        className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors cursor-pointer min-w-0 ${
                           accent === "custom"
                             ? "border-sys-accent bg-sys-accent/12 text-sys-text-primary ring-1 ring-sys-accent/35"
                             : "border-sys-border bg-sys-bg text-sys-text-secondary hover:border-sys-elevated-border hover:text-sys-text-primary"
@@ -800,7 +800,7 @@ export function AppearanceStudioModal({
                                 : "conic-gradient(from 0deg, #ef4444, #f59e0b, #10b981, #06b6d4, #3b82f6, #a855f7, #ef4444)",
                           }}
                         />
-                        <span className="text-xs font-semibold">Свій колір</span>
+                        <span className="text-xs font-semibold min-w-0 leading-tight break-words">Свій колір</span>
                       </button>
                     </div>
                   </div>

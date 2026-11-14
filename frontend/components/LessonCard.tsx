@@ -153,7 +153,7 @@ export const LessonCard = memo(function LessonCard({
   const renderSubjectTitle = (sizeClasses: string, titleAttr?: string) => (
     <h3
       title={titleAttr}
-      className={`${sizeClasses} break-words ${
+      className={`${sizeClasses} break-words [text-wrap:pretty] ${
         lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"
       }`}
     >
@@ -614,7 +614,7 @@ export const LessonCard = memo(function LessonCard({
                 </div>
               </div>
 
-              <div className="shrink-0 flex flex-col items-end justify-start gap-2 pt-0.5">
+              <div className="shrink-0 sm:max-w-[42%] lg:max-w-[44%] flex flex-col items-end justify-start gap-2 pt-0.5">
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {(!isDualTeachers || isSingleSubgroupShown) && displayRooms.length > 0 && (
                     <div className="ui-mono-slot inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
@@ -661,11 +661,11 @@ export const LessonCard = memo(function LessonCard({
             )}
 
             {visibleNoteText && (
-              <p title={visibleNoteText} className="flex items-center gap-1.5 text-xs text-sys-text-secondary/60 italic min-w-0">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
+              <p title={visibleNoteText} className="flex items-start gap-1.5 text-xs text-sys-text-secondary/60 italic min-w-0">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5 text-sys-text-muted">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
-                <span className="truncate">{visibleNoteText}</span>
+                <span className="break-words [overflow-wrap:anywhere] leading-snug">{visibleNoteText}</span>
               </p>
             )}
           </div>

@@ -630,8 +630,8 @@ export function SubjectHubModal({
                           const teacherLabel = nextDetails.teachers[idx]?.displayName || `${idx + 1} підгр.`;
                           if (!subMeeting && !subRoom) return null;
                           return (
-                            <div key={idx} className="flex items-center gap-1.5 text-xs">
-                              <span className="text-[11px] text-sys-text-muted truncate max-w-[110px]">
+                            <div key={idx} className="flex items-start justify-end gap-1.5 text-xs">
+                              <span className="text-[11px] text-sys-text-muted break-words text-right max-w-[180px] sm:max-w-[220px] leading-tight mt-0.5">
                                 {idx + 1} підгр. ({teacherLabel})
                               </span>
                               {subMeeting ? (
@@ -1004,14 +1004,14 @@ export function SubjectHubModal({
                           role="tab"
                           aria-selected={effectiveTaskTab === "pending"}
                           onClick={() => selectHubTaskTab("pending")}
-                          className={`relative z-10 flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors duration-fast cursor-pointer ${
+                          className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
                             effectiveTaskTab === "pending"
                               ? "text-sys-text-primary font-bold"
                               : "text-sys-text-secondary hover:text-sys-text-primary"
                           }`}
                         >
-                          <span className="truncate">До здачі</span>
-                          <span className="rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold text-sys-text-secondary">
+                          <span className="whitespace-nowrap">До здачі</span>
+                          <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold text-sys-text-secondary">
                             {subjectTasks.active.length}
                           </span>
                         </button>
@@ -1021,7 +1021,7 @@ export function SubjectHubModal({
                           role="tab"
                           aria-selected={effectiveTaskTab === "overdue"}
                           onClick={() => selectHubTaskTab("overdue")}
-                          className={`relative z-10 flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors duration-fast cursor-pointer ${
+                          className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
                             effectiveTaskTab === "overdue"
                               ? "text-rose-700 dark:text-rose-300 font-bold"
                               : subjectTasks.overdue.length > 0 && isLinked
@@ -1029,8 +1029,8 @@ export function SubjectHubModal({
                                 : "text-sys-text-secondary hover:text-sys-text-primary"
                           }`}
                         >
-                          <span className="truncate">{isLinked ? "Борги" : "Минув час"}</span>
-                          <span className="rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold">
+                          <span className="whitespace-nowrap">{isLinked ? "Борги" : "Минув час"}</span>
+                          <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold">
                             {subjectTasks.overdue.length}
                           </span>
                         </button>
@@ -1041,14 +1041,14 @@ export function SubjectHubModal({
                             role="tab"
                             aria-selected={effectiveTaskTab === "done"}
                             onClick={() => selectHubTaskTab("done")}
-                            className={`relative z-10 flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-2 transition-colors duration-fast cursor-pointer ${
+                            className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
                               effectiveTaskTab === "done"
                                 ? "text-emerald-700 dark:text-emerald-300 font-bold"
                                 : "text-sys-text-secondary hover:text-sys-text-primary"
                             }`}
                           >
-                            <span className="truncate">Здано</span>
-                            <span className="rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold">
+                            <span className="whitespace-nowrap">Здано</span>
+                            <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold">
                               {subjectTasks.completed.length}
                             </span>
                           </button>
