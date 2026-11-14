@@ -99,10 +99,10 @@ export function AppearanceStudioSection() {
   return (
     <>
       <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
-        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-sys-border/60">
+        <div className="flex items-center justify-between gap-2 pb-2 border-b border-sys-border/60">
           <div className="flex items-center gap-2">
-            <PaletteIcon className="h-4 w-4 text-sys-accent" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+            <PaletteIcon className="h-4 w-4 text-sys-text-muted" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
               Тема оформлення
             </h2>
           </div>
@@ -224,7 +224,7 @@ export function AppearanceStudioSection() {
           onTouchStart={preloadStudioModal}
           onFocus={preloadStudioModal}
           onClick={() => openStudio("presets")}
-          className="spring-press group w-full flex items-center justify-between gap-3 rounded-xl border border-sys-border/80 bg-sys-bg/70 p-3.5 text-left hover:border-sys-accent/45 hover:bg-sys-bg transition-colors cursor-pointer"
+          className="spring-press group w-full flex items-center justify-between gap-3 rounded-xl border border-sys-border bg-sys-bg p-3.5 text-left hover:border-sys-accent/60 transition-colors cursor-pointer"
         >
           <div className="min-w-0 flex-1 space-y-0.5">
             <div className="text-xs sm:text-sm font-bold text-sys-text-primary group-hover:text-sys-accent transition-colors">
