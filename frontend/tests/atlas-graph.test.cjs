@@ -166,7 +166,7 @@ test("computeEgoLayout centers selected node at origin with neighbor orbits and 
   assert.ok(!t101Sub.includes("…"));
 });
 
-test("computeEgoLayout uses radial stagger when neighbor count exceeds 12", () => {
+test("computeEgoLayout uses a single smooth circle when neighbor count exceeds 12", () => {
   const engine = loadAtlasEngine();
   const payload = makeSampleAtlasPayload();
   for (let i = 1; i <= 13; i++) {
@@ -202,9 +202,9 @@ test("computeEgoLayout uses radial stagger when neighbor count exceeds 12", () =
       radii.add(Math.round(Math.hypot(pos.x, pos.y)));
     }
   }
-  assert.equal(radii.size, 2);
-  const sortedRadii = Array.from(radii).sort((a, b) => a - b);
-  assert.equal(sortedRadii[1] - sortedRadii[0], 48);
+  assert.equal(radii.size, 1);
+  const [singleRadius] = Array.from(radii);
+  assert.ok(singleRadius >= 260);
 });
 
 test("computeNodeIntersection and computeCompareLayout highlight shared bridges, subjects, rooms, and per-node diffs", () => {
@@ -256,8 +256,9 @@ test("computeNodeIntersection and computeCompareLayout highlight shared bridges,
   assert.ok(compare.positions.get(g10Id).x < 0);
   assert.ok(compare.positions.get(g11Id).x > 0);
   assert.equal(Math.abs(compare.positions.get(t100Id).x), 0);
-  // Compare canvas only shows the two anchors + shared bridge nodes (no clutter from unique outer nodes)
-  assert.equal(compare.visibleNodeIds.has(t102Id), false);
+  // Compare canvas shows unique left/right difference wings alongside center shared bridge nodes
+  assert.equal(compare.visibleNodeIds.has(t102Id), true);
+  assert.ok(compare.positions.get(t102Id).x < compare.positions.get(g10Id).x);
   assert.ok(compare.positions.get(g10Id).subtitle.includes("Відмінних: 1"));
   assert.ok(compare.positions.get(t100Id).subtitle.includes("Алгоритми та структури даних"));
 });
@@ -293,4 +294,75 @@ test("compactSubjectLabel prefers shortName when compact and truncates long stri
   const truncated = engine.compactSubjectLabel("Дуже довга назва якоїсь навчальної дисципліни", null);
   assert.ok(truncated.endsWith("…"));
   assert.ok(truncated.length <= 18);
+});
+
+test("resolveTeacherEdgeRoom gives each subgroup teacher only their own room", () => {
+  const engine = loadAtlasEngine();
+  const payload = makeSampleAtlasPayload();
+  payload.edges.push({
+    group_id: 11,
+    teacher_id: 101,
+    second_teacher_id: 100,
+    subject_id: 201,
+    room: "104 / 205",
+    lessons_count: 2,
+    days: [3],
+  });
+  const graph = engine.buildAtlasGraph(payload);
+
+  const dualEdge = payload.edges[payload.edges.length - 1];
+  assert.equal(engine.resolveTeacherEdgeRoom(graph, dualEdge, 101), "104");
+  assert.equal(engine.resolveTeacherEdgeRoom(graph, dualEdge, 100), "205");
+
+  // Single edge.room ("104" from primary teacher) must not leak into second teacher's inspector rooms
+  const t100Inspector = engine.getNodeInspectorData(graph, engine.makeAtlasNodeId("teacher", 100));
+  assert.ok(t100Inspector);
+  assert.deepEqual(
+    Array.from(t100Inspector.rooms, (r) => r.node.label),
+    ["205"],
+  );
+  const g10RowForT100 = t100Inspector.groups.find((r) => r.node.rawId === 10);
+  assert.ok(g10RowForT100);
+  assert.deepEqual([...g10RowForT100.rooms], ["205"]);
+});
+
+test("buildAtlasGraph and computeEgoLayout order groups sequentially by course and natural group code", () => {
+  const engine = loadAtlasEngine();
+  const payload = {
+    summary: { groups_count: 4, teachers_count: 1, subjects_count: 1, rooms_count: 1, edges_count: 4 },
+    groups: [
+      { id: 4, name: "102", course: 3, faculty_id: 2, faculty_name: "А", curator_id: 100, lessons_count: 2 },
+      { id: 3, name: "86", course: 2, faculty_id: 2, faculty_name: "Б", curator_id: 100, lessons_count: 2 },
+      { id: 1, name: "101", course: 3, faculty_id: 1, faculty_name: "Я", curator_id: 100, lessons_count: 2 },
+      { id: 2, name: "85", course: 2, faculty_id: 1, faculty_name: "В", curator_id: 100, lessons_count: 10 },
+    ],
+    teachers: [
+      { id: 100, name: "Коваль О. І.", full_name: "Коваль Олександр Іванович", room: "205", groups_count: 4, subjects_count: 1, lessons_count: 16 },
+    ],
+    subjects: [
+      { id: 200, name: "Інформатика", short_name: "Інф", groups_count: 4, teachers_count: 1, lessons_count: 16 },
+    ],
+    rooms: [{ id: "205", name: "205", floor: 2, groups_count: 4, teachers_count: 1, lessons_count: 16 }],
+    edges: [
+      { group_id: 4, teacher_id: 100, second_teacher_id: null, subject_id: 200, room: "205", lessons_count: 2, days: [1] },
+      { group_id: 3, teacher_id: 100, second_teacher_id: null, subject_id: 200, room: "205", lessons_count: 2, days: [2] },
+      { group_id: 1, teacher_id: 100, second_teacher_id: null, subject_id: 200, room: "205", lessons_count: 2, days: [3] },
+      { group_id: 2, teacher_id: 100, second_teacher_id: null, subject_id: 200, room: "205", lessons_count: 10, days: [4] },
+    ],
+  };
+
+  const graph = engine.buildAtlasGraph(payload);
+  const groupsByAngle = [...graph.nodes]
+    .filter((n) => n.kind === "group")
+    .sort((a, b) => a.angle - b.angle)
+    .map((n) => n.label);
+  assert.deepEqual(groupsByAngle, ["85", "86", "101", "102"]);
+
+  const teacherEgo = engine.computeEgoLayout(graph, engine.makeAtlasNodeId("teacher", 100));
+  const egoGroupsByAngle = Array.from(teacherEgo.positions.entries())
+    .filter(([id]) => id.startsWith("group:"))
+    .map(([id, pos]) => ({ label: graph.nodeMap.get(id).label, angle: pos.angle }))
+    .sort((a, b) => a.angle - b.angle)
+    .map((item) => item.label);
+  assert.deepEqual([...egoGroupsByAngle], ["85", "86", "101", "102"]);
 });

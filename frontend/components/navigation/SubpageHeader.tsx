@@ -36,7 +36,7 @@ export function SubpageHeader({
   };
 
   return (
-    <header className="vt-desktop-header sticky top-0 z-30 min-h-[3.5rem] border-b border-sys-border bg-sys-card">
+    <header className="vt-desktop-header sticky top-0 z-40 min-h-[3.5rem] border-b border-sys-border bg-sys-card">
       <div className={`mx-auto min-h-[3.5rem] ${maxWidthClass} px-3 sm:px-6 flex items-center`}>
         <div className="flex w-full py-1.5 items-center justify-between gap-2 sm:gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">

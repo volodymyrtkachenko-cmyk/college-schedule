@@ -12,6 +12,7 @@ import { SubpageHeader } from "@/components/navigation/SubpageHeader";
 import { AtlasCanvas } from "@/components/atlas/AtlasCanvas";
 import {
   buildAtlasGraph,
+  compareAtlasLabels,
   computeNodeIntersection,
   getNodeInspectorData,
   makeAtlasNodeId,
@@ -223,16 +224,16 @@ function searchAtlasNodes(
           const ca = a.node.course ?? 99;
           const cb = b.node.course ?? 99;
           if (ca !== cb) return ca - cb;
-          return a.node.label.localeCompare(b.node.label, "uk");
+          return compareAtlasLabels(a.node.label, b.node.label);
         }
         if (b.node.lessonsCount !== a.node.lessonsCount) {
           return b.node.lessonsCount - a.node.lessonsCount;
         }
-        return a.node.label.localeCompare(b.node.label, "uk");
+        return compareAtlasLabels(a.node.label, b.node.label);
       }
       if (b.score !== a.score) return b.score - a.score;
       if (b.node.lessonsCount !== a.node.lessonsCount) return b.node.lessonsCount - a.node.lessonsCount;
-      return a.node.label.localeCompare(b.node.label, "uk");
+      return compareAtlasLabels(a.node.label, b.node.label);
     })
     .slice(0, limit);
 }
@@ -553,7 +554,7 @@ function CompareSummaryCard({
         <span className="inline-flex items-center rounded-lg border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300">
           Тільки у {nodeA.label}: {onlyARows.length}
         </span>
-        <span className="inline-flex items-center rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-primary">
+        <span className="inline-flex items-center rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:text-rose-300">
           Тільки у {nodeB.label}: {onlyBRows.length}
         </span>
         {intersection.directConnected && (
@@ -641,7 +642,7 @@ function CompareSummaryCard({
           />
           <CompareDiffColumn
             title={`Тільки у ${nodeB.label}`}
-            accentClass="text-sys-text-primary"
+            accentClass="text-rose-700 dark:text-rose-300"
             rows={onlyBRows}
             emptyLabel="Усі зв'язки є спільними"
             onSelectNode={onSelectNode}
@@ -657,6 +658,8 @@ function AtlasInspectorPanel({
   inspector,
   compareNodeId,
   intersection,
+  courseFilter,
+  courseGroups,
   onSelectNode,
   onSetCompareNode,
   onSwapCompare,
@@ -665,6 +668,8 @@ function AtlasInspectorPanel({
   inspector: AtlasNodeInspectorData | null;
   compareNodeId: string | null;
   intersection: AtlasIntersectionResult | null;
+  courseFilter: number | null;
+  courseGroups: AtlasGraphNode[];
   onSelectNode: (nodeId: string) => void;
   onSetCompareNode: (nodeId: string | null) => void;
   onSwapCompare: () => void;
@@ -696,6 +701,47 @@ function AtlasInspectorPanel({
   }, [graph, inspector, compareQuery]);
 
   if (!inspector) {
+    if (courseFilter !== null && courseGroups.length > 0) {
+      return (
+        <aside
+          aria-label={`Групи ${courseFilter} курсу`}
+          className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-xs space-y-4"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-bold text-sys-text-primary">
+                Групи {courseFilter} курсу
+              </h2>
+              <p className="text-xs text-sys-text-secondary">
+                Оберіть групу на мапі або зі списку нижче
+              </p>
+            </div>
+            <span className="shrink-0 rounded-lg border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 tabular-nums">
+              {courseGroups.length}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 gap-1.5">
+            {courseGroups.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => onSelectNode(g.id)}
+                className="min-h-[38px] rounded-xl border border-sys-border bg-sys-bg/70 hover:border-sys-accent/60 hover:bg-sys-accent/10 px-3 py-2 text-left transition-colors cursor-pointer flex items-center justify-between gap-2"
+              >
+                <span className="text-sm font-semibold text-sys-text-primary truncate">
+                  {g.label}
+                </span>
+                <span className="text-[11px] font-medium text-sys-text-muted tabular-nums shrink-0">
+                  {formatPairsLabel(g.lessonsCount)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </aside>
+      );
+    }
+
     return (
       <aside
         aria-label="Паспорт вузла"
@@ -923,6 +969,7 @@ export function AtlasClient() {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [homeNodeId, setHomeNodeId] = useState<string | null>(null);
   const [compareNodeId, setCompareNodeId] = useState<string | null>(null);
   const [layoutMode, setLayoutMode] = useState<"constellation" | "ego">("ego");
   const [courseFilter, setCourseFilter] = useState<number | null>(null);
@@ -979,6 +1026,25 @@ export function AtlasClient() {
     initialFocusedRef.current = true;
 
     if (typeof window !== "undefined") {
+      let savedHomeId: string | null = null;
+      try {
+        const storedMode = window.localStorage.getItem("schedule:mode");
+        const storedGroupId = Number(window.localStorage.getItem("schedule:groupId")) || null;
+        const storedTeacherId = Number(window.localStorage.getItem("schedule:teacherId")) || null;
+
+        if (storedMode === "teacher" && storedTeacherId) {
+          const tid = makeAtlasNodeId("teacher", storedTeacherId);
+          if (graph.nodeMap.has(tid)) savedHomeId = tid;
+        }
+        if (!savedHomeId && storedGroupId) {
+          const gid = makeAtlasNodeId("group", storedGroupId);
+          if (graph.nodeMap.has(gid)) savedHomeId = gid;
+        }
+      } catch {
+        // Ignore storage errors in restricted environments
+      }
+      setHomeNodeId(savedHomeId);
+
       const params = new URLSearchParams(window.location.search);
       const qNode = params.get("node");
       const qCompare = params.get("compare");
@@ -990,27 +1056,9 @@ export function AtlasClient() {
         return;
       }
 
-      try {
-        const storedMode = window.localStorage.getItem("schedule:mode");
-        const storedGroupId = Number(window.localStorage.getItem("schedule:groupId")) || null;
-        const storedTeacherId = Number(window.localStorage.getItem("schedule:teacherId")) || null;
-
-        if (storedMode === "teacher" && storedTeacherId) {
-          const tid = makeAtlasNodeId("teacher", storedTeacherId);
-          if (graph.nodeMap.has(tid)) {
-            setSelectedNodeId(tid);
-            return;
-          }
-        }
-        if (storedGroupId) {
-          const gid = makeAtlasNodeId("group", storedGroupId);
-          if (graph.nodeMap.has(gid)) {
-            setSelectedNodeId(gid);
-            return;
-          }
-        }
-      } catch {
-        // Ignore storage errors in restricted environments
+      if (savedHomeId) {
+        setSelectedNodeId(savedHomeId);
+        return;
       }
     }
 
@@ -1063,40 +1111,59 @@ export function AtlasClient() {
     setActiveSearchIdx(0);
   }, [searchResults.length, searchQuery]);
 
+  const homeNode = useMemo(
+    () => (graph && homeNodeId ? (graph.nodeMap.get(homeNodeId) ?? null) : null),
+    [graph, homeNodeId],
+  );
+
+  const showReturnHomeButton = Boolean(
+    homeNode &&
+      (selectedNodeId !== homeNode.id ||
+        compareNodeId !== null ||
+        courseFilter !== null ||
+        layoutMode !== "ego"),
+  );
+
+  const courseGroups = useMemo(() => {
+    if (!graph || courseFilter === null) return [];
+    return graph.nodes
+      .filter((n) => n.kind === "group" && n.course === courseFilter && n.isConnected)
+      .sort((a, b) => compareAtlasLabels(a.label, b.label));
+  }, [graph, courseFilter]);
+
   const handleSelectNode = useCallback(
     (nodeId: string | null) => {
       setSelectedNodeId(nodeId);
-      if (nodeId && compareNodeId === nodeId) {
-        setCompareNodeId(null);
-      }
-      if (nodeId && graph) {
-        const picked = graph.nodeMap.get(nodeId);
-        if (picked && courseFilter !== null && picked.kind === "group" && picked.course !== courseFilter) {
+      if (nodeId) {
+        setLayoutMode("ego");
+        if (courseFilter !== null) {
           setCourseFilter(null);
         }
       }
+      if (nodeId && compareNodeId === nodeId) {
+        setCompareNodeId(null);
+      }
     },
-    [compareNodeId, graph, courseFilter],
+    [compareNodeId, courseFilter],
   );
+
+  const handleReturnToHomeNode = useCallback(() => {
+    if (!homeNode) return;
+    setCompareNodeId(null);
+    setCourseFilter(null);
+    setSelectedNodeId(homeNode.id);
+    setLayoutMode("ego");
+  }, [homeNode]);
 
   const handleCourseFilterSelect = useCallback(
     (course: number | null) => {
       const next = courseFilter === course ? null : course;
       setCourseFilter(next);
-      if (next !== null && graph) {
-        const current = selectedNodeId ? graph.nodeMap.get(selectedNodeId) : null;
-        if (!current || current.kind !== "group" || current.course !== next) {
-          const busiestInCourse = graph.nodes
-            .filter((n) => n.kind === "group" && n.course === next)
-            .sort((a, b) => b.lessonsCount - a.lessonsCount || a.label.localeCompare(b.label, "uk"))[0];
-          if (busiestInCourse) {
-            setSelectedNodeId(busiestInCourse.id);
-            setCompareNodeId(null);
-          }
-        }
-      }
+      setCompareNodeId(null);
+      setSelectedNodeId(null);
+      setLayoutMode("constellation");
     },
-    [courseFilter, graph, selectedNodeId],
+    [courseFilter],
   );
 
   const handleSetCompareNode = useCallback(
@@ -1247,10 +1314,10 @@ export function AtlasClient() {
 
         {data && graph && (
           <>
-            {/* Compact Toolbar: Search + Course Filter Pills */}
+            {/* Compact Toolbar: Search + Return Home + Course Filter Pills */}
             <section
               aria-label="Пошук та фільтр курсів"
-              className="relative z-30 rounded-2xl border border-sys-border bg-sys-card p-2.5 sm:p-3 shadow-xs flex flex-col lg:flex-row lg:items-center gap-2.5"
+              className="relative z-20 rounded-2xl border border-sys-border bg-sys-card p-2.5 sm:p-3 shadow-xs flex flex-col lg:flex-row lg:items-center gap-2.5"
             >
               {/* Search Combobox */}
               <div ref={searchBoxRef} className="relative flex-1 min-w-0">
@@ -1296,7 +1363,7 @@ export function AtlasClient() {
                     id={searchListboxId}
                     role="listbox"
                     aria-label="Результати пошуку"
-                    className="absolute left-0 right-0 top-full mt-1.5 z-40 max-h-80 overflow-y-auto rounded-2xl border border-sys-elevated-border bg-sys-card/95 backdrop-blur-xl p-1.5 shadow-xl"
+                    className="absolute left-0 right-0 top-full mt-1.5 z-30 max-h-80 overflow-y-auto rounded-2xl border border-sys-elevated-border bg-sys-card/95 backdrop-blur-xl p-1.5 shadow-xl"
                   >
                     {searchResults.length === 0 ? (
                       <p className="px-3 py-4 text-center text-xs text-sys-text-muted">
@@ -1360,42 +1427,83 @@ export function AtlasClient() {
                 )}
               </div>
 
-              {/* Course Filter Pills */}
-              {availableCourses.length > 0 && (
+              {/* Quick Return + Course Filter Pills */}
+              {(availableCourses.length > 0 || showReturnHomeButton) && (
                 <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    aria-pressed={courseFilter === null}
-                    onClick={() => handleCourseFilterSelect(null)}
-                    className={`min-h-[34px] rounded-xl border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-                      courseFilter === null
-                        ? "border-sys-accent/45 bg-sys-accent/10 text-sys-accent"
-                        : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    Усі курси
-                  </button>
-                  {availableCourses.map((course) => {
-                    const active = courseFilter === course;
-                    return (
+                  {showReturnHomeButton && homeNode && (
+                    <button
+                      type="button"
+                      onClick={handleReturnToHomeNode}
+                      title={`Повернутися до орбіти: ${homeNode.fullName || homeNode.label}`}
+                      className="min-h-[34px] inline-flex items-center gap-1.5 rounded-xl border border-sys-accent/40 bg-sys-accent/10 px-2.5 py-1 text-xs font-semibold text-sys-accent hover:bg-sys-accent/20 transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <span aria-hidden="true">↺</span>
+                      <span>
+                        {homeNode.kind === "group"
+                          ? `Моя група: ${homeNode.label}`
+                          : `Мій розклад: ${homeNode.label}`}
+                      </span>
+                    </button>
+                  )}
+                  {availableCourses.length > 0 && (
+                    <>
                       <button
-                        key={course}
                         type="button"
-                        aria-pressed={active}
-                        onClick={() => handleCourseFilterSelect(course)}
+                        aria-pressed={courseFilter === null}
+                        onClick={() => handleCourseFilterSelect(null)}
                         className={`min-h-[34px] rounded-xl border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-                          active
-                            ? "border-sys-accent bg-sys-accent text-white"
+                          courseFilter === null
+                            ? "border-sys-accent/45 bg-sys-accent/10 text-sys-accent"
                             : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
                         }`}
                       >
-                        {course} курс
+                        Усі курси
                       </button>
-                    );
-                  })}
+                      {availableCourses.map((course) => {
+                        const active = courseFilter === course;
+                        return (
+                          <button
+                            key={course}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => handleCourseFilterSelect(course)}
+                            className={`min-h-[34px] rounded-xl border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+                              active
+                                ? "border-sys-accent bg-sys-accent text-white"
+                                : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
+                            }`}
+                          >
+                            {course} курс
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
                 </div>
               )}
             </section>
+
+            {/* Quick group chips for active course filter */}
+            {courseFilter !== null && courseGroups.length > 0 && (
+              <section
+                aria-label={`Групи ${courseFilter} курсу`}
+                className="relative z-10 rounded-2xl border border-sys-border bg-sys-card px-3 py-2.5 shadow-xs flex flex-wrap items-center gap-1.5"
+              >
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-sys-text-secondary mr-1">
+                  {courseFilter} курс ({courseGroups.length}):
+                </span>
+                {courseGroups.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => handleSelectNode(g.id)}
+                    className="min-h-[30px] rounded-lg border border-blue-500/30 bg-blue-500/10 hover:bg-sys-accent hover:text-white hover:border-sys-accent px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 transition-colors cursor-pointer"
+                  >
+                    {g.label}
+                  </button>
+                ))}
+              </section>
+            )}
 
             {/* Primary Workspace Grid */}
             <div className="relative z-10 grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
@@ -1420,6 +1528,8 @@ export function AtlasClient() {
                   inspector={inspector}
                   compareNodeId={compareNodeId}
                   intersection={intersection}
+                  courseFilter={courseFilter}
+                  courseGroups={courseGroups}
                   onSelectNode={handleSelectNode}
                   onSetCompareNode={handleSetCompareNode}
                   onSwapCompare={handleSwapCompare}

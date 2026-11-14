@@ -122,6 +122,9 @@ export function SchedulePageClient({
     isPrivilegedUser,
     setToast,
     ssrNowIso,
+    initialGroupId,
+    initialTeacherId,
+    initialMode,
   });
 
   const [contextModalOpen, setContextModalOpen] = useState(false);

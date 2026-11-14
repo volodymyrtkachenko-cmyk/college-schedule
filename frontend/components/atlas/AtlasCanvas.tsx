@@ -221,7 +221,7 @@ function drawRoundedRectPath(
   ctx.closePath();
 }
 
-const MIN_ZOOM = 0.22;
+const MIN_ZOOM = 0.16;
 const MAX_ZOOM = 2.8;
 
 export function AtlasCanvas({
@@ -337,7 +337,7 @@ export function AtlasCanvas({
     };
   }, [graph, layoutMode, selectedNodeId, compareNodeId, intersection]);
 
-  // Compute course-matching group & connected set so course filter cleanly dims non-matching nodes
+  // Compute course-matching group & connected set so course filter cleanly highlights all groups of that course
   const courseRelevantIds = useMemo<Set<string> | null>(() => {
     if (courseFilter === null) return null;
     const set = new Set<string>();
@@ -350,6 +350,27 @@ export function AtlasCanvas({
       }
     }
     return set;
+  }, [graph, courseFilter]);
+
+  // Framing bounds around all connected groups of the selected course
+  const courseBounds = useMemo<{ minX: number; maxX: number; minY: number; maxY: number } | null>(() => {
+    if (courseFilter === null) return null;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    let count = 0;
+    for (const node of graph.nodes) {
+      if (!node.isConnected || node.kind !== "group" || node.course !== courseFilter) continue;
+      count++;
+      const pad = node.radius + 140;
+      if (node.x - pad < minX) minX = node.x - pad;
+      if (node.x + pad > maxX) maxX = node.x + pad;
+      if (node.y - pad < minY) minY = node.y - pad;
+      if (node.y + pad > maxY) maxY = node.y + pad;
+    }
+    if (count === 0) return null;
+    return { minX, maxX, minY, maxY };
   }, [graph, courseFilter]);
 
   const computeFitTransform = useCallback(
@@ -373,6 +394,7 @@ export function AtlasCanvas({
   const latestDrawStateRef = useRef({
     activeLayout,
     compareNodeId,
+    courseFilter,
     courseRelevantIds,
     graph,
     hoveredNodeId,
@@ -383,6 +405,7 @@ export function AtlasCanvas({
   latestDrawStateRef.current = {
     activeLayout,
     compareNodeId,
+    courseFilter,
     courseRelevantIds,
     graph,
     hoveredNodeId,
@@ -400,6 +423,7 @@ export function AtlasCanvas({
     const {
       activeLayout: curLayout,
       compareNodeId: curCompareNodeId,
+      courseFilter: curCourseFilter,
       courseRelevantIds: curCourseRelevantIds,
       graph: curGraph,
       hoveredNodeId: curHoveredNodeId,
@@ -507,7 +531,7 @@ export function AtlasCanvas({
 
     const focusId = curHoveredNodeId ?? curSelectedNodeId;
     const focusAdj = focusId ? curGraph.adjacency.get(focusId) ?? null : null;
-    const hasHighlightContext = Boolean(curIntersection || focusId);
+    const hasHighlightContext = Boolean(curIntersection || focusId || curCourseFilter !== null);
 
     // Helper to determine node emphasis alpha
     const getNodeAlpha = (node: AtlasGraphNode): number => {
@@ -522,6 +546,12 @@ export function AtlasCanvas({
         ) {
           return 1;
         }
+        if (
+          curIntersection.onlyAIds.has(node.id) ||
+          curIntersection.onlyBIds.has(node.id)
+        ) {
+          return 0.94;
+        }
         return 0.34;
       }
 
@@ -531,7 +561,13 @@ export function AtlasCanvas({
         alpha = 0.14;
       }
 
-      if (curCourseRelevantIds && !curCourseRelevantIds.has(node.id)) {
+      if (curCourseFilter !== null && curLayoutMode === "constellation" && !focusId) {
+        if (node.kind === "group" && node.course === curCourseFilter) return 1;
+        if (curCourseRelevantIds?.has(node.id)) return 0.72;
+        return 0.14;
+      }
+
+      if (curLayoutMode === "constellation" && curCourseRelevantIds && !curCourseRelevantIds.has(node.id)) {
         alpha = Math.min(alpha, 0.16);
       }
       return alpha;
@@ -560,12 +596,16 @@ export function AtlasCanvas({
         if (!touchesA && !touchesB) continue;
         if (touchesA && touchesB) {
           edgeColor = palette.sharedGold;
-          edgeAlpha = 0.9;
+          edgeAlpha = 0.92;
           lineWidth = 2.6;
         } else if (curIntersection.sharedNodeIds.has(otherId)) {
           edgeColor = touchesA ? palette.accent : palette.compareB;
-          edgeAlpha = 0.72;
+          edgeAlpha = 0.74;
           lineWidth = 1.9;
+        } else if (curIntersection.onlyAIds.has(otherId) || curIntersection.onlyBIds.has(otherId)) {
+          edgeColor = touchesA ? palette.accent : palette.compareB;
+          edgeAlpha = 0.65;
+          lineWidth = 1.75;
         } else {
           edgeColor = touchesA ? palette.accent : palette.compareB;
           edgeAlpha = 0.16;
@@ -590,13 +630,26 @@ export function AtlasCanvas({
         }
       } else {
         if (!link.isPrimaryRingEdge) continue;
-        if (curCourseRelevantIds && (!curCourseRelevantIds.has(link.source) || !curCourseRelevantIds.has(link.target))) {
-          edgeAlpha = 0.03;
+        if (curCourseFilter !== null) {
+          const srcNode = curGraph.nodeMap.get(link.source);
+          const tgtNode = curGraph.nodeMap.get(link.target);
+          const touchesCourseGroup =
+            (srcNode?.kind === "group" && srcNode.course === curCourseFilter) ||
+            (tgtNode?.kind === "group" && tgtNode.course === curCourseFilter);
+          if (touchesCourseGroup) {
+            edgeColor = link.kind === "curator" ? palette.sharedGold : palette.accent;
+            edgeAlpha = link.kind === "curator" ? 0.45 : 0.24;
+            lineWidth = link.kind === "curator" ? 1.6 : 1.1;
+          } else {
+            edgeColor = palette.border;
+            edgeAlpha = 0.03;
+            lineWidth = 0.8;
+          }
         } else {
           edgeColor = link.kind === "curator" ? palette.sharedGold : palette.textMuted;
           edgeAlpha = link.kind === "curator" ? 0.32 : palette.isDark ? 0.12 : 0.14;
+          lineWidth = link.kind === "curator" ? 1.5 : 0.9;
         }
-        lineWidth = link.kind === "curator" ? 1.5 : 0.9;
       }
 
       const pA = toScreen(posA.x, posA.y);
@@ -612,8 +665,8 @@ export function AtlasCanvas({
 
       const mx = (pA.x + pB.x) * 0.5;
       const my = (pA.y + pB.y) * 0.5;
-      const cpx = mx + (originScreenX - mx) * 0.14;
-      const cpy = my + (originScreenY - my) * 0.14;
+      const cpx = curIntersection ? mx : mx + (originScreenX - mx) * 0.14;
+      const cpy = curIntersection ? my : my + (originScreenY - my) * 0.14;
 
       ctx.beginPath();
       ctx.moveTo(pA.x, pA.y);
@@ -656,35 +709,49 @@ export function AtlasCanvas({
       const isCompare = node.id === curCompareNodeId;
       const isHovered = node.id === curHoveredNodeId;
       const isShared = Boolean(curIntersection?.sharedNodeIds.has(node.id));
+      const isOnlyA = Boolean(curIntersection?.onlyAIds.has(node.id));
+      const isOnlyB = Boolean(curIntersection?.onlyBIds.has(node.id));
       const isDirectNeighbor = Boolean(focusAdj?.has(node.id));
+      const isCourseGroup =
+        curCourseFilter !== null &&
+        !curIntersection &&
+        !focusId &&
+        node.kind === "group" &&
+        node.course === curCourseFilter;
 
-      const baseColor = isCompare
-        ? palette.compareB
-        : isShared
-          ? palette.sharedGold
-          : palette.kinds[node.kind];
+      const baseColor =
+        isCompare || isOnlyB
+          ? palette.compareB
+          : isOnlyA || (curIntersection && node.id === curIntersection.nodeAId)
+            ? palette.accent
+            : isShared
+              ? palette.sharedGold
+              : palette.kinds[node.kind];
 
-      if (isSelected || isCompare || isHovered || isShared) {
+      if (isSelected || isCompare || isHovered || isShared || isCourseGroup) {
         ctx.beginPath();
         ctx.arc(screen.x, screen.y, sr + (isSelected || isCompare ? 7 : 5), 0, Math.PI * 2);
-        ctx.fillStyle = rgba(baseColor, isSelected || isCompare ? 0.22 : 0.16);
+        ctx.fillStyle = rgba(
+          baseColor,
+          isSelected || isCompare ? 0.22 : isCourseGroup ? 0.18 : 0.16,
+        );
         ctx.fill();
       }
 
       ctx.beginPath();
       ctx.arc(screen.x, screen.y, sr, 0, Math.PI * 2);
-      if (isSelected || isCompare || isShared || isDirectNeighbor) {
+      if (isSelected || isCompare || isShared || isDirectNeighbor || isCourseGroup) {
         ctx.fillStyle = rgba(baseColor, alpha);
       } else {
         ctx.fillStyle = rgba(palette.card, Math.max(0.75, alpha));
       }
       ctx.fill();
 
-      ctx.lineWidth = isSelected || isCompare || isHovered ? 2.4 : 1.75;
+      ctx.lineWidth = isSelected || isCompare || isHovered ? 2.4 : isOnlyA || isOnlyB ? 2 : 1.75;
       ctx.strokeStyle = rgba(baseColor, Math.min(1, alpha + 0.12));
       ctx.stroke();
 
-      if (!isSelected && !isCompare && !isShared && !isDirectNeighbor && sr >= 5.5) {
+      if (!isSelected && !isCompare && !isShared && !isDirectNeighbor && !isCourseGroup && sr >= 5.5) {
         ctx.beginPath();
         ctx.arc(screen.x, screen.y, Math.max(2, sr * 0.42), 0, Math.PI * 2);
         ctx.fillStyle = rgba(baseColor, alpha * 0.92);
@@ -694,11 +761,13 @@ export function AtlasCanvas({
       let priority = node.lessonsCount;
       if (node.kind === "group") priority += 40;
       if (isDirectNeighbor) priority += 450;
+      if (isCourseGroup) priority += 550;
+      if (isOnlyA || isOnlyB) priority += 600;
       if (isShared) priority += 700;
       if (isCompare) priority += 900;
       if (isSelected || isHovered) priority += 1000;
 
-      if (alpha >= 0.34 || isSelected || isCompare || isHovered) {
+      if (alpha >= 0.34 || isSelected || isCompare || isHovered || isCourseGroup) {
         labelCandidates.push({ node, sx: screen.x, sy: screen.y, sr, pos, alpha, priority });
       }
     }
@@ -711,15 +780,95 @@ export function AtlasCanvas({
 
     ctx.textBaseline = "middle";
 
+    // Draw compact column zone headers in Compare mode above populated wings/center
+    if (curIntersection && cam.zoom >= 0.25) {
+      const nodeALabel = curGraph.nodeMap.get(curIntersection.nodeAId)?.label ?? "A";
+      const nodeBLabel = curGraph.nodeMap.get(curIntersection.nodeBId)?.label ?? "B";
+      const sharedAll = [
+        ...curIntersection.sharedByKind.teachers,
+        ...curIntersection.sharedByKind.groups,
+      ];
+
+      const drawZoneHeader = (
+        text: string,
+        sx: number,
+        sy: number,
+        tint: Rgb,
+      ) => {
+        ctx.font = "700 10px var(--font-manrope), system-ui, sans-serif";
+        const tw = ctx.measureText(text).width + 18;
+        const th = 20;
+        const box: LabelBox = {
+          x1: sx - tw * 0.5,
+          y1: sy - th * 0.5,
+          x2: sx + tw * 0.5,
+          y2: sy + th * 0.5,
+        };
+        placedBoxes.push(box);
+        drawRoundedRectPath(ctx, box.x1, box.y1, tw, th, 10);
+        ctx.fillStyle = rgba(palette.card, palette.isDark ? 0.92 : 0.96);
+        ctx.fill();
+        ctx.strokeStyle = rgba(tint, 0.55);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.textAlign = "center";
+        ctx.fillStyle = rgba(tint, palette.isDark ? 0.95 : 0.92);
+        ctx.fillText(text, sx, sy + 0.5);
+      };
+
+      const onlyAVisible = curIntersection.onlyARows
+        .slice(0, 8)
+        .map((r) => renderPosRef.current.get(r.node.id))
+        .filter((p): p is AtlasNodePosition => Boolean(p));
+      if (onlyAVisible.length > 0) {
+        const minY = Math.min(...onlyAVisible.map((p) => p.y));
+        const top = toScreen(onlyAVisible[0].x, minY);
+        drawZoneHeader(`ТІЛЬКИ У ${nodeALabel}`, top.x, top.y - 36, palette.accent);
+      }
+
+      const sharedVisible = sharedAll
+        .map((n) => renderPosRef.current.get(n.id))
+        .filter((p): p is AtlasNodePosition => Boolean(p));
+      if (sharedVisible.length > 0) {
+        const minY = Math.min(...sharedVisible.map((p) => p.y));
+        const top = toScreen(0, minY);
+        drawZoneHeader(`СПІЛЬНІ (${sharedAll.length})`, top.x, top.y - 42, palette.sharedGold);
+      }
+
+      const onlyBVisible = curIntersection.onlyBRows
+        .slice(0, 8)
+        .map((r) => renderPosRef.current.get(r.node.id))
+        .filter((p): p is AtlasNodePosition => Boolean(p));
+      if (onlyBVisible.length > 0) {
+        const minY = Math.min(...onlyBVisible.map((p) => p.y));
+        const top = toScreen(onlyBVisible[0].x, minY);
+        drawZoneHeader(`ТІЛЬКИ У ${nodeBLabel}`, top.x, top.y - 36, palette.compareB);
+      }
+    }
+
     for (const item of labelCandidates) {
       const isCenterInEgo = isEgoView && item.node.id === curSelectedNodeId;
       const isOrbitNeighbor = isEgoView && item.node.id !== curSelectedNodeId;
+      const isOnlyANode = Boolean(curIntersection?.onlyAIds.has(item.node.id));
+      const isOnlyBNode = Boolean(curIntersection?.onlyBIds.has(item.node.id));
+      const isSharedNode = Boolean(curIntersection?.sharedNodeIds.has(item.node.id));
+      const isCompareDiffNode = isOnlyANode || isOnlyBNode;
+      const isCourseTargetGroup = Boolean(
+        curCourseFilter !== null &&
+          !curIntersection &&
+          curLayoutMode === "constellation" &&
+          !focusId &&
+          item.node.kind === "group" &&
+          item.node.course === curCourseFilter,
+      );
       const isForceShown =
         isEgoView ||
         item.node.id === curSelectedNodeId ||
         item.node.id === curCompareNodeId ||
         item.node.id === curHoveredNodeId ||
-        Boolean(curIntersection?.sharedNodeIds.has(item.node.id));
+        isSharedNode ||
+        isCompareDiffNode ||
+        isCourseTargetGroup;
 
       if (!isForceShown && cam.zoom < 0.34 && !hasHighlightContext && item.node.kind !== "group") {
         continue;
@@ -775,7 +924,7 @@ export function AtlasCanvas({
             ? 34
             : 20 + subLines.length * 14;
 
-      // Place radially outward in polar coordinates, or directly below/above in compare/center nodes
+      // Place radially outward in polar coordinates, or directly outward/above/below in compare/center nodes
       const radialDist = Math.hypot(item.pos.x, item.pos.y);
       let cx = item.sx;
       let cy = item.sy + item.sr + pillH * 0.5 + 5;
@@ -804,9 +953,25 @@ export function AtlasCanvas({
       } else if (curIntersection) {
         if (item.node.id === curIntersection.nodeAId || item.node.id === curIntersection.nodeBId) {
           cy = item.sy - item.sr - pillH * 0.5 - 8;
-        } else if (curIntersection.sharedNodeIds.has(item.node.id)) {
+        } else if (isSharedNode) {
           cx = item.sx;
           cy = item.sy + item.sr + pillH * 0.5 + 6;
+        } else if (isOnlyANode) {
+          if (width >= 520) {
+            cx = item.sx - item.sr - 8 - pillW * 0.5;
+            cy = item.sy;
+          } else {
+            cx = item.sx;
+            cy = item.sy + item.sr + pillH * 0.5 + 5;
+          }
+        } else if (isOnlyBNode) {
+          if (width >= 520) {
+            cx = item.sx + item.sr + 8 + pillW * 0.5;
+            cy = item.sy;
+          } else {
+            cx = item.sx;
+            cy = item.sy + item.sr + pillH * 0.5 + 5;
+          }
         }
       }
 
@@ -854,8 +1019,8 @@ export function AtlasCanvas({
 
       if (!isForceShown) {
         if (hasCollision(box)) continue;
-      } else if ((isOrbitNeighbor || Boolean(curIntersection)) && hasCollision(box)) {
-        // Nudge overlapping orbit/compare labels slightly without clamping to viewport edges
+      } else if ((isOrbitNeighbor || Boolean(curIntersection) || isCourseTargetGroup) && hasCollision(box)) {
+        // Nudge overlapping orbit/compare/course labels slightly without clamping to viewport edges
         const offsets = [-14, 14, -28, 28, -42, 42];
         for (const dy of offsets) {
           const nudged: LabelBox = {
@@ -876,9 +1041,13 @@ export function AtlasCanvas({
       // Draw crisp label pill background for maximum readability
       const isAccentPill = item.node.id === curSelectedNodeId || item.node.id === curCompareNodeId;
       const pillColor =
-        item.node.id === curCompareNodeId
+        item.node.id === curCompareNodeId || isOnlyBNode
           ? palette.compareB
-          : palette.kinds[item.node.kind];
+          : isOnlyANode || (curIntersection && item.node.id === curIntersection.nodeAId)
+            ? palette.accent
+            : isSharedNode
+              ? palette.sharedGold
+              : palette.kinds[item.node.kind];
 
       drawRoundedRectPath(ctx, box.x1, box.y1, pillW, pillH, subLines.length > 0 ? 9 : 7);
       if (isAccentPill) {
@@ -1074,10 +1243,37 @@ export function AtlasCanvas({
     prevSelectedRef.current = selectedNodeId;
   }, [activeLayout.positions, flyToCamera, intersection, layoutMode, selectedNodeId]);
 
-  // Schedule redraw when lightweight highlight filters or hover state change
+  // Schedule redraw when hover state changes, and frame selected course sector smoothly
+  const prevCourseFilterRef = useRef<number | null>(null);
   useEffect(() => {
+    const courseChanged = prevCourseFilterRef.current !== courseFilter;
+    prevCourseFilterRef.current = courseFilter;
+
+    if (courseChanged && layoutMode === "constellation" && !intersection && !selectedNodeId) {
+      if (courseFilter !== null && courseBounds) {
+        const fit = computeFitTransform(courseBounds);
+        flyToCamera(fit.x, fit.y, fit.zoom, 380);
+        return;
+      }
+      if (courseFilter === null) {
+        const fit = computeFitTransform(activeLayout.bounds);
+        flyToCamera(fit.x, fit.y, fit.zoom, 380);
+        return;
+      }
+    }
     scheduleDraw();
-  }, [hoveredNodeId, courseFilter, scheduleDraw]);
+  }, [
+    activeLayout.bounds,
+    computeFitTransform,
+    courseBounds,
+    courseFilter,
+    flyToCamera,
+    hoveredNodeId,
+    intersection,
+    layoutMode,
+    scheduleDraw,
+    selectedNodeId,
+  ]);
 
   // Cleanup rAF on unmount
   useEffect(() => {
@@ -1279,7 +1475,9 @@ export function AtlasCanvas({
         dragStateRef.current.lastTapNodeId = hit.id;
 
         onSelectNode(hit.id);
-        if (isDoubleClick && !intersection) {
+        if (!intersection && layoutMode === "constellation") {
+          onLayoutModeChange("ego");
+        } else if (isDoubleClick && !intersection) {
           onLayoutModeChange(layoutMode === "ego" ? "constellation" : "ego");
         }
       } else if (layoutMode === "constellation" && !intersection) {
@@ -1289,7 +1487,11 @@ export function AtlasCanvas({
   };
 
   const handleFitView = () => {
-    const fit = computeFitTransform(activeLayout.bounds);
+    const targetBounds =
+      courseFilter !== null && courseBounds && layoutMode === "constellation" && !intersection
+        ? courseBounds
+        : activeLayout.bounds;
+    const fit = computeFitTransform(targetBounds);
     flyToCamera(fit.x, fit.y, fit.zoom, 360);
   };
 
@@ -1331,7 +1533,7 @@ export function AtlasCanvas({
                 : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
-            Моя орбіта
+            Орбіта
           </button>
           <button
             type="button"
@@ -1383,23 +1585,44 @@ export function AtlasCanvas({
 
       {/* Bottom Legend Bar */}
       <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card/95 px-3 py-1.5 text-[11px] font-medium text-sys-text-secondary shadow-xs">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-sys-accent shrink-0" />
-            <span>Групи</span>
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
-            <span>Викладачі</span>
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
-            <span>Куратор</span>
-          </span>
-        </div>
+        {intersection ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card/95 px-3 py-1.5 text-[11px] font-medium text-sys-text-secondary shadow-xs">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-sys-accent shrink-0" />
+              <span>{graph.nodeMap.get(intersection.nodeAId)?.label ?? "A"}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
+              <span>Спільні</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-500 shrink-0" />
+              <span>{graph.nodeMap.get(intersection.nodeBId)?.label ?? "B"}</span>
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card/95 px-3 py-1.5 text-[11px] font-medium text-sys-text-secondary shadow-xs">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-sys-accent shrink-0" />
+              <span>Групи</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
+              <span>Викладачі</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
+              <span>Куратор</span>
+            </span>
+          </div>
+        )}
 
         <div className="hidden sm:flex items-center rounded-xl border border-sys-border bg-sys-card/95 px-3 py-1.5 text-[11px] text-sys-text-muted shadow-xs">
-          <span>Клік по сусіду — перехід у його орбіту · Колесо для зуму</span>
+          <span>
+            {intersection
+              ? "Клік по вузлу — перейти у його орбіту · Колесо для зуму"
+              : "Клік по сусіду — перехід у його орбіту · Колесо для зуму"}
+          </span>
         </div>
       </div>
     </div>

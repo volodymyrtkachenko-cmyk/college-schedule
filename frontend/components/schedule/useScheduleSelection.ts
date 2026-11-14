@@ -122,6 +122,9 @@ interface UseScheduleSelectionParams {
   isPrivilegedUser: boolean;
   setToast: (msg: string, type?: "success" | "error" | "info") => void;
   ssrNowIso?: string;
+  initialGroupId?: number;
+  initialTeacherId?: number;
+  initialMode?: "student" | "teacher";
 }
 
 export function useScheduleSelection({
@@ -144,6 +147,9 @@ export function useScheduleSelection({
   isPrivilegedUser,
   setToast,
   ssrNowIso,
+  initialGroupId,
+  initialTeacherId,
+  initialMode,
 }: UseScheduleSelectionParams) {
   const [daySlideDir, setDaySlideDir] = useState<number>(0);
   const [weekSlideDir, setWeekSlideDir] = useState<number>(0);
@@ -396,6 +402,54 @@ export function useScheduleSelection({
   );
 
   const [returnTarget, setReturnTarget] = useState<ReturnTarget | null>(null);
+  const initialReturnCheckedRef = useRef(false);
+
+  // When deep-linking to another group/teacher route (e.g. from Atlas), show a one-tap return banner
+  // back to the user's saved home schedule without overwriting localStorage.
+  useEffect(() => {
+    if (initialReturnCheckedRef.current) return;
+    if (!initialGroupId && !initialTeacherId) {
+      initialReturnCheckedRef.current = true;
+      return;
+    }
+    if (typeof window === "undefined") return;
+    if (groups.length === 0 && teachers.length === 0) return;
+
+    try {
+      const setupComplete = window.localStorage.getItem("schedule:setupComplete") === "1";
+      const storedModeRaw = window.localStorage.getItem("schedule:mode");
+      const savedGroupId = Number(window.localStorage.getItem("schedule:groupId")) || null;
+      const savedTeacherId = Number(window.localStorage.getItem("schedule:teacherId")) || null;
+      if (!setupComplete) {
+        initialReturnCheckedRef.current = true;
+        return;
+      }
+
+      const savedMode: "student" | "teacher" = storedModeRaw === "teacher" ? "teacher" : "student";
+      const savedId = savedMode === "teacher" ? savedTeacherId : savedGroupId;
+      if (!savedId) return;
+
+      const list = savedMode === "teacher" ? teachers : groups;
+      if (list.length === 0) return;
+
+      const savedEntity = list.find((item) => item.id === savedId);
+      initialReturnCheckedRef.current = true;
+      if (!savedEntity) return;
+
+      const activeMode = initialMode ?? mode;
+      const activeId =
+        activeMode === "teacher" ? (initialTeacherId ?? teacherId) : (initialGroupId ?? groupId);
+      if (savedMode !== activeMode || savedId !== activeId) {
+        setReturnTarget({
+          mode: savedMode,
+          id: savedId,
+          label: savedEntity.name,
+        });
+      }
+    } catch {
+      initialReturnCheckedRef.current = true;
+    }
+  }, [initialGroupId, initialTeacherId, initialMode, mode, groupId, teacherId, groups, teachers]);
 
   const handleQuickJump = useCallback(
     (target: QuickJumpTarget) => {
