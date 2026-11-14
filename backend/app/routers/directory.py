@@ -1,20 +1,26 @@
 """Public directory reads and administrator-only directory management."""
+from collections import defaultdict
+import re
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import require_roles
+from app.core.time import today_local
 from app.database import get_db
-from app.models import Faculty, Group, Subject, Teacher, User
+from app.models import Faculty, Group, Schedule, ScheduleVersion, Subject, Teacher, User
 from sqlalchemy.orm import selectinload
 from app.schemas import (
+    AtlasEdge, AtlasGroupNode, AtlasResponse, AtlasRoomNode,
+    AtlasSubjectNode, AtlasSummary, AtlasTeacherNode,
     FacultyCreate, FacultyResource, FacultyUpdate, GroupCreate, GroupResource,
     GroupUpdate, SubjectCreate,
     SubjectResource, SubjectUpdate, TeacherCreate, TeacherResource, TeacherUpdate,
 )
 
 from app.services.directory_cache import _DIR_CACHE, invalidate_directory_cache
+from app.services.projection import clean_room_string
 
 router = APIRouter(tags=["directory"])
 admin_router = APIRouter(
@@ -194,6 +200,244 @@ async def teacher_subjects(response: Response, db: AsyncSession = Depends(get_db
         _DIR_CACHE.pop(k, None)
     _DIR_CACHE[cache_key] = result
     return result
+
+
+_EMPTY_ROOM_MARKERS = {"-", "—", "–", "null", "none", "н/д"}
+_FLOOR_RE = re.compile(r"^([1-9])\d{2}(?:[^\d]|$)")
+
+
+def _normalize_atlas_room(raw: str | None) -> str | None:
+    cleaned = clean_room_string(raw)
+    if not cleaned:
+        return None
+    normalized = " ".join(cleaned.split())
+    if not normalized or normalized.lower() in _EMPTY_ROOM_MARKERS:
+        return None
+    return normalized
+
+
+def _extract_room_floor(room: str) -> int | None:
+    match = _FLOOR_RE.match(room.strip())
+    return int(match.group(1)) if match else None
+
+
+@router.get("/atlas", response_model=AtlasResponse)
+async def atlas(response: Response, db: AsyncSession = Depends(get_db)):
+    from app.services import cache_rev
+    from app.services.cache_rev import get_schedule_cache_rev
+
+    response.headers["Cache-Control"] = "public, max-age=60"
+
+    global_rev = cache_rev.global_rev
+    sched_rev = get_schedule_cache_rev()
+    cache_key = ("atlas", global_rev, sched_rev)
+    cached = _DIR_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    faculties_rows = await items(Faculty, db)
+    groups_rows = await items(Group, db)
+    teachers_rows = [t for t in await items(Teacher, db) if t.name and "!" not in t.name]
+    subjects_rows = await items(Subject, db)
+
+    faculty_names = {f.id: f.name for f in faculties_rows}
+    group_map = {g.id: g for g in groups_rows}
+    teacher_map = {t.id: t for t in teachers_rows}
+    subject_map = {s.id: s for s in subjects_rows}
+
+    today = today_local()
+    active_version = await db.scalar(
+        select(ScheduleVersion)
+        .where(
+            ScheduleVersion.valid_from <= today,
+            ScheduleVersion.valid_until >= today,
+            ScheduleVersion.is_active.is_(True),
+        )
+        .order_by(ScheduleVersion.valid_from.desc())
+        .limit(1)
+    )
+    if active_version is not None:
+        version_filter = Schedule.version_id == active_version.id
+    else:
+        has_unversioned = await db.scalar(
+            select(Schedule.id)
+            .where(Schedule.is_active.is_(True), Schedule.version_id.is_(None))
+            .limit(1)
+        )
+        if has_unversioned is not None:
+            version_filter = Schedule.version_id.is_(None)
+        else:
+            latest_active = await db.scalar(
+                select(ScheduleVersion)
+                .where(ScheduleVersion.is_active.is_(True))
+                .order_by(ScheduleVersion.valid_from.desc())
+                .limit(1)
+            )
+            version_filter = (
+                Schedule.version_id == latest_active.id
+                if latest_active is not None
+                else Schedule.version_id.is_(None)
+            )
+
+    schedule_rows = (
+        await db.scalars(
+            select(Schedule).where(
+                and_(
+                    Schedule.is_active.is_(True),
+                    version_filter,
+                    Schedule.teacher_id.is_not(None),
+                    or_(Schedule.effective_until.is_(None), Schedule.effective_until >= today),
+                )
+            )
+        )
+    ).all()
+
+    edge_counts: dict[tuple[int, int, int | None, int, str | None], int] = defaultdict(int)
+    edge_days: dict[tuple[int, int, int | None, int, str | None], set[int]] = defaultdict(set)
+
+    group_lessons: dict[int, int] = defaultdict(int)
+    teacher_lessons: dict[int, int] = defaultdict(int)
+    teacher_groups: dict[int, set[int]] = defaultdict(set)
+    teacher_subjects_map: dict[int, set[int]] = defaultdict(set)
+
+    subject_lessons: dict[int, int] = defaultdict(int)
+    subject_groups: dict[int, set[int]] = defaultdict(set)
+    subject_teachers: dict[int, set[int]] = defaultdict(set)
+
+    room_lessons: dict[str, int] = defaultdict(int)
+    room_groups: dict[str, set[int]] = defaultdict(set)
+    room_teachers: dict[str, set[int]] = defaultdict(set)
+
+    for row in schedule_rows:
+        if (
+            row.group_id not in group_map
+            or row.subject_id not in subject_map
+            or row.teacher_id not in teacher_map
+        ):
+            continue
+
+        sec_id = (
+            row.second_teacher_id
+            if row.second_teacher_id
+            and row.second_teacher_id in teacher_map
+            and row.second_teacher_id != row.teacher_id
+            else None
+        )
+        primary_teacher = teacher_map[row.teacher_id]
+        eff_room = _normalize_atlas_room(row.room_override) or _normalize_atlas_room(primary_teacher.room)
+
+        edge_key = (row.group_id, row.teacher_id, sec_id, row.subject_id, eff_room)
+        edge_counts[edge_key] += 1
+        if 1 <= row.day_of_week <= 7:
+            edge_days[edge_key].add(row.day_of_week)
+
+        group_lessons[row.group_id] += 1
+        subject_lessons[row.subject_id] += 1
+        subject_groups[row.subject_id].add(row.group_id)
+
+        involved_teachers = (row.teacher_id,) if sec_id is None else (row.teacher_id, sec_id)
+        for tid in involved_teachers:
+            teacher_lessons[tid] += 1
+            teacher_groups[tid].add(row.group_id)
+            teacher_subjects_map[tid].add(row.subject_id)
+            subject_teachers[row.subject_id].add(tid)
+
+        if eff_room:
+            room_lessons[eff_room] += 1
+            room_groups[eff_room].add(row.group_id)
+            for tid in involved_teachers:
+                room_teachers[eff_room].add(tid)
+
+    group_nodes = [
+        AtlasGroupNode(
+            id=g.id,
+            name=g.name,
+            course=g.course,
+            faculty_id=g.faculty_id,
+            faculty_name=faculty_names.get(g.faculty_id) if g.faculty_id else None,
+            curator_id=g.curator_id if g.curator_id in teacher_map else None,
+            lessons_count=group_lessons.get(g.id, 0),
+        )
+        for g in groups_rows
+    ]
+
+    teacher_nodes = [
+        AtlasTeacherNode(
+            id=t.id,
+            name=t.name,
+            full_name=t.full_name,
+            room=_normalize_atlas_room(t.room),
+            groups_count=len(teacher_groups.get(t.id, ())),
+            subjects_count=len(teacher_subjects_map.get(t.id, ())),
+            lessons_count=teacher_lessons.get(t.id, 0),
+        )
+        for t in teachers_rows
+    ]
+
+    subject_nodes = [
+        AtlasSubjectNode(
+            id=s.id,
+            name=s.name,
+            short_name=s.short_name,
+            groups_count=len(subject_groups.get(s.id, ())),
+            teachers_count=len(subject_teachers.get(s.id, ())),
+            lessons_count=subject_lessons.get(s.id, 0),
+        )
+        for s in subjects_rows
+    ]
+
+    room_nodes = [
+        AtlasRoomNode(
+            id=room_name,
+            name=room_name,
+            floor=_extract_room_floor(room_name),
+            groups_count=len(room_groups.get(room_name, ())),
+            teachers_count=len(room_teachers.get(room_name, ())),
+            lessons_count=room_lessons.get(room_name, 0),
+        )
+        for room_name in sorted(room_lessons.keys())
+    ]
+
+    edges = [
+        AtlasEdge(
+            group_id=gid,
+            teacher_id=tid,
+            second_teacher_id=sec_tid,
+            subject_id=sid,
+            room=eff_room,
+            lessons_count=count,
+            days=sorted(edge_days[(gid, tid, sec_tid, sid, eff_room)]),
+        )
+        for (gid, tid, sec_tid, sid, eff_room), count in sorted(
+            edge_counts.items(),
+            key=lambda item: (-item[1], item[0][0], item[0][1], item[0][3]),
+        )
+    ]
+
+    payload = AtlasResponse(
+        summary=AtlasSummary(
+            groups_count=len(group_nodes),
+            teachers_count=len(teacher_nodes),
+            subjects_count=len(subject_nodes),
+            rooms_count=len(room_nodes),
+            edges_count=len(edges),
+        ),
+        groups=group_nodes,
+        teachers=teacher_nodes,
+        subjects=subject_nodes,
+        rooms=room_nodes,
+        edges=edges,
+    )
+
+    stale = [
+        k
+        for k in _DIR_CACHE
+        if isinstance(k, tuple) and len(k) == 3 and k[0] == "atlas" and (k[1] != global_rev or k[2] != sched_rev)
+    ]
+    for k in stale:
+        _DIR_CACHE.pop(k, None)
+    _DIR_CACHE[cache_key] = payload
+    return payload
 
 @admin_router.post("/faculties", response_model=FacultyResource, status_code=201)
 

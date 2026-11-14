@@ -408,3 +408,16 @@ export function InfoIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function NetworkIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <circle cx="5" cy="6" r="2" />
+      <circle cx="19" cy="6" r="2" />
+      <circle cx="5" cy="18" r="2" />
+      <circle cx="19" cy="18" r="2" />
+      <path d="M9.6 10.2 6.6 7.4M14.4 10.2l3-2.8M9.6 13.8l-3 2.8M14.4 13.8l3 2.8" />
+    </Svg>
+  );
+}

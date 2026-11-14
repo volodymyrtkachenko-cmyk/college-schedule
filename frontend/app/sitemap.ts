@@ -48,6 +48,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.7,
     },
+    {
+      url: `${siteUrl}/atlas`,
+      lastModified: todayIso,
+      changeFrequency: "weekly",
+      priority: 0.75,
+    },
   ];
 
   const groupRoutes: MetadataRoute.Sitemap = groups

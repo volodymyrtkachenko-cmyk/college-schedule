@@ -3,6 +3,7 @@ import type {
   AcademicTermMutation,
   AcademicTermRecord,
   AliasMutation,
+  AtlasResponse,
   CurriculumDeduplicateResult,
   CurriculumMutation,
   CurriculumRecord,
@@ -328,6 +329,7 @@ export const directoryApi = {
   subjects: () => cachedDirectoryRequest<ReferenceRecord[]>("/api/subjects"),
   teachers: () => cachedDirectoryRequest<ReferenceRecord[]>("/api/teachers"),
   teacherSubjects: () => cachedDirectoryRequest<Record<number, number[]>>("/api/teacher-subjects"),
+  atlas: () => cachedDirectoryRequest<AtlasResponse>("/api/atlas"),
 };
 
 export const usersApi = {

@@ -9,6 +9,15 @@ from app.schemas.common import (
     LearningModeConfig, LearningModeOverride,
     ShortenedDayItem, ShortenedDayTogglePayload, BellSlotItem, PublicBellsResponse,
 )
+from app.schemas.directory import (
+    AtlasEdge,
+    AtlasGroupNode,
+    AtlasResponse,
+    AtlasRoomNode,
+    AtlasSubjectNode,
+    AtlasSummary,
+    AtlasTeacherNode,
+)
 
 __all__ = [
     "DirectoryItem", "DirectoryResource", "FacultyResource", "GroupResource",
@@ -19,4 +28,6 @@ __all__ = [
     "SemesterDatesSetting", "SemesterDatesUpdate",
     "LearningModeConfig", "LearningModeOverride",
     "ShortenedDayItem", "ShortenedDayTogglePayload", "BellSlotItem", "PublicBellsResponse",
+    "AtlasGroupNode", "AtlasTeacherNode", "AtlasSubjectNode", "AtlasRoomNode",
+    "AtlasEdge", "AtlasSummary", "AtlasResponse",
 ]

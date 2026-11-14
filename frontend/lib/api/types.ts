@@ -824,3 +824,68 @@ export interface EducationalProcessMatrix {
   courses: EducationalProcessCourseInfo[];
   semesters?: EducationalProcessSemesterRange[];
 }
+
+export interface AtlasGroupNode {
+  id: number;
+  name: string;
+  course: number | null;
+  faculty_id: number | null;
+  faculty_name: string | null;
+  curator_id: number | null;
+  lessons_count: number;
+}
+
+export interface AtlasTeacherNode {
+  id: number;
+  name: string;
+  full_name: string | null;
+  room: string | null;
+  groups_count: number;
+  subjects_count: number;
+  lessons_count: number;
+}
+
+export interface AtlasSubjectNode {
+  id: number;
+  name: string;
+  short_name: string | null;
+  groups_count: number;
+  teachers_count: number;
+  lessons_count: number;
+}
+
+export interface AtlasRoomNode {
+  id: string;
+  name: string;
+  floor: number | null;
+  groups_count: number;
+  teachers_count: number;
+  lessons_count: number;
+}
+
+export interface AtlasEdge {
+  group_id: number;
+  teacher_id: number;
+  second_teacher_id: number | null;
+  subject_id: number;
+  room: string | null;
+  lessons_count: number;
+  days: number[];
+}
+
+export interface AtlasSummary {
+  groups_count: number;
+  teachers_count: number;
+  subjects_count: number;
+  rooms_count: number;
+  edges_count: number;
+}
+
+export interface AtlasResponse {
+  summary: AtlasSummary;
+  groups: AtlasGroupNode[];
+  teachers: AtlasTeacherNode[];
+  subjects: AtlasSubjectNode[];
+  rooms: AtlasRoomNode[];
+  edges: AtlasEdge[];
+}

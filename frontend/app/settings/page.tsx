@@ -23,6 +23,7 @@ import {
   GraduationCapIcon,
   LightbulbIcon,
   LinkIcon,
+  NetworkIcon,
   ShieldIcon,
   UserCheckIcon,
 } from "../../components/ui/Icons";
@@ -646,6 +647,24 @@ export default function SettingsPage() {
                 <span>Графік навчального процесу</span>
               </span>
               <span className="text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">↗</span>
+            </TransitionLink>
+
+            <TransitionLink
+              href="/atlas"
+              className="spring-press sm:col-span-2 flex items-center justify-between gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3 hover:border-cyan-500/55 hover:bg-cyan-500/15 transition-colors duration-fast ease-smooth group text-left"
+            >
+              <span className="flex items-center gap-2.5 min-w-0 flex-1">
+                <NetworkIcon className="h-4 w-4 shrink-0 text-cyan-700 dark:text-cyan-400" />
+                <span className="flex flex-col min-w-0">
+                  <span className="font-semibold text-sys-text-primary text-xs sm:text-sm leading-snug">
+                    Атлас ДФКР — Мапа зв&apos;язків коледжу
+                  </span>
+                  <span className="text-[11px] text-sys-text-secondary leading-snug">
+                    Інтерактивне сузір&apos;я груп, викладачів, дисциплін та аудиторій
+                  </span>
+                </span>
+              </span>
+              <span className="text-cyan-700 dark:text-cyan-400 group-hover:translate-x-0.5 transition-transform text-xs font-bold shrink-0">Відкрити →</span>
             </TransitionLink>
           </div>
         </section>

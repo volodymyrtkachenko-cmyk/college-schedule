@@ -3,6 +3,7 @@ export type PublicSectionId =
   | "bells"
   | "educational-process"
   | "statistics"
+  | "atlas"
   | "settings";
 
 export type MobileHomeTab = "schedule" | "tasks";
@@ -36,6 +37,13 @@ export const PUBLIC_NAV_ITEMS: readonly PublicNavItem[] = [
     shortLabel: "Стат.",
     rank: 3,
   },
+  {
+    id: "atlas",
+    href: "/atlas",
+    label: "Атлас ДФКР",
+    shortLabel: "Атлас",
+    rank: 3.5,
+  },
 ];
 
 export const CORE_PREFETCH_ROUTES: readonly string[] = [
@@ -44,6 +52,7 @@ export const CORE_PREFETCH_ROUTES: readonly string[] = [
   "/bells",
   "/educational-process",
   "/statistics",
+  "/atlas",
 ];
 
 /**
@@ -94,6 +103,7 @@ export function getRouteRank(pathname: string): number {
   if (path === "/bells") return 1;
   if (path === "/educational-process") return 2;
   if (path === "/statistics") return 3;
+  if (path === "/atlas") return 3.5;
   if (path === "/settings") return 4;
   if (path.startsWith("/admin")) return 5;
   return 1;
