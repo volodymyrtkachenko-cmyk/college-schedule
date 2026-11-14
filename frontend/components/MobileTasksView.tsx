@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
+import { KYIV_TIME_FMT } from "../lib/date";
 import { resolveScheduleSubtabFromSearch } from "../lib/navigation";
 import type { SubjectHubTarget } from "../lib/schedule";
 import { useMobileNav } from "../lib/useMobileNav";
@@ -36,7 +37,6 @@ const TASKS_TAB_ORDER: Record<TasksTabMode, number> = {
   done: 2,
 };
 
-const EMPTY_TASKS: FullTaskItem[] = [];
 const DONE_INITIAL_LIMIT = 15;
 
 export function TasksTodoBoard({
@@ -596,14 +596,20 @@ export function MobileTasksView({
   const { isLinked, isLinkedToGroup } = useClassroomSubmissions();
   const hasAccess = Boolean(groupId && isLinkedToGroup(groupId));
 
-  const fallbackSummary = useTaskGroups(
-    summaryTaskGroups ? EMPTY_TASKS : tasks,
-    "all",
-    undefined,
-    undefined,
-    isLinked
-  );
-  const { activeCount, totalCount } = summaryTaskGroups ?? fallbackSummary;
+  const { activeCount, totalCount } = useMemo(() => {
+    if (summaryTaskGroups) {
+      return {
+        activeCount: summaryTaskGroups.activeCount,
+        totalCount: summaryTaskGroups.totalCount,
+      };
+    }
+    let active = 0;
+    for (const t of tasks) {
+      const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
+      if (!isDone) active++;
+    }
+    return { activeCount: active, totalCount: tasks.length };
+  }, [summaryTaskGroups, tasks, isLinked]);
   const badgeCount = isLinked ? activeCount : totalCount;
 
   const formattedSyncTime = useMemo(() => {
@@ -611,11 +617,7 @@ export function MobileTasksView({
     try {
       const d = new Date(lastSyncedAt);
       if (isNaN(d.getTime())) return null;
-      return new Intl.DateTimeFormat("uk-UA", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Europe/Kyiv",
-      }).format(d);
+      return KYIV_TIME_FMT.format(d);
     } catch {
       return null;
     }

@@ -49,7 +49,9 @@ export type { QuickJumpTarget, MeetingInfo, TaskDeadline, ClassroomTaskItem, Kyi
 export {
   extractOnlineMeetings,
   extractOnlineMeetingInfo,
+  ensureSharedKyivNowSnapshot,
   getKyivNow,
+  getSharedKyivNowSnapshot,
   subscribeKyivNow,
   UKR_MONTHS_SHORT,
   pluralDays,
@@ -187,7 +189,10 @@ export const LessonCard = memo(function LessonCard({
   const [nowState, setNowState] = useState<KyivNowSnapshot | null>(() => getSharedKyivNowSnapshot());
 
   useEffect(() => {
-    setNowState(ensureSharedKyivNowSnapshot());
+    const next = ensureSharedKyivNowSnapshot();
+    setNowState((prev) =>
+      prev && prev.dateIso === next.dateIso && prev.minutes === next.minutes ? prev : next
+    );
     return subscribeKyivNow(setNowState);
   }, []);
 
@@ -318,31 +323,29 @@ export const LessonCard = memo(function LessonCard({
     [isTeacherView, canEdit, scheduleMode, hasGroupAccess, lesson.note]
   );
 
-  const tasks = useMemo(() => {
+  const { tasks, completedTasks } = useMemo(() => {
+    if (rawTasks.length === 0) {
+      return { tasks: [] as ClassroomTaskItem[], completedTasks: [] as ClassroomTaskItem[] };
+    }
     const sorted = sortTasksByDeadline(rawTasks);
-    return sorted.filter((t) => {
+    const active: ClassroomTaskItem[] = [];
+    const done: ClassroomTaskItem[] = [];
+    for (const t of sorted) {
       if (!isOwnTask(isLinked, submissions, t.url, t.teacher, personalTeachers, t.title, effectiveSubgroup)) {
-        return false;
+        continue;
       }
-      const key = extractClassroomTaskKey(t.url);
-      const sub = submissions[t.url] || (key ? submissions[key] : null);
-      return !(isLinked && sub && (sub.state === "TURNED_IN" || sub.state === "RETURNED"));
-    });
+      if (isLinked) {
+        const key = extractClassroomTaskKey(t.url);
+        const sub = submissions[t.url] || (key ? submissions[key] : null);
+        if (sub && (sub.state === "TURNED_IN" || sub.state === "RETURNED")) {
+          done.push(t);
+          continue;
+        }
+      }
+      active.push(t);
+    }
+    return { tasks: active, completedTasks: done };
   }, [rawTasks, isLinked, submissions, personalTeachers, effectiveSubgroup]);
-
-  const allOwnTasks = useMemo(
-    () => rawTasks.filter((t) => isOwnTask(isLinked, submissions, t.url, t.teacher, personalTeachers, t.title, effectiveSubgroup)),
-    [rawTasks, isLinked, submissions, personalTeachers, effectiveSubgroup]
-  );
-
-  const completedTasks = useMemo(() => {
-    if (!isLinked) return [];
-    return allOwnTasks.filter((t) => {
-      const key = extractClassroomTaskKey(t.url);
-      const sub = submissions[t.url] || (key ? submissions[key] : null);
-      return sub && (sub.state === "TURNED_IN" || sub.state === "RETURNED");
-    });
-  }, [isLinked, allOwnTasks, submissions]);
 
   const nearestDated = useMemo(
     () => tasks.find((t) => t.deadline.formattedDate || (t.deadline.day && t.deadline.month)) || null,

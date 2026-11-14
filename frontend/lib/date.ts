@@ -31,6 +31,12 @@ export const UKR_WEEKDAY_LONG_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: 
 export const UKR_DAY_MONTH_SHORT_FMT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
 export const UKR_DAY_MONTH_LONG_FMT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" });
 export const UKR_FULL_DATE_FMT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" });
+export const UKR_UTC_FULL_DATE_FMT = new Intl.DateTimeFormat("uk-UA", {
+  timeZone: "UTC",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
 export const UKR_MONTH_SHORT_FMT = new Intl.DateTimeFormat("uk-UA", { month: "short" });
 
 export function formatKyivDateIso(date: Date = getSyncedNow()): string {

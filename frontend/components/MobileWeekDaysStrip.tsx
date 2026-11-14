@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { ScheduleResponse } from "../lib/api";
+import { KYIV_DATE_FMT } from "../lib/date";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт"];
 
@@ -27,7 +28,7 @@ export function MobileWeekDaysStrip({
       const d = new Date(weekAnchorDate);
       d.setDate(weekAnchorDate.getDate() + offset);
       const dayNum = d.getDate();
-      const dateIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(d);
+      const dateIso = KYIV_DATE_FMT.format(d);
       const daySchedule = week?.find((s) => s.date === dateIso);
       const hasPeriod = Boolean(daySchedule?.period_info && daySchedule.lessons.length === 0);
       return {

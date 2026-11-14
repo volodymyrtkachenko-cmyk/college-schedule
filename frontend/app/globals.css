@@ -1612,6 +1612,10 @@ html[data-density="relaxed"] {
   padding: var(--lesson-day-pad-y) var(--lesson-day-pad-x);
 }
 
+.lesson-card-day:not([data-open="true"]) {
+  contain: layout style;
+}
+
 .lesson-card-day[data-live="true"] {
   padding-bottom: calc(var(--lesson-day-pad-y) + var(--lesson-live-extra-b));
 }
@@ -1639,6 +1643,10 @@ html[data-density="relaxed"] {
 
 .lesson-card-week {
   padding: var(--lesson-week-pad);
+}
+
+.lesson-card-week:not([data-open="true"]) {
+  contain: layout style;
 }
 
 .lesson-card-week[data-live="true"] {

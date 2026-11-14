@@ -106,7 +106,6 @@ export function setClassroomNeedsRelink(val: boolean, reason?: string | null): v
       localStorage.removeItem(NEEDS_RELINK_REASON_KEY);
     }
     window.dispatchEvent(new Event(EVENT_NAME));
-    window.dispatchEvent(new Event("storage"));
   } catch {}
 }
 
@@ -195,7 +194,6 @@ export function unlinkClassroomEmail(): void {
     invalidateScheduleCache(true);
     window.dispatchEvent(new Event(EVENT_NAME));
     window.dispatchEvent(new Event("classroom-access-changed"));
-    window.dispatchEvent(new Event("storage"));
   } catch {}
 }
 
@@ -367,7 +365,7 @@ function notifyClassroomChange() {
 if (typeof window !== "undefined") {
   window.addEventListener(EVENT_NAME, notifyClassroomChange);
   window.addEventListener("storage", (e: StorageEvent) => {
-    if (!e.key || e.key.includes("classroom") || e.key.includes("subgroup")) {
+    if (e.key === null || (typeof e.key === "string" && (e.key.includes("classroom") || e.key.includes("subgroup")))) {
       notifyClassroomChange();
     }
   });

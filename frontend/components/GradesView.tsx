@@ -154,7 +154,12 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
       {/* GPA Overview Card */}
       <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs relative overflow-hidden">
         {/* Subtle decorative glow */}
-        <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full bg-sys-accent/10 blur-3xl pointer-events-none" />
+        <div
+          className="absolute -top-16 -right-16 w-44 h-44 rounded-full pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, color-mix(in srgb, var(--sys-accent) 16%, transparent) 0%, transparent 70%)",
+          }}
+        />
 
         {/* Top Header Row */}
         <div className="flex items-center justify-between gap-2 relative z-10 pb-0.5">
@@ -357,7 +362,9 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
             return (
               <div
                 key={subj.subject}
-                className="rounded-2xl border border-sys-border bg-sys-card transition-colors duration-fast ease-smooth overflow-hidden shadow-xs hover:border-sys-border/90"
+                className={`rounded-2xl border border-sys-border bg-sys-card transition-colors duration-fast ease-smooth overflow-hidden shadow-xs hover:border-sys-border/90 ${
+                  isExpanded ? "" : "[content-visibility:auto] [contain-intrinsic-size:auto_84px]"
+                }`}
               >
                 {/* Subject Header Button */}
                 <button

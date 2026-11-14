@@ -64,7 +64,6 @@ function initViewportListeners() {
   mqlMobile.addEventListener("change", notify);
   mqlTablet.addEventListener("change", notify);
   mqlDesktop.addEventListener("change", notify);
-  window.addEventListener("resize", notify);
 }
 
 function subscribe(callback: () => void): () => void {

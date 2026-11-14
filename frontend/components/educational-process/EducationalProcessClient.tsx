@@ -13,6 +13,7 @@ import {
   readCacheSnapshot,
   writeCacheSnapshot,
 } from "@/lib/cacheSnapshot";
+import { KYIV_DATE_FMT } from "@/lib/date";
 import {
   mergeProcessCells,
   MS_PER_DAY,
@@ -251,7 +252,7 @@ export function EducationalProcessClient() {
   }, [allGroups, activeCourseTab, searchQuery]);
 
   const todayIso = useMemo(() => {
-    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
+    return KYIV_DATE_FMT.format(new Date());
   }, []);
 
   const realTimeStatus = useMemo(() => {

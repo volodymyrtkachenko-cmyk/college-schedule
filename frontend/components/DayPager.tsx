@@ -6,7 +6,13 @@ import { ScheduleResponse, Lesson } from "../lib/api";
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
-import { LessonCard, QuickJumpTarget, getKyivNow, subscribeKyivNow } from "./LessonCard";
+import {
+  LessonCard,
+  QuickJumpTarget,
+  ensureSharedKyivNowSnapshot,
+  getSharedKyivNowSnapshot,
+  subscribeKyivNow,
+} from "./LessonCard";
 import type { SubjectHubTarget } from "../lib/schedule";
 import { SchedulePeriodCard } from "./SchedulePeriodCard";
 import { CoffeeIcon } from "./ui/Icons";
@@ -92,11 +98,16 @@ export function DayPager({
 }) {
   const { showToast } = useToast();
   const { resolvedTheme } = useTheme();
-  const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
+  const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(() =>
+    getSharedKyivNowSnapshot()
+  );
   const [sharingImage, setSharingImage] = useState(false);
 
   useEffect(() => {
-    setKyivNow(getKyivNow());
+    const next = ensureSharedKyivNowSnapshot();
+    setKyivNow((prev) =>
+      prev && prev.dateIso === next.dateIso && prev.minutes === next.minutes ? prev : next
+    );
     return subscribeKyivNow(setKyivNow);
   }, []);
 

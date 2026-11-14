@@ -218,19 +218,16 @@ export function resolveDisplayDaySchedule(
   now: Date = getSyncedNow()
 ): { displayDaySchedule: ScheduleResponse | null; isShowingTomorrow: boolean } {
   if (!today) return { displayDaySchedule: null, isShowingTomorrow: false };
-  const kyivHour = Number(
-    new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", hour: "2-digit", hour12: false }).format(now)
-  );
-  const kyivMin = Number(
-    new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", minute: "2-digit" }).format(now)
-  );
+  const [hh, mm] = KYIV_TIME_FMT.format(now).split(":");
+  const kyivHour = Number(hh);
+  const kyivMin = Number(mm);
   const totalMins = kyivHour * 60 + kyivMin;
   const dow = now.getDay();
 
   if (dow >= 1 && dow <= 4 && totalMins >= 15 * 60 + 25 && week.length > 0) {
     const tomorrow = new Date(now);
     tomorrow.setDate(now.getDate() + 1);
-    const tomorrowIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(tomorrow);
+    const tomorrowIso = KYIV_DATE_FMT.format(tomorrow);
     const foundTomorrow = week.find((d) => d.date === tomorrowIso);
     if (foundTomorrow) {
       return { displayDaySchedule: foundTomorrow, isShowingTomorrow: true };

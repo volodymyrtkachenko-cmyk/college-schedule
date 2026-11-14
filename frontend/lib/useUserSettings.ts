@@ -71,9 +71,13 @@ function notifySettingsChange() {
 }
 
 if (typeof window !== "undefined") {
-  window.addEventListener(SETTINGS_CHANGE_EVENT, notifySettingsChange);
   window.addEventListener("storage", (e: StorageEvent) => {
-    if (!e.key || e.key.startsWith("schedule")) {
+    if (
+      e.key === null ||
+      e.key === HW_BADGES_KEY ||
+      e.key === SUBGROUP_KEY ||
+      e.key === VIEW_DESKTOP_KEY
+    ) {
       notifySettingsChange();
     }
   });
@@ -113,7 +117,6 @@ export function useUserSettings() {
       window.dispatchEvent(
         new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { key, value } })
       );
-      window.dispatchEvent(new Event("storage"));
     } catch {}
     notifySettingsChange();
   }, []);

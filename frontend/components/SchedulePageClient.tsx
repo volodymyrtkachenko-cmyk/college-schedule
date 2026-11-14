@@ -252,6 +252,7 @@ export function SchedulePageClient({
     setToast,
     setOverdueCount: sel.setOverdueCount,
     onOpenTeacherPinModal: handleOpenTeacherPinModal,
+    enableSidebarTaskGroups: showDesktop || guideHubMounted,
   });
 
   useKeyboardScheduleNav({
@@ -388,7 +389,6 @@ export function SchedulePageClient({
                   >
                     <MobileTasksView
                       tasks={allTasks}
-                      summaryTaskGroups={guideTaskGroups}
                       groupId={groupId}
                       weekStart={weekStartStr}
                       weekAnchorDate={weekAnchorDate}

@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { readCacheSnapshot, writeCacheSnapshot } from "@/lib/cacheSnapshot";
+import { UKR_UTC_FULL_DATE_FMT } from "@/lib/date";
 import { getProgressPercentage } from "@/lib/format";
 import { resolveEffectiveScheduleMode } from "@/lib/navigation";
 import { useMobileNav } from "@/lib/useMobileNav";
@@ -23,12 +24,7 @@ import { useRecentSelections } from "@/lib/useRecentSelections";
 function formatDate(value: string) {
   const parsed = new Date(`${value}T00:00:00Z`);
   if (Number.isNaN(parsed.getTime())) return value;
-  return new Intl.DateTimeFormat("uk-UA", {
-    timeZone: "UTC",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(parsed);
+  return UKR_UTC_FULL_DATE_FMT.format(parsed);
 }
 
 export function StatisticsClient() {

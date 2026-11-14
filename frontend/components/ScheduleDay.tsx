@@ -5,14 +5,22 @@ import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
-import { LessonCard, QuickJumpTarget, getKyivNow, subscribeKyivNow } from "./LessonCard";
+import {
+  LessonCard,
+  QuickJumpTarget,
+  ensureSharedKyivNowSnapshot,
+  getSharedKyivNowSnapshot,
+  subscribeKyivNow,
+} from "./LessonCard";
 import type { SubjectHubTarget } from "../lib/schedule";
 import { SchedulePeriodCard, CompactSchedulePeriodCard } from "./SchedulePeriodCard";
 import { ClockIcon, CoffeeIcon } from "./ui/Icons";
 import { useTheme } from "../lib/useTheme";
-
-const fmt = (value: string, options: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat("uk-UA", options).format(new Date(`${value}T12:00:00`));
+import {
+  UKR_DAY_MONTH_LONG_FMT,
+  UKR_DAY_MONTH_SHORT_FMT,
+  UKR_WEEKDAY_LONG_FMT,
+} from "../lib/date";
 
 function parseMin(t?: string): number | null {
   if (!t) return null;
@@ -70,10 +78,15 @@ export function ScheduleDay({
 }) {
   const { showToast } = useToast();
   const { resolvedTheme } = useTheme();
-  const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
+  const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(() =>
+    getSharedKyivNowSnapshot()
+  );
 
   useEffect(() => {
-    setKyivNow(getKyivNow());
+    const next = ensureSharedKyivNowSnapshot();
+    setKyivNow((prev) =>
+      prev && prev.dateIso === next.dateIso && prev.minutes === next.minutes ? prev : next
+    );
     return subscribeKyivNow(setKyivNow);
   }, []);
 
@@ -130,6 +143,8 @@ export function ScheduleDay({
   };
 
 
+  const scheduleDateNoon = new Date(`${schedule.date}T12:00:00`);
+
   const orderedLessons = [...schedule.lessons].sort(
     (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
   );
@@ -170,10 +185,10 @@ export function ScheduleDay({
               <div className="flex flex-wrap items-center gap-2.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
-                    {fmt(schedule.date, { weekday: "long" })}<span className="font-normal text-sys-text-secondary">,</span>
+                    {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}<span className="font-normal text-sys-text-secondary">,</span>
                   </h2>
                   <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
-                    {fmt(schedule.date, { day: "numeric", month: "long" })}
+                    {UKR_DAY_MONTH_LONG_FMT.format(scheduleDateNoon)}
                   </span>
                   {schedule.is_shortened_day && (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 shadow-xs">
@@ -190,12 +205,12 @@ export function ScheduleDay({
               <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
                   <h2 className="text-base sm:text-lg font-bold capitalize tracking-tight truncate text-sys-text-primary">
-                    {fmt(schedule.date, { weekday: "long" })}
+                    {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}
                   </h2>
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-0.5">
                   <span className="text-xs font-medium text-sys-text-secondary">
-                    {fmt(schedule.date, { day: "numeric", month: "short" })}
+                    {UKR_DAY_MONTH_SHORT_FMT.format(scheduleDateNoon)}
                   </span>
                   {schedule.is_shortened_day && (
                     <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">

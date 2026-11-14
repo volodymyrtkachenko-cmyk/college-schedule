@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScheduleResponse, api } from "../../lib/api";
 import { requestClassroomAuth } from "../../lib/classroomAuth";
-import { KYIV_DATE_FMT, formatKyivDateIso, getKyivInitialWeekAnchor } from "../../lib/date";
+import { KYIV_DATE_FMT, KYIV_TIME_FMT, formatKyivDateIso, getKyivInitialWeekAnchor } from "../../lib/date";
 import {
   aggregateClassroomTasks,
   countOverdueClassroomTasks,
@@ -11,9 +11,11 @@ import {
 } from "../../lib/schedule";
 import { syncPersonalSubmissions, useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { DEFAULT_TASK_FILTERS, useTaskGroups } from "../../lib/useTaskGroups";
+import type { FullTaskItem } from "../TaskCardItem";
 import type { ReturnTarget } from "./useScheduleSelection";
 
 const tasksMemoryCache = new Map<number, { tasks: any[]; lastSyncedAt: string | null }>();
+const EMPTY_TASKS: FullTaskItem[] = [];
 
 interface UseScheduleDataFetchParams {
   groupId: number | null;
@@ -26,6 +28,7 @@ interface UseScheduleDataFetchParams {
   setToast: (msg: string, type?: "success" | "error" | "info") => void;
   setOverdueCount: (count: number) => void;
   onOpenTeacherPinModal: (groupName: string | null) => void;
+  enableSidebarTaskGroups?: boolean;
 }
 
 export function useScheduleDataFetch({
@@ -39,6 +42,7 @@ export function useScheduleDataFetch({
   setToast,
   setOverdueCount,
   onOpenTeacherPinModal,
+  enableSidebarTaskGroups = true,
 }: UseScheduleDataFetchParams) {
   const [classroomTasks, setClassroomTasks] = useState<any[]>([]);
   const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
@@ -171,11 +175,7 @@ export function useScheduleDataFetch({
     try {
       const d = new Date(classroomLastSyncedAt);
       if (isNaN(d.getTime())) return null;
-      return new Intl.DateTimeFormat("uk-UA", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Europe/Kyiv",
-      }).format(d);
+      return KYIV_TIME_FMT.format(d);
     } catch {
       return null;
     }
@@ -336,7 +336,7 @@ export function useScheduleDataFetch({
   );
 
   const sidebarTaskGroups = useTaskGroups(
-    allTasks,
+    enableSidebarTaskGroups ? allTasks : EMPTY_TASKS,
     "week",
     weekAnchorDate,
     currentWeekNumber,
