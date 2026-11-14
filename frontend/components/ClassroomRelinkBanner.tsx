@@ -84,7 +84,7 @@ export function ClassroomRelinkBanner({ className = "" }: { className?: string }
           type="button"
           onClick={handleRelink}
           disabled={isRelinking}
-          className="inline-flex h-8 items-center gap-1.5 rounded-xl bg-amber-600 dark:bg-amber-500 px-3 text-xs font-bold text-white shadow-xs hover:bg-amber-700 dark:hover:bg-amber-600 active:scale-95 transition-colors cursor-pointer disabled:opacity-50"
+          className="inline-flex h-8 items-center gap-1.5 rounded-xl bg-amber-700 hover:bg-amber-800 px-3 text-xs font-bold text-white shadow-xs active:scale-95 transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card"
         >
           {isRelinking ? (
             <span>Підключення...</span>

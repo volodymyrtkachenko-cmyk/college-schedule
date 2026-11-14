@@ -103,18 +103,18 @@ export function DesktopFocusDaySwitcher({
                   key={d.iso}
                   type="button"
                   onClick={() => onSelectDayIndex(d.index)}
-                  className={`relative z-10 flex flex-col items-center justify-center h-15 rounded-xl transition-colors duration-150 cursor-pointer active:scale-95 ${
+                  className={`relative z-10 flex flex-col items-center justify-center h-15 rounded-xl transition-colors duration-150 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card ${
                     isActive
-                      ? "text-white font-black"
+                      ? "text-sys-onAccent font-black"
                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
                   }`}
                 >
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs uppercase font-semibold opacity-90">{d.name}</span>
+                    <span className="text-xs uppercase font-semibold">{d.name}</span>
                     {isToday && (
                       <span
                         title="Сьогодні"
-                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-white" : "bg-sys-accent"}`}
+                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-sys-onAccent" : "bg-sys-accent"}`}
                       />
                     )}
                   </div>

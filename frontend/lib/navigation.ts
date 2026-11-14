@@ -206,10 +206,68 @@ export function resolveScheduleSubtabFromSearch(
 /**
  * Builds homepage href for Guide CTAs opening either Classroom tasks or grades view.
  */
-export function buildGuideTasksHref(subtab: "tasks" | "grades"): string {
-  return subtab === "grades"
-    ? "/?tab=tasks&mode=student&subtab=grades"
-    : "/?tab=tasks&mode=student";
+export function buildGuideTasksHref(
+  subtab: "tasks" | "grades",
+  pathname?: string | null,
+  currentSearch = "",
+): string {
+  const cleanSearch = currentSearch.startsWith("?") ? currentSearch.slice(1) : currentSearch;
+  const params = new URLSearchParams(cleanSearch);
+  params.set("tab", "tasks");
+  params.set("mode", "student");
+  if (subtab === "grades") {
+    params.set("subtab", "grades");
+  } else {
+    params.delete("subtab");
+  }
+  const normalizedPath = pathname ? normalizeRoutePath(pathname) : "/";
+  const basePath = normalizedPath.startsWith("/group/") ? normalizedPath : "/";
+  return `${basePath}?${params.toString()}`;
+}
+
+/**
+ * Формує рядок query-параметрів для мобільної вкладки розкладу/завдань/оцінок,
+ * зберігаючи решту параметрів URL (наприклад, mode або date).
+ */
+export function buildScheduleTabSearch(
+  currentSearch: string,
+  tab: MobileHomeTab,
+  subtab?: "tasks" | "grades" | null,
+): string {
+  const clean = currentSearch.startsWith("?") ? currentSearch.slice(1) : currentSearch;
+  const params = new URLSearchParams(clean);
+
+  if (tab === "schedule") {
+    params.delete("tab");
+    params.delete("subtab");
+  } else {
+    params.set("tab", "tasks");
+    if (subtab === "grades") {
+      params.set("subtab", "grades");
+    } else {
+      params.delete("subtab");
+    }
+  }
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+/**
+ * Будує відносний URL мобільної вкладки зі збереженням поточного
+ * шляху (/group/[code] або /teacher/[slug]) та решти query-параметрів.
+ */
+export function buildCurrentScheduleHref(
+  pathname: string | null | undefined,
+  currentSearch: string,
+  tab: MobileHomeTab,
+  subtab?: "tasks" | "grades" | null,
+  hash = "",
+): string {
+  const basePath = isScheduleRoutePath(pathname) ? normalizeRoutePath(pathname ?? "/") : "/";
+  const search = buildScheduleTabSearch(currentSearch, tab, subtab);
+  const normalizedHash = hash ? (hash.startsWith("#") ? hash : `#${hash}`) : "";
+  return `${basePath}${search}${normalizedHash}`;
 }
 
 /**

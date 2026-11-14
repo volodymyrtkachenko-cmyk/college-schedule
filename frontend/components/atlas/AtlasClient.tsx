@@ -1926,7 +1926,7 @@ export function AtlasClient() {
       <main
         id="main-content"
         tabIndex={-1}
-        className="vt-main-content flex-1 w-full max-w-[1600px] mx-auto px-3 sm:px-6 pt-3 sm:pt-4 pb-24 sm:pb-12 space-y-3 sm:space-y-4 focus:outline-none"
+        className="vt-main-content flex-1 w-full max-w-[1600px] mx-auto px-3 sm:px-6 pt-3 sm:pt-4 pb-bottom-nav-safe lg:pb-12 space-y-3 sm:space-y-4 focus:outline-none"
       >
         <div className="sr-only" aria-live="polite" aria-atomic="true">
           {liveAnnouncement}

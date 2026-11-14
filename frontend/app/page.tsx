@@ -46,7 +46,7 @@ export default async function HomePage() {
 
       <SchedulePageClient initialGroups={groups} initialTeachers={teachers} ssrNowIso={ssrNowIso} />
 
-      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-3 pt-3 pb-20 text-[11px] text-sys-text-secondary sm:px-6 sm:pt-4 sm:pb-24 sm:text-xs lg:pb-8">
+      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-3 pt-3 pb-bottom-nav-safe text-[11px] text-sys-text-secondary sm:px-6 sm:pt-4 sm:text-xs lg:pb-8">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <p className="truncate sm:whitespace-normal">
             <span className="sm:hidden">ДФКР — розклад занять</span>

@@ -261,6 +261,11 @@ function auditLegacyClasses() {
     "components/navigation/SubpageHeader.tsx",
     "components/navigation/DesktopSpotlightGrid.tsx",
     "components/navigation/NavigationTransitionProvider.tsx",
+    "components/WelcomeScreen.tsx",
+    "components/BottomNav.tsx",
+    "components/MobileTasksView.tsx",
+    "components/ClassroomRelinkBanner.tsx",
+    "components/schedule/DesktopFocusDaySwitcher.tsx",
   "app/bells/page.tsx",
   "app/statistics/page.tsx",
   "app/educational-process/page.tsx",
@@ -327,6 +332,30 @@ function auditLegacyClasses() {
       if (publicNoTransitionAll.has(relPath) && line.match(/(?<![a-zA-Z0-9_\-:])transition-all\b/)) {
         console.log(`  ⚠️ [${relPath}:${idx + 1}] Found unoptimized transition-all in core public file`);
         violationCount++;
+      }
+
+      if (/(?:^|[\s"'`])text-(?:white|sys-onAccent)(?:\/[0-9]+)?(?=$|[\s"'`])/.test(line)) {
+        const lowContrastFill = line.match(
+          /(?:^|[\s"'`])(bg-(?:sky-(?:400|500|600)|amber-(?:400|500|600)|cyan-(?:400|500|600)|lime-(?:400|500|600)|yellow-(?:400|500|600)|rose-(?:400|500)))(?=$|[\s"'`])/
+        );
+        if (lowContrastFill) {
+          console.log(
+            `  ⚠️ [${relPath}:${idx + 1}] Low-contrast light text over medium fill -> ${lowContrastFill[1]}`
+          );
+          violationCount++;
+        }
+
+        const dimmedAccentLabel = line.match(/(?:^|[\s"'`])(text-(?:white|sys-onAccent)\/[0-9]+|opacity-(?:70|75|80|85|90))(?=$|[\s"'`])/);
+        const onSolidAccentLine =
+          line.includes("bg-sys-accentSolid") ||
+          line.includes("text-sys-onAccent") ||
+          /\bbg-sys-accent\b/.test(line);
+        if (dimmedAccentLabel && onSolidAccentLine && !line.includes("hover:opacity-")) {
+          console.log(
+            `  ⚠️ [${relPath}:${idx + 1}] Dimmed light text (${dimmedAccentLabel[1]}) on solid accent risks <4.5:1 AA`
+          );
+          violationCount++;
+        }
       }
     });
   }

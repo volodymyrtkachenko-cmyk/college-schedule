@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { SchedulePageClient } from "../../../components/SchedulePageClient";
 import { TransitionLink } from "../../../components/navigation/NavigationTransitionProvider";
 import { SITE_URL } from "../../../lib/site";
+import { getMondayCalendarIso } from "../../../lib/calendarDate";
+import { formatKyivDateIso, getKyivInitialWeekAnchor } from "../../../lib/date";
 import {
   getGroupCourse,
   getGroupFullCode,
@@ -124,10 +126,17 @@ export default async function GroupSchedulePage({
     notFound();
   }
 
+  const ssrNow = new Date();
+  const ssrNowIso = ssrNow.toISOString();
+  const targetWeekAnchorIso = formatKyivDateIso(getKyivInitialWeekAnchor(ssrNow));
   const groupId = group?.id;
   const scheduleDays = groupId
-    ? await fetchScheduleWeekForSsr({ groupId })
+    ? await fetchScheduleWeekForSsr({ groupId, targetDateIso: targetWeekAnchorIso })
     : [];
+  const initialWeekStartIso =
+    scheduleDays.length > 0 && scheduleDays[0]?.date
+      ? getMondayCalendarIso(scheduleDays[0].date)
+      : undefined;
 
   const fullCode = group ? getGroupFullCode(group) : rawCode;
   const course = group ? getGroupCourse(group.name) : null;
@@ -179,8 +188,6 @@ export default async function GroupSchedulePage({
     ],
   };
 
-  const ssrNowIso = new Date().toISOString();
-
   return (
     <div className="min-h-dvh bg-transparent text-sys-text-primary">
       <script
@@ -197,10 +204,12 @@ export default async function GroupSchedulePage({
         initialTeachers={teachers}
         initialGroupId={groupId}
         initialMode="student"
+        initialWeek={scheduleDays}
+        initialWeekStartIso={initialWeekStartIso}
         ssrNowIso={ssrNowIso}
       />
 
-      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-3 pt-3 pb-20 text-[11px] text-sys-text-secondary sm:px-6 sm:pt-4 sm:pb-24 sm:text-xs lg:pb-8">
+      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-3 pt-3 pb-bottom-nav-safe text-[11px] text-sys-text-secondary sm:px-6 sm:pt-4 sm:text-xs lg:pb-8">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <p className="truncate sm:whitespace-normal">
             Група <strong className="text-sys-text-primary">{group?.name || rawCode}</strong> ({fullCode}

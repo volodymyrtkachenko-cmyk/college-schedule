@@ -6,7 +6,7 @@ const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffec
 import dynamic from "next/dynamic";
 import { useReducedMotion } from "framer-motion";
 import { canAccessAdmin, useAuth } from "../lib/auth";
-import { ReferenceRecord } from "../lib/api";
+import { type ReferenceRecord, type ScheduleResponse } from "../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../lib/hooks";
 import { resolveScheduleSubtabFromSearch } from "../lib/navigation";
 import type { SubjectHubTarget } from "../lib/schedule";
@@ -44,12 +44,16 @@ const SubjectHubModal = dynamic(() => import("./schedule/SubjectHubModal").then(
 const InstallPrompt = dynamic(() => import("./InstallPrompt").then((m) => m.InstallPrompt), { ssr: false });
 const ClassroomRelinkBanner = dynamic(() => import("./ClassroomRelinkBanner").then((m) => m.ClassroomRelinkBanner), { ssr: false });
 
+const EMPTY_SCHEDULE_WEEK: ScheduleResponse[] = [];
+
 export interface SchedulePageClientProps {
   initialGroups?: ReferenceRecord[];
   initialTeachers?: ReferenceRecord[];
   initialGroupId?: number;
   initialTeacherId?: number;
   initialMode?: "student" | "teacher";
+  initialWeek?: ScheduleResponse[];
+  initialWeekStartIso?: string;
   ssrNowIso?: string;
 }
 
@@ -59,6 +63,8 @@ export function SchedulePageClient({
   initialGroupId,
   initialTeacherId,
   initialMode,
+  initialWeek = EMPTY_SCHEDULE_WEEK,
+  initialWeekStartIso,
   ssrNowIso,
 }: SchedulePageClientProps) {
   const { resolvedTheme, toggleTheme } = useTheme();
@@ -99,7 +105,9 @@ export function SchedulePageClient({
     initialTeachers,
     initialGroupId,
     initialTeacherId,
-    initialMode
+    initialMode,
+    initialWeek,
+    initialWeekStartIso
   );
 
   const sel = useScheduleSelection({
@@ -258,9 +266,12 @@ export function SchedulePageClient({
     enableSidebarTaskGroups: showDesktop || guideHubMounted,
   });
 
+  const showWelcome = !loading && !isSetupComplete && !initialGroupId && !initialTeacherId;
+
   useKeyboardScheduleNav({
     view: sel.view,
     isAnyModalOpen:
+      showWelcome ||
       weekTypeSheetOpen ||
       datePickerOpen ||
       teacherPinModalOpen ||
@@ -276,7 +287,6 @@ export function SchedulePageClient({
     onSetSubgroup: (sg) => updateSetting("defaultSubgroup", sg),
   });
 
-  const showWelcome = !loading && !isSetupComplete && !initialGroupId && !initialTeacherId;
   const isTodaySelected =
     sel.selectedDaySchedule?.date === sel.todayActualIso ||
     (sel.isWeekend && sel.selectedDayIndex === 0);
@@ -362,7 +372,7 @@ export function SchedulePageClient({
           <main id="main-content" tabIndex={-1} className="vt-main-content focus:outline-none">
           {/* Mobile Main Content (< 1024px) */}
           {showMobile && (
-            <div className="lg:hidden pb-24 min-w-0 overflow-x-clip">
+            <div className="lg:hidden pb-bottom-nav-safe min-w-0 overflow-x-clip">
               <div className="px-3 pt-2">
                 <ClassroomRelinkBanner />
               </div>
@@ -504,7 +514,7 @@ export function SchedulePageClient({
                   <button
                     type="button"
                     onClick={sel.handleReturnBack}
-                    className="rounded-lg bg-sys-accent px-3 py-1 text-xs font-semibold text-white transition-opacity hover:opacity-90 active:scale-[0.98]"
+                    className="rounded-lg bg-sys-accentSolid px-3 py-1 text-xs font-semibold text-sys-onAccent transition-opacity hover:opacity-90 active:scale-[0.98]"
                   >
                     ← Повернутися до {sel.returnTarget.label}
                   </button>

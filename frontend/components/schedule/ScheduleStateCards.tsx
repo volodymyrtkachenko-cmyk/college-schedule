@@ -68,7 +68,7 @@ export function ScheduleErrorState({
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-xl bg-sys-accent px-4 py-2 text-xs font-semibold text-white hover:opacity-90 active:scale-95 transition-opacity cursor-pointer"
+          className="rounded-xl bg-sys-accentSolid px-4 py-2 text-xs font-semibold text-sys-onAccent hover:opacity-90 active:scale-95 transition-opacity cursor-pointer"
         >
           Спробувати ще раз
         </button>

@@ -287,7 +287,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
             <button
               type="button"
               onClick={onSyncClassroom}
-              className="shrink-0 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-semibold px-2.5 py-1 text-xs shadow-xs transition-colors cursor-pointer active:scale-95"
+              className="shrink-0 rounded-lg bg-sky-700 hover:bg-sky-800 text-white font-semibold px-2.5 py-1.5 text-xs shadow-xs transition-colors cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card"
             >
               Прив&apos;язати
             </button>

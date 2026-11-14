@@ -106,7 +106,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="group relative flex w-full justify-center rounded-lg border border-transparent bg-sys-accent px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-50 shadow-sm"
+              className="group relative flex w-full justify-center rounded-lg border border-transparent bg-sys-accentSolid px-4 py-3 text-sm font-semibold text-sys-onAccent transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-50 shadow-sm"
             >
               {isSubmitting ? "Входимо…" : "Увійти"}
             </button>

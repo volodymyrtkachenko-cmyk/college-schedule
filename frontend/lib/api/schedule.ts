@@ -1,8 +1,7 @@
-import { getSyncedNow } from "../date";
+import { formatKyivDateIso, getSyncedNow } from "../date";
 import {
   attachClassroomQueryParams,
   authenticatedRequest,
-  localDate,
   rawRequest,
   request,
 } from "./client";
@@ -63,7 +62,7 @@ export function today(groupId?: number, teacherId?: number, includeCancelled?: b
 }
 
 export function week(groupId?: number, teacherId?: number, date = getSyncedNow(), includeCancelled?: boolean) {
-  const params = new URLSearchParams({ target_date: localDate(date) });
+  const params = new URLSearchParams({ target_date: formatKyivDateIso(date) });
   if (groupId) params.set("group_id", String(groupId));
   if (teacherId) params.set("teacher_id", String(teacherId));
   if (includeCancelled) params.set("include_cancelled", "true");

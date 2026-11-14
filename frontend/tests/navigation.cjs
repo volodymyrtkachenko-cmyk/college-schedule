@@ -119,8 +119,35 @@ test("resolveEffectiveScheduleMode honors query param over stored mode", () => {
 test("buildGuideTasksHref and resolveScheduleSubtabFromSearch wire tasks and grades CTAs", () => {
   assert.equal(nav.buildGuideTasksHref("tasks"), "/?tab=tasks&mode=student");
   assert.equal(nav.buildGuideTasksHref("grades"), "/?tab=tasks&mode=student&subtab=grades");
+  assert.equal(nav.buildGuideTasksHref("tasks", "/group/85", "?date=2026-11-16"), "/group/85?date=2026-11-16&tab=tasks&mode=student");
+  assert.equal(nav.buildGuideTasksHref("grades", "/teacher/ivanenko", "?mode=teacher"), "/?mode=student&tab=tasks&subtab=grades");
   assert.equal(nav.resolveScheduleSubtabFromSearch("?tab=tasks&subtab=grades"), "grades");
   assert.equal(nav.resolveScheduleSubtabFromSearch("?tab=tasks"), null);
+});
+
+test("buildScheduleTabSearch and buildCurrentScheduleHref preserve route path and params", () => {
+  assert.equal(nav.buildScheduleTabSearch("", "tasks"), "?tab=tasks");
+  assert.equal(nav.buildScheduleTabSearch("", "tasks", "grades"), "?tab=tasks&subtab=grades");
+  assert.equal(nav.buildScheduleTabSearch("?tab=tasks&subtab=grades&date=2026-11-16", "tasks", "tasks"), "?tab=tasks&date=2026-11-16");
+  assert.equal(nav.buildScheduleTabSearch("?tab=tasks&subtab=grades&date=2026-11-16", "schedule"), "?date=2026-11-16");
+  assert.equal(nav.buildScheduleTabSearch("?tab=tasks", "schedule"), "");
+
+  assert.equal(
+    nav.buildCurrentScheduleHref("/group/85", "?date=2026-11-16", "tasks"),
+    "/group/85?date=2026-11-16&tab=tasks",
+  );
+  assert.equal(
+    nav.buildCurrentScheduleHref("/group/85", "?tab=tasks", "tasks", "grades"),
+    "/group/85?tab=tasks&subtab=grades",
+  );
+  assert.equal(
+    nav.buildCurrentScheduleHref("/group/85", "?tab=tasks&subtab=grades", "schedule"),
+    "/group/85",
+  );
+  assert.equal(
+    nav.buildCurrentScheduleHref("/settings", "?mode=student", "tasks"),
+    "/?mode=student&tab=tasks",
+  );
 });
 
 test("sanitizeInternalRedirect blocks open redirects and login self-loops", () => {

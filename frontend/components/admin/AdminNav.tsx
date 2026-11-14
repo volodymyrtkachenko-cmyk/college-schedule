@@ -505,7 +505,7 @@ export function AdminNav({ active }: { active: string }) {
                   <span className="truncate">Імпорт з КРЕ</span>
                   {anomalyDraftsCount > 0 && (
                     <span
-                      className="ml-auto inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-rose-500 rounded-full shadow-xs shrink-0"
+                      className="ml-auto inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-rose-700 rounded-full shadow-xs shrink-0"
                       title={`Необхідна перевірка: ${anomalyDraftsCount} аномальних чернеток`}
                     >
                       {anomalyDraftsCount}

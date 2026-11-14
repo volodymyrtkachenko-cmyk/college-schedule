@@ -9,22 +9,32 @@ import {
   extractClassroomTaskKey,
   isOwnTask,
 } from "./classroomTaskFilter";
+import {
+  CLASSROOM_LINKED_EVENT,
+  CLASSROOM_STORAGE_KEYS,
+  type ClassroomUnlinkResult,
+  clearClassroomUnlinkError,
+  getClassroomUnlinkState,
+  performClassroomUnlink,
+  resetClassroomUnlinkState,
+  subscribeClassroomUnlinkState,
+} from "./classroomUnlink";
 
-export type { PersonalSubmission };
+export type { PersonalSubmission, ClassroomUnlinkResult };
 export { extractClassroomTaskKey, isOwnTask };
 
-const LINKED_EMAIL_KEY = "schedule:classroom_linked_email";
-const GOOGLE_USER_ID_KEY = "schedule:classroom_google_user_id";
-const LINKED_GROUP_ID_KEY = "schedule:classroom_linked_group_id";
-const SUBMITTED_TASKS_KEY = "schedule:classroom_submitted_tasks";
-const PERSONAL_TEACHERS_KEY = "schedule:classroom_personal_teachers";
-const PERSONAL_SUBGROUP_KEY = "schedule:classroom_personal_subgroup";
-const ACCESS_TOKEN_KEY = "schedule:classroom_access_token";
-const ACCESS_TOKEN_EXP_KEY = "schedule:classroom_access_token_exp";
-const REFRESH_TOKEN_KEY = "schedule:classroom_refresh_token";
-const NEEDS_RELINK_KEY = "schedule:classroom_needs_relink";
-const NEEDS_RELINK_REASON_KEY = "schedule:classroom_needs_relink_reason";
-const EVENT_NAME = "classroom-linked-change";
+const LINKED_EMAIL_KEY = CLASSROOM_STORAGE_KEYS.LINKED_EMAIL;
+const GOOGLE_USER_ID_KEY = CLASSROOM_STORAGE_KEYS.GOOGLE_USER_ID;
+const LINKED_GROUP_ID_KEY = CLASSROOM_STORAGE_KEYS.LINKED_GROUP_ID;
+const SUBMITTED_TASKS_KEY = CLASSROOM_STORAGE_KEYS.SUBMITTED_TASKS;
+const PERSONAL_TEACHERS_KEY = CLASSROOM_STORAGE_KEYS.PERSONAL_TEACHERS;
+const PERSONAL_SUBGROUP_KEY = CLASSROOM_STORAGE_KEYS.PERSONAL_SUBGROUP;
+const ACCESS_TOKEN_KEY = CLASSROOM_STORAGE_KEYS.ACCESS_TOKEN;
+const ACCESS_TOKEN_EXP_KEY = CLASSROOM_STORAGE_KEYS.ACCESS_TOKEN_EXP;
+const REFRESH_TOKEN_KEY = CLASSROOM_STORAGE_KEYS.REFRESH_TOKEN;
+const NEEDS_RELINK_KEY = CLASSROOM_STORAGE_KEYS.NEEDS_RELINK;
+const NEEDS_RELINK_REASON_KEY = CLASSROOM_STORAGE_KEYS.NEEDS_RELINK_REASON;
+const EVENT_NAME = CLASSROOM_LINKED_EVENT;
 
 export function getLinkedEmail(): string | null {
   if (typeof window === "undefined") return null;
@@ -156,45 +166,17 @@ export function clearClassroomAccessToken(): void {
 
 // Ре-експорт чистих фільтрів із ./classroomTaskFilter
 
-export function unlinkClassroomEmail(): void {
-  if (typeof window === "undefined") return;
-  try {
-    const googleUserId = localStorage.getItem(GOOGLE_USER_ID_KEY);
-    const groupIdRaw = localStorage.getItem(LINKED_GROUP_ID_KEY);
-    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-    const groupId = groupIdRaw ? Number(groupIdRaw) : undefined;
-
-    if (googleUserId || accessToken || refreshToken) {
-      void api.classroom
-        .disconnect({
-          group_id: groupId && !Number.isNaN(groupId) ? groupId : undefined,
-          google_user_id: googleUserId || undefined,
-          access_token: accessToken || undefined,
-          refresh_token: refreshToken || undefined,
-        })
-        .catch(() => {});
-    }
-
-    localStorage.removeItem(LINKED_EMAIL_KEY);
-    localStorage.removeItem(GOOGLE_USER_ID_KEY);
-    localStorage.removeItem(LINKED_GROUP_ID_KEY);
-    localStorage.removeItem(SUBMITTED_TASKS_KEY);
-    localStorage.removeItem(PERSONAL_TEACHERS_KEY);
-    localStorage.removeItem(PERSONAL_SUBGROUP_KEY);
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(ACCESS_TOKEN_EXP_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    localStorage.removeItem(NEEDS_RELINK_KEY);
-    localStorage.removeItem(NEEDS_RELINK_REASON_KEY);
-    try {
-      localStorage.removeItem("schedule_selected_subgroup");
-    } catch {}
-    clearScheduleLocalStorageCache();
-    invalidateScheduleCache(true);
-    window.dispatchEvent(new Event(EVENT_NAME));
-    window.dispatchEvent(new Event("classroom-access-changed"));
-  } catch {}
+/**
+ * Awaits server confirmation from /api/classroom/disconnect before clearing
+ * local Classroom credentials and private schedule caches.
+ */
+export async function unlinkClassroomEmail(): Promise<ClassroomUnlinkResult> {
+  return performClassroomUnlink({
+    onClearCaches: () => {
+      clearScheduleLocalStorageCache();
+      invalidateScheduleCache(true);
+    },
+  });
 }
 
 export function saveClassroomSyncData(
@@ -209,6 +191,7 @@ export function saveClassroomSyncData(
 ): void {
   if (typeof window === "undefined") return;
   try {
+    resetClassroomUnlinkState();
     const prevEmail = localStorage.getItem(LINKED_EMAIL_KEY);
     const prevGroupId = localStorage.getItem(LINKED_GROUP_ID_KEY);
     const prevUid = localStorage.getItem(GOOGLE_USER_ID_KEY);
@@ -310,6 +293,8 @@ interface ClassroomSnapshot {
   personalSubgroup: number | null;
   needsRelink: boolean;
   relinkReason: string | null;
+  isUnlinking: boolean;
+  unlinkError: string | null;
 }
 
 const DEFAULT_SERVER_CLASSROOM_SNAPSHOT: ClassroomSnapshot = {
@@ -320,6 +305,8 @@ const DEFAULT_SERVER_CLASSROOM_SNAPSHOT: ClassroomSnapshot = {
   personalSubgroup: null,
   needsRelink: false,
   relinkReason: null,
+  isUnlinking: false,
+  unlinkError: null,
 };
 
 let _cachedClassroomSnapshot: ClassroomSnapshot | null = null;
@@ -328,6 +315,7 @@ const _classroomSubscribers = new Set<() => void>();
 function readClassroomSnapshot(): ClassroomSnapshot {
   const email = getLinkedEmail();
   const gId = getLinkedGroupId();
+  const unlinkState = getClassroomUnlinkState();
   if (email) {
     return {
       linkedEmail: email,
@@ -337,6 +325,8 @@ function readClassroomSnapshot(): ClassroomSnapshot {
       personalSubgroup: getPersonalSubgroup(),
       needsRelink: getClassroomNeedsRelink(),
       relinkReason: getClassroomRelinkReason(),
+      isUnlinking: unlinkState.isUnlinking,
+      unlinkError: unlinkState.error,
     };
   }
   return {
@@ -347,6 +337,8 @@ function readClassroomSnapshot(): ClassroomSnapshot {
     personalSubgroup: null,
     needsRelink: false,
     relinkReason: null,
+    isUnlinking: unlinkState.isUnlinking,
+    unlinkError: unlinkState.error,
   };
 }
 
@@ -363,6 +355,7 @@ function notifyClassroomChange() {
 }
 
 if (typeof window !== "undefined") {
+  subscribeClassroomUnlinkState(notifyClassroomChange);
   window.addEventListener(EVENT_NAME, notifyClassroomChange);
   window.addEventListener("storage", (e: StorageEvent) => {
     if (e.key === null || (typeof e.key === "string" && (e.key.includes("classroom") || e.key.includes("subgroup")))) {
@@ -403,7 +396,10 @@ export function useClassroomSubmissions() {
     personalSubgroup: snapshot.personalSubgroup,
     needsRelink: snapshot.needsRelink,
     relinkReason: snapshot.relinkReason,
+    isUnlinking: snapshot.isUnlinking,
+    unlinkError: snapshot.unlinkError,
     unlink: unlinkClassroomEmail,
+    clearUnlinkError: clearClassroomUnlinkError,
     reload: notifyClassroomChange,
     syncSubmissions: syncPersonalSubmissions,
   };

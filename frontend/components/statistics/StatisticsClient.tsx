@@ -262,7 +262,7 @@ export function StatisticsClient() {
       <main
         id="main-content"
         tabIndex={-1}
-        className="vt-main-content focus:outline-none mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 pb-24 lg:pb-8"
+        className="vt-main-content focus:outline-none mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 pb-bottom-nav-safe lg:pb-8"
       >
         <section aria-label="Параметри статистики" className="flex flex-col gap-4">
           <div className="flex justify-center mb-2">

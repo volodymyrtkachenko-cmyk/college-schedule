@@ -41,6 +41,7 @@ interface MobileNavContextValue {
   scheduleMode: ScheduleMode;
   setScheduleMode: (mode: ScheduleMode) => void;
   urlSearch: string;
+  syncScheduleLocation: (href: string, historyMode?: "push" | "replace") => void;
 }
 
 const MobileNavContext = createContext<MobileNavContextValue | null>(null);
@@ -147,6 +148,28 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
     [clearPendingTimeout]
   );
 
+  const syncScheduleLocation = useCallback(
+    (href: string, historyMode: "push" | "replace" = "push") => {
+      if (typeof window === "undefined") return;
+      const parsed = new URL(href, window.location.origin);
+      const nextFull = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      const currentFull = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (nextFull !== currentFull) {
+        if (historyMode === "replace") {
+          window.history.replaceState(null, "", nextFull);
+        } else {
+          window.history.pushState(null, "", nextFull);
+        }
+      }
+      const nextSearch = parsed.search.replace(/^\?/, "");
+      clearPendingTimeout();
+      setPendingTabState(null);
+      setUrlSearch(nextSearch);
+      setHomeTabState(resolveHomeTabFromLocation(parsed.pathname, nextSearch));
+    },
+    [clearPendingTimeout]
+  );
+
   const activeTab = useMemo(
     () => pendingTab ?? resolveActiveMobileTab(pathname, homeTab),
     [pendingTab, pathname, homeTab]
@@ -166,8 +189,9 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
       scheduleMode,
       setScheduleMode,
       urlSearch,
+      syncScheduleLocation,
     }),
-    [activeTab, pendingTab, setPendingTab, homeTab, setHomeTab, overdueCount, hideTasksTab, scheduleMode, urlSearch]
+    [activeTab, pendingTab, setPendingTab, homeTab, setHomeTab, overdueCount, hideTasksTab, scheduleMode, urlSearch, syncScheduleLocation]
   );
 
   return (

@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { SchedulePageClient } from "../../../components/SchedulePageClient";
 import { TransitionLink } from "../../../components/navigation/NavigationTransitionProvider";
 import { SITE_URL } from "../../../lib/site";
+import { getMondayCalendarIso } from "../../../lib/calendarDate";
+import { formatKyivDateIso, getKyivInitialWeekAnchor } from "../../../lib/date";
 import { findTeacherBySlug, toTeacherSlug } from "../../../lib/slug";
 import {
   fetchDirectoryForSsr,
@@ -111,10 +113,17 @@ export default async function TeacherSchedulePage({
     notFound();
   }
 
+  const ssrNow = new Date();
+  const ssrNowIso = ssrNow.toISOString();
+  const targetWeekAnchorIso = formatKyivDateIso(getKyivInitialWeekAnchor(ssrNow));
   const teacherId = teacher?.id;
   const scheduleDays = teacherId
-    ? await fetchScheduleWeekForSsr({ teacherId })
+    ? await fetchScheduleWeekForSsr({ teacherId, targetDateIso: targetWeekAnchorIso })
     : [];
+  const initialWeekStartIso =
+    scheduleDays.length > 0 && scheduleDays[0]?.date
+      ? getMondayCalendarIso(scheduleDays[0].date)
+      : undefined;
   const teacherName = teacher?.name || rawSlug;
 
   const teacherUrl = `${SITE_URL}/teacher/${toTeacherSlug(teacherName)}`;
@@ -183,10 +192,12 @@ export default async function TeacherSchedulePage({
         initialTeachers={teachers}
         initialTeacherId={teacherId}
         initialMode="teacher"
-        ssrNowIso={new Date().toISOString()}
+        initialWeek={scheduleDays}
+        initialWeekStartIso={initialWeekStartIso}
+        ssrNowIso={ssrNowIso}
       />
 
-      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-3 pt-3 pb-20 text-[11px] text-sys-text-secondary sm:px-6 sm:pt-4 sm:pb-24 sm:text-xs lg:pb-8">
+      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-3 pt-3 pb-bottom-nav-safe text-[11px] text-sys-text-secondary sm:px-6 sm:pt-4 sm:text-xs lg:pb-8">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <p className="truncate sm:whitespace-normal">
             Викладач <strong className="text-sys-text-primary">{teacherName}</strong> · ДФКР

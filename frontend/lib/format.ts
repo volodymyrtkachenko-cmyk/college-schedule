@@ -1,5 +1,12 @@
 import type { Lesson, ScheduleResponse } from "./api";
-import { KYIV_DATE_FMT, getMondayOf } from "./date";
+import { KYIV_DATE_FMT, formatKyivDateIso, getMondayOf } from "./date";
+import {
+  addDaysToCalendarIso,
+  calendarDateIsoToUtcDate,
+  diffCalendarWeeks,
+  getMondayCalendarIso,
+  parseCalendarDateIso,
+} from "./calendarDate";
 
 export { getMondayOf };
 
@@ -555,10 +562,11 @@ const NUM_EMOJI: Record<number, string> = {
 
 export function calculateWeekNumber(anchorDate: Date, semesterStart?: string | null): number | null {
   if (!semesterStart) return null;
-  const [sy, sm, sd] = semesterStart.split("-").map(Number);
-  const start = sy && sm && sd ? new Date(sy, sm - 1, sd, 12, 0, 0) : new Date(semesterStart);
-  const diffTime = getMondayOf(anchorDate).getTime() - getMondayOf(start).getTime();
-  const diffWeeks = Math.round(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
+  const anchorIso = formatKyivDateIso(anchorDate);
+  const startIso = parseCalendarDateIso(semesterStart)
+    ? semesterStart.trim()
+    : formatKyivDateIso(new Date(semesterStart));
+  const diffWeeks = diffCalendarWeeks(anchorIso, startIso) + 1;
   return diffWeeks > 0 ? diffWeeks : null;
 }
 
@@ -567,8 +575,9 @@ export function buildTelegramShareText(
   scheduleMode: "student" | "teacher" | "admin" = "student",
   weekNumber?: number | null
 ): string {
-  const dateObj = new Date(`${schedule.date}T12:00:00`);
+  const dateObj = calendarDateIsoToUtcDate(schedule.date);
   const dateFormatted = new Intl.DateTimeFormat("uk-UA", {
+    timeZone: "Europe/Kyiv",
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -651,16 +660,17 @@ export const UKR_MONTHS_LONG_DECL = [
  * Забезпечує коректне літературне написання «року» без скорочення «р.» та запобігає обрізанню до «202...».
  */
 export function formatFullWeekRange(monday: Date): string {
-  const mon = getMondayOf(monday);
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
+  const monIso = getMondayCalendarIso(formatKyivDateIso(monday));
+  const sunIso = addDaysToCalendarIso(monIso, 6);
+  const monParts = parseCalendarDateIso(monIso)!;
+  const sunParts = parseCalendarDateIso(sunIso)!;
 
-  const monDay = mon.getDate();
-  const sunDay = sun.getDate();
-  const monMonth = mon.getMonth();
-  const sunMonth = sun.getMonth();
-  const monYear = mon.getFullYear();
-  const sunYear = sun.getFullYear();
+  const monDay = monParts.day;
+  const sunDay = sunParts.day;
+  const monMonth = monParts.month - 1;
+  const sunMonth = sunParts.month - 1;
+  const monYear = monParts.year;
+  const sunYear = sunParts.year;
 
   if (monYear !== sunYear) {
     return `${monDay} ${UKR_MONTHS_LONG_DECL[monMonth]} ${monYear} року – ${sunDay} ${UKR_MONTHS_LONG_DECL[sunMonth]} ${sunYear} року`;
@@ -674,14 +684,15 @@ export function formatFullWeekRange(monday: Date): string {
 }
 
 export function formatShortWeekRange(monday: Date, weekNumber?: number | null): string {
-  const mon = getMondayOf(monday);
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
+  const monIso = getMondayCalendarIso(formatKyivDateIso(monday));
+  const sunIso = addDaysToCalendarIso(monIso, 6);
+  const monParts = parseCalendarDateIso(monIso)!;
+  const sunParts = parseCalendarDateIso(sunIso)!;
 
-  const monDay = mon.getDate();
-  const sunDay = sun.getDate();
-  const monMonth = mon.getMonth();
-  const sunMonth = sun.getMonth();
+  const monDay = monParts.day;
+  const sunDay = sunParts.day;
+  const monMonth = monParts.month - 1;
+  const sunMonth = sunParts.month - 1;
 
   let dateRange = "";
   if (monMonth === sunMonth) {

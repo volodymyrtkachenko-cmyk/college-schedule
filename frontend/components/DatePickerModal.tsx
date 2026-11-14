@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { getMondayOf, getSyncedNow, KYIV_DATE_FMT } from "../lib/date";
+import { formatKyivDateIso, getSyncedNow } from "../lib/date";
+import {
+  buildCalendarMonthGrid,
+  canNavigateCalendarNextMonth,
+  canNavigateCalendarPrevMonth,
+  diffCalendarWeeks,
+  formatCalendarDateParts,
+  resolveCalendarMonthAnchor,
+} from "../lib/calendarDate";
 import { AppDialog } from "./ui/AppDialog";
 
 interface DatePickerModalProps {
@@ -12,7 +20,7 @@ interface DatePickerModalProps {
   semesterStartIso?: string | null;
   minDateIso?: string | null;
   maxDateIso?: string | null;
-  onSelectDate: (targetDate: Date) => void;
+  onSelectDate: (targetIso: string) => void;
 }
 
 const UKR_MONTH_NAMES = [
@@ -41,127 +49,60 @@ export function DatePickerModal({
   const effectiveMinIso = minDateIso ?? semesterStartIso ?? null;
   const effectiveMaxIso = maxDateIso ?? null;
 
-  // Parsing initial view month/year from selectedDateIso or today
-  const initialDate = useMemo(() => {
-    if (selectedDateIso) {
-      const [y, m, d] = selectedDateIso.split("-").map(Number);
-      if (y && m && d) return new Date(y, m - 1, d);
-    }
-    return getSyncedNow();
-  }, [selectedDateIso]);
+  // Derive initial view month/year strictly from calendar ISO strings (timezone-agnostic).
+  const initialAnchor = useMemo(() => {
+    const fallbackTodayIso = todayDateIso || formatKyivDateIso(getSyncedNow());
+    return resolveCalendarMonthAnchor(selectedDateIso, fallbackTodayIso);
+  }, [selectedDateIso, todayDateIso]);
 
-  const [viewYear, setViewYear] = useState<number>(initialDate.getFullYear());
-  const [viewMonth, setViewMonth] = useState<number>(initialDate.getMonth()); // 0-indexed
+  const [{ year: viewYear, monthIndex0: viewMonth }, setViewMonthAnchor] = useState(initialAnchor);
 
   // Reset view to selected date when modal opens
   useEffect(() => {
     if (isOpen) {
-      setViewYear(initialDate.getFullYear());
-      setViewMonth(initialDate.getMonth());
+      setViewMonthAnchor(initialAnchor);
     }
-  }, [isOpen, initialDate]);
+  }, [isOpen, initialAnchor]);
 
-  const canGoPrevMonth = useMemo(() => {
-    if (!effectiveMinIso) return true;
-    const prevMonthEndIso = KYIV_DATE_FMT.format(new Date(viewYear, viewMonth, 0));
-    return prevMonthEndIso >= effectiveMinIso;
-  }, [viewYear, viewMonth, effectiveMinIso]);
+  const canGoPrevMonth = useMemo(
+    () => canNavigateCalendarPrevMonth(viewYear, viewMonth, effectiveMinIso),
+    [viewYear, viewMonth, effectiveMinIso]
+  );
 
-  const canGoNextMonth = useMemo(() => {
-    if (!effectiveMaxIso) return true;
-    const nextMonthStartIso = KYIV_DATE_FMT.format(new Date(viewYear, viewMonth + 1, 1));
-    return nextMonthStartIso <= effectiveMaxIso;
-  }, [viewYear, viewMonth, effectiveMaxIso]);
+  const canGoNextMonth = useMemo(
+    () => canNavigateCalendarNextMonth(viewYear, viewMonth, effectiveMaxIso),
+    [viewYear, viewMonth, effectiveMaxIso]
+  );
 
   const goToPrevMonth = useCallback(() => {
     if (!canGoPrevMonth) return;
-    setViewMonth((prev) => {
-      if (prev === 0) {
-        setViewYear((y) => y - 1);
-        return 11;
-      }
-      return prev - 1;
-    });
+    setViewMonthAnchor((prev) =>
+      prev.monthIndex0 === 0
+        ? { year: prev.year - 1, monthIndex0: 11 }
+        : { year: prev.year, monthIndex0: prev.monthIndex0 - 1 }
+    );
   }, [canGoPrevMonth]);
 
   const goToNextMonth = useCallback(() => {
     if (!canGoNextMonth) return;
-    setViewMonth((prev) => {
-      if (prev === 11) {
-        setViewYear((y) => y + 1);
-        return 0;
-      }
-      return prev + 1;
-    });
+    setViewMonthAnchor((prev) =>
+      prev.monthIndex0 === 11
+        ? { year: prev.year + 1, monthIndex0: 0 }
+        : { year: prev.year, monthIndex0: prev.monthIndex0 + 1 }
+    );
   }, [canGoNextMonth]);
 
-  // Compute calendar days grid
-  const calendarGrid = useMemo(() => {
-    const firstDayOfMonth = new Date(viewYear, viewMonth, 1);
-    const lastDayOfMonth = new Date(viewYear, viewMonth + 1, 0);
-
-    // Days in current month
-    const totalDays = lastDayOfMonth.getDate();
-
-    // Weekday of 1st day (0 is Sun, convert so Mon is 0 ... Sun is 6)
-    const firstWeekday = (firstDayOfMonth.getDay() + 6) % 7;
-
-    const days: Array<{
-      dayNum: number;
-      dateIso: string;
-      isCurrentMonth: boolean;
-      dateObj: Date;
-    }> = [];
-
-    // Previous month padding days
-    const prevMonthLastDate = new Date(viewYear, viewMonth, 0).getDate();
-    for (let i = firstWeekday - 1; i >= 0; i--) {
-      const d = prevMonthLastDate - i;
-      const prevDate = new Date(viewYear, viewMonth - 1, d);
-      days.push({
-        dayNum: d,
-        dateIso: KYIV_DATE_FMT.format(prevDate),
-        isCurrentMonth: false,
-        dateObj: prevDate,
-      });
-    }
-
-    // Current month days
-    for (let d = 1; d <= totalDays; d++) {
-      const currDate = new Date(viewYear, viewMonth, d);
-      days.push({
-        dayNum: d,
-        dateIso: KYIV_DATE_FMT.format(currDate),
-        isCurrentMonth: true,
-        dateObj: currDate,
-      });
-    }
-
-    // Next month padding days: always pad to 42 cells (6 rows) so height never jumps between months.
-    const remaining = Math.max(0, 42 - days.length);
-    for (let d = 1; d <= remaining; d++) {
-      const nextDate = new Date(viewYear, viewMonth + 1, d);
-      days.push({
-        dayNum: d,
-        dateIso: KYIV_DATE_FMT.format(nextDate),
-        isCurrentMonth: false,
-        dateObj: nextDate,
-      });
-    }
-
-    return days;
-  }, [viewYear, viewMonth]);
+  // Compute calendar days grid strictly from YYYY-MM-DD calendar math
+  const calendarGrid = useMemo(
+    () => buildCalendarMonthGrid(viewYear, viewMonth),
+    [viewYear, viewMonth]
+  );
 
   // Week number & type calculator for previewing
   const getWeekInfo = useCallback(
-    (targetDate: Date) => {
+    (targetIso: string) => {
       if (!semesterStartIso) return null;
-      const [sy, sm, sd] = semesterStartIso.split("-").map(Number);
-      const start = new Date(sy, sm - 1, sd, 12, 0, 0);
-      const mondayTarget = getMondayOf(targetDate);
-      const mondayStart = getMondayOf(start);
-      const diffTime = mondayTarget.getTime() - mondayStart.getTime();
-      const diffWeeks = Math.round(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
+      const diffWeeks = diffCalendarWeeks(targetIso, semesterStartIso) + 1;
       if (diffWeeks <= 0) return null;
       return {
         weekNum: diffWeeks,
@@ -171,17 +112,17 @@ export function DatePickerModal({
     [semesterStartIso]
   );
 
-  const handleSelect = (dObj: Date, dIso: string) => {
+  const handleSelect = (dIso: string) => {
     if ((effectiveMinIso && dIso < effectiveMinIso) || (effectiveMaxIso && dIso > effectiveMaxIso)) return;
     vibrateTap(10);
-    onSelectDate(dObj);
+    onSelectDate(dIso);
     onClose();
   };
 
   const handleJumpToToday = () => {
     vibrateTap(10);
-    const today = getSyncedNow();
-    onSelectDate(today);
+    const todayIso = todayDateIso || formatKyivDateIso(getSyncedNow());
+    onSelectDate(todayIso);
     onClose();
   };
 
@@ -262,8 +203,7 @@ export function DatePickerModal({
           {calendarGrid.map((item, idx) => {
             const isSelected = item.dateIso === selectedDateIso;
             const isToday = item.dateIso === todayDateIso;
-            const dayOfWeek = (item.dateObj.getDay() + 6) % 7; // 0: Mon ... 6: Sun
-            const isWeekend = dayOfWeek >= 5;
+            const isWeekend = item.isWeekend;
             const isOutOfBounds = Boolean(
               (effectiveMinIso && item.dateIso < effectiveMinIso) ||
               (effectiveMaxIso && item.dateIso > effectiveMaxIso)
@@ -274,10 +214,10 @@ export function DatePickerModal({
                 key={`${item.dateIso}-${idx}`}
                 type="button"
                 disabled={isOutOfBounds}
-                onClick={() => handleSelect(item.dateObj, item.dateIso)}
+                onClick={() => handleSelect(item.dateIso)}
                 className={`relative flex h-10 w-full items-center justify-center rounded-xl text-xs sm:text-[13px] transition-[color,background-color,transform] duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent active:scale-95 disabled:opacity-25 disabled:pointer-events-none disabled:cursor-not-allowed ${
                   isSelected
-                    ? "bg-sys-accent text-white font-black shadow-sm"
+                    ? "bg-sys-accentSolid text-sys-onAccent font-black shadow-sm"
                     : isToday
                     ? "ring-1.5 ring-sys-accent font-bold text-sys-accent bg-sys-accent/10 hover:bg-sys-accent/20"
                     : item.isCurrentMonth
@@ -302,7 +242,7 @@ export function DatePickerModal({
         <div className="mt-3.5 pt-2.5 border-t border-sys-border/60 flex items-center justify-between gap-2">
           <div className="text-[11px] text-sys-text-secondary truncate">
             {(() => {
-              const info = getWeekInfo(new Date(viewYear, viewMonth, 15));
+              const info = getWeekInfo(formatCalendarDateParts(viewYear, viewMonth, 15));
               if (!info) return null;
               return (
                 <span className="inline-flex items-center gap-1 font-medium">

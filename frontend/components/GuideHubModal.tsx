@@ -131,7 +131,7 @@ export function GuideHubModal({
 }: GuideHubModalProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { setHomeTab } = useMobileNav();
+  const { syncScheduleLocation } = useMobileNav();
   const { isLinked, linkedEmail } = useClassroomSubmissions();
   const { isTeacherUnlocked } = useTeacherAccess();
   const { settings, updateSetting } = useUserSettings();
@@ -398,7 +398,11 @@ export function GuideHubModal({
                             mode !== "teacher";
                           onClose();
                           if (onStudentScheduleRoute) {
-                            setHomeTab("tasks");
+                            const nextHref =
+                              typeof window !== "undefined"
+                                ? buildGuideTasksHref(subtab, window.location.pathname, window.location.search)
+                                : buildGuideTasksHref(subtab);
+                            syncScheduleLocation(nextHref);
                             window.dispatchEvent(
                               new CustomEvent("schedule:open-tasks-panel", {
                                 detail: { subtab },
@@ -408,7 +412,7 @@ export function GuideHubModal({
                             router.push(buildGuideTasksHref(subtab));
                           }
                         }}
-                        className="shrink-0 rounded-lg bg-sys-accent px-3 py-1.5 text-[11px] font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+                        className="shrink-0 rounded-lg bg-sys-accentSolid px-3 py-1.5 text-[11px] font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
                       >
                         Відкрити →
                       </button>

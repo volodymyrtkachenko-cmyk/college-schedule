@@ -39,7 +39,7 @@ export default function ErrorBoundary({
           <button
             type="button"
             onClick={() => reset()}
-            className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-sys-accent text-white font-medium text-sm hover:opacity-90 active:scale-[0.98] transition"
+            className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-sys-accentSolid text-sys-onAccent font-medium text-sm hover:opacity-90 active:scale-[0.98] transition"
           >
             Спробувати знову
           </button>

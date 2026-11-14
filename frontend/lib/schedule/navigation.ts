@@ -6,14 +6,21 @@ import type {
   WeekType,
 } from "../api";
 import {
-  KYIV_DATE_FMT,
-  KYIV_TIME_FMT,
   UKR_DAY_MONTH_SHORT_FMT,
   UKR_MONTH_SHORT_FMT,
   UKR_WEEKDAY_LONG_FMT,
-  getMondayOf,
+  KYIV_TIME_FMT,
+  formatKyivDateIso,
+  getKyivTomorrowDateIso,
   getSyncedNow,
 } from "../date";
+import {
+  addDaysToCalendarIso,
+  calendarDateIsoToUtcDate,
+  diffCalendarWeeks,
+  getCalendarWeekdayMon0,
+  parseCalendarDateIso,
+} from "../calendarDate";
 
 const EN_KYIV_DOW_FMT = new Intl.DateTimeFormat("en-US", {
   timeZone: "Europe/Kyiv",
@@ -98,10 +105,11 @@ export function computeCurrentWeekNumber(
   weekAnchorDate: Date
 ): number | null {
   if (!semesterStart) return null;
-  const [sy, sm, sd] = semesterStart.split("-").map(Number);
-  const start = sy && sm && sd ? new Date(sy, sm - 1, sd, 12, 0, 0) : new Date(semesterStart);
-  const diffTime = getMondayOf(weekAnchorDate).getTime() - getMondayOf(start).getTime();
-  const diffWeeks = Math.round(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
+  const anchorIso = formatKyivDateIso(weekAnchorDate);
+  const startIso = parseCalendarDateIso(semesterStart)
+    ? semesterStart.trim()
+    : formatKyivDateIso(new Date(semesterStart));
+  const diffWeeks = diffCalendarWeeks(anchorIso, startIso) + 1;
   return diffWeeks > 0 ? diffWeeks : null;
 }
 
@@ -130,12 +138,14 @@ export function resolveWeekType(
  * Formats the Mon-Sun week range into a compact Ukrainian label such as "19–25 жовт.".
  */
 export function formatCompactWeekRange(weekAnchorDate: Date): string {
-  const end = new Date(weekAnchorDate);
-  end.setDate(end.getDate() + 6);
-  const startDay = weekAnchorDate.getDate();
-  const endDay = end.getDate();
-  const startMonth = UKR_MONTH_SHORT_FMT.format(weekAnchorDate).replace(".", "");
-  const endMonth = UKR_MONTH_SHORT_FMT.format(end).replace(".", "");
+  const startIso = formatKyivDateIso(weekAnchorDate);
+  const endIso = addDaysToCalendarIso(startIso, 6);
+  const startParts = parseCalendarDateIso(startIso);
+  const endParts = parseCalendarDateIso(endIso);
+  const startDay = startParts ? startParts.day : weekAnchorDate.getUTCDate();
+  const endDay = endParts ? endParts.day : calendarDateIsoToUtcDate(endIso).getUTCDate();
+  const startMonth = UKR_MONTH_SHORT_FMT.format(calendarDateIsoToUtcDate(startIso)).replace(".", "");
+  const endMonth = UKR_MONTH_SHORT_FMT.format(calendarDateIsoToUtcDate(endIso)).replace(".", "");
 
   if (startMonth === endMonth) {
     return `${startDay}–${endDay} ${startMonth}.`;
@@ -147,15 +157,15 @@ export function formatCompactWeekRange(weekAnchorDate: Date): string {
  * Builds the 5 Mon-Fri quick-switch buttons for the current week anchor.
  */
 export function buildWeekDaysMini(weekAnchorDate: Date): WeekDayMini[] {
+  const anchorIso = formatKyivDateIso(weekAnchorDate);
   const days: WeekDayMini[] = [];
   for (let i = 0; i < 5; i++) {
-    const d = new Date(weekAnchorDate);
-    d.setDate(weekAnchorDate.getDate() + i);
+    const iso = addDaysToCalendarIso(anchorIso, i);
     days.push({
       index: i,
       name: SHORT_DAY_NAMES[i],
-      dateStr: `${d.getDate()}`,
-      iso: KYIV_DATE_FMT.format(d),
+      dateStr: `${Number(iso.slice(8, 10))}`,
+      iso,
     });
   }
   return days;
@@ -166,9 +176,8 @@ export function buildWeekDaysMini(weekAnchorDate: Date): WeekDayMini[] {
  */
 export function canNavigatePrevWeekDate(weekAnchorDate: Date, minDateIso: string | null): boolean {
   if (!minDateIso) return true;
-  const prevWeekEnd = new Date(weekAnchorDate);
-  prevWeekEnd.setDate(prevWeekEnd.getDate() - 3);
-  return KYIV_DATE_FMT.format(prevWeekEnd) >= minDateIso;
+  const anchorIso = formatKyivDateIso(weekAnchorDate);
+  return addDaysToCalendarIso(anchorIso, -3) >= minDateIso;
 }
 
 /**
@@ -176,9 +185,8 @@ export function canNavigatePrevWeekDate(weekAnchorDate: Date, minDateIso: string
  */
 export function canNavigateNextWeekDate(weekAnchorDate: Date, maxDateIso: string | null): boolean {
   if (!maxDateIso) return true;
-  const nextWeekStart = new Date(weekAnchorDate);
-  nextWeekStart.setDate(nextWeekStart.getDate() + 7);
-  return KYIV_DATE_FMT.format(nextWeekStart) <= maxDateIso;
+  const anchorIso = formatKyivDateIso(weekAnchorDate);
+  return addDaysToCalendarIso(anchorIso, 7) <= maxDateIso;
 }
 
 /**
@@ -190,9 +198,9 @@ export function canNavigatePrevDayDate(
   minDateIso: string | null
 ): boolean {
   if (!minDateIso) return true;
-  const prevD = new Date(weekAnchorDate);
-  prevD.setDate(weekAnchorDate.getDate() + (selectedDayIndex > 0 ? selectedDayIndex - 1 : -3));
-  return KYIV_DATE_FMT.format(prevD) >= minDateIso;
+  const anchorIso = formatKyivDateIso(weekAnchorDate);
+  const delta = selectedDayIndex > 0 ? selectedDayIndex - 1 : -3;
+  return addDaysToCalendarIso(anchorIso, delta) >= minDateIso;
 }
 
 /**
@@ -204,9 +212,9 @@ export function canNavigateNextDayDate(
   maxDateIso: string | null
 ): boolean {
   if (!maxDateIso) return true;
-  const nextD = new Date(weekAnchorDate);
-  nextD.setDate(weekAnchorDate.getDate() + (selectedDayIndex < 4 ? selectedDayIndex + 1 : 7));
-  return KYIV_DATE_FMT.format(nextD) <= maxDateIso;
+  const anchorIso = formatKyivDateIso(weekAnchorDate);
+  const delta = selectedDayIndex < 4 ? selectedDayIndex + 1 : 7;
+  return addDaysToCalendarIso(anchorIso, delta) <= maxDateIso;
 }
 
 /**
@@ -222,12 +230,10 @@ export function resolveDisplayDaySchedule(
   const kyivHour = Number(hh);
   const kyivMin = Number(mm);
   const totalMins = kyivHour * 60 + kyivMin;
-  const dow = now.getDay();
+  const dow = getCalendarWeekdayMon0(formatKyivDateIso(now));
 
-  if (dow >= 1 && dow <= 4 && totalMins >= 15 * 60 + 25 && week.length > 0) {
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-    const tomorrowIso = KYIV_DATE_FMT.format(tomorrow);
+  if (dow >= 0 && dow <= 3 && totalMins >= 15 * 60 + 25 && week.length > 0) {
+    const tomorrowIso = getKyivTomorrowDateIso(now);
     const foundTomorrow = week.find((d) => d.date === tomorrowIso);
     if (foundTomorrow) {
       return { displayDaySchedule: foundTomorrow, isShowingTomorrow: true };
@@ -340,7 +346,7 @@ export function formatWeekShareText(params: {
 
   const dayBlocks = week
     .map((d) => {
-      const dObj = new Date(`${d.date}T12:00:00`);
+      const dObj = calendarDateIsoToUtcDate(d.date);
       const dayName = UKR_WEEKDAY_LONG_FMT.format(dObj);
       const dayDate = UKR_DAY_MONTH_SHORT_FMT.format(dObj);
       const activeLessons = (d.lessons || []).filter((l) => !l.is_cancelled);

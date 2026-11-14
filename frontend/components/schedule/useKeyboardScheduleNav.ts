@@ -14,6 +14,11 @@ interface UseKeyboardScheduleNavParams {
   onSetSubgroup: (subgroup: 1 | 2 | "all") => void;
 }
 
+function hasOpenModalInDom(): boolean {
+  if (typeof document === "undefined") return false;
+  return Boolean(document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]'));
+}
+
 /**
  * Registers desktop keyboard shortcuts (Ctrl+K, /, T, D, W, 1/2/0, ArrowLeft/ArrowRight).
  */
@@ -67,6 +72,8 @@ export function useKeyboardScheduleNav({
         onSetSubgroup: setSubgroup,
       } = actionsRef.current;
 
+      if (modalOpen || hasOpenModalInDom()) return;
+
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
         openContextModal();
@@ -85,8 +92,6 @@ export function useKeyboardScheduleNav({
       ) {
         return;
       }
-
-      if (modalOpen) return;
 
       if (e.key === "/") {
         e.preventDefault();

@@ -2081,3 +2081,10 @@ html.light .app-backdrop-silk-grain {
   outline-offset: 2px;
   border-radius: 9999px;
 }
+
+/* Динамічний відступ унизу сторінок під фіксовану нижню навігацію на мобільних екранах */
+@media (max-width: 1023px) {
+  .pb-bottom-nav-safe {
+    padding-bottom: calc(max(5.5rem, var(--bottom-nav-height, 4rem)) + 1.25rem + env(safe-area-inset-bottom));
+  }
+}

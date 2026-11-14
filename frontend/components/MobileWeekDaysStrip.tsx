@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import { ScheduleResponse } from "../lib/api";
-import { KYIV_DATE_FMT } from "../lib/date";
+import { formatKyivDateIso } from "../lib/date";
+import { addDaysToCalendarIso } from "../lib/calendarDate";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт"];
 
@@ -24,11 +25,10 @@ export function MobileWeekDaysStrip({
   week,
 }: MobileWeekDaysStripProps) {
   const days = useMemo(() => {
+    const anchorIso = formatKyivDateIso(weekAnchorDate);
     return [0, 1, 2, 3, 4].map((offset) => {
-      const d = new Date(weekAnchorDate);
-      d.setDate(weekAnchorDate.getDate() + offset);
-      const dayNum = d.getDate();
-      const dateIso = KYIV_DATE_FMT.format(d);
+      const dateIso = addDaysToCalendarIso(anchorIso, offset);
+      const dayNum = Number(dateIso.slice(8, 10));
       const daySchedule = week?.find((s) => s.date === dateIso);
       const hasPeriod = Boolean(daySchedule?.period_info && daySchedule.lessons.length === 0);
       return {

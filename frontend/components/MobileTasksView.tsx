@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { KYIV_TIME_FMT } from "../lib/date";
-import { resolveScheduleSubtabFromSearch } from "../lib/navigation";
+import { buildCurrentScheduleHref, resolveScheduleSubtabFromSearch } from "../lib/navigation";
 import type { SubjectHubTarget } from "../lib/schedule";
 import { useMobileNav } from "../lib/useMobileNav";
 import { useAnimatedDisclosure } from "../lib/useAnimatedDisclosure";
@@ -537,7 +537,7 @@ export function MobileTasksView({
   if (viewMode === "grades" && !gradesVisited) {
     setGradesVisited(true);
   }
-  const { urlSearch } = useMobileNav();
+  const { urlSearch, syncScheduleLocation } = useMobileNav();
   const tasksViewRef = useRef<HTMLDivElement | null>(null);
   const gradesViewRef = useRef<HTMLDivElement | null>(null);
 
@@ -575,10 +575,28 @@ export function MobileTasksView({
     if (subtab === "grades") {
       setGradesVisited(true);
       setViewMode("grades");
-    } else if (subtab === "tasks") {
+    } else {
       setViewMode("tasks");
     }
   }, [urlSearch]);
+
+  const handleSelectSubtab = (nextMode: "tasks" | "grades") => {
+    if (nextMode === "grades") {
+      preloadGradesChunk();
+      setGradesVisited(true);
+    }
+    setViewMode(nextMode);
+    if (typeof window !== "undefined") {
+      syncScheduleLocation(
+        buildCurrentScheduleHref(
+          window.location.pathname,
+          window.location.search,
+          "tasks",
+          nextMode === "grades" ? "grades" : null
+        )
+      );
+    }
+  };
 
   useEffect(() => {
     const onOpenTasksPanel = (event: Event) => {
@@ -624,7 +642,7 @@ export function MobileTasksView({
   }, [lastSyncedAt]);
 
   return (
-    <div className="w-full min-w-0 pb-20 px-4 pt-3">
+    <div className="w-full min-w-0 pb-bottom-nav-safe px-4 pt-3">
       {/* Header */}
       <div className="mb-3 flex items-start justify-between min-h-[48px]">
         <div className="min-w-0 flex-1 pr-2">
@@ -679,10 +697,11 @@ export function MobileTasksView({
 
         <button
           type="button"
-          onClick={() => setViewMode("tasks")}
+          aria-pressed={viewMode === "tasks"}
+          onClick={() => handleSelectSubtab("tasks")}
           className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             viewMode === "tasks"
-              ? "text-white font-bold"
+              ? "text-sys-onAccent font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
@@ -691,16 +710,13 @@ export function MobileTasksView({
         </button>
         <button
           type="button"
+          aria-pressed={viewMode === "grades"}
           onPointerEnter={preloadGradesChunk}
           onFocus={preloadGradesChunk}
-          onClick={() => {
-            preloadGradesChunk();
-            setGradesVisited(true);
-            setViewMode("grades");
-          }}
+          onClick={() => handleSelectSubtab("grades")}
           className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             viewMode === "grades"
-              ? "text-white font-bold"
+              ? "text-sys-onAccent font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
@@ -729,9 +745,9 @@ export function MobileTasksView({
               onClick={() => {
                 window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
               }}
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs px-5 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-semibold text-xs px-5 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
                 <polyline points="10 17 15 12 10 7" />
                 <line x1="15" y1="12" x2="3" y2="12" />

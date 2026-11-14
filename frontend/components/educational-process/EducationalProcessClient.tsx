@@ -426,7 +426,7 @@ export function EducationalProcessClient() {
       <main
         id="main-content"
         tabIndex={-1}
-        className="vt-main-content focus:outline-none mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-5 pb-24 lg:pb-8 space-y-5"
+        className="vt-main-content focus:outline-none mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-5 pb-bottom-nav-safe lg:pb-8 space-y-5"
       >
         <section
           aria-label="Вибір курсу та групи"

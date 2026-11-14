@@ -54,7 +54,7 @@ export function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }: Pr
           type="button"
           onClick={handleConfirm}
           disabled={processing}
-          className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-rose-500 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-400 active:scale-[0.98] transition-colors shadow-sm"
+          className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-rose-700 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-800 active:scale-[0.98] transition-colors shadow-sm"
         >
           {processing ? "Видалення…" : "Видалити"}
         </button>

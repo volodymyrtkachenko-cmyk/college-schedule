@@ -18,6 +18,7 @@ import { SchedulePeriodCard } from "./SchedulePeriodCard";
 import { CoffeeIcon } from "./ui/Icons";
 import { useTheme } from "../lib/useTheme";
 import { KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_LONG_FMT } from "../lib/date";
+import { calendarDateIsoToUtcDate } from "../lib/calendarDate";
 
 function parseMin(t?: string): number | null {
   if (!t) return null;
@@ -27,7 +28,7 @@ function parseMin(t?: string): number | null {
 
 function formatDayParts(dateStr?: string): { weekday: string; dayMonth: string } {
   if (!dateStr) return { weekday: "", dayMonth: "" };
-  const d = new Date(`${dateStr}T12:00:00`);
+  const d = calendarDateIsoToUtcDate(dateStr);
   if (isNaN(d.getTime())) return { weekday: "", dayMonth: "" };
   return {
     weekday: UKR_WEEKDAY_LONG_FMT.format(d),

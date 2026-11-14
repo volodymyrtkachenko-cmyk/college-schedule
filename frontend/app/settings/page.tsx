@@ -49,7 +49,8 @@ const ROLE_NAMES: Record<string, string> = {
 
 export default function SettingsPage() {
   const { settings, updateSetting } = useUserSettings();
-  const { isLinked, linkedEmail, needsRelink, unlink } = useClassroomSubmissions();
+  const { isLinked, linkedEmail, needsRelink, isUnlinking, unlinkError, clearUnlinkError, unlink } =
+    useClassroomSubmissions();
   const { isTeacherUnlocked, unlockTeacher, lockTeacher } = useTeacherAccess();
   const auth = useAuth();
   const { showToast } = useToast();
@@ -172,7 +173,8 @@ export default function SettingsPage() {
   };
 
   const handleClassroomLinkClick = async () => {
-    if (isLinkingClassroom) return;
+    if (isLinkingClassroom || isUnlinking) return;
+    clearUnlinkError();
     setIsLinkingClassroom(true);
     try {
       const cachedGroupId = typeof window !== "undefined"
@@ -212,6 +214,15 @@ export default function SettingsPage() {
     }
   };
 
+  const handleClassroomUnlinkClick = async () => {
+    const res = await unlink();
+    if (res.ok) {
+      showToast("Google Classroom відв'язано", "success");
+    } else if (res.error) {
+      showToast(res.error, "error");
+    }
+  };
+
   const isStudent = scheduleMode === "student";
   const isTeacher = scheduleMode === "teacher";
   const roleLabel = (auth?.user && (ROLE_NAMES[auth.user.role] || auth.user.role)) || "";
@@ -245,7 +256,7 @@ export default function SettingsPage() {
       <main
         id="main-content"
         tabIndex={-1}
-        className="vt-main-content focus:outline-none max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-6 pb-28 lg:pb-12"
+        className="vt-main-content focus:outline-none max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-6 pb-bottom-nav-safe lg:pb-12"
       >
         {/* Subtitle */}
         <p className="text-xs sm:text-sm text-sys-text-secondary">
@@ -283,11 +294,11 @@ export default function SettingsPage() {
                   >
                     <div className="text-xs font-bold">1 підгрупа</div>
                     {subgroupHints.sub1.length > 0 ? (
-                      <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
+                      <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === 1 ? "text-sys-onAccent font-medium" : "text-sys-text-secondary"}`}>
                         {subgroupHints.sub1.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
                       </div>
                     ) : (
-                      <div className={`text-[11px] mt-0.5 leading-snug ${settings.defaultSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
+                      <div className={`text-[11px] mt-0.5 leading-snug ${settings.defaultSubgroup === 1 ? "text-sys-onAccent font-medium" : "text-sys-text-muted"}`}>
                         Перша половина групи
                       </div>
                     )}
@@ -304,11 +315,11 @@ export default function SettingsPage() {
                   >
                     <div className="text-xs font-bold">2 підгрупа</div>
                     {subgroupHints.sub2.length > 0 ? (
-                      <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
+                      <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === 2 ? "text-sys-onAccent font-medium" : "text-sys-text-secondary"}`}>
                         {subgroupHints.sub2.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
                       </div>
                     ) : (
-                      <div className={`text-[11px] mt-0.5 leading-snug ${settings.defaultSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
+                      <div className={`text-[11px] mt-0.5 leading-snug ${settings.defaultSubgroup === 2 ? "text-sys-onAccent font-medium" : "text-sys-text-muted"}`}>
                         Друга половина групи
                       </div>
                     )}
@@ -324,7 +335,7 @@ export default function SettingsPage() {
                     }`}
                   >
                     <div className="text-xs font-bold">Обидві підгрупи</div>
-                    <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === "all" || settings.defaultSubgroup === null ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
+                    <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === "all" || settings.defaultSubgroup === null ? "text-sys-onAccent font-medium" : "text-sys-text-secondary"}`}>
                       Показувати викладачів обох підгруп
                     </div>
                   </button>
@@ -458,18 +469,19 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={handleClassroomLinkClick}
-                        disabled={isLinkingClassroom}
-                        className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 active:scale-95 shadow-xs"
+                        disabled={isLinkingClassroom || isUnlinking}
+                        className="rounded-lg bg-amber-700 hover:bg-amber-800 text-white px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 active:scale-95 shadow-xs"
                       >
                         {isLinkingClassroom ? "Підключення..." : "Оновити"}
                       </button>
                     )}
                     <button
                       type="button"
-                      onClick={unlink}
-                      className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors cursor-pointer"
+                      onClick={handleClassroomUnlinkClick}
+                      disabled={isUnlinking || isLinkingClassroom}
+                      className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Відв&apos;язати
+                      {isUnlinking ? "Відв'язування..." : "Відв'язати"}
                     </button>
                   </>
                 ) : (
@@ -484,6 +496,22 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
+            {unlinkError && (
+              <div
+                role="alert"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-rose-500/35 bg-rose-500/10 p-3 text-xs text-rose-800 dark:text-rose-200"
+              >
+                <p className="font-medium leading-relaxed">{unlinkError}</p>
+                <button
+                  type="button"
+                  onClick={handleClassroomUnlinkClick}
+                  disabled={isUnlinking}
+                  className="shrink-0 self-end sm:self-center rounded-lg bg-rose-700 hover:bg-rose-800 text-white px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isUnlinking ? "Відв'язування..." : "Повторити"}
+                </button>
+              </div>
+            )}
             <p className="text-xs text-sys-text-secondary leading-relaxed">
               Прив&apos;язка корпоративної пошти @kre.dp.ua відкриває посилання Meet/Zoom, підтягує дедлайни завдань, статуси здачі та оцінки.
             </p>

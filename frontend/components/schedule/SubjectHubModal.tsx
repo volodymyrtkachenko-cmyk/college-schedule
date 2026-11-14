@@ -904,7 +904,7 @@ export function SubjectHubModal({
                   <button
                     type="button"
                     onClick={handleTriggerClassroomSync}
-                    className="inline-flex min-h-[38px] items-center justify-center rounded-xl bg-sky-600 hover:bg-sky-500 px-4 py-2 text-xs font-semibold text-white transition-colors cursor-pointer active:scale-95"
+                    className="inline-flex min-h-[38px] items-center justify-center rounded-xl bg-sky-700 hover:bg-sky-800 px-4 py-2 text-xs font-semibold text-white transition-colors cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card"
                   >
                     Прив&apos;язати Google Classroom
                   </button>

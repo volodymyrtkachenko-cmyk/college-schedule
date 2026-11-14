@@ -146,7 +146,7 @@ export default async function BellsPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-sys-bg text-sys-text-primary pb-20 md:pb-12">
+    <div className="min-h-dvh bg-sys-bg text-sys-text-primary pb-bottom-nav-safe lg:pb-12">
       <SubpageHeader
         title="Розклад дзвінків ДФКР"
         subtitle="Дніпровський фаховий коледж радіоелектроніки"

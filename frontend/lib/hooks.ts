@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   api,
   ScheduleResponse,
@@ -8,6 +8,7 @@ import {
   invalidateGroupStatusCache,
 } from "./api";
 import { useAuth } from "./auth";
+import { addDaysToCalendarIso, getCalendarWeekdayMon0 } from "./calendarDate";
 import { formatKyivDateIso } from "./date";
 import { checkScheduleHasSubgroups, extractSubgroupTeacherHints } from "./format";
 
@@ -90,6 +91,8 @@ export function useOnlineStatus() {
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
+const EMPTY_SCHEDULE_WEEK: ScheduleResponse[] = [];
+
 export function useSchedule(
   weekAnchorDate: Date,
   includeCancelled = false,
@@ -97,9 +100,30 @@ export function useSchedule(
   initialTeachers: import("./api").ReferenceRecord[] = [],
   initialGroupId?: number | null,
   initialTeacherId?: number | null,
-  initialMode?: "student" | "teacher"
+  initialMode?: "student" | "teacher",
+  initialWeek: ScheduleResponse[] = EMPTY_SCHEDULE_WEEK,
+  initialWeekStartIso?: string
 ) {
   const { user } = useAuth();
+
+  const initialSeedToday = useMemo(
+    () =>
+      initialWeek.length > 0
+        ? initialWeek.find((d) => d.lessons && d.lessons.length > 0) ?? initialWeek[0]
+        : null,
+    [initialWeek]
+  );
+  const initialWeekJson = useMemo(
+    () => (initialWeek.length > 0 ? JSON.stringify(initialWeek) : ""),
+    [initialWeek]
+  );
+  const hasInitialSeedOnMount = Boolean(
+    !includeCancelled &&
+      initialWeek.length > 0 &&
+      initialWeekStartIso &&
+      formatKyivDateIso(weekAnchorDate) === initialWeekStartIso &&
+      ((initialMode ?? "student") === "student" ? Boolean(initialGroupId) : Boolean(initialTeacherId))
+  );
 
   const [isSetupComplete, setIsSetupComplete] = useState<boolean>(
     Boolean(initialGroupId || initialTeacherId)
@@ -115,16 +139,20 @@ export function useSchedule(
   const [teacherId, setTeacherId] = useState<number | null>(
     initialTeacherId ?? (initialTeachers[0]?.id ?? null)
   );
-  const [today, setToday] = useState<ScheduleResponse | null>(null);
-  const [week, setWeek] = useState<ScheduleResponse[]>([]);
+  const [today, setToday] = useState<ScheduleResponse | null>(() =>
+    hasInitialSeedOnMount ? initialSeedToday : null
+  );
+  const [week, setWeek] = useState<ScheduleResponse[]>(() =>
+    hasInitialSeedOnMount ? initialWeek : []
+  );
   const [semesterStart, setSemesterStart] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !hasInitialSeedOnMount);
   const [isSlowNetwork, setIsSlowNetwork] = useState(false);
   const [isUsingFallbackCache, setIsUsingFallbackCache] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Зберігаємо точний зліпок поточних даних на екрані, щоб не викликати setWeek/setToday, якщо дані з мережі не змінилися
-  const lastRenderedWeekJsonRef = useRef<string>("");
+  const lastRenderedWeekJsonRef = useRef<string>(hasInitialSeedOnMount ? initialWeekJson : "");
 
   // Миттєве підняття кешу ДО першого кадру (0 мс старт без скелетонів і без сплэш-екрана)
   useIsomorphicLayoutEffect(() => {
@@ -368,9 +396,7 @@ export function useSchedule(
           const parsedWeek = JSON.parse(bestRaw) as ScheduleResponse[];
           if (Array.isArray(parsedWeek) && parsedWeek.length > 0) {
             const remappedWeek: ScheduleResponse[] = parsedWeek.map((dayItem, idx) => {
-              const d = new Date(weekAnchorDate);
-              d.setDate(weekAnchorDate.getDate() + idx);
-              const mappedIso = formatDateKey(d);
+              const mappedIso = addDaysToCalendarIso(dateKey, idx);
               const isSameWeek = bestDate === dateKey;
               const safeLessons = isSameWeek
                 ? dayItem.lessons
@@ -441,16 +467,35 @@ export function useSchedule(
         }
       }
 
+      const matchesInitialSsrSeed =
+        !includeCancelled &&
+        initialWeek.length > 0 &&
+        Boolean(initialWeekStartIso) &&
+        dateKey === initialWeekStartIso &&
+        mode === (initialMode ?? "student") &&
+        (mode === "student" ? groupId === initialGroupId : teacherId === initialTeacherId);
+
       if (!hasCachedSchedule) {
-        const fallback = findFallbackScheduleFromStorage();
-        if (fallback) {
-          lastRenderedWeekJsonRef.current = fallback.rawJson;
-          if (fallback.today) setToday(fallback.today);
-          setWeek(fallback.week);
+        if (matchesInitialSsrSeed) {
+          if (lastRenderedWeekJsonRef.current !== initialWeekJson) {
+            lastRenderedWeekJsonRef.current = initialWeekJson;
+            setToday(initialSeedToday);
+            setWeek(initialWeek);
+          }
+          setIsUsingFallbackCache(false);
           setLoading(false);
           hasCachedSchedule = true;
-        } else if (!silentRevalidate) {
-          setLoading(true);
+        } else {
+          const fallback = findFallbackScheduleFromStorage();
+          if (fallback) {
+            lastRenderedWeekJsonRef.current = fallback.rawJson;
+            if (fallback.today) setToday(fallback.today);
+            setWeek(fallback.week);
+            setLoading(false);
+            hasCachedSchedule = true;
+          } else if (!silentRevalidate) {
+            setLoading(true);
+          }
         }
       }
 
@@ -458,7 +503,7 @@ export function useSchedule(
 
       const nowKyiv = new Date();
       const todayIso = formatKyivDateIso(nowKyiv);
-      const isWeekday = nowKyiv.getDay() >= 1 && nowKyiv.getDay() <= 5;
+      const isWeekday = getCalendarWeekdayMon0(todayIso) < 5;
 
       api
         .week(targetGroupId, targetTeacherId, weekAnchorDate, includeCancelled)

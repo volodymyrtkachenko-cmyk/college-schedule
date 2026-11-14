@@ -4,12 +4,19 @@ import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useR
 import type { ReferenceRecord, ScheduleResponse } from "../../lib/api";
 import {
   KYIV_DATE_FMT,
+  formatKyivDateIso,
   getKyivInitialWeekAnchor,
   getKyivMaxPublicDateIso,
   getKyivTomorrowDateIso,
-  getMondayOf,
   getSyncedNow,
 } from "../../lib/date";
+import {
+  addDaysToCalendarIso,
+  calendarDateIsoToUtcDate,
+  diffCalendarDays,
+  getCalendarWeekdayMon0,
+  getMondayCalendarIso,
+} from "../../lib/calendarDate";
 import { formatFullWeekRange } from "../../lib/format";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../../lib/quickJump";
 import {
@@ -92,12 +99,13 @@ export function useWeekAnchor(ssrNowIso?: string) {
 
   const isCurrentWeek = useMemo(() => {
     const currentAnchor = getKyivInitialWeekAnchor(nowRefDate);
-    return Math.abs(weekAnchorDate.getTime() - currentAnchor.getTime()) < 1000 * 60 * 60 * 24;
+    return formatKyivDateIso(weekAnchorDate) === formatKyivDateIso(currentAnchor);
   }, [weekAnchorDate, nowRefDate]);
 
-  const weekStartStr = useMemo(() => {
-    return `${weekAnchorDate.getFullYear()}-${String(weekAnchorDate.getMonth() + 1).padStart(2, "0")}-${String(weekAnchorDate.getDate()).padStart(2, "0")}`;
-  }, [weekAnchorDate]);
+  const weekStartStr = useMemo(
+    () => formatKyivDateIso(weekAnchorDate),
+    [weekAnchorDate]
+  );
 
   return { weekAnchorDate, setWeekAnchorDate, isCurrentWeek, weekStartStr };
 }
@@ -541,11 +549,10 @@ export function useScheduleSelection({
     }
   }, []);
 
-  const activeDayDate = useMemo(() => {
-    const d = new Date(weekAnchorDate);
-    d.setDate(weekAnchorDate.getDate() + selectedDayIndex);
-    return KYIV_DATE_FMT.format(d);
-  }, [weekAnchorDate, selectedDayIndex]);
+  const activeDayDate = useMemo(
+    () => addDaysToCalendarIso(formatKyivDateIso(weekAnchorDate), selectedDayIndex),
+    [weekAnchorDate, selectedDayIndex]
+  );
 
   const todayActualIso = useMemo(() => KYIV_DATE_FMT.format(clockNow), [clockNow]);
   const tomorrowActualIso = useMemo(() => getKyivTomorrowDateIso(clockNow), [clockNow]);
@@ -560,9 +567,7 @@ export function useScheduleSelection({
   const handleSelectDayIndex = useCallback(
     (idx: number) => {
       if (idx === selectedDayIndex) return;
-      const targetD = new Date(weekAnchorDate);
-      targetD.setDate(weekAnchorDate.getDate() + idx);
-      const targetIso = KYIV_DATE_FMT.format(targetD);
+      const targetIso = addDaysToCalendarIso(formatKyivDateIso(weekAnchorDate), idx);
       if ((minDateIso && targetIso < minDateIso) || (maxDateIso && targetIso > maxDateIso)) return;
       setDaySlideDir(idx > selectedDayIndex ? 1 : -1);
       setSelectedDayIndex(idx);
@@ -590,11 +595,9 @@ export function useScheduleSelection({
       setDaySlideDir(-1);
       setWeekSlideDir(-1);
       startTransition(() => {
-        setWeekAnchorDate((prev) => {
-          const prevAnchor = new Date(prev);
-          prevAnchor.setDate(prevAnchor.getDate() - 7);
-          return prevAnchor;
-        });
+        setWeekAnchorDate((prev) =>
+          calendarDateIsoToUtcDate(addDaysToCalendarIso(formatKyivDateIso(prev), -7))
+        );
         setSelectedDayIndex(4);
       });
       resetScroll();
@@ -611,11 +614,9 @@ export function useScheduleSelection({
       setDaySlideDir(1);
       setWeekSlideDir(1);
       startTransition(() => {
-        setWeekAnchorDate((prev) => {
-          const nextAnchor = new Date(prev);
-          nextAnchor.setDate(nextAnchor.getDate() + 7);
-          return nextAnchor;
-        });
+        setWeekAnchorDate((prev) =>
+          calendarDateIsoToUtcDate(addDaysToCalendarIso(formatKyivDateIso(prev), 7))
+        );
         setSelectedDayIndex(0);
       });
       resetScroll();
@@ -629,11 +630,9 @@ export function useScheduleSelection({
       setWeekSlideDir(offset > 0 ? 1 : -1);
       setDaySlideDir(offset > 0 ? 1 : -1);
       startTransition(() => {
-        setWeekAnchorDate((prev) => {
-          const nextAnchor = new Date(prev);
-          nextAnchor.setDate(nextAnchor.getDate() + offset * 7);
-          return nextAnchor;
-        });
+        setWeekAnchorDate((prev) =>
+          calendarDateIsoToUtcDate(addDaysToCalendarIso(formatKyivDateIso(prev), offset * 7))
+        );
       });
       resetScroll();
     },
@@ -642,8 +641,8 @@ export function useScheduleSelection({
 
   const resetWeekPreservingDay = useCallback(() => {
     const currentAnchor = getKyivInitialWeekAnchor(getSyncedNow());
-    const diff = currentAnchor.getTime() - weekAnchorDate.getTime();
-    setWeekSlideDir(Math.abs(diff) < 1000 * 60 * 60 * 24 ? 0 : diff > 0 ? 1 : -1);
+    const diffDays = diffCalendarDays(formatKyivDateIso(currentAnchor), formatKyivDateIso(weekAnchorDate));
+    setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
     startTransition(() => {
       setWeekAnchorDate(currentAnchor);
     });
@@ -653,8 +652,8 @@ export function useScheduleSelection({
   const handleJumpToToday = useCallback(() => {
     const liveNow = getSyncedNow();
     const currentAnchor = getKyivInitialWeekAnchor(liveNow);
-    const diff = currentAnchor.getTime() - weekAnchorDate.getTime();
-    setWeekSlideDir(Math.abs(diff) < 1000 * 60 * 60 * 24 ? 0 : diff > 0 ? 1 : -1);
+    const diffDays = diffCalendarDays(formatKyivDateIso(currentAnchor), formatKyivDateIso(weekAnchorDate));
+    setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
     startTransition(() => {
       setWeekAnchorDate(currentAnchor);
       setSelectedDayIndex(getActualTodayIndex(liveNow));
@@ -667,8 +666,8 @@ export function useScheduleSelection({
     const liveNow = getSyncedNow();
     const currentAnchor = getKyivInitialWeekAnchor(liveNow);
     const dow = getKyivWeekday(liveNow);
-    const diff = currentAnchor.getTime() - weekAnchorDate.getTime();
-    setWeekSlideDir(Math.abs(diff) < 1000 * 60 * 60 * 24 ? 0 : diff > 0 ? 1 : -1);
+    const diffDays = diffCalendarDays(formatKyivDateIso(currentAnchor), formatKyivDateIso(weekAnchorDate));
+    setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
     startTransition(() => {
       setWeekAnchorDate(currentAnchor);
       if (dow >= 1 && dow <= 4) {
@@ -680,16 +679,17 @@ export function useScheduleSelection({
   }, [weekAnchorDate, setWeekAnchorDate, resetScroll]);
 
   const handleDatePickerSelect = useCallback(
-    (targetDate: Date) => {
-      const targetIso = KYIV_DATE_FMT.format(targetDate);
+    (target: string | Date) => {
+      const targetIso = typeof target === "string" ? target : formatKyivDateIso(target);
       if ((minDateIso && targetIso < minDateIso) || (maxDateIso && targetIso > maxDateIso)) return;
-      const newAnchor = getMondayOf(targetDate);
-      const kyivDow = getKyivWeekday(targetDate);
-      const diff = newAnchor.getTime() - weekAnchorDate.getTime();
-      setWeekSlideDir(Math.abs(diff) < 1000 * 60 * 60 * 24 ? 0 : diff > 0 ? 1 : -1);
+      const newAnchorIso = getMondayCalendarIso(targetIso);
+      const newAnchor = calendarDateIsoToUtcDate(newAnchorIso);
+      const kyivDowMon0 = getCalendarWeekdayMon0(targetIso);
+      const diffDays = diffCalendarDays(newAnchorIso, formatKyivDateIso(weekAnchorDate));
+      setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
       startTransition(() => {
         setWeekAnchorDate(newAnchor);
-        setSelectedDayIndex(kyivDow >= 1 && kyivDow <= 5 ? kyivDow - 1 : 0);
+        setSelectedDayIndex(kyivDowMon0 < 5 ? kyivDowMon0 : 0);
         setDaySlideDir(0);
       });
       resetScroll();
@@ -729,8 +729,8 @@ export function useScheduleSelection({
 
   const resetWeek = useCallback(() => {
     const currentAnchor = getKyivInitialWeekAnchor(getSyncedNow());
-    const diff = currentAnchor.getTime() - weekAnchorDate.getTime();
-    setWeekSlideDir(Math.abs(diff) < 1000 * 60 * 60 * 24 ? 0 : diff > 0 ? 1 : -1);
+    const diffDays = diffCalendarDays(formatKyivDateIso(currentAnchor), formatKyivDateIso(weekAnchorDate));
+    setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
     startTransition(() => setWeekAnchorDate(currentAnchor));
   }, [weekAnchorDate, setWeekAnchorDate]);
 

@@ -68,17 +68,22 @@ export async function fetchDirectoryForSsr(revalidateSeconds = 3600): Promise<{
 }
 
 export async function fetchScheduleWeekForSsr(
-  params: { groupId?: number; teacherId?: number }
+  params: { groupId?: number; teacherId?: number; targetDateIso?: string }
 ): Promise<ScheduleResponse[]> {
-  const query = params.groupId
-    ? `group_id=${params.groupId}`
-    : params.teacherId
-    ? `teacher_id=${params.teacherId}`
-    : "";
-  if (!query) return [];
+  const search = new URLSearchParams();
+  if (params.groupId) {
+    search.set("group_id", String(params.groupId));
+  } else if (params.teacherId) {
+    search.set("teacher_id", String(params.teacherId));
+  } else {
+    return [];
+  }
+  if (params.targetDateIso) {
+    search.set("target_date", params.targetDateIso);
+  }
 
   const data = await fetchSsrJson<ScheduleResponse[]>(
-    `/api/schedule/week?${query}`,
+    `/api/schedule/week?${search.toString()}`,
     3600
   );
 

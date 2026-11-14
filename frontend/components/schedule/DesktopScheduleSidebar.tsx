@@ -201,18 +201,18 @@ export function DesktopScheduleSidebar({
                     key={d.iso}
                     type="button"
                     onClick={() => onSelectDayIndex(d.index)}
-                    className={`relative z-10 flex flex-col items-center justify-center h-16 rounded-xl transition-colors duration-150 cursor-pointer active:scale-95 ${
+                    className={`relative z-10 flex flex-col items-center justify-center h-16 rounded-xl transition-colors duration-150 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card ${
                       isActive
-                        ? "text-white font-black"
+                        ? "text-sys-onAccent font-black"
                         : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs uppercase font-semibold opacity-90">{d.name}</span>
+                      <span className="text-xs uppercase font-semibold">{d.name}</span>
                       {isToday && (
                         <span
                           title="Сьогодні"
-                          className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-white" : "bg-sys-accent"}`}
+                          className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-sys-onAccent" : "bg-sys-accent"}`}
                         />
                       )}
                     </div>
@@ -334,9 +334,9 @@ export function DesktopScheduleSidebar({
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-medium text-xs px-4 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-medium text-xs px-4 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
                   <polyline points="10 17 15 12 10 7" />
                   <line x1="15" y1="12" x2="3" y2="12" />
