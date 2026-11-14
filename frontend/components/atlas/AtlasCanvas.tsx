@@ -865,7 +865,12 @@ export function AtlasCanvas({
       if (onlyAVisible.length > 0) {
         const minY = Math.min(...onlyAVisible.map((p) => p.y));
         const top = toScreen(onlyAVisible[0].x, minY);
-        drawZoneHeader(`ТІЛЬКИ У ${nodeALabel}`, top.x, top.y - 44, palette.accent);
+        drawZoneHeader(
+          `ТІЛЬКИ У ${nodeALabel} (${curIntersection.onlyARows.length})`,
+          top.x,
+          top.y - 44,
+          palette.accent,
+        );
       }
 
       const sharedVisible = sharedAll
@@ -884,7 +889,12 @@ export function AtlasCanvas({
       if (onlyBVisible.length > 0) {
         const minY = Math.min(...onlyBVisible.map((p) => p.y));
         const top = toScreen(onlyBVisible[0].x, minY);
-        drawZoneHeader(`ТІЛЬКИ У ${nodeBLabel}`, top.x, top.y - 44, palette.compareB);
+        drawZoneHeader(
+          `ТІЛЬКИ У ${nodeBLabel} (${curIntersection.onlyBRows.length})`,
+          top.x,
+          top.y - 44,
+          palette.compareB,
+        );
       }
     }
 
@@ -895,6 +905,10 @@ export function AtlasCanvas({
       const isOnlyBNode = Boolean(curIntersection?.onlyBIds.has(item.node.id));
       const isSharedNode = Boolean(curIntersection?.sharedNodeIds.has(item.node.id));
       const isCompareDiffNode = isOnlyANode || isOnlyBNode;
+      const isCompareAnchorNode = Boolean(
+        curIntersection &&
+          (item.node.id === curIntersection.nodeAId || item.node.id === curIntersection.nodeBId),
+      );
       const isCourseTargetGroup = Boolean(
         curCourseFilter !== null &&
           !curIntersection &&
@@ -921,11 +935,13 @@ export function AtlasCanvas({
           ? item.node.label
           : item.node.shortLabel;
       const subtitleText =
-        (isOrbitNeighbor || Boolean(curIntersection)) && item.pos.subtitle
+        !isCompareAnchorNode &&
+        (isOrbitNeighbor || Boolean(curIntersection)) &&
+        item.pos.subtitle
           ? item.pos.subtitle
           : null;
       const singleLineSub = Boolean(curIntersection) || width < 520;
-      const maxSubChars = width < 480 ? 24 : curIntersection ? 32 : 34;
+      const maxSubChars = width < 480 ? 24 : curIntersection ? 28 : 34;
       const subLines = subtitleText
         ? wrapSubtitleText(subtitleText, maxSubChars, singleLineSub)
         : [];

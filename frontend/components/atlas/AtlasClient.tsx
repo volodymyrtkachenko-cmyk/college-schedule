@@ -19,14 +19,12 @@ import {
   getNodeInspectorData,
   makeAtlasNodeId,
   sortAtlasRelationRows,
-  type AtlasCompareScope,
   type AtlasGraph,
   type AtlasGraphNode,
   type AtlasIntersectionResult,
   type AtlasNodeInspectorData,
   type AtlasNodeKind,
   type AtlasRelationRow,
-  type AtlasRelationSortKey,
 } from "@/lib/atlas/graphEngine";
 import {
   BarChartIcon,
@@ -36,7 +34,6 @@ import {
   CloseIcon,
   DoorOpenIcon,
   GraduationCapIcon,
-  InfoIcon,
   NetworkIcon,
   SearchIcon,
   SlidersIcon,
@@ -55,17 +52,7 @@ const DAY_SHORT_NAMES: Record<number, string> = {
   7: "Нд",
 };
 
-const SORT_LABELS: Record<AtlasRelationSortKey, string> = {
-  lessons: "За парами",
-  alpha: "За назвою (А–Я)",
-  course: "За курсом і кодом",
-  room: "За кабінетом",
-  day: "За днями тижня",
-};
-
-type MobileWorkspaceView = "split" | "map" | "list";
-type InspectorTabKey = "primary" | "subjects" | "rooms";
-type CompareFilterTab = "all" | "shared" | "diff" | "meta";
+type MobileWorkspaceTab = "map" | "list";
 
 const KIND_META: Record<
   AtlasNodeKind,
@@ -204,7 +191,7 @@ function searchAtlasNodes(
     }
   }
 
-  // Also resolve matching subjects & rooms from raw catalog to their linked Groups / Teachers
+  // Resolve matching subjects & rooms from raw catalog to their linked Groups / Teachers
   if (needle) {
     const matchedSubjects = new Map<number, string>();
     for (const s of Array.from(graph.subjectsRaw.values())) {
@@ -263,13 +250,9 @@ function searchAtlasNodes(
           if (ca !== cb) return ca - cb;
           return compareAtlasLabels(a.node.label, b.node.label);
         }
-        if (b.node.lessonsCount !== a.node.lessonsCount) {
-          return b.node.lessonsCount - a.node.lessonsCount;
-        }
         return compareAtlasLabels(a.node.label, b.node.label);
       }
       if (b.score !== a.score) return b.score - a.score;
-      if (b.node.lessonsCount !== a.node.lessonsCount) return b.node.lessonsCount - a.node.lessonsCount;
       return compareAtlasLabels(a.node.label, b.node.label);
     })
     .slice(0, limit);
@@ -289,41 +272,46 @@ function CompareNodePicker({
   graph,
   baseNode,
   activeCompareId,
+  availableCourses,
   onPickNode,
   onClose,
 }: {
   graph: AtlasGraph;
   baseNode: AtlasGraphNode;
   activeCompareId: string | null;
+  availableCourses: number[];
   onPickNode: (nodeId: string) => void;
   onClose?: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [scope, setScope] = useState<AtlasCompareScope>("recommended");
+  const [pickerCourseFilter, setPickerCourseFilter] = useState<number | null>(null);
   const inputId = useId();
+
+  useEffect(() => {
+    setQuery("");
+    setPickerCourseFilter(null);
+  }, [baseNode.id]);
 
   const candidates = useMemo(
     () =>
       getCompareCandidates(graph, baseNode.id, {
         query,
-        scope,
-        limit: 24,
+        courseFilter: baseNode.kind === "group" ? pickerCourseFilter : null,
+        limit: 28,
       }),
-    [graph, baseNode.id, query, scope],
+    [graph, baseNode.id, baseNode.kind, query, pickerCourseFilter],
   );
 
-  const recommendedLabel =
+  const pickerTitle =
     baseNode.kind === "group"
-      ? baseNode.course
-        ? `${baseNode.course} курс і близькі`
-        : "Близькі групи"
-      : "Колеги за групами";
+      ? `Оберіть іншу групу для порівняння з групою ${baseNode.label}`
+      : `Оберіть іншого викладача для порівняння з ${baseNode.label}`;
 
   return (
     <div className="rounded-xl border border-sys-border bg-sys-bg p-3 space-y-2.5">
       <div className="flex items-center justify-between gap-2">
         <label htmlFor={inputId} className="block text-xs font-semibold text-sys-text-primary">
-          Оберіть другий вузол для порівняння з {baseNode.label}
+          {pickerTitle}
         </label>
         {onClose && (
           <button
@@ -337,33 +325,45 @@ function CompareNodePicker({
         )}
       </div>
 
-      {/* Scope Filter Pills */}
-      <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Категорія для порівняння">
-        {(
-          [
-            { key: "recommended", label: recommendedLabel },
-            { key: "groups", label: "Усі групи" },
-            { key: "teachers", label: "Викладачі" },
-          ] as Array<{ key: AtlasCompareScope; label: string }>
-        ).map((item) => {
-          const active = scope === item.key;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setScope(item.key)}
-              className={`min-h-[28px] rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer ${
-                active
-                  ? "border-sys-accent bg-sys-accent text-white"
-                  : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary"
-              }`}
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Course Filter Pills (only when comparing Groups) */}
+      {baseNode.kind === "group" && availableCourses.length > 1 && (
+        <div
+          className="flex flex-wrap items-center gap-1"
+          role="group"
+          aria-label="Фільтр груп за курсом"
+        >
+          <button
+            type="button"
+            aria-pressed={pickerCourseFilter === null}
+            onClick={() => setPickerCourseFilter(null)}
+            className={`min-h-[28px] rounded-lg border px-2.5 py-0.5 text-[11px] font-semibold transition-colors cursor-pointer ${
+              pickerCourseFilter === null
+                ? "border-sys-accent bg-sys-accent text-white"
+                : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary"
+            }`}
+          >
+            {baseNode.course ? `Спочатку ${baseNode.course} курс` : "Усі курси"}
+          </button>
+          {availableCourses.map((c) => {
+            const active = pickerCourseFilter === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setPickerCourseFilter(active ? null : c)}
+                className={`min-h-[28px] rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition-colors cursor-pointer ${
+                  active
+                    ? "border-sys-accent bg-sys-accent text-white"
+                    : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                {c} курс
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Search Input */}
       <div className="relative flex items-center">
@@ -373,7 +373,11 @@ function CompareNodePicker({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Пошук групи або прізвища викладача..."
+          placeholder={
+            baseNode.kind === "group"
+              ? "Пошук групи за кодом або відділенням..."
+              : "Пошук викладача за прізвищем або кабінетом..."
+          }
           className="w-full min-h-[36px] rounded-xl border border-sys-border bg-sys-card pl-8 pr-8 py-1.5 text-xs sm:text-sm text-sys-text-primary placeholder:text-sys-text-muted focus:outline-none focus:border-sys-accent"
         />
         {query && (
@@ -416,60 +420,10 @@ function CompareNodePicker({
         })}
         {candidates.length === 0 && (
           <p className="text-xs text-sys-text-muted py-1">
-            За цим фільтром вузлів не знайдено. Спробуйте перемкнути вкладку вище.
+            Нічого не знайдено. Спробуйте змінити пошуковий запит або курс.
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-function SortControlStrip({
-  sortBy,
-  availableSorts,
-  onSortChange,
-}: {
-  sortBy: AtlasRelationSortKey;
-  availableSorts: AtlasRelationSortKey[];
-  onSortChange: (next: AtlasRelationSortKey) => void;
-}) {
-  const shortLabels: Record<AtlasRelationSortKey, string> = {
-    lessons: "За парами",
-    alpha: "А–Я",
-    course: "Курс",
-    room: "Кабінет",
-    day: "Дні",
-  };
-
-  return (
-    <div
-      role="group"
-      aria-label="Сортування списку"
-      className="flex flex-wrap items-center gap-1"
-    >
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-sys-text-muted mr-0.5">
-        <SlidersIcon className="w-3 h-3" />
-        <span className="sr-only sm:not-sr-only">Сортувати:</span>
-      </span>
-      {availableSorts.map((key) => {
-        const active = sortBy === key;
-        return (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={active}
-            title={SORT_LABELS[key]}
-            onClick={() => onSortChange(key)}
-            className={`min-h-[28px] rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition-colors cursor-pointer ${
-              active
-                ? "border-sys-accent/50 bg-sys-accent/12 text-sys-accent"
-                : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
-            }`}
-          >
-            {shortLabels[key]}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -478,36 +432,28 @@ function RelationListSection({
   title,
   kind,
   rows,
-  sortBy,
   filterQuery,
   onSelectNode,
-  onQuickCompareNode,
-  onPickSearchTerm,
 }: {
   title: string;
   kind: AtlasNodeKind;
   rows: AtlasRelationRow[];
-  sortBy: AtlasRelationSortKey;
   filterQuery: string;
   onSelectNode: (nodeId: string) => void;
-  onQuickCompareNode?: (nodeId: string) => void;
-  onPickSearchTerm?: (term: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const listRef = useRef<HTMLUListElement | null>(null);
 
   const processedRows = useMemo(() => {
     const filtered = filterAtlasRelationRows(rows, filterQuery);
-    return sortAtlasRelationRows(filtered, sortBy);
-  }, [rows, filterQuery, sortBy]);
+    return sortAtlasRelationRows(filtered, "default");
+  }, [rows, filterQuery]);
 
-  const limit = 12;
+  const limit = 15;
   const visibleRows = expanded ? processedRows : processedRows.slice(0, limit);
   const hiddenCount = Math.max(0, processedRows.length - limit);
   const meta = KIND_META[kind];
-  const isNavigableNode = kind === "group" || kind === "teacher";
 
-  // Keep DOM element order synchronized via moveBefore/append when sorting changes
   useEffect(() => {
     const listEl = listRef.current;
     if (!listEl) return;
@@ -523,7 +469,7 @@ function RelationListSection({
     if (ordered.length > 1) {
       reorderDomElements(listEl, ordered);
     }
-  }, [visibleRows, sortBy]);
+  }, [visibleRows]);
 
   if (rows.length === 0) return null;
 
@@ -543,7 +489,7 @@ function RelationListSection({
 
       {processedRows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-sys-border bg-sys-bg/40 px-3 py-3 text-center text-xs text-sys-text-muted">
-          За фільтром «{filterQuery}» збігів у цьому списку немає.
+          За фільтром «{filterQuery}» збігів у списку немає.
         </p>
       ) : (
         <ul ref={listRef} role="list" className="space-y-2">
@@ -555,29 +501,14 @@ function RelationListSection({
             const showFullNameHint =
               Boolean(row.node.fullName) && row.node.fullName !== row.node.label;
             const showCourseBadge = row.node.kind === "group" && row.node.course !== null;
-            const showFloorBadge = row.node.kind === "room" && row.node.floor !== null;
 
             return (
-              <li
-                key={row.node.id}
-                data-row-id={row.node.id}
-                className="flex items-stretch gap-1.5"
-              >
+              <li key={row.node.id} data-row-id={row.node.id}>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isNavigableNode) {
-                      onSelectNode(row.node.id);
-                    } else if (onPickSearchTerm) {
-                      onPickSearchTerm(row.node.label);
-                    }
-                  }}
-                  title={
-                    isNavigableNode
-                      ? `Перейти до орбіти: ${row.node.fullName || row.node.label}`
-                      : `Знайти всі зв'язки: ${row.node.label}`
-                  }
-                  className="flex-1 min-w-0 min-h-[44px] rounded-xl border border-sys-border bg-sys-bg/65 hover:bg-sys-bg hover:border-sys-accent/45 px-3 py-2.5 text-left transition-colors cursor-pointer flex items-start justify-between gap-2.5 group"
+                  onClick={() => onSelectNode(row.node.id)}
+                  title={`Перейти до орбіти: ${row.node.fullName || row.node.label}`}
+                  className="w-full min-h-[44px] rounded-xl border border-sys-border bg-sys-bg/65 hover:bg-sys-bg hover:border-sys-accent/45 px-3 py-2.5 text-left transition-colors cursor-pointer flex items-start justify-between gap-2.5 group"
                 >
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -592,11 +523,6 @@ function RelationListSection({
                       {showCourseBadge && (
                         <span className="inline-flex items-center rounded-md border border-sys-border bg-sys-card px-1.5 py-0.5 text-[10px] font-semibold text-sys-text-secondary">
                           {row.node.course} курс
-                        </span>
-                      )}
-                      {showFloorBadge && (
-                        <span className="inline-flex items-center rounded-md border border-sys-border bg-sys-card px-1.5 py-0.5 text-[10px] font-semibold text-sys-text-secondary">
-                          {row.node.floor} поверх
                         </span>
                       )}
                       {row.badge && (
@@ -624,18 +550,6 @@ function RelationListSection({
                     </span>
                   )}
                 </button>
-
-                {isNavigableNode && onQuickCompareNode && (
-                  <button
-                    type="button"
-                    onClick={() => onQuickCompareNode(row.node.id)}
-                    aria-label={`Порівняти перетин з ${row.node.label}`}
-                    title={`Порівняти перетин з ${row.node.label}`}
-                    className="shrink-0 min-w-[38px] min-h-[44px] inline-flex items-center justify-center rounded-xl border border-sys-border bg-sys-bg/65 hover:bg-amber-500/10 hover:border-amber-500/45 text-xs font-semibold text-sys-text-muted hover:text-amber-800 dark:hover:text-amber-300 transition-colors cursor-pointer"
-                  >
-                    ⇄
-                  </button>
-                )}
               </li>
             );
           })}
@@ -659,19 +573,17 @@ function CompareDiffColumn({
   title,
   accentClass,
   rows,
-  sortBy,
   emptyLabel,
   onSelectNode,
 }: {
   title: string;
   accentClass: string;
   rows: AtlasRelationRow[];
-  sortBy: AtlasRelationSortKey;
   emptyLabel: string;
   onSelectNode: (nodeId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const sortedRows = useMemo(() => sortAtlasRelationRows(rows, sortBy), [rows, sortBy]);
+  const sortedRows = useMemo(() => sortAtlasRelationRows(rows, "default"), [rows]);
   const limit = 8;
   const visibleRows = expanded ? sortedRows : sortedRows.slice(0, limit);
   const hiddenCount = Math.max(0, sortedRows.length - limit);
@@ -749,61 +661,66 @@ function CompareSummaryCard({
   nodeA,
   nodeB,
   intersection,
+  availableCourses,
   onSwap,
   onClear,
   onSelectNode,
   onSetCompareNode,
-  onAnnounceSort,
+  onShowMobileMap,
 }: {
   graph: AtlasGraph;
   nodeA: AtlasGraphNode;
   nodeB: AtlasGraphNode;
   intersection: AtlasIntersectionResult;
+  availableCourses: number[];
   onSwap: () => void;
   onClear: () => void;
   onSelectNode: (nodeId: string) => void;
   onSetCompareNode: (nodeId: string | null) => void;
-  onAnnounceSort: (message: string) => void;
+  onShowMobileMap?: () => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<CompareFilterTab>("all");
-  const [sortBy, setSortBy] = useState<AtlasRelationSortKey>("lessons");
 
   useEffect(() => {
     setPickerOpen(false);
   }, [nodeA.id, nodeB.id]);
 
-  const { sharedRows, onlyARows, onlyBRows, sharedSubjects, sharedRooms } = intersection;
+  const { sharedRows, onlyARows, onlyBRows } = intersection;
   const sortedSharedRows = useMemo(
-    () => sortAtlasRelationRows(sharedRows, sortBy),
-    [sharedRows, sortBy],
+    () => sortAtlasRelationRows(sharedRows, "default"),
+    [sharedRows],
   );
-  const hasSharedMeta = sharedSubjects.length > 0 || sharedRooms.length > 0;
-  const totalDiffCount = onlyARows.length + onlyBRows.length;
 
-  const handleSortChange = (nextSort: AtlasRelationSortKey) => {
-    setSortBy(nextSort);
-    onAnnounceSort(
-      `Порівняння відсортовано: ${SORT_LABELS[nextSort].toLowerCase()}, спільних: ${sharedRows.length}, відмінних: ${totalDiffCount}.`,
-    );
-  };
+  const sharedSectionTitle =
+    nodeA.kind === "group"
+      ? `Спільні викладачі (${sharedRows.length})`
+      : `Спільні групи (${sharedRows.length})`;
 
   return (
     <div className="[container-type:inline-size] rounded-2xl border border-amber-500/40 bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300">
-            Порівняння зв&apos;язків
+            {nodeA.kind === "group" ? "Порівняння груп" : "Порівняння викладачів"}
           </p>
           <h2 className="mt-0.5 text-base sm:text-lg font-bold text-sys-text-primary break-words [text-wrap:balance]">
             {nodeA.label} <span className="text-sys-text-muted font-normal">↔</span> {nodeB.label}
           </h2>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {onShowMobileMap && (
+            <button
+              type="button"
+              onClick={onShowMobileMap}
+              className="lg:hidden min-h-[34px] rounded-lg border border-sys-border bg-sys-bg px-2.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors cursor-pointer"
+            >
+              На мапу
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setPickerOpen((prev) => !prev)}
-            title="Обрати інший вузол для порівняння"
+            title="Обрати іншу групу або викладача для порівняння"
             className={`min-h-[34px] rounded-lg border px-2.5 text-xs font-semibold transition-colors cursor-pointer ${
               pickerOpen
                 ? "border-sys-accent bg-sys-accent/10 text-sys-accent"
@@ -838,6 +755,7 @@ function CompareSummaryCard({
           graph={graph}
           baseNode={nodeA}
           activeCompareId={nodeB.id}
+          availableCourses={availableCourses}
           onPickNode={(id) => {
             onSetCompareNode(id);
             setPickerOpen(false);
@@ -846,204 +764,96 @@ function CompareSummaryCard({
         />
       )}
 
-      {/* Filter Tabs + Sort Controls */}
-      <div className="space-y-2.5 pt-1 border-t border-sys-border/60">
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Фільтр секцій порівняння">
-          <button
-            type="button"
-            aria-pressed={activeTab === "all"}
-            onClick={() => setActiveTab("all")}
-            className={`min-h-[30px] rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-              activeTab === "all"
-                ? "border-sys-accent bg-sys-accent text-white"
-                : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
-            }`}
-          >
-            Усе
-          </button>
-          <button
-            type="button"
-            aria-pressed={activeTab === "shared"}
-            onClick={() => setActiveTab("shared")}
-            className={`min-h-[30px] rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-              activeTab === "shared"
-                ? "border-amber-500 bg-amber-500/15 text-amber-800 dark:text-amber-300"
-                : "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300"
-            }`}
-          >
-            Спільні: {sharedRows.length}
-          </button>
-          <button
-            type="button"
-            aria-pressed={activeTab === "diff"}
-            onClick={() => setActiveTab("diff")}
-            className={`min-h-[30px] rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-              activeTab === "diff"
-                ? "border-blue-500 bg-blue-500/15 text-blue-700 dark:text-blue-300"
-                : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
-            }`}
-          >
-            Відмінності: {onlyARows.length} / {onlyBRows.length}
-          </button>
-          {hasSharedMeta && (
-            <button
-              type="button"
-              aria-pressed={activeTab === "meta"}
-              onClick={() => setActiveTab("meta")}
-              className={`min-h-[30px] rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-                activeTab === "meta"
-                  ? "border-violet-500 bg-violet-500/15 text-violet-700 dark:text-violet-300"
-                  : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
-              }`}
-            >
-              Предмети й каб. ({sharedSubjects.length + sharedRooms.length})
-            </button>
-          )}
-          {intersection.directConnected && (
-            <span className="inline-flex items-center rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-              Прямий зв&apos;язок
-            </span>
-          )}
-        </div>
-
-        {(sharedRows.length > 1 || onlyARows.length > 1 || onlyBRows.length > 1) &&
-          activeTab !== "meta" && (
-            <SortControlStrip
-              sortBy={sortBy}
-              availableSorts={["lessons", "alpha", "room", "day"]}
-              onSortChange={handleSortChange}
-            />
-          )}
+      {/* Clean Summary Pills */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="inline-flex items-center rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:text-amber-300">
+          Спільних: {sharedRows.length}
+        </span>
+        <span className="inline-flex items-center rounded-lg border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300">
+          Тільки у {nodeA.label}: {onlyARows.length}
+        </span>
+        <span className="inline-flex items-center rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:text-rose-300">
+          Тільки у {nodeB.label}: {onlyBRows.length}
+        </span>
       </div>
 
       {/* Shared Section */}
-      {(activeTab === "all" || activeTab === "shared") && (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
-              Спільні зв&apos;язки ({sharedRows.length})
-            </h3>
-          </div>
-          {sortedSharedRows.length > 0 ? (
-            <ul role="list" className="space-y-1.5">
-              {sortedSharedRows.map((row) => {
-                const meta = KIND_META[row.node.kind];
-                const subjectsText = row.subjects.join(" · ");
-                const roomsText = row.rooms.map((r) => `каб. ${r}`).join(", ");
-                const daysText = row.days.map((d) => DAY_SHORT_NAMES[d] ?? String(d)).join(", ");
-                const showFullName =
-                  Boolean(row.node.fullName) && row.node.fullName !== row.node.label;
-                return (
-                  <li key={row.node.id}>
-                    <button
-                      type="button"
-                      onClick={() => onSelectNode(row.node.id)}
-                      className="w-full rounded-xl border border-amber-500/30 bg-amber-500/5 hover:border-amber-500/60 px-3 py-2 text-left transition-colors cursor-pointer space-y-0.5"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-1.5">
-                        <span className="inline-flex flex-wrap items-center gap-1.5 text-sm font-semibold text-sys-text-primary break-words">
-                          <span className={`h-2 w-2 rounded-full shrink-0 ${meta.dotClass}`} aria-hidden="true" />
-                          <span>{row.node.label}</span>
-                          {showFullName && (
-                            <span className="text-xs font-normal text-sys-text-muted">
-                              ({row.node.fullName})
-                            </span>
-                          )}
-                        </span>
-                        {row.lessonsCount > 0 && (
-                          <span className="text-[11px] font-semibold text-sys-text-secondary tabular-nums">
-                            {formatPairsLabel(row.lessonsCount)}
+      <section className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
+          {sharedSectionTitle}
+        </h3>
+        {sortedSharedRows.length > 0 ? (
+          <ul role="list" className="space-y-1.5">
+            {sortedSharedRows.map((row) => {
+              const meta = KIND_META[row.node.kind];
+              const subjectsText = row.subjects.join(" · ");
+              const roomsText = row.rooms.map((r) => `каб. ${r}`).join(", ");
+              const daysText = row.days.map((d) => DAY_SHORT_NAMES[d] ?? String(d)).join(", ");
+              const showFullName =
+                Boolean(row.node.fullName) && row.node.fullName !== row.node.label;
+              return (
+                <li key={row.node.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectNode(row.node.id)}
+                    className="w-full rounded-xl border border-amber-500/30 bg-amber-500/5 hover:border-amber-500/60 px-3 py-2 text-left transition-colors cursor-pointer space-y-0.5"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <span className="inline-flex flex-wrap items-center gap-1.5 text-sm font-semibold text-sys-text-primary break-words">
+                        <span className={`h-2 w-2 rounded-full shrink-0 ${meta.dotClass}`} aria-hidden="true" />
+                        <span>{row.node.label}</span>
+                        {showFullName && (
+                          <span className="text-xs font-normal text-sys-text-muted">
+                            ({row.node.fullName})
                           </span>
                         )}
-                      </div>
-                      {(subjectsText || roomsText || daysText) && (
-                        <p className="text-xs text-sys-text-secondary break-words">
-                          {subjectsText}
-                          {subjectsText && (roomsText || daysText) ? " · " : ""}
-                          {roomsText}
-                          {roomsText && daysText ? " · " : ""}
-                          {daysText}
-                        </p>
+                      </span>
+                      {row.lessonsCount > 0 && (
+                        <span className="text-[11px] font-semibold text-sys-text-secondary tabular-nums">
+                          {formatPairsLabel(row.lessonsCount)}
+                        </span>
                       )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="text-xs text-sys-text-muted leading-relaxed">
-              У активному розкладі спільних викладачів чи груп не знайдено.
-            </p>
-          )}
-        </section>
-      )}
-
-      {/* Shared Subjects & Rooms Summary (now always accessible even when sharedRows > 0) */}
-      {hasSharedMeta && (activeTab === "all" || activeTab === "meta" || activeTab === "shared") && (
-        <section className="rounded-xl border border-sys-border bg-sys-bg/65 p-3 space-y-2">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-sys-text-secondary">
-            Спільні дисципліни та кабінети
-          </h3>
-          {sharedSubjects.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold text-sys-text-primary">
-                Предмети ({sharedSubjects.length}):
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {sharedSubjects.map((s) => (
-                  <span
-                    key={s.id}
-                    className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-700 dark:text-violet-300"
-                  >
-                    <span>{s.label}</span>
-                    <span className="opacity-75 tabular-nums">· {s.lessonsCount}п</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {sharedRooms.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold text-sys-text-primary">
-                Кабінети ({sharedRooms.length}):
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {sharedRooms.map((r) => (
-                  <span
-                    key={r.name}
-                    className="inline-flex items-center gap-1 rounded-lg border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:text-amber-300"
-                  >
-                    <span>каб. {r.name}</span>
-                    <span className="opacity-75 tabular-nums">· {r.lessonsCount}п</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
+                    </div>
+                    {(subjectsText || roomsText || daysText) && (
+                      <p className="text-xs text-sys-text-secondary break-words">
+                        {subjectsText}
+                        {subjectsText && (roomsText || daysText) ? " · " : ""}
+                        {roomsText}
+                        {roomsText && daysText ? " · " : ""}
+                        {daysText}
+                      </p>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="text-xs text-sys-text-muted leading-relaxed">
+            У активному розкладі спільних зв&apos;язків не знайдено.
+          </p>
+        )}
+      </section>
 
       {/* Differences Section: Clear side-by-side comparison */}
-      {(activeTab === "all" || activeTab === "diff") && (
+      {(onlyARows.length > 0 || onlyBRows.length > 0) && (
         <section className="space-y-2 pt-2 border-t border-sys-border/70">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
-            Що відрізняється ({onlyARows.length} vs {onlyBRows.length})
+            Що відрізняється
           </h3>
           <div className="grid grid-cols-1 @[420px]:grid-cols-2 gap-2.5">
             <CompareDiffColumn
               title={`Тільки у ${nodeA.label}`}
               accentClass="text-blue-700 dark:text-blue-300"
               rows={onlyARows}
-              sortBy={sortBy}
-              emptyLabel="Усі зв'язки є спільними"
+              emptyLabel="Немає унікальних"
               onSelectNode={onSelectNode}
             />
             <CompareDiffColumn
               title={`Тільки у ${nodeB.label}`}
               accentClass="text-rose-700 dark:text-rose-300"
               rows={onlyBRows}
-              sortBy={sortBy}
-              emptyLabel="Усі зв'язки є спільними"
+              emptyLabel="Немає унікальних"
               onSelectNode={onSelectNode}
             />
           </div>
@@ -1102,7 +912,6 @@ function AtlasDirectoryBrowserCard({
       if (sortBy === "alpha") {
         return compareAtlasLabels(a.label, b.label);
       }
-      // "course" default
       if (a.kind === "group" && b.kind === "group") {
         const ca = a.course ?? 99;
         const cb = b.course ?? 99;
@@ -1333,39 +1142,33 @@ function AtlasInspectorPanel({
   compareNodeId,
   intersection,
   courseFilter,
+  availableCourses,
   onSelectNode,
   onSetCompareNode,
   onSwapCompare,
-  onPickSearchTerm,
   onAnnounceSort,
+  onShowMobileMap,
 }: {
   graph: AtlasGraph;
   inspector: AtlasNodeInspectorData | null;
   compareNodeId: string | null;
   intersection: AtlasIntersectionResult | null;
   courseFilter: number | null;
+  availableCourses: number[];
   onSelectNode: (nodeId: string) => void;
   onSetCompareNode: (nodeId: string | null) => void;
   onSwapCompare: () => void;
-  onPickSearchTerm: (term: string) => void;
   onAnnounceSort: (message: string) => void;
+  onShowMobileMap?: () => void;
 }) {
   const [compareOpen, setCompareOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<InspectorTabKey>("primary");
-  const [sortBy, setSortBy] = useState<AtlasRelationSortKey>("lessons");
   const [listFilterQuery, setListFilterQuery] = useState("");
   const listFilterInputId = useId();
 
   useEffect(() => {
     setCompareOpen(false);
-    setActiveTab("primary");
     setListFilterQuery("");
-    if (inspector?.node.kind === "teacher") {
-      setSortBy("course");
-    } else {
-      setSortBy("lessons");
-    }
-  }, [inspector?.node.id, inspector?.node.kind]);
+  }, [inspector?.node.id]);
 
   const compareNode = compareNodeId ? (graph.nodeMap.get(compareNodeId) ?? null) : null;
 
@@ -1380,7 +1183,7 @@ function AtlasInspectorPanel({
     );
   }
 
-  const { node, curatorTeacher, curatedGroups, groups, teachers, subjects, rooms } = inspector;
+  const { node, curatorTeacher, curatedGroups, groups, teachers } = inspector;
   const meta = KIND_META[node.kind];
   const scheduleHref = getScheduleHref(node);
   const neighborsCount = graph.adjacency.get(node.id)?.size ?? 0;
@@ -1396,60 +1199,25 @@ function AtlasInspectorPanel({
           nodeA={node}
           nodeB={compareNode}
           intersection={intersection}
+          availableCourses={availableCourses}
           onSwap={onSwapCompare}
           onClear={() => onSetCompareNode(null)}
           onSelectNode={onSelectNode}
           onSetCompareNode={onSetCompareNode}
-          onAnnounceSort={onAnnounceSort}
+          onShowMobileMap={onShowMobileMap}
         />
       </aside>
     );
   }
 
-  const primaryRows = node.kind === "group" ? teachers : groups;
-  const primaryKind: AtlasNodeKind = node.kind === "group" ? "teacher" : "group";
-  const primaryTabLabel = node.kind === "group" ? "Викладачі" : "Групи";
-
-  const activeRows =
-    activeTab === "primary"
-      ? primaryRows
-      : activeTab === "subjects"
-        ? subjects
-        : rooms;
-  const activeKind: AtlasNodeKind =
-    activeTab === "primary"
-      ? primaryKind
-      : activeTab === "subjects"
-        ? "subject"
-        : "room";
-  const activeSectionTitle =
-    activeTab === "primary"
-      ? node.kind === "group"
-        ? "Викладачі, предмети та кабінети"
-        : "Групи, предмети та кабінети"
-      : activeTab === "subjects"
-        ? "Дисципліни у розкладі"
-        : "Аудиторії та кабінети";
-
-  const availableSorts: AtlasRelationSortKey[] =
-    activeTab === "primary" && primaryKind === "group"
-      ? ["course", "lessons", "alpha", "room", "day"]
-      : activeTab === "subjects"
-        ? ["lessons", "alpha", "day"]
-        : activeTab === "rooms"
-          ? ["lessons", "alpha", "day"]
-          : ["lessons", "alpha", "room", "day"];
-
-  const effectiveSortBy: AtlasRelationSortKey = availableSorts.includes(sortBy)
-    ? sortBy
-    : availableSorts[0];
-
-  const handleSortChange = (nextSort: AtlasRelationSortKey) => {
-    setSortBy(nextSort);
-    onAnnounceSort(
-      `Список відсортовано: ${SORT_LABELS[nextSort].toLowerCase()}, ${activeRows.length} елементів.`,
-    );
-  };
+  const unifiedRows = node.kind === "group" ? teachers : groups;
+  const unifiedKind: AtlasNodeKind = node.kind === "group" ? "teacher" : "group";
+  const unifiedSectionTitle =
+    node.kind === "group"
+      ? "Викладачі, предмети та кабінети"
+      : "Групи, предмети та кабінети";
+  const compareButtonLabel =
+    node.kind === "group" ? "Порівняти з групою" : "Порівняти з викладачем";
 
   return (
     <aside
@@ -1554,16 +1322,28 @@ function AtlasInspectorPanel({
             }`}
           >
             <BarChartIcon className="w-3.5 h-3.5" />
-            <span>Порівняти перетин</span>
+            <span>{compareButtonLabel}</span>
           </button>
+
+          {onShowMobileMap && (
+            <button
+              type="button"
+              onClick={onShowMobileMap}
+              className="lg:hidden min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors cursor-pointer"
+            >
+              <NetworkIcon className="w-3.5 h-3.5" />
+              <span>На орбіту</span>
+            </button>
+          )}
         </div>
 
-        {/* Smart Inline Compare Picker */}
+        {/* Same-Kind Inline Compare Picker */}
         {compareOpen && (
           <CompareNodePicker
             graph={graph}
             baseNode={node}
             activeCompareId={compareNodeId}
+            availableCourses={availableCourses}
             onPickNode={(id) => {
               onSetCompareNode(id);
               setCompareOpen(false);
@@ -1572,7 +1352,7 @@ function AtlasInspectorPanel({
           />
         )}
 
-        {/* Unified Relations & Subjects/Rooms List with Category Tabs & Sorting */}
+        {/* Unified All-In-One List (Curator first, then A–Z) */}
         <div className="pt-2 border-t border-sys-border/70 space-y-3">
           {node.lessonsCount === 0 && neighborsCount === 0 ? (
             <p className="text-xs text-sys-text-secondary leading-relaxed">
@@ -1581,111 +1361,43 @@ function AtlasInspectorPanel({
             </p>
           ) : (
             <>
-              {/* Category Tabs: Викладачі/Групи | Предмети | Кабінети */}
-              <div
-                role="tablist"
-                aria-label="Категорії зв'язків вузла"
-                className="grid grid-cols-3 gap-1 rounded-xl border border-sys-border bg-sys-bg p-1"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "primary"}
-                  onClick={() => setActiveTab("primary")}
-                  className={`min-h-[32px] rounded-lg px-2 py-1 text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1 ${
-                    activeTab === "primary"
-                      ? "bg-sys-card text-sys-text-primary shadow-xs border border-sys-border/70"
-                      : "text-sys-text-secondary hover:text-sys-text-primary"
-                  }`}
-                >
-                  <span className="truncate">{primaryTabLabel}</span>
-                  <span className="text-[10px] text-sys-text-muted tabular-nums">
-                    {primaryRows.length}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "subjects"}
-                  onClick={() => setActiveTab("subjects")}
-                  className={`min-h-[32px] rounded-lg px-2 py-1 text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1 ${
-                    activeTab === "subjects"
-                      ? "bg-sys-card text-sys-text-primary shadow-xs border border-sys-border/70"
-                      : "text-sys-text-secondary hover:text-sys-text-primary"
-                  }`}
-                >
-                  <span className="truncate">Предмети</span>
-                  <span className="text-[10px] text-sys-text-muted tabular-nums">
-                    {subjects.length}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "rooms"}
-                  onClick={() => setActiveTab("rooms")}
-                  className={`min-h-[32px] rounded-lg px-2 py-1 text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1 ${
-                    activeTab === "rooms"
-                      ? "bg-sys-card text-sys-text-primary shadow-xs border border-sys-border/70"
-                      : "text-sys-text-secondary hover:text-sys-text-primary"
-                  }`}
-                >
-                  <span className="truncate">Кабінети</span>
-                  <span className="text-[10px] text-sys-text-muted tabular-nums">
-                    {rooms.length}
-                  </span>
-                </button>
-              </div>
-
-              {/* Sort Controls + Inline Filter */}
-              {activeRows.length > 1 && (
-                <div className="space-y-2">
-                  <SortControlStrip
-                    sortBy={effectiveSortBy}
-                    availableSorts={availableSorts}
-                    onSortChange={handleSortChange}
+              {unifiedRows.length >= 4 && (
+                <div className="relative flex items-center">
+                  <label htmlFor={listFilterInputId} className="sr-only">
+                    Фільтр у списку зв&apos;язків
+                  </label>
+                  <SearchIcon className="w-3.5 h-3.5 text-sys-text-muted pointer-events-none absolute left-2.5" />
+                  <input
+                    id={listFilterInputId}
+                    type="search"
+                    value={listFilterQuery}
+                    onChange={(e) => setListFilterQuery(e.target.value)}
+                    placeholder={
+                      node.kind === "group"
+                        ? "Фільтр за викладачем, предметом або кабінетом..."
+                        : "Фільтр за групою, предметом або кабінетом..."
+                    }
+                    className="w-full min-h-[36px] rounded-xl border border-sys-border bg-sys-bg pl-8 pr-8 py-1.5 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:outline-none focus:border-sys-accent"
                   />
-
-                  {activeRows.length >= 5 && (
-                    <div className="relative flex items-center">
-                      <label htmlFor={listFilterInputId} className="sr-only">
-                        Фільтр у списку зв&apos;язків
-                      </label>
-                      <SearchIcon className="w-3.5 h-3.5 text-sys-text-muted pointer-events-none absolute left-2.5" />
-                      <input
-                        id={listFilterInputId}
-                        type="search"
-                        value={listFilterQuery}
-                        onChange={(e) => setListFilterQuery(e.target.value)}
-                        placeholder="Швидкий фільтр (назва, предмет, каб., Пн–Пт)..."
-                        className="w-full min-h-[34px] rounded-xl border border-sys-border bg-sys-bg pl-8 pr-8 py-1 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:outline-none focus:border-sys-accent"
-                      />
-                      {listFilterQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setListFilterQuery("")}
-                          aria-label="Очистити фільтр списку"
-                          className="absolute right-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md text-sys-text-muted hover:text-sys-text-primary cursor-pointer"
-                        >
-                          <CloseIcon className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
+                  {listFilterQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setListFilterQuery("")}
+                      aria-label="Очистити фільтр списку"
+                      className="absolute right-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md text-sys-text-muted hover:text-sys-text-primary cursor-pointer"
+                    >
+                      <CloseIcon className="w-3 h-3" />
+                    </button>
                   )}
                 </div>
               )}
 
               <RelationListSection
-                title={activeSectionTitle}
-                kind={activeKind}
-                rows={activeRows}
-                sortBy={effectiveSortBy}
+                title={unifiedSectionTitle}
+                kind={unifiedKind}
+                rows={unifiedRows}
                 filterQuery={listFilterQuery}
                 onSelectNode={onSelectNode}
-                onQuickCompareNode={
-                  activeTab === "primary" ? (targetId) => onSetCompareNode(targetId) : undefined
-                }
-                onPickSearchTerm={onPickSearchTerm}
               />
             </>
           )}
@@ -1701,7 +1413,6 @@ export function AtlasClient() {
 
   const [data, setData] = useState<AtlasResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -1709,7 +1420,7 @@ export function AtlasClient() {
   const [compareNodeId, setCompareNodeId] = useState<string | null>(null);
   const [layoutMode, setLayoutMode] = useState<"constellation" | "ego">("ego");
   const [courseFilter, setCourseFilter] = useState<number | null>(null);
-  const [mobileView, setMobileView] = useState<MobileWorkspaceView>("split");
+  const [mobileTab, setMobileTab] = useState<MobileWorkspaceTab>("map");
   const [sortStatusAnnouncement, setSortStatusAnnouncement] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -1722,14 +1433,11 @@ export function AtlasClient() {
   const searchInputId = useId();
   const searchListboxId = useId();
 
-  const loadAtlas = useCallback(async (isManualRefresh = false) => {
-    const cached = !isManualRefresh ? readCacheSnapshot<AtlasResponse>(ATLAS_CACHE_KEY) : null;
+  const loadAtlas = useCallback(async (isRetry = false) => {
+    const cached = !isRetry ? readCacheSnapshot<AtlasResponse>(ATLAS_CACHE_KEY) : null;
     if (cached) {
       setData(cached.data);
       setLoading(false);
-      setRefreshing(true);
-    } else if (isManualRefresh) {
-      setRefreshing(true);
     } else {
       setLoading(true);
     }
@@ -1749,7 +1457,6 @@ export function AtlasClient() {
       }
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
@@ -1788,9 +1495,13 @@ export function AtlasClient() {
       const qNode = params.get("node");
       const qCompare = params.get("compare");
       if (qNode && graph.nodeMap.has(qNode)) {
+        const baseNode = graph.nodeMap.get(qNode) ?? null;
         setSelectedNodeId(qNode);
         if (qCompare && qCompare !== qNode && graph.nodeMap.has(qCompare)) {
-          setCompareNodeId(qCompare);
+          const compNode = graph.nodeMap.get(qCompare) ?? null;
+          if (baseNode && compNode && baseNode.kind === compNode.kind) {
+            setCompareNodeId(qCompare);
+          }
         }
         return;
       }
@@ -1866,17 +1577,15 @@ export function AtlasClient() {
   const handleSelectNode = useCallback(
     (nodeId: string | null) => {
       setSelectedNodeId(nodeId);
+      setCompareNodeId(null);
       if (nodeId) {
         setLayoutMode("ego");
         if (courseFilter !== null) {
           setCourseFilter(null);
         }
       }
-      if (nodeId && compareNodeId === nodeId) {
-        setCompareNodeId(null);
-      }
     },
-    [compareNodeId, courseFilter],
+    [courseFilter],
   );
 
   const handleReturnToHomeNode = useCallback(() => {
@@ -1900,14 +1609,21 @@ export function AtlasClient() {
 
   const handleSetCompareNode = useCallback(
     (nextCompareId: string | null) => {
-      if (!nextCompareId || nextCompareId === selectedNodeId) {
+      if (!nextCompareId || !graph || !selectedNodeId || nextCompareId === selectedNodeId) {
+        setCompareNodeId(null);
+        return;
+      }
+      const baseNode = graph.nodeMap.get(selectedNodeId);
+      const nextNode = graph.nodeMap.get(nextCompareId);
+      // Never allow comparing a Group with a Teacher
+      if (!baseNode || !nextNode || baseNode.kind !== nextNode.kind) {
         setCompareNodeId(null);
         return;
       }
       setCompareNodeId(nextCompareId);
       setCourseFilter(null);
     },
-    [selectedNodeId],
+    [graph, selectedNodeId],
   );
 
   const handleSwapCompare = useCallback(() => {
@@ -1918,12 +1634,6 @@ export function AtlasClient() {
     setCompareNodeId(prevA);
   }, [selectedNodeId, compareNodeId]);
 
-  const handlePickSearchTerm = useCallback((term: string) => {
-    setSearchQuery(term);
-    setSearchOpen(true);
-    searchInputRef.current?.focus();
-  }, []);
-
   const inspector = useMemo(() => {
     if (!graph || !selectedNodeId) return null;
     return getNodeInspectorData(graph, selectedNodeId);
@@ -1931,6 +1641,11 @@ export function AtlasClient() {
 
   const intersection = useMemo(() => {
     if (!graph || !selectedNodeId || !compareNodeId || selectedNodeId === compareNodeId) {
+      return null;
+    }
+    const nodeA = graph.nodeMap.get(selectedNodeId);
+    const nodeB = graph.nodeMap.get(compareNodeId);
+    if (!nodeA || !nodeB || nodeA.kind !== nodeB.kind) {
       return null;
     }
     return computeNodeIntersection(graph, selectedNodeId, compareNodeId);
@@ -1971,14 +1686,22 @@ export function AtlasClient() {
     const deg = graph.adjacency.get(node.id)?.size ?? 0;
     if (intersection) {
       const b = graph.nodeMap.get(intersection.nodeBId);
-      const totalShared =
-        intersection.sharedNodeIds.size +
-        intersection.sharedSubjects.length +
-        intersection.sharedRooms.length;
-      return `Порівняння: ${node.label} та ${b?.label ?? ""}. Спільного: ${totalShared}.`;
+      return `Порівняння: ${node.label} та ${b?.label ?? ""}. Спільних: ${intersection.sharedRows.length}.`;
     }
     return `Обрано ${KIND_META[node.kind].singular.toLowerCase()} ${node.label}. Зв'язків: ${deg}.`;
   }, [graph, selectedNodeId, intersection]);
+
+  const mobileListCount = useMemo(() => {
+    if (intersection) return intersection.sharedRows.length;
+    if (inspector) {
+      return inspector.node.kind === "group"
+        ? inspector.teachers.length
+        : inspector.groups.length;
+    }
+    return null;
+  }, [inspector, intersection]);
+
+  const activeScheduleHref = inspector ? getScheduleHref(inspector.node) : null;
 
   return (
     <div className="min-h-screen bg-sys-bg text-sys-text-primary flex flex-col">
@@ -1986,33 +1709,6 @@ export function AtlasClient() {
         title="Атлас ДФКР"
         subtitle="Орбіти груп і викладачів коледжу"
         maxWidthClass="max-w-[1600px]"
-        rightSlot={
-          <button
-            type="button"
-            onClick={() => void loadAtlas(true)}
-            disabled={loading || refreshing}
-            aria-label="Оновити дані мапи"
-            title="Оновити дані мапи"
-            className="min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/50 transition-colors cursor-pointer disabled:opacity-55"
-          >
-            <svg
-              aria-hidden="true"
-              className={`w-3.5 h-3.5 shrink-0 ${refreshing ? "animate-spin" : ""}`}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-              <path d="M3 3v5h5" />
-              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-              <path d="M16 16h5v5" />
-            </svg>
-            <span className="hidden sm:inline">Оновити</span>
-          </button>
-        }
       />
 
       <main
@@ -2032,7 +1728,7 @@ export function AtlasClient() {
           <div className="space-y-4" aria-busy="true">
             <div className="h-14 rounded-2xl border border-sys-border bg-sys-card animate-pulse" />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-              <div className="lg:col-span-7 xl:col-span-8 h-[340px] sm:h-[460px] lg:h-[660px] rounded-2xl border border-sys-border bg-sys-card animate-pulse" />
+              <div className="lg:col-span-7 xl:col-span-8 h-[380px] sm:h-[480px] lg:h-[660px] rounded-2xl border border-sys-border bg-sys-card animate-pulse" />
               <div className="lg:col-span-5 xl:col-span-4 h-[460px] rounded-2xl border border-sys-border bg-sys-card animate-pulse" />
             </div>
           </div>
@@ -2055,9 +1751,9 @@ export function AtlasClient() {
 
         {data && graph && (
           <>
-            {/* Compact Toolbar: Search + Return Home + Course Filter Pills + Mobile View Switcher */}
+            {/* Compact Toolbar: Search + Return Home + Course Filter Pills + Two-Tab Mobile Switcher */}
             <section
-              aria-label="Пошук, фільтр курсів та режим відображення"
+              aria-label="Пошук, фільтр курсів та перемикач вкладок"
               className="relative z-20 rounded-2xl border border-sys-border bg-sys-card p-2.5 sm:p-3 shadow-xs space-y-2.5 lg:space-y-0 lg:flex lg:items-center lg:gap-2.5"
             >
               {/* Search Combobox */}
@@ -2229,45 +1925,52 @@ export function AtlasClient() {
                 </div>
               </div>
 
-              {/* Mobile & Tablet Workspace Switcher (< 1024px) */}
+              {/* Mobile & Tablet Two-Tab Bar (< 1024px): Only Map OR List on screen at once */}
               <div
-                role="group"
-                aria-label="Режим відображення на мобільних та середніх екранах"
-                className="flex lg:hidden items-center justify-between gap-1 rounded-xl border border-sys-border bg-sys-bg p-1"
+                role="tablist"
+                aria-label="Перемикач між орбітою та списком зв'язків"
+                className="grid grid-cols-2 lg:hidden gap-1 rounded-xl border border-sys-border bg-sys-bg p-1"
               >
-                {(
-                  [
-                    { key: "split", label: "Мапа + Список" },
-                    { key: "map", label: "Велика мапа" },
-                    { key: "list", label: "Тільки список" },
-                  ] as Array<{ key: MobileWorkspaceView; label: string }>
-                ).map((mode) => {
-                  const active = mobileView === mode.key;
-                  return (
-                    <button
-                      key={mode.key}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => setMobileView(mode.key)}
-                      className={`flex-1 min-h-[32px] rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-                        active
-                          ? "bg-sys-card text-sys-text-primary shadow-xs border border-sys-border/70"
-                          : "text-sys-text-secondary hover:text-sys-text-primary"
-                      }`}
-                    >
-                      {mode.label}
-                    </button>
-                  );
-                })}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mobileTab === "map"}
+                  onClick={() => setMobileTab("map")}
+                  className={`min-h-[36px] inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                    mobileTab === "map"
+                      ? "bg-sys-accent text-white shadow-xs"
+                      : "text-sys-text-secondary hover:text-sys-text-primary"
+                  }`}
+                >
+                  <NetworkIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>Орбіта (мапа)</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mobileTab === "list"}
+                  onClick={() => setMobileTab("list")}
+                  className={`min-h-[36px] inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                    mobileTab === "list"
+                      ? "bg-sys-accent text-white shadow-xs"
+                      : "text-sys-text-secondary hover:text-sys-text-primary"
+                  }`}
+                >
+                  <UsersIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    Список зв&apos;язків
+                    {mobileListCount !== null ? ` (${mobileListCount})` : ""}
+                  </span>
+                </button>
               </div>
             </section>
 
-            {/* Primary Workspace Grid: Side-by-side starting from lg (1024px+) */}
+            {/* Primary Workspace Grid: Side-by-side on Desktop (lg+), Single Full-Screen Tab on Mobile/Tablet (<1024px) */}
             <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
               {/* Map Column */}
               <div
                 className={`lg:col-span-7 xl:col-span-8 min-w-0 ${
-                  mobileView === "list" ? "hidden lg:block" : "block"
+                  mobileTab === "list" ? "hidden lg:block" : "block"
                 }`}
               >
                 <AtlasCanvas
@@ -2279,33 +1982,58 @@ export function AtlasClient() {
                   courseFilter={courseFilter}
                   resolvedTheme={resolvedTheme}
                   shouldReduceMotion={shouldReduceMotion}
-                  mobileHeightMode={mobileView === "map" ? "expanded" : "compact"}
+                  mobileHeightMode="expanded"
                   onSelectNode={handleSelectNode}
                   onLayoutModeChange={setLayoutMode}
                 />
 
-                {/* Compact summary bar below map when in mobile "map-only" mode */}
-                {mobileView === "map" && inspector && (
-                  <div className="mt-2.5 lg:hidden rounded-2xl border border-sys-border bg-sys-card p-3 flex items-center justify-between gap-2 shadow-xs">
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-sys-text-primary truncate">
+                {/* Clean Mobile Summary Dock under the Orbit Map (< 1024px) */}
+                {inspector && (
+                  <div className="mt-2.5 lg:hidden rounded-2xl border border-sys-border bg-sys-card p-3 flex flex-wrap items-center justify-between gap-2.5 shadow-xs">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-sys-text-primary truncate">
                         {intersection
                           ? `${inspector.node.label} ↔ ${graph.nodeMap.get(intersection.nodeBId)?.label ?? ""}`
-                          : `${KIND_META[inspector.node.kind].singular}: ${inspector.node.label}`}
+                          : `${KIND_META[inspector.node.kind].singular} ${inspector.node.label}`}
                       </p>
-                      <p className="text-[11px] text-sys-text-secondary truncate">
+                      <p className="text-xs text-sys-text-secondary truncate">
                         {intersection
                           ? `Спільних: ${intersection.sharedRows.length} · Відмінних: ${intersection.onlyARows.length + intersection.onlyBRows.length}`
-                          : `${graph.adjacency.get(inspector.node.id)?.size ?? 0} зв'язків · ${formatPairsLabel(inspector.node.lessonsCount)}`}
+                          : [
+                              inspector.node.course ? `${inspector.node.course} курс` : null,
+                              inspector.curatorTeacher
+                                ? `Куратор: ${inspector.curatorTeacher.label}`
+                                : null,
+                              `${formatPairsLabel(inspector.node.lessonsCount)} / тиж.`,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setMobileView("list")}
-                      className="shrink-0 min-h-[34px] rounded-xl bg-sys-accent px-3 py-1.5 text-xs font-semibold text-white cursor-pointer"
-                    >
-                      Відкрити список
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {activeScheduleHref && !intersection && (
+                        <Link
+                          href={activeScheduleHref}
+                          className="min-h-[36px] inline-flex items-center gap-1 rounded-xl border border-sys-border bg-sys-bg px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/45 transition-colors"
+                        >
+                          <CalendarIcon className="w-3.5 h-3.5" />
+                          <span>Розклад</span>
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setMobileTab("list")}
+                        className="min-h-[36px] inline-flex items-center gap-1 rounded-xl bg-sys-accent px-3 py-1.5 text-xs font-semibold text-white cursor-pointer"
+                      >
+                        <span>
+                          {intersection
+                            ? "Деталі порівняння"
+                            : inspector.node.kind === "group"
+                              ? `Викладачі (${inspector.teachers.length})`
+                              : `Групи (${inspector.groups.length})`}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -2313,7 +2041,7 @@ export function AtlasClient() {
               {/* Inspector / Catalog Column */}
               <div
                 className={`lg:col-span-5 xl:col-span-4 min-w-0 ${
-                  mobileView === "map" ? "hidden lg:block" : "block"
+                  mobileTab === "map" ? "hidden lg:block" : "block"
                 }`}
               >
                 <AtlasInspectorPanel
@@ -2322,11 +2050,12 @@ export function AtlasClient() {
                   compareNodeId={compareNodeId}
                   intersection={intersection}
                   courseFilter={courseFilter}
+                  availableCourses={availableCourses}
                   onSelectNode={handleSelectNode}
                   onSetCompareNode={handleSetCompareNode}
                   onSwapCompare={handleSwapCompare}
-                  onPickSearchTerm={handlePickSearchTerm}
                   onAnnounceSort={setSortStatusAnnouncement}
+                  onShowMobileMap={() => setMobileTab("map")}
                 />
               </div>
             </div>

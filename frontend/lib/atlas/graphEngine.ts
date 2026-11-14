@@ -126,7 +126,7 @@ export interface AtlasRelationRow {
   badge?: string | null;
 }
 
-export type AtlasRelationSortKey = "lessons" | "alpha" | "room" | "day" | "course";
+export type AtlasRelationSortKey = "default" | "lessons" | "alpha" | "room" | "day" | "course";
 
 export type AtlasCompareScope = "recommended" | "groups" | "teachers";
 
@@ -875,10 +875,9 @@ export function computeNodeIntersection(
     }
   }
 
-  const sharedNodes = Array.from(sharedNodeIds)
+  const rawSharedNodes = Array.from(sharedNodeIds)
     .map((id) => graph.nodeMap.get(id))
-    .filter((n): n is AtlasGraphNode => Boolean(n))
-    .sort((a, b) => b.lessonsCount - a.lessonsCount || compareAtlasLabels(a.label, b.label));
+    .filter((n): n is AtlasGraphNode => Boolean(n));
 
   const metaA = collectNodeSubjectsAndRooms(graph, nodeAId);
   const metaB = collectNodeSubjectsAndRooms(graph, nodeBId);
@@ -895,7 +894,7 @@ export function computeNodeIntersection(
       lessonsCount: countA + countB,
     });
   }
-  sharedSubjects.sort((a, b) => b.lessonsCount - a.lessonsCount || compareAtlasLabels(a.label, b.label));
+  sharedSubjects.sort((a, b) => compareAtlasLabels(a.label, b.label));
 
   const sharedRooms: AtlasSharedRoomSummary[] = [];
   for (const [rName, countA] of Array.from(metaA.rooms.entries())) {
@@ -908,7 +907,7 @@ export function computeNodeIntersection(
       lessonsCount: countA + countB,
     });
   }
-  sharedRooms.sort((a, b) => b.lessonsCount - a.lessonsCount || compareAtlasLabels(a.name, b.name));
+  sharedRooms.sort((a, b) => compareAtlasLabels(a.name, b.name));
 
   const inspA = getNodeInspectorData(graph, nodeAId);
   const inspB = getNodeInspectorData(graph, nodeBId);
@@ -917,10 +916,30 @@ export function computeNodeIntersection(
   const rowMapA = new Map(primaryA.map((r) => [r.node.id, r]));
   const rowMapB = new Map(primaryB.map((r) => [r.node.id, r]));
 
-  const sharedRows = sharedNodes
+  const sharedRows = rawSharedNodes
     .map((n) => mergeIntersectionRows(rowMapA.get(n.id), rowMapB.get(n.id), nodeA, nodeB))
     .filter((r): r is AtlasRelationRow => Boolean(r))
-    .sort((a, b) => b.lessonsCount - a.lessonsCount || compareAtlasLabels(a.node.label, b.node.label));
+    .sort((a, b) => {
+      if (Boolean(b.badge) !== Boolean(a.badge)) return b.badge ? 1 : -1;
+      if (a.node.kind === "group" && b.node.kind === "group") {
+        const ca = a.node.course ?? 99;
+        const cb = b.node.course ?? 99;
+        if (ca !== cb) return ca - cb;
+      }
+      return compareAtlasLabels(a.node.label, b.node.label);
+    });
+
+  const sharedNodes =
+    sharedRows.length === rawSharedNodes.length
+      ? sharedRows.map((r) => r.node)
+      : [...rawSharedNodes].sort((a, b) => {
+          if (a.kind === "group" && b.kind === "group") {
+            const ca = a.course ?? 99;
+            const cb = b.course ?? 99;
+            if (ca !== cb) return ca - cb;
+          }
+          return compareAtlasLabels(a.label, b.label);
+        });
 
   const onlyARows = primaryA.filter((r) => onlyAIds.has(r.node.id));
   const onlyBRows = primaryB.filter((r) => onlyBIds.has(r.node.id));
@@ -984,7 +1003,7 @@ export function computeCompareLayout(
   const sharedRowMap = new Map(intersection.sharedRows.map((r) => [r.node.id, r]));
 
   const cols = sharedNodes.length > 6 ? 2 : 1;
-  const anchorX = cols === 2 ? 390 : Math.max(320, Math.min(370, 270 + sharedNodes.length * 14));
+  const anchorX = cols === 2 ? 400 : Math.max(340, Math.min(380, 290 + sharedNodes.length * 14));
 
   visibleNodeIds.add(nodeA.id);
   visibleNodeIds.add(nodeB.id);
@@ -1004,14 +1023,14 @@ export function computeCompareLayout(
   });
 
   // Place shared bridge nodes down x = 0 (split into two spaced columns when > 6)
-  const spacingY = 128;
+  const spacingY = 136;
   const rowsPerCol = Math.ceil(sharedNodes.length / cols);
   sharedNodes.forEach((n, idx) => {
     const col = cols === 1 ? 0 : idx % 2 === 0 ? -1 : 1;
     const row = cols === 1 ? idx : Math.floor(idx / 2);
     const totalH = (rowsPerCol - 1) * spacingY;
     const y = -totalH / 2 + row * spacingY;
-    const x = col * 136;
+    const x = col * 144;
 
     const r = sharedRowMap.get(n.id);
     visibleNodeIds.add(n.id);
@@ -1025,8 +1044,8 @@ export function computeCompareLayout(
   });
 
   // Place up to 8 unique difference nodes on outer left (A) and outer right (B) wings
-  const diffOffsetX = 256;
-  const diffSpacingY = 114;
+  const diffOffsetX = 276;
+  const diffSpacingY = 126;
   const onlyANodes = intersection.onlyARows.slice(0, 8);
   const onlyBNodes = intersection.onlyBRows.slice(0, 8);
 
@@ -1280,7 +1299,10 @@ export function getNodeInspectorData(
     }
   }
 
-  const finalize = (map: Map<string, AggRec>, isGroupList = false): AtlasRelationRow[] => {
+  const finalize = (
+    map: Map<string, AggRec>,
+    mode: "group" | "teacher" | "other" = "other",
+  ): AtlasRelationRow[] => {
     const out: AtlasRelationRow[] = [];
     for (const [id, rec] of Array.from(map.entries())) {
       const targetNode = resolveInspectorTarget(id);
@@ -1300,11 +1322,15 @@ export function getNodeInspectorData(
       });
     }
     out.sort((a, b) => {
+      // Curator / Curated group / Pinned room badge always comes first
       if (Boolean(b.badge) !== Boolean(a.badge)) return b.badge ? 1 : -1;
-      if (isGroupList) {
+      if (mode === "group") {
         const ca = a.node.course ?? 99;
         const cb = b.node.course ?? 99;
         if (ca !== cb) return ca - cb;
+        return compareAtlasLabels(a.node.label, b.node.label);
+      }
+      if (mode === "teacher") {
         return compareAtlasLabels(a.node.label, b.node.label);
       }
       if (b.lessonsCount !== a.lessonsCount) return b.lessonsCount - a.lessonsCount;
@@ -1321,10 +1347,10 @@ export function getNodeInspectorData(
     node,
     curatorTeacher,
     curatedGroups,
-    groups: finalize(groupAgg, true),
-    teachers: finalize(teacherAgg),
-    subjects: finalize(subjectAgg),
-    rooms: finalize(roomAgg),
+    groups: finalize(groupAgg, "group"),
+    teachers: finalize(teacherAgg, "teacher"),
+    subjects: finalize(subjectAgg, "other"),
+    rooms: finalize(roomAgg, "other"),
   };
 }
 
@@ -1343,10 +1369,20 @@ const DAY_NAMES_SEARCH: Record<number, string> = {
  */
 export function sortAtlasRelationRows(
   rows: readonly AtlasRelationRow[],
-  sortBy: AtlasRelationSortKey,
+  sortBy: AtlasRelationSortKey = "default",
 ): AtlasRelationRow[] {
   const copy = [...rows];
   copy.sort((a, b) => {
+    if (sortBy === "default") {
+      if (Boolean(b.badge) !== Boolean(a.badge)) return b.badge ? 1 : -1;
+      if (a.node.kind === "group" && b.node.kind === "group") {
+        const ca = a.node.course ?? 99;
+        const cb = b.node.course ?? 99;
+        if (ca !== cb) return ca - cb;
+      }
+      return compareAtlasLabels(a.node.label, b.node.label);
+    }
+
     if (sortBy === "alpha") {
       const cmp = compareAtlasLabels(a.node.label, b.node.label);
       if (cmp !== 0) return cmp;
@@ -1384,7 +1420,7 @@ export function sortAtlasRelationRows(
       return compareAtlasLabels(a.node.label, b.node.label);
     }
 
-    // Default: "lessons" (workload desc, badges first)
+    // "lessons" (workload desc, badges first)
     if (Boolean(b.badge) !== Boolean(a.badge)) return b.badge ? 1 : -1;
     if (b.lessonsCount !== a.lessonsCount) return b.lessonsCount - a.lessonsCount;
     if (a.node.kind === "group" && b.node.kind === "group") {
@@ -1423,10 +1459,9 @@ export function filterAtlasRelationRows(
 }
 
 /**
- * Computes context-aware, logically ordered candidates for the "Compare Intersection" picker.
- * - For a Group: prioritizes groups of the same course & faculty in natural code order (so sister groups like 85 <-> 86 are first),
- *   and computes shared neighbor counts.
- * - For a Teacher: prioritizes colleague teachers who share groups with this teacher, sorted by shared group count.
+ * Computes context-aware, same-kind candidates for the "Compare Intersection" picker.
+ * - Groups are only ever compared with other Groups (prioritizing same course & natural code order).
+ * - Teachers are only ever compared with other Teachers (prioritizing colleagues who share groups, then A–Z).
  */
 export function getCompareCandidates(
   graph: AtlasGraph,
@@ -1434,6 +1469,7 @@ export function getCompareCandidates(
   options?: {
     query?: string;
     scope?: AtlasCompareScope;
+    courseFilter?: number | null;
     limit?: number;
   },
 ): AtlasCompareCandidate[] {
@@ -1441,16 +1477,19 @@ export function getCompareCandidates(
   if (!baseNode) return [];
 
   const needle = (options?.query ?? "").trim().toLowerCase();
-  const scope: AtlasCompareScope = options?.scope ?? "recommended";
-  const limit = options?.limit ?? 24;
+  const courseFilter = options?.courseFilter ?? null;
+  const limit = options?.limit ?? 28;
   const baseAdj = graph.adjacency.get(baseNode.id) ?? new Set<string>();
 
   const candidates: AtlasCompareCandidate[] = [];
 
   for (const node of graph.nodes) {
     if (node.id === baseNode.id || !node.isConnected) continue;
-    if (scope === "groups" && node.kind !== "group") continue;
-    if (scope === "teachers" && node.kind !== "teacher") continue;
+    // Only compare same-kind nodes (Group <-> Group, Teacher <-> Teacher)
+    if (node.kind !== baseNode.kind) continue;
+    if (baseNode.kind === "group" && courseFilter !== null && node.course !== courseFilter) {
+      continue;
+    }
 
     // Count shared direct neighbors (teachers for two groups, groups for two teachers)
     const nodeAdj = graph.adjacency.get(node.id) ?? new Set<string>();
@@ -1460,7 +1499,6 @@ export function getCompareCandidates(
         sharedCount++;
       }
     }
-    const isDirectNeighbor = baseAdj.has(node.id);
 
     // Search match check if query is non-empty
     let textMatchScore = 0;
@@ -1480,52 +1518,26 @@ export function getCompareCandidates(
     let reasonHint: string | null = null;
 
     if (baseNode.kind === "group") {
-      if (node.kind === "group") {
-        const sameCourse = baseNode.course !== null && node.course === baseNode.course;
-        const sameFaculty = Boolean(baseNode.facultyName && node.facultyName === baseNode.facultyName);
-        if (sameCourse) {
-          score += 500;
-          if (sameFaculty) score += 120;
-        } else {
-          score += 150;
-        }
-        score += sharedCount * 18;
-        const parts: string[] = [];
-        if (node.course) parts.push(`${node.course}к`);
-        if (sharedCount > 0) parts.push(`спільних: ${sharedCount}`);
-        reasonHint = parts.length > 0 ? parts.join(" · ") : null;
+      const sameCourse = baseNode.course !== null && node.course === baseNode.course;
+      const sameFaculty = Boolean(baseNode.facultyName && node.facultyName === baseNode.facultyName);
+      if (sameCourse) {
+        score += 500;
+        if (sameFaculty) score += 120;
       } else {
-        // Teacher candidate when base is group
-        if (isDirectNeighbor) {
-          score += 80;
-          reasonHint = "Викладач групи";
-        } else {
-          score += 10;
-        }
+        score += 150;
       }
+      score += sharedCount * 18;
+      const parts: string[] = [];
+      if (node.course) parts.push(`${node.course}к`);
+      if (sharedCount > 0) parts.push(`спільних: ${sharedCount}`);
+      reasonHint = parts.length > 0 ? parts.join(" · ") : null;
     } else {
-      // baseNode is teacher
-      if (node.kind === "teacher") {
-        if (sharedCount > 0) {
-          score += 400 + sharedCount * 25;
-          reasonHint = `спільних груп: ${sharedCount}`;
-        } else {
-          score += 120;
-        }
-      } else if (node.kind === "group") {
-        if (isDirectNeighbor) {
-          score += 220;
-          reasonHint = node.course ? `${node.course}к · ваша група` : "ваша група";
-        } else {
-          score += 40;
-          reasonHint = node.course ? `${node.course}к` : null;
-        }
+      if (sharedCount > 0) {
+        score += 400 + sharedCount * 25;
+        reasonHint = `спільних груп: ${sharedCount}`;
+      } else {
+        score += 120;
       }
-    }
-
-    // In "recommended" mode without query, keep only same-kind or connected high-signal items first
-    if (!needle && scope === "recommended" && node.kind !== baseNode.kind && !isDirectNeighbor) {
-      continue;
     }
 
     candidates.push({
@@ -1539,21 +1551,21 @@ export function getCompareCandidates(
   candidates.sort((a, b) => {
     if (needle && b.score !== a.score) return b.score - a.score;
 
-    if (scope === "groups" || (scope === "recommended" && baseNode.kind === "group")) {
-      // Group-first ordering: same course first, then natural group code order within each course
-      if (a.node.kind !== b.node.kind) return a.node.kind === "group" ? -1 : 1;
-      if (a.node.kind === "group" && b.node.kind === "group") {
-        const aSameCourse = baseNode.kind === "group" && baseNode.course !== null && a.node.course === baseNode.course ? 0 : 1;
-        const bSameCourse = baseNode.kind === "group" && baseNode.course !== null && b.node.course === baseNode.course ? 0 : 1;
-        if (aSameCourse !== bSameCourse) return aSameCourse - bSameCourse;
-        const ca = a.node.course ?? 99;
-        const cb = b.node.course ?? 99;
-        if (ca !== cb) return ca - cb;
-        return compareAtlasLabels(a.node.label, b.node.label);
-      }
+    if (baseNode.kind === "group") {
+      // Group ordering: same course first, then course ascending, then natural group code order
+      const aSameCourse = baseNode.course !== null && a.node.course === baseNode.course ? 0 : 1;
+      const bSameCourse = baseNode.course !== null && b.node.course === baseNode.course ? 0 : 1;
+      if (aSameCourse !== bSameCourse) return aSameCourse - bSameCourse;
+      const ca = a.node.course ?? 99;
+      const cb = b.node.course ?? 99;
+      if (ca !== cb) return ca - cb;
+      return compareAtlasLabels(a.node.label, b.node.label);
     }
 
-    if (b.score !== a.score) return b.score - a.score;
+    // Teacher ordering: colleagues sharing groups first (by sharedCount desc, then A–Z), then all others A–Z
+    const aHasShared = a.sharedCount > 0 ? 0 : 1;
+    const bHasShared = b.sharedCount > 0 ? 0 : 1;
+    if (aHasShared !== bHasShared) return aHasShared - bHasShared;
     if (b.sharedCount !== a.sharedCount) return b.sharedCount - a.sharedCount;
     return compareAtlasLabels(a.node.label, b.node.label);
   });

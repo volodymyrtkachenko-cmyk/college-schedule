@@ -393,6 +393,10 @@ test("sortAtlasRelationRows and filterAtlasRelationRows sort and filter by lesso
   const g10Inspector = engine.getNodeInspectorData(graph, engine.makeAtlasNodeId("group", 10));
   assert.ok(g10Inspector);
 
+  // Default order: Curator first (Коваль О. І.), then strictly alphabetical A–Z (Авраменко В. П., Бойко М. С.)
+  const defaultOrder = [...g10Inspector.teachers.map((r) => r.node.label)];
+  assert.deepEqual(defaultOrder, ["Коваль О. І.", "Авраменко В. П.", "Бойко М. С."]);
+
   const byAlpha = [...engine.sortAtlasRelationRows(g10Inspector.teachers, "alpha").map((r) => r.node.label)];
   assert.deepEqual(byAlpha, ["Авраменко В. П.", "Бойко М. С.", "Коваль О. І."]);
 
@@ -410,7 +414,7 @@ test("sortAtlasRelationRows and filterAtlasRelationRows sort and filter by lesso
   assert.ok(filteredByDay.some((r) => r.node.label === "Бойко М. С."));
 });
 
-test("getCompareCandidates prioritizes same-course sister groups in natural order instead of unrelated 1st-year groups", () => {
+test("getCompareCandidates returns only same-kind nodes and prioritizes same-course sister groups in natural order", () => {
   const engine = loadAtlasEngine();
   const payload = {
     summary: { groups_count: 4, teachers_count: 2, subjects_count: 1, rooms_count: 1, edges_count: 4 },
@@ -438,10 +442,20 @@ test("getCompareCandidates prioritizes same-course sister groups in natural orde
 
   const graph = engine.buildAtlasGraph(payload);
   const g85Id = engine.makeAtlasNodeId("group", 3);
-  const candidates = engine.getCompareCandidates(graph, g85Id, { scope: "recommended" });
-  assert.ok(candidates.length >= 3);
+  const candidates = engine.getCompareCandidates(graph, g85Id);
+  assert.equal(candidates.length, 3);
+  assert.ok(candidates.every((c) => c.node.kind === "group"));
   // Sister group 86 (3rd course) must be the very first candidate for group 85 (3rd course)
   assert.equal(candidates[0].node.label, "86");
   assert.equal(candidates[0].sharedCount, 2);
   assert.ok(candidates[0].reasonHint && candidates[0].reasonHint.includes("3к"));
+
+  const course1Only = engine.getCompareCandidates(graph, g85Id, { courseFilter: 1 });
+  assert.deepEqual([...course1Only.map((c) => c.node.label)], ["92", "93"]);
+
+  const t100Id = engine.makeAtlasNodeId("teacher", 100);
+  const teacherCandidates = engine.getCompareCandidates(graph, t100Id);
+  assert.equal(teacherCandidates.length, 1);
+  assert.ok(teacherCandidates.every((c) => c.node.kind === "teacher"));
+  assert.equal(teacherCandidates[0].node.label, "Бойко М. С.");
 });
