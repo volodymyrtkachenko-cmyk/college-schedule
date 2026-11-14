@@ -192,3 +192,19 @@ def _apply_credential_backoff(cred: ClassroomCredential, err_msg: str, now: date
     delay_seconds = min(14400.0, 900.0 * (2 ** min(cred.fail_count, 4)))
     cred.next_attempt_at = now + timedelta(seconds=delay_seconds)
     cred.last_error = _sanitize_error_msg(err_msg)
+
+
+def _clear_credential_errors(
+    cred: ClassroomCredential,
+    now: Optional[datetime] = None,
+    *,
+    refreshed: bool = False,
+) -> None:
+    """Скидає старі помилки й backoff після успішного оновлення токена або запиту."""
+    if refreshed and now is not None:
+        cred.last_refresh_ok_at = now
+    cred.fail_count = 0
+    cred.next_attempt_at = None
+    cred.last_error = None
+    cred.needs_relink = False
+    cred.is_active = True

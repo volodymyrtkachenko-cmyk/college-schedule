@@ -56,6 +56,7 @@ from app.services.classroom.tokens import (
     RECOMMENDED_CLASSROOM_SCOPES,
     REQUIRED_CLASSROOM_SCOPES,
     _apply_credential_backoff,
+    _clear_credential_errors,
     _is_permanent_courses_error,
     _is_permanent_token_error,
     _sanitize_error_msg,
@@ -2118,9 +2119,7 @@ async def _fetch_user_submissions(
             if fresh_tok:
                 token = fresh_tok
                 refreshed_access_token = fresh_tok
-                cred.last_refresh_ok_at = now_utc
-                cred.fail_count = 0
-                cred.next_attempt_at = None
+                _clear_credential_errors(cred, now_utc, refreshed=True)
             else:
                 refresh_err_msg = rt_err or (
                     f"token_http_{rt_status}" if rt_status else "token_refresh_failed"
@@ -2195,9 +2194,7 @@ async def _fetch_user_submissions(
                         token = fresh_tok
                         refreshed_access_token = fresh_tok
                         if cred is not None:
-                            cred.last_refresh_ok_at = now_utc
-                            cred.fail_count = 0
-                            cred.next_attempt_at = None
+                            _clear_credential_errors(cred, now_utc, refreshed=True)
                         headers = {"Authorization": f"Bearer {token}"}
                         courses_resp = await client.get(
                             "https://classroom.googleapis.com/v1/courses",
@@ -2272,6 +2269,12 @@ async def _fetch_user_submissions(
                         else "temporary_error"
                     ),
                 }
+
+            if cred is not None:
+                rt_err_flag = "missing_or_corrupt_refresh_token" in (cred.last_error or "")
+                rt_decryptable = bool(cred.refresh_token) and bool(decrypt_token(cred.refresh_token))
+                if refreshed_access_token or (not cred.needs_relink and (not rt_err_flag or rt_decryptable)):
+                    _clear_credential_errors(cred, now_utc, refreshed=bool(refreshed_access_token))
 
             all_courses = courses_resp.json().get("courses", [])
             if not all_courses:

@@ -2853,6 +2853,127 @@ async def test_worker_sync_marks_needs_relink_on_courses_401_and_backoff_on_429(
         assert res_429.next_attempt_at is not None
 
 
+@pytest.mark.anyio
+async def test_user_submissions_clears_stale_error_on_recovery(classroom_db):
+    from datetime import datetime, timedelta, timezone
+    from cryptography.fernet import Fernet
+    from sqlalchemy import select
+    from app.models import ClassroomCredential
+
+    client, state = classroom_db
+    gid = state["group_id"]
+    stale_backoff = datetime.now(timezone.utc) + timedelta(minutes=20)
+    foreign_cipher = Fernet(Fernet.generate_key()).encrypt(b"1//foreign_key_rt").decode("utf-8")
+
+    async with state["sessions"]() as db:
+        c_recovered_via_rt = ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_recover_rt",
+            email="recover_rt@kre.dp.ua",
+            refresh_token=encrypt_token("1//rt_recover_ok"),
+            is_active=True,
+            needs_relink=False,
+            fail_count=1,
+            next_attempt_at=stale_backoff,
+            last_error="missing_or_corrupt_refresh_token",
+        )
+        c_recovered_via_ya29 = ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_recover_ya29",
+            email="recover_ya29@kre.dp.ua",
+            refresh_token=encrypt_token("1//rt_valid_decryptable"),
+            is_active=True,
+            needs_relink=False,
+            fail_count=1,
+            next_attempt_at=stale_backoff,
+            last_error="missing_or_corrupt_refresh_token",
+        )
+        c_still_broken_rt = ClassroomCredential(
+            group_id=gid,
+            google_user_id="uid_broken_rt_ya29",
+            email="broken_rt_ya29@kre.dp.ua",
+            refresh_token=foreign_cipher,
+            is_active=False,
+            needs_relink=True,
+            fail_count=1,
+            next_attempt_at=None,
+            last_error="needs_relink: missing_or_corrupt_refresh_token",
+        )
+        db.add_all([c_recovered_via_rt, c_recovered_via_ya29, c_still_broken_rt])
+        await db.commit()
+
+    transport = _make_fake_google_transport(
+        courses_by_token={
+            "ya29.fresh_recovered_rt": [],
+            "ya29.fresh_client_tok": [],
+        },
+        profiles_by_token={},
+        teachers_by_course={},
+        announcements_by_course={},
+        coursework_by_course={},
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    async def refresh_ok(rt: str):
+        return "ya29.fresh_recovered_rt", None, 200
+
+    with (
+        patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client),
+        patch("app.services.classroom.tokens._refresh_google_token_detailed", side_effect=refresh_ok) as mock_refresh,
+    ):
+        r1 = await client.post(
+            "/api/classroom/user-submissions",
+            json={"group_id": gid, "google_user_id": "uid_recover_rt", "email": "recover_rt@kre.dp.ua"},
+        )
+        r2 = await client.post(
+            "/api/classroom/user-submissions",
+            json={
+                "group_id": gid,
+                "google_user_id": "uid_recover_ya29",
+                "email": "recover_ya29@kre.dp.ua",
+                "access_token": "ya29.fresh_client_tok",
+            },
+        )
+        r3 = await client.post(
+            "/api/classroom/user-submissions",
+            json={
+                "group_id": gid,
+                "google_user_id": "uid_broken_rt_ya29",
+                "email": "broken_rt_ya29@kre.dp.ua",
+                "access_token": "ya29.fresh_client_tok",
+            },
+        )
+
+    assert mock_refresh.call_count == 1
+    assert r1.status_code == 200 and r1.json()["connected"] is True
+    assert r2.status_code == 200 and r2.json()["connected"] is True
+    assert r3.status_code == 200 and r3.json()["connected"] is True
+
+    async with state["sessions"]() as db:
+        s1 = await db.scalar(select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_recover_rt"))
+        s2 = await db.scalar(select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_recover_ya29"))
+        s3 = await db.scalar(select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_broken_rt_ya29"))
+
+        for rec in (s1, s2):
+            assert rec is not None
+            assert rec.last_error is None
+            assert rec.fail_count == 0
+            assert rec.next_attempt_at is None
+            assert rec.needs_relink is False
+            assert rec.is_active is True
+
+        assert s1.last_refresh_ok_at is not None
+        assert s3 is not None
+        assert s3.needs_relink is True
+        assert s3.is_active is False
+        assert s3.last_error == "needs_relink: missing_or_corrupt_refresh_token"
+
+
+
 
 
 
