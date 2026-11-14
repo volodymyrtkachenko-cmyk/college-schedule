@@ -18,7 +18,6 @@ interface AtlasCanvasProps {
   selectedNodeId: string | null;
   compareNodeId: string | null;
   intersection: AtlasIntersectionResult | null;
-  kindFilter: "all" | AtlasNodeKind;
   courseFilter: number | null;
   resolvedTheme: "light" | "dark";
   shouldReduceMotion: boolean;
@@ -185,7 +184,6 @@ export function AtlasCanvas({
   selectedNodeId,
   compareNodeId,
   intersection,
-  kindFilter,
   courseFilter,
   resolvedTheme,
   shouldReduceMotion,
@@ -313,12 +311,14 @@ export function AtlasCanvas({
       const { width, height } = sizeRef.current;
       const bw = Math.max(200, bounds.maxX - bounds.minX);
       const bh = Math.max(200, bounds.maxY - bounds.minY);
-      const pad = width < 640 ? 28 : 54;
-      const availW = Math.max(120, width - pad * 2);
-      const availH = Math.max(120, height - pad * 2);
+      const padX = width < 640 ? 46 : 72;
+      const topPad = width < 640 ? 56 : 64;
+      const bottomPad = width < 640 ? 52 : 60;
+      const availW = Math.max(120, width - padX * 2);
+      const availH = Math.max(120, height - topPad - bottomPad);
       const fitZoom = Math.max(MIN_ZOOM, Math.min(1.45, Math.min(availW / bw, availH / bh)));
       const cx = (bounds.minX + bounds.maxX) / 2;
-      const cy = (bounds.minY + bounds.maxY) / 2;
+      const cy = (bounds.minY + bounds.maxY) / 2 - (topPad - bottomPad) / (2 * fitZoom);
       return { x: cx, y: cy, zoom: fitZoom };
     },
     [],
@@ -331,7 +331,6 @@ export function AtlasCanvas({
     graph,
     hoveredNodeId,
     intersection,
-    kindFilter,
     layoutMode,
     selectedNodeId,
   });
@@ -342,7 +341,6 @@ export function AtlasCanvas({
     graph,
     hoveredNodeId,
     intersection,
-    kindFilter,
     layoutMode,
     selectedNodeId,
   };
@@ -360,7 +358,6 @@ export function AtlasCanvas({
       graph: curGraph,
       hoveredNodeId: curHoveredNodeId,
       intersection: curIntersection,
-      kindFilter: curKindFilter,
       layoutMode: curLayoutMode,
       selectedNodeId: curSelectedNodeId,
     } = latestDrawStateRef.current;
@@ -395,6 +392,7 @@ export function AtlasCanvas({
           y: fromPos.y + (toPos.y - fromPos.y) * t,
           radius: fromPos.radius + (toPos.radius - fromPos.radius) * t,
           angle: toPos.angle,
+          subtitle: toPos.subtitle,
         });
       }
       renderPosRef.current = nextMap;
@@ -487,9 +485,6 @@ export function AtlasCanvas({
         alpha = 0.14;
       }
 
-      if (curKindFilter !== "all" && node.kind !== curKindFilter) {
-        alpha = Math.min(alpha, focusId && focusAdj?.has(node.id) ? 0.85 : 0.2);
-      }
       if (curCourseRelevantIds && !curCourseRelevantIds.has(node.id)) {
         alpha = Math.min(alpha, 0.16);
       }
@@ -652,7 +647,6 @@ export function AtlasCanvas({
 
       let priority = node.lessonsCount;
       if (node.kind === "group") priority += 40;
-      if (curKindFilter !== "all" && node.kind === curKindFilter) priority += 150;
       if (isDirectNeighbor) priority += 450;
       if (isShared) priority += 700;
       if (isCompare) priority += 900;
@@ -666,12 +660,16 @@ export function AtlasCanvas({
     // 6. Zero-overlap LOD label pass
     labelCandidates.sort((a, b) => b.priority - a.priority);
     const placedBoxes: LabelBox[] = [];
-    const useFullLabel = cam.zoom >= 0.7 || curLayoutMode === "ego" || Boolean(curIntersection);
+    const isEgoView = curLayoutMode === "ego" && !curIntersection && Boolean(curSelectedNodeId);
+    const useFullLabel = cam.zoom >= 0.7 || isEgoView || Boolean(curIntersection);
 
     ctx.textBaseline = "middle";
 
     for (const item of labelCandidates) {
+      const isCenterInEgo = isEgoView && item.node.id === curSelectedNodeId;
+      const isOrbitNeighbor = isEgoView && item.node.id !== curSelectedNodeId;
       const isForceShown =
+        isEgoView ||
         item.node.id === curSelectedNodeId ||
         item.node.id === curCompareNodeId ||
         item.node.id === curHoveredNodeId ||
@@ -685,8 +683,10 @@ export function AtlasCanvas({
         isForceShown || useFullLabel
           ? item.node.label
           : item.node.shortLabel;
+      const subtitleText =
+        isOrbitNeighbor && item.pos.subtitle ? item.pos.subtitle : null;
 
-      const fontSize = isForceShown ? 12 : item.node.kind === "group" ? 11.5 : 10.5;
+      const fontSize = isCenterInEgo ? 13 : isForceShown ? 11.5 : item.node.kind === "group" ? 11.5 : 10.5;
       const fontWeight = isForceShown || item.node.kind === "group" ? "700" : "600";
       const font = `${fontWeight} ${fontSize}px var(--font-manrope), system-ui, sans-serif`;
       ctx.font = font;
@@ -698,98 +698,177 @@ export function AtlasCanvas({
         labelWidthCacheRef.current.set(cacheKey, textW);
       }
 
-      const padX = isForceShown ? 8 : 5;
-        const pillW = textW + padX * 2;
-        const pillH = isForceShown ? 22 : 18;
-
-        // Place radially outward in polar coordinates, or directly below in compare/center nodes
-        const radialDist = Math.hypot(item.pos.x, item.pos.y);
-        let cx = item.sx;
-        let cy = item.sy + item.sr + pillH * 0.5 + 4;
-        let align: CanvasTextAlign = "center";
-
-        if (radialDist > 40 && !intersection) {
-          const cos = item.pos.x / radialDist;
-          const sin = item.pos.y / radialDist;
-          if (Math.abs(cos) > 0.38) {
-            // Side alignment outside ring
-            const offset = item.sr + 6;
-            if (cos >= 0) {
-              align = "left";
-              cx = item.sx + offset + pillW * 0.5;
-            } else {
-              align = "right";
-              cx = item.sx - offset - pillW * 0.5;
-            }
-            cy = item.sy + sin * 4;
-          } else {
-            // Top / bottom outward alignment
-            align = "center";
-            cx = item.sx;
-            cy = sin >= 0
-              ? item.sy + item.sr + pillH * 0.5 + 4
-              : item.sy - item.sr - pillH * 0.5 - 4;
-          }
-        } else if (intersection) {
-          if (item.node.id === intersection.nodeAId) {
-            cy = item.sy - item.sr - pillH * 0.5 - 8;
-          } else if (item.node.id === intersection.nodeBId) {
-            cy = item.sy - item.sr - pillH * 0.5 - 8;
-          } else if (intersection.sharedNodeIds.has(item.node.id)) {
-            align = "left";
-            cx = item.sx + item.sr + 8 + pillW * 0.5;
-            cy = item.sy;
-          }
-        }
-
-        const box: LabelBox = {
-          x1: cx - pillW * 0.5,
-          y1: cy - pillH * 0.5,
-          x2: cx + pillW * 0.5,
-          y2: cy + pillH * 0.5,
-        };
-
-        // Always allow critical focus labels; skip overlapping non-critical labels
-        if (!isForceShown) {
-          let collides = false;
-          for (let i = 0; i < placedBoxes.length; i++) {
-            if (boxesOverlap(box, placedBoxes[i], 3)) {
-              collides = true;
-              break;
-            }
-          }
-          if (collides) continue;
-        }
-        placedBoxes.push(box);
-
-        // Draw crisp label pill background for maximum readability
-        const isAccentPill = item.node.id === selectedNodeId || item.node.id === compareNodeId;
-        const pillColor =
-          item.node.id === compareNodeId
-            ? palette.compareB
-            : palette.kinds[item.node.kind];
-
-        drawRoundedRectPath(ctx, box.x1, box.y1, pillW, pillH, 7);
-        if (isAccentPill) {
-          ctx.fillStyle = rgba(pillColor, 0.96);
-          ctx.fill();
-          ctx.fillStyle = "#ffffff";
+      let subW = 0;
+      const subFont = "500 10px var(--font-manrope), system-ui, sans-serif";
+      if (subtitleText) {
+        const subCacheKey = `500:10:${subtitleText}`;
+        const cachedSubW = labelWidthCacheRef.current.get(subCacheKey);
+        if (cachedSubW !== undefined) {
+          subW = cachedSubW;
         } else {
-          ctx.fillStyle = rgba(palette.card, palette.isDark ? 0.88 : 0.92);
-          ctx.fill();
-          ctx.strokeStyle = rgba(
-            isForceShown ? pillColor : palette.border,
-            isForceShown ? 0.65 : 0.7,
-          );
-          ctx.lineWidth = 1;
-          ctx.stroke();
-          ctx.fillStyle = rgba(palette.textPrimary, Math.min(1, item.alpha + 0.12));
+          ctx.font = subFont;
+          subW = ctx.measureText(subtitleText).width;
+          labelWidthCacheRef.current.set(subCacheKey, subW);
+          ctx.font = font;
         }
-
-        ctx.textAlign = "center";
-        ctx.fillText(text, cx, cy + 0.5);
-        void align;
       }
+
+      const padX = isForceShown ? 9 : 5;
+      const pillW = Math.max(textW, subW) + padX * 2;
+      const pillH = subtitleText ? 34 : isForceShown ? 22 : 18;
+
+      // Place radially outward in polar coordinates, or directly below in compare/center nodes
+      const radialDist = Math.hypot(item.pos.x, item.pos.y);
+      let cx = item.sx;
+      let cy = item.sy + item.sr + pillH * 0.5 + 5;
+      let align: CanvasTextAlign = "center";
+
+      if (radialDist > 40 && !curIntersection) {
+        const cos = item.pos.x / radialDist;
+        const sin = item.pos.y / radialDist;
+        if (width >= 520 && Math.abs(cos) > 0.36) {
+          const offset = item.sr + 7;
+          if (cos >= 0) {
+            align = "left";
+            cx = item.sx + offset + pillW * 0.5;
+          } else {
+            align = "right";
+            cx = item.sx - offset - pillW * 0.5;
+          }
+          cy = item.sy + sin * 4;
+        } else {
+          align = "center";
+          cx = item.sx;
+          cy = sin >= 0
+            ? item.sy + item.sr + pillH * 0.5 + 4
+            : item.sy - item.sr - pillH * 0.5 - 4;
+        }
+      } else if (curIntersection) {
+        if (item.node.id === curIntersection.nodeAId || item.node.id === curIntersection.nodeBId) {
+          cy = item.sy - item.sr - pillH * 0.5 - 8;
+        } else if (curIntersection.sharedNodeIds.has(item.node.id)) {
+          align = "left";
+          cx = item.sx + item.sr + 8 + pillW * 0.5;
+          cy = item.sy;
+        }
+      }
+
+      const safeMinX = 6 + pillW * 0.5;
+      const safeMaxX = width - 6 - pillW * 0.5;
+      const safeMinY = 48 + pillH * 0.5;
+      const safeMaxY = height - 46 - pillH * 0.5;
+
+      if (isForceShown) {
+        cx = safeMinX <= safeMaxX ? Math.max(safeMinX, Math.min(safeMaxX, cx)) : width * 0.5;
+        cy = safeMinY <= safeMaxY ? Math.max(safeMinY, Math.min(safeMaxY, cy)) : height * 0.5;
+      }
+
+      let box: LabelBox = {
+        x1: cx - pillW * 0.5,
+        y1: cy - pillH * 0.5,
+        x2: cx + pillW * 0.5,
+        y2: cy + pillH * 0.5,
+      };
+
+      // Reserve small role badge box above center node in orbit mode
+      if (isCenterInEgo) {
+        const roleText = item.node.kind === "group" ? "ГРУПА" : "ВИКЛАДАЧ";
+        const roleFont = "700 9.5px var(--font-manrope), system-ui, sans-serif";
+        ctx.font = roleFont;
+        const roleW = ctx.measureText(roleText).width + 14;
+        const roleH = 16;
+        const roleCx = item.sx;
+        const roleCy = item.sy - item.sr - roleH * 0.5 - 5;
+        const roleBox: LabelBox = {
+          x1: roleCx - roleW * 0.5,
+          y1: roleCy - roleH * 0.5,
+          x2: roleCx + roleW * 0.5,
+          y2: roleCy + roleH * 0.5,
+        };
+        placedBoxes.push(roleBox);
+        drawRoundedRectPath(ctx, roleBox.x1, roleBox.y1, roleW, roleH, 8);
+        ctx.fillStyle = rgba(palette.card, 0.94);
+        ctx.fill();
+        ctx.strokeStyle = rgba(palette.kinds[item.node.kind], 0.55);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.textAlign = "center";
+        ctx.fillStyle = rgba(palette.kinds[item.node.kind], 0.98);
+        ctx.fillText(roleText, roleCx, roleCy + 0.5);
+        ctx.font = font;
+      }
+
+      const hasCollision = (candidate: LabelBox): boolean => {
+        for (let i = 0; i < placedBoxes.length; i++) {
+          if (boxesOverlap(candidate, placedBoxes[i], 3)) return true;
+        }
+        return false;
+      };
+
+      if (!isForceShown) {
+        if (hasCollision(box)) continue;
+      } else if (isOrbitNeighbor && hasCollision(box)) {
+        // Nudge overlapping orbit labels slightly inside safe viewport so neighbor subtitles remain clean
+        const offsets = [-14, 14, -26, 26];
+        for (const dy of offsets) {
+          const candCy = safeMinY <= safeMaxY
+            ? Math.max(safeMinY, Math.min(safeMaxY, cy + dy))
+            : cy + dy;
+          const actualDy = candCy - cy;
+          const nudged: LabelBox = {
+            x1: box.x1,
+            y1: box.y1 + actualDy,
+            x2: box.x2,
+            y2: box.y2 + actualDy,
+          };
+          if (!hasCollision(nudged)) {
+            cy = candCy;
+            box = nudged;
+            break;
+          }
+        }
+      }
+      placedBoxes.push(box);
+
+      // Draw crisp label pill background for maximum readability
+      const isAccentPill = item.node.id === curSelectedNodeId || item.node.id === curCompareNodeId;
+      const pillColor =
+        item.node.id === curCompareNodeId
+          ? palette.compareB
+          : palette.kinds[item.node.kind];
+
+      drawRoundedRectPath(ctx, box.x1, box.y1, pillW, pillH, subtitleText ? 9 : 7);
+      if (isAccentPill) {
+        ctx.fillStyle = rgba(pillColor, 0.96);
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+      } else {
+        ctx.fillStyle = rgba(palette.card, palette.isDark ? 0.9 : 0.94);
+        ctx.fill();
+        ctx.strokeStyle = rgba(
+          isForceShown ? pillColor : palette.border,
+          isForceShown ? 0.62 : 0.7,
+        );
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = rgba(palette.textPrimary, Math.min(1, item.alpha + 0.12));
+      }
+
+      ctx.textAlign = "center";
+      if (subtitleText) {
+        ctx.font = font;
+        ctx.fillText(text, cx, cy - 6.5);
+        ctx.font = subFont;
+        ctx.fillStyle = subtitleText.startsWith("Куратор")
+          ? rgba(palette.sharedGold, palette.isDark ? 0.95 : 0.92)
+          : rgba(palette.textSecondary, Math.min(1, item.alpha));
+        ctx.fillText(subtitleText, cx, cy + 7.5);
+      } else {
+        ctx.font = font;
+        ctx.fillText(text, cx, cy + 0.5);
+      }
+      void align;
+    }
 
     ctx.restore();
     return needsNextFrame;
@@ -881,6 +960,8 @@ export function AtlasCanvas({
   }, [activeLayout.bounds, activeLayout.positions, activeLayout.visibleNodeIds.size, computeFitTransform, drawCanvasFrame, scheduleDraw]);
 
   // Morph node positions when layout changes (constellation <-> ego <-> compare)
+  const prevLayoutModeRef = useRef(layoutMode);
+  const prevHadIntersectionRef = useRef(Boolean(intersection));
   useEffect(() => {
     const prevMap = renderPosRef.current;
     if (prevMap.size === 0 || shouldReduceMotion) {
@@ -899,7 +980,13 @@ export function AtlasCanvas({
       };
     }
 
-    if (intersection || layoutMode === "ego") {
+    const modeOrCompareChanged =
+      prevLayoutModeRef.current !== layoutMode ||
+      prevHadIntersectionRef.current !== Boolean(intersection);
+    prevLayoutModeRef.current = layoutMode;
+    prevHadIntersectionRef.current = Boolean(intersection);
+
+    if (intersection || layoutMode === "ego" || modeOrCompareChanged) {
       const fit = computeFitTransform(activeLayout.bounds);
       flyToCamera(fit.x, fit.y, fit.zoom, 380);
     } else {
@@ -907,7 +994,7 @@ export function AtlasCanvas({
     }
   }, [activeLayout, computeFitTransform, flyToCamera, intersection, layoutMode, scheduleDraw, shouldReduceMotion]);
 
-  // Center gently when user explicitly picks a node in constellation mode (keep full galaxy fit on initial load)
+  // Center gently when user explicitly picks a node in constellation mode
   const prevSelectedRef = useRef<string | null>(null);
   const initialSelectedHandledRef = useRef(false);
   useEffect(() => {
@@ -933,7 +1020,7 @@ export function AtlasCanvas({
   // Schedule redraw when lightweight highlight filters or hover state change
   useEffect(() => {
     scheduleDraw();
-  }, [hoveredNodeId, kindFilter, courseFilter, scheduleDraw]);
+  }, [hoveredNodeId, courseFilter, scheduleDraw]);
 
   // Cleanup rAF on unmount
   useEffect(() => {
@@ -1175,43 +1262,43 @@ export function AtlasCanvas({
 
       {/* Top-Left Mode Switcher */}
       {!intersection && (
-        <div className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-xl border border-sys-border bg-sys-card/95 p-1 shadow-sm">
-          <button
-            type="button"
-            onClick={() => onLayoutModeChange("constellation")}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              !isEgoActive
-                ? "bg-sys-accent text-white shadow-xs"
-                : "text-sys-text-secondary hover:text-sys-text-primary"
-            }`}
-          >
-            Сузір&apos;я
-          </button>
+        <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 z-10 flex items-center gap-0.5 sm:gap-1 rounded-xl border border-sys-border bg-sys-card/95 p-0.5 sm:p-1 shadow-sm">
           <button
             type="button"
             disabled={!selectedNodeId}
             onClick={() => onLayoutModeChange("ego")}
             title={selectedNodeId ? "Поставити обраний вузол у центр" : "Оберіть вузол на мапі"}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
+            className={`px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed ${
               isEgoActive
                 ? "bg-sys-accent text-white shadow-xs"
                 : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
-            Орбіта вузла
+            Моя орбіта
+          </button>
+          <button
+            type="button"
+            onClick={() => onLayoutModeChange("constellation")}
+            className={`px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+              !isEgoActive
+                ? "bg-sys-accent text-white shadow-xs"
+                : "text-sys-text-secondary hover:text-sys-text-primary"
+            }`}
+          >
+            Весь коледж
           </button>
         </div>
       )}
 
       {/* Top-Right Camera Controls */}
-      <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+      <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-10 flex items-center gap-1.5">
         <div className="flex items-center rounded-xl border border-sys-border bg-sys-card/95 p-0.5 shadow-sm">
           <button
             type="button"
             onClick={() => handleZoomBy(1.28)}
             aria-label="Наблизити мапу"
             title="Наблизити"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary transition-colors cursor-pointer"
+            className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sm font-bold text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary transition-colors cursor-pointer"
           >
             +
           </button>
@@ -1220,7 +1307,7 @@ export function AtlasCanvas({
             onClick={() => handleZoomBy(0.78)}
             aria-label="Віддалити мапу"
             title="Віддалити"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary transition-colors cursor-pointer"
+            className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sm font-bold text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary transition-colors cursor-pointer"
           >
             −
           </button>
@@ -1230,7 +1317,7 @@ export function AtlasCanvas({
             onClick={handleFitView}
             aria-label="Вписати всю мапу в екран"
             title="Вписати все"
-            className="px-2.5 h-8 rounded-lg text-xs font-semibold text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary transition-colors cursor-pointer whitespace-nowrap"
+            className="px-2 h-7 text-[11px] sm:px-2.5 sm:h-8 sm:text-xs rounded-lg font-semibold text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary transition-colors cursor-pointer whitespace-nowrap"
           >
             Вписати
           </button>
@@ -1249,17 +1336,13 @@ export function AtlasCanvas({
             <span>Викладачі</span>
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-violet-500 shrink-0" />
-            <span>Предмети</span>
-          </span>
-          <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
-            <span>Аудиторії</span>
+            <span>Куратор</span>
           </span>
         </div>
 
         <div className="hidden sm:flex items-center rounded-xl border border-sys-border bg-sys-card/95 px-3 py-1.5 text-[11px] text-sys-text-muted shadow-xs">
-          <span>Тягніть · Колесо для зуму · 2× клік — орбіта</span>
+          <span>Клік по сусіду — перехід у його орбіту · Колесо для зуму</span>
         </div>
       </div>
     </div>

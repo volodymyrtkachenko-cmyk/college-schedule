@@ -76,6 +76,7 @@ export interface AtlasNodePosition {
   y: number;
   radius: number;
   angle: number;
+  subtitle?: string | null;
 }
 
 export interface AtlasLayoutSnapshot {
@@ -83,6 +84,18 @@ export interface AtlasLayoutSnapshot {
   positions: Map<string, AtlasNodePosition>;
   rings: Array<{ radius: number; label: string }>;
   bounds: { minX: number; maxX: number; minY: number; maxY: number };
+}
+
+export interface AtlasSharedSubjectSummary {
+  id: number;
+  label: string;
+  lessonsCount: number;
+}
+
+export interface AtlasSharedRoomSummary {
+  name: string;
+  floor: number | null;
+  lessonsCount: number;
 }
 
 export interface AtlasIntersectionResult {
@@ -95,9 +108,9 @@ export interface AtlasIntersectionResult {
   sharedByKind: {
     groups: AtlasGraphNode[];
     teachers: AtlasGraphNode[];
-    subjects: AtlasGraphNode[];
-    rooms: AtlasGraphNode[];
   };
+  sharedSubjects: AtlasSharedSubjectSummary[];
+  sharedRooms: AtlasSharedRoomSummary[];
 }
 
 export interface AtlasRelationRow {
@@ -245,6 +258,7 @@ function relaxOrbitCollisions(
 
 function computeBoundsFromPositions(
   items: Iterable<{ x: number; y: number; radius: number }>,
+  extraPad = 70,
 ): { minX: number; maxX: number; minY: number; maxY: number } {
   let minX = Infinity;
   let maxX = -Infinity;
@@ -254,7 +268,7 @@ function computeBoundsFromPositions(
 
   for (const item of Array.from(items)) {
     count++;
-    const pad = item.radius + 70;
+    const pad = item.radius + extraPad;
     if (item.x - pad < minX) minX = item.x - pad;
     if (item.x + pad > maxX) maxX = item.x + pad;
     if (item.y - pad < minY) minY = item.y - pad;
@@ -359,60 +373,6 @@ export function buildAtlasGraph(data: AtlasResponse): AtlasGraph {
     });
   }
 
-  for (const s of data.subjects) {
-    const id = makeAtlasNodeId("subject", s.id);
-    ensureAdj(id);
-    nodeMap.set(id, {
-      id,
-      rawId: s.id,
-      kind: "subject",
-      label: s.name,
-      shortLabel: compactSubjectLabel(s.name, s.short_name),
-      subtitle: `${s.groups_count} груп · ${s.teachers_count} викл.`,
-      course: null,
-      floor: null,
-      curatorId: null,
-      facultyName: null,
-      fullName: null,
-      homeRoom: null,
-      lessonsCount: s.lessons_count,
-      degree: 0,
-      isConnected: false,
-      x: 0,
-      y: 0,
-      radius: clampRadius(10, Math.sqrt(s.lessons_count) * 1.15, 7),
-      angle: 0,
-      ringIndex: 2,
-    });
-  }
-
-  for (const r of data.rooms) {
-    const id = makeAtlasNodeId("room", r.id);
-    ensureAdj(id);
-    nodeMap.set(id, {
-      id,
-      rawId: r.id,
-      kind: "room",
-      label: r.name,
-      shortLabel: r.name,
-      subtitle: r.floor ? `${r.floor} поверх` : "Спец. приміщення",
-      course: null,
-      floor: r.floor,
-      curatorId: null,
-      facultyName: null,
-      fullName: null,
-      homeRoom: null,
-      lessonsCount: r.lessons_count,
-      degree: 0,
-      isConnected: false,
-      x: 0,
-      y: 0,
-      radius: clampRadius(10, Math.sqrt(r.lessons_count) * 1.0, 6),
-      angle: 0,
-      ringIndex: 3,
-    });
-  }
-
   const addLink = (
     a: string,
     b: string,
@@ -438,39 +398,21 @@ export function buildAtlasGraph(data: AtlasResponse): AtlasGraph {
 
   for (const edge of data.edges) {
     const gid = makeAtlasNodeId("group", edge.group_id);
-    const sid = makeAtlasNodeId("subject", edge.subject_id);
-    const rid = edge.room ? makeAtlasNodeId("room", edge.room) : null;
     const teacherIds = edge.second_teacher_id
       ? [makeAtlasNodeId("teacher", edge.teacher_id), makeAtlasNodeId("teacher", edge.second_teacher_id)]
       : [makeAtlasNodeId("teacher", edge.teacher_id)];
 
-    addLink(gid, sid, "studies", edge.lessons_count, edge.days, false);
-    if (rid) {
-      addLink(gid, rid, "uses-room", edge.lessons_count, edge.days, false);
-    }
-
     for (const tid of teacherIds) {
       addLink(gid, tid, "teaches", edge.lessons_count, edge.days, true);
-      addLink(tid, sid, "subject-teacher", edge.lessons_count, edge.days, true);
-      if (rid) {
-        addLink(tid, rid, "uses-room", edge.lessons_count, edge.days, true);
-      }
     }
   }
 
-  // Curator and teacher home-room relationships
+  // Curator relationships between groups and teachers
   for (const g of data.groups) {
     if (g.curator_id) {
       const gid = makeAtlasNodeId("group", g.id);
       const tid = makeAtlasNodeId("teacher", g.curator_id);
       addLink(gid, tid, "curator", 1, [], true);
-    }
-  }
-  for (const t of data.teachers) {
-    if (t.room && roomsRaw.has(t.room)) {
-      const tid = makeAtlasNodeId("teacher", t.id);
-      const rid = makeAtlasNodeId("room", t.room);
-      addLink(tid, rid, "uses-room", 1, [], true);
     }
   }
 
@@ -490,7 +432,7 @@ export function buildAtlasGraph(data: AtlasResponse): AtlasGraph {
     node.isConnected = node.degree > 0 || node.lessonsCount > 0;
   }
 
-  // Place connected nodes on crisp concentric orbital rings
+  // Place connected groups & teachers on two clean concentric orbital rings
   const connectedGroups = Array.from(nodeMap.values())
     .filter((n) => n.kind === "group" && n.isConnected)
     .sort((a, b) => {
@@ -506,17 +448,9 @@ export function buildAtlasGraph(data: AtlasResponse): AtlasGraph {
   const connectedTeachers = Array.from(nodeMap.values()).filter(
     (n) => n.kind === "teacher" && n.isConnected,
   );
-  const connectedSubjects = Array.from(nodeMap.values()).filter(
-    (n) => n.kind === "subject" && n.isConnected,
-  );
-  const connectedRooms = Array.from(nodeMap.values()).filter(
-    (n) => n.kind === "room" && n.isConnected,
-  );
 
-  const rGroup = Math.max(210, (connectedGroups.length * 64) / (Math.PI * 2));
-  const rTeacher = Math.max(rGroup + 215, (connectedTeachers.length * 56) / (Math.PI * 2));
-  const rSubject = Math.max(rTeacher + 230, (connectedSubjects.length * 54) / (Math.PI * 2));
-  const rRoom = Math.max(rSubject + 205, (connectedRooms.length * 54) / (Math.PI * 2));
+  const rGroup = Math.max(190, (connectedGroups.length * 42) / (Math.PI * 2));
+  const rTeacher = Math.max(rGroup + 210, (connectedTeachers.length * 44) / (Math.PI * 2));
 
   const angleMap = new Map<string, number>();
   const ringTargets = new Map<string, number>();
@@ -568,33 +502,9 @@ export function buildAtlasGraph(data: AtlasResponse): AtlasGraph {
     ringTargets.set(t.id, rTeacher);
   }
 
-  // 3. Place subjects near centroid of their teachers + groups
-  const subjectDesired = new Map<string, number | null>();
-  for (const s of connectedSubjects) {
-    const adj = adjacency.get(s.id) ?? new Set<string>();
-    subjectDesired.set(s.id, circularCentroid(adj, angleMap, pairWeights.get(s.id)));
-  }
-  spreadRingByTargetAngle(connectedSubjects, rSubject, subjectDesired, -Math.PI / 2 + 0.12);
-  for (const s of connectedSubjects) {
-    angleMap.set(s.id, s.angle);
-    ringTargets.set(s.id, rSubject);
-  }
-
-  // 4. Place rooms near centroid of their teachers + groups
-  const roomDesired = new Map<string, number | null>();
-  for (const r of connectedRooms) {
-    const adj = adjacency.get(r.id) ?? new Set<string>();
-    roomDesired.set(r.id, circularCentroid(adj, angleMap, pairWeights.get(r.id)));
-  }
-  spreadRingByTargetAngle(connectedRooms, rRoom, roomDesired, -Math.PI / 2 + 0.24);
-  for (const r of connectedRooms) {
-    angleMap.set(r.id, r.angle);
-    ringTargets.set(r.id, rRoom);
-  }
-
   // Place disconnected nodes neatly on a standby outer ring so selecting them via search still works cleanly
   const disconnected = Array.from(nodeMap.values()).filter((n) => !n.isConnected);
-  const rStandby = rRoom + 190;
+  const rStandby = rTeacher + 170;
   disconnected.forEach((n, idx) => {
     const theta = (idx / Math.max(1, disconnected.length)) * Math.PI * 2;
     n.angle = theta;
@@ -609,8 +519,6 @@ export function buildAtlasGraph(data: AtlasResponse): AtlasGraph {
     [
       { radius: rGroup, kind: "group", label: "Групи", count: connectedGroups.length },
       { radius: rTeacher, kind: "teacher", label: "Викладачі", count: connectedTeachers.length },
-      { radius: rSubject, kind: "subject", label: "Предмети", count: connectedSubjects.length },
-      { radius: rRoom, kind: "room", label: "Аудиторії", count: connectedRooms.length },
     ] satisfies AtlasRingMeta[]
   ).filter((ring) => ring.count > 0);
 
@@ -631,8 +539,83 @@ export function buildAtlasGraph(data: AtlasResponse): AtlasGraph {
   };
 }
 
+function buildOrbitNeighborSubtitle(
+  graph: AtlasGraph,
+  center: AtlasGraphNode,
+  neighbor: AtlasGraphNode,
+): string | null {
+  const isCenterGroup = center.kind === "group" && neighbor.kind === "teacher";
+  const isCenterTeacher = center.kind === "teacher" && neighbor.kind === "group";
+  if (!isCenterGroup && !isCenterTeacher) {
+    return neighbor.subtitle;
+  }
+
+  const groupId = Number(isCenterGroup ? center.rawId : neighbor.rawId);
+  const teacherId = Number(isCenterGroup ? neighbor.rawId : center.rawId);
+  const isCurator = isCenterGroup
+    ? center.curatorId === teacherId
+    : neighbor.curatorId === teacherId;
+
+  const subjectLessons = new Map<number, number>();
+  const roomLessons = new Map<string, number>();
+
+  for (const edge of graph.edgesRaw) {
+    if (
+      edge.group_id !== groupId ||
+      (edge.teacher_id !== teacherId && edge.second_teacher_id !== teacherId)
+    ) {
+      continue;
+    }
+    subjectLessons.set(
+      edge.subject_id,
+      (subjectLessons.get(edge.subject_id) ?? 0) + edge.lessons_count,
+    );
+    if (edge.room) {
+      roomLessons.set(edge.room, (roomLessons.get(edge.room) ?? 0) + edge.lessons_count);
+    }
+  }
+
+  let topSubjectId: number | null = null;
+  let topSubjectWeight = -1;
+  for (const [sid, weight] of Array.from(subjectLessons.entries())) {
+    if (weight > topSubjectWeight) {
+      topSubjectWeight = weight;
+      topSubjectId = sid;
+    }
+  }
+
+  let topRoom: string | null = null;
+  let topRoomWeight = -1;
+  for (const [room, weight] of Array.from(roomLessons.entries())) {
+    if (weight > topRoomWeight) {
+      topRoomWeight = weight;
+      topRoom = room;
+    }
+  }
+
+  const rawSubj = topSubjectId !== null ? graph.subjectsRaw.get(topSubjectId) : undefined;
+  const subjLabel = rawSubj ? compactSubjectLabel(rawSubj.name, rawSubj.short_name) : null;
+  const subjectPart =
+    subjLabel && subjectLessons.size > 1
+      ? `${subjLabel} +${subjectLessons.size - 1}`
+      : subjLabel;
+
+  const detailPart =
+    subjectPart && topRoom
+      ? `${subjectPart} · каб. ${topRoom}`
+      : subjectPart
+        ? subjectPart
+        : topRoom
+          ? `каб. ${topRoom}`
+          : null;
+
+  if (isCurator && detailPart) return `Куратор · ${detailPart}`;
+  if (isCurator) return "Куратор";
+  return detailPart;
+}
+
 /**
- * Arranges the selected node at (0, 0) and its direct neighbors in neat concentric orbits.
+ * Arranges the selected node at (0, 0) and its direct neighbors in neat orbits.
  */
 export function computeEgoLayout(graph: AtlasGraph, centerNodeId: string): AtlasLayoutSnapshot {
   const center = graph.nodeMap.get(centerNodeId);
@@ -652,23 +635,16 @@ export function computeEgoLayout(graph: AtlasGraph, centerNodeId: string): Atlas
   positions.set(center.id, {
     x: 0,
     y: 0,
-    radius: Math.max(26, center.radius * 1.45),
+    radius: 30,
     angle: 0,
+    subtitle: center.subtitle,
   });
 
   const neighbors = Array.from(graph.adjacency.get(center.id) ?? [])
     .map((id) => graph.nodeMap.get(id))
     .filter((n): n is AtlasGraphNode => Boolean(n));
 
-  const kindOrder: Record<AtlasNodeKind, number> = {
-    group: 0,
-    teacher: 1,
-    subject: 2,
-    room: 3,
-  };
   neighbors.sort((a, b) => {
-    const ko = kindOrder[a.kind] - kindOrder[b.kind];
-    if (ko !== 0) return ko;
     if (b.lessonsCount !== a.lessonsCount) return b.lessonsCount - a.lessonsCount;
     return a.label.localeCompare(b.label, "uk");
   });
@@ -684,8 +660,8 @@ export function computeEgoLayout(graph: AtlasGraph, centerNodeId: string): Atlas
     };
   }
 
-  if (neighbors.length <= 16) {
-    const r = Math.max(220, (neighbors.length * 76) / (Math.PI * 2));
+  if (neighbors.length <= 12) {
+    const r = Math.max(210, neighbors.length * 32);
     rings.push({ radius: r, label: "Прямі зв'язки" });
     neighbors.forEach((n, idx) => {
       const theta = -Math.PI / 2 + (idx / neighbors.length) * Math.PI * 2;
@@ -693,44 +669,26 @@ export function computeEgoLayout(graph: AtlasGraph, centerNodeId: string): Atlas
       positions.set(n.id, {
         x: Math.cos(theta) * r,
         y: Math.sin(theta) * r,
-        radius: n.radius * 1.12,
+        radius: Math.max(15, n.radius * 1.15),
         angle: theta,
+        subtitle: buildOrbitNeighborSubtitle(graph, center, n),
       });
     });
   } else {
-    // Inner ring for structural people/groups, outer ring for subjects/rooms
-    const inner = neighbors.filter((n) => n.kind === "group" || n.kind === "teacher");
-    const outer = neighbors.filter((n) => n.kind === "subject" || n.kind === "room");
-
-    const r1 = Math.max(210, (Math.max(1, inner.length) * 74) / (Math.PI * 2));
-    const r2 = Math.max(r1 + 190, (Math.max(1, outer.length) * 68) / (Math.PI * 2));
-
-    if (inner.length > 0) {
-      rings.push({ radius: r1, label: "Групи та викладачі" });
-      inner.forEach((n, idx) => {
-        const theta = -Math.PI / 2 + (idx / inner.length) * Math.PI * 2;
-        visibleNodeIds.add(n.id);
-        positions.set(n.id, {
-          x: Math.cos(theta) * r1,
-          y: Math.sin(theta) * r1,
-          radius: n.radius * 1.12,
-          angle: theta,
-        });
+    const baseR = Math.max(250, (neighbors.length * 58) / (Math.PI * 2));
+    rings.push({ radius: baseR, label: "Прямі зв'язки" });
+    neighbors.forEach((n, idx) => {
+      const theta = -Math.PI / 2 + (idx / neighbors.length) * Math.PI * 2;
+      const ringR = baseR + (idx % 2 === 0 ? -24 : 24);
+      visibleNodeIds.add(n.id);
+      positions.set(n.id, {
+        x: Math.cos(theta) * ringR,
+        y: Math.sin(theta) * ringR,
+        radius: Math.max(14, n.radius * 1.1),
+        angle: theta,
+        subtitle: buildOrbitNeighborSubtitle(graph, center, n),
       });
-    }
-    if (outer.length > 0) {
-      rings.push({ radius: r2, label: "Предмети та аудиторії" });
-      outer.forEach((n, idx) => {
-        const theta = -Math.PI / 2 + 0.14 + (idx / outer.length) * Math.PI * 2;
-        visibleNodeIds.add(n.id);
-        positions.set(n.id, {
-          x: Math.cos(theta) * r2,
-          y: Math.sin(theta) * r2,
-          radius: n.radius * 1.08,
-          angle: theta,
-        });
-      });
-    }
+    });
   }
 
   const posValues = Array.from(positions.values());
@@ -738,12 +696,43 @@ export function computeEgoLayout(graph: AtlasGraph, centerNodeId: string): Atlas
     visibleNodeIds,
     positions,
     rings,
-    bounds: computeBoundsFromPositions(posValues),
+    bounds: computeBoundsFromPositions(posValues, 120),
   };
 }
 
+function collectNodeSubjectsAndRooms(
+  graph: AtlasGraph,
+  nodeId: string,
+): { subjects: Map<number, number>; rooms: Map<string, number> } {
+  const subjects = new Map<number, number>();
+  const rooms = new Map<string, number>();
+  const node = graph.nodeMap.get(nodeId);
+  if (!node) return { subjects, rooms };
+
+  const rawId = Number(node.rawId);
+  if (node.kind === "teacher" && node.homeRoom && graph.roomsRaw.has(node.homeRoom)) {
+    rooms.set(node.homeRoom, 0);
+  }
+
+  for (const edge of graph.edgesRaw) {
+    const matches =
+      node.kind === "group"
+        ? edge.group_id === rawId
+        : node.kind === "teacher"
+          ? edge.teacher_id === rawId || edge.second_teacher_id === rawId
+          : false;
+    if (!matches) continue;
+
+    subjects.set(edge.subject_id, (subjects.get(edge.subject_id) ?? 0) + edge.lessons_count);
+    if (edge.room) {
+      rooms.set(edge.room, (rooms.get(edge.room) ?? 0) + edge.lessons_count);
+    }
+  }
+  return { subjects, rooms };
+}
+
 /**
- * Computes direct shared neighbors (bridge nodes) and unique neighbors between two selected nodes.
+ * Computes direct shared neighbors (bridge nodes), subjects, and rooms between two selected nodes.
  */
 export function computeNodeIntersection(
   graph: AtlasGraph,
@@ -778,6 +767,36 @@ export function computeNodeIntersection(
     .filter((n): n is AtlasGraphNode => Boolean(n))
     .sort((a, b) => b.lessonsCount - a.lessonsCount || a.label.localeCompare(b.label, "uk"));
 
+  const metaA = collectNodeSubjectsAndRooms(graph, nodeAId);
+  const metaB = collectNodeSubjectsAndRooms(graph, nodeBId);
+
+  const sharedSubjects: AtlasSharedSubjectSummary[] = [];
+  for (const [sid, countA] of Array.from(metaA.subjects.entries())) {
+    const countB = metaB.subjects.get(sid);
+    if (countB === undefined) continue;
+    const rawSubj = graph.subjectsRaw.get(sid);
+    if (!rawSubj) continue;
+    sharedSubjects.push({
+      id: sid,
+      label: rawSubj.name,
+      lessonsCount: countA + countB,
+    });
+  }
+  sharedSubjects.sort((a, b) => b.lessonsCount - a.lessonsCount || a.label.localeCompare(b.label, "uk"));
+
+  const sharedRooms: AtlasSharedRoomSummary[] = [];
+  for (const [rName, countA] of Array.from(metaA.rooms.entries())) {
+    const countB = metaB.rooms.get(rName);
+    if (countB === undefined) continue;
+    const rawRoom = graph.roomsRaw.get(rName);
+    sharedRooms.push({
+      name: rName,
+      floor: rawRoom?.floor ?? null,
+      lessonsCount: countA + countB,
+    });
+  }
+  sharedRooms.sort((a, b) => b.lessonsCount - a.lessonsCount || a.name.localeCompare(b.name, "uk"));
+
   return {
     nodeAId,
     nodeBId,
@@ -788,9 +807,9 @@ export function computeNodeIntersection(
     sharedByKind: {
       groups: sharedNodes.filter((n) => n.kind === "group"),
       teachers: sharedNodes.filter((n) => n.kind === "teacher"),
-      subjects: sharedNodes.filter((n) => n.kind === "subject"),
-      rooms: sharedNodes.filter((n) => n.kind === "room"),
     },
+    sharedSubjects,
+    sharedRooms,
   };
 }
 
@@ -817,9 +836,7 @@ export function computeCompareLayout(
 
   const sharedNodes = [
     ...intersection.sharedByKind.teachers,
-    ...intersection.sharedByKind.subjects,
     ...intersection.sharedByKind.groups,
-    ...intersection.sharedByKind.rooms,
   ];
   const onlyANodes = Array.from(intersection.onlyAIds)
     .map((id) => graph.nodeMap.get(id))
@@ -893,6 +910,69 @@ export function getNodeInspectorData(
   const subjectAgg = new Map<string, { lessons: number; days: Set<number>; tags: Set<string>; badge?: string | null }>();
   const roomAgg = new Map<string, { lessons: number; days: Set<number>; tags: Set<string>; badge?: string | null }>();
 
+  const resolveInspectorTarget = (key: string): AtlasGraphNode | null => {
+    const existing = graph.nodeMap.get(key);
+    if (existing) return existing;
+
+    if (key.startsWith("subject:")) {
+      const sid = Number(key.slice("subject:".length));
+      const s = graph.subjectsRaw.get(sid);
+      if (!s) return null;
+      return {
+        id: key,
+        rawId: s.id,
+        kind: "subject",
+        label: s.name,
+        shortLabel: compactSubjectLabel(s.name, s.short_name),
+        subtitle: `${s.groups_count} груп · ${s.teachers_count} викл.`,
+        course: null,
+        floor: null,
+        curatorId: null,
+        facultyName: null,
+        fullName: null,
+        homeRoom: null,
+        lessonsCount: s.lessons_count,
+        degree: 0,
+        isConnected: true,
+        x: 0,
+        y: 0,
+        radius: 12,
+        angle: 0,
+        ringIndex: 2,
+      };
+    }
+
+    if (key.startsWith("room:")) {
+      const rKey = key.slice("room:".length);
+      const r = graph.roomsRaw.get(rKey);
+      if (!r) return null;
+      return {
+        id: key,
+        rawId: r.id,
+        kind: "room",
+        label: r.name,
+        shortLabel: r.name,
+        subtitle: r.floor ? `${r.floor} поверх` : "Спец. приміщення",
+        course: null,
+        floor: r.floor,
+        curatorId: null,
+        facultyName: null,
+        fullName: null,
+        homeRoom: null,
+        lessonsCount: r.lessons_count,
+        degree: 0,
+        isConnected: true,
+        x: 0,
+        y: 0,
+        radius: 10,
+        angle: 0,
+        ringIndex: 3,
+      };
+    }
+
+    return null;
+  };
+
   const bump = (
     map: Map<string, { lessons: number; days: Set<number>; tags: Set<string>; badge?: string | null }>,
     key: string,
@@ -901,7 +981,7 @@ export function getNodeInspectorData(
     tag?: string | null,
     badge?: string | null,
   ) => {
-    if (!graph.nodeMap.has(key)) return;
+    if (!resolveInspectorTarget(key)) return;
     let rec = map.get(key);
     if (!rec) {
       rec = { lessons: 0, days: new Set<number>(), tags: new Set<string>(), badge: null };
@@ -931,7 +1011,8 @@ export function getNodeInspectorData(
       const tIds = e.second_teacher_id ? [e.teacher_id, e.second_teacher_id] : [e.teacher_id];
       const tNames = tIds.map((id) => graph.teachersRaw.get(id)?.name).filter(Boolean).join(", ");
       const sid = makeAtlasNodeId("subject", e.subject_id);
-      bump(subjectAgg, sid, e.lessons_count, e.days, tNames || undefined);
+      const subjectTag = [tNames, e.room ? `каб. ${e.room}` : null].filter(Boolean).join(" · ");
+      bump(subjectAgg, sid, e.lessons_count, e.days, subjectTag || undefined);
 
       for (const tId of tIds) {
         const tid = makeAtlasNodeId("teacher", tId);
@@ -954,7 +1035,7 @@ export function getNodeInspectorData(
     }
     if (node.homeRoom) {
       const rid = makeAtlasNodeId("room", node.homeRoom);
-      if (graph.nodeMap.has(rid)) {
+      if (resolveInspectorTarget(rid)) {
         bump(roomAgg, rid, 0, [], undefined, "Закріплена");
       }
     }
@@ -965,46 +1046,11 @@ export function getNodeInspectorData(
       const gName = graph.groupsRaw.get(e.group_id)?.name;
       const sName = graph.subjectsRaw.get(e.subject_id)?.short_name || graph.subjectsRaw.get(e.subject_id)?.name;
       bump(groupAgg, gid, e.lessons_count, e.days, sName || undefined);
-      bump(subjectAgg, sid, e.lessons_count, e.days, gName || undefined);
+      const subjectTag = [gName, e.room ? `каб. ${e.room}` : null].filter(Boolean).join(" · ");
+      bump(subjectAgg, sid, e.lessons_count, e.days, subjectTag || undefined);
       if (e.room) {
         const rid = makeAtlasNodeId("room", e.room);
         bump(roomAgg, rid, e.lessons_count, e.days, gName || undefined);
-      }
-    }
-  } else if (node.kind === "subject") {
-    const rawSubjectId = Number(node.rawId);
-    for (const e of graph.edgesRaw) {
-      if (e.subject_id !== rawSubjectId) continue;
-      const gid = makeAtlasNodeId("group", e.group_id);
-      const tIds = e.second_teacher_id ? [e.teacher_id, e.second_teacher_id] : [e.teacher_id];
-      const gName = graph.groupsRaw.get(e.group_id)?.name;
-      const tNames = tIds.map((id) => graph.teachersRaw.get(id)?.name).filter(Boolean).join(", ");
-      bump(groupAgg, gid, e.lessons_count, e.days, tNames || undefined);
-      for (const tId of tIds) {
-        bump(teacherAgg, makeAtlasNodeId("teacher", tId), e.lessons_count, e.days, gName || undefined);
-      }
-      if (e.room) {
-        bump(roomAgg, makeAtlasNodeId("room", e.room), e.lessons_count, e.days, gName || undefined);
-      }
-    }
-  } else if (node.kind === "room") {
-    const rawRoom = String(node.rawId);
-    for (const t of Array.from(graph.teachersRaw.values())) {
-      if (t.room === rawRoom) {
-        bump(teacherAgg, makeAtlasNodeId("teacher", t.id), 0, [], undefined, "Закріплений");
-      }
-    }
-    for (const e of graph.edgesRaw) {
-      if (e.room !== rawRoom) continue;
-      const gid = makeAtlasNodeId("group", e.group_id);
-      const sid = makeAtlasNodeId("subject", e.subject_id);
-      const tIds = e.second_teacher_id ? [e.teacher_id, e.second_teacher_id] : [e.teacher_id];
-      const gName = graph.groupsRaw.get(e.group_id)?.name;
-      const sName = graph.subjectsRaw.get(e.subject_id)?.short_name || graph.subjectsRaw.get(e.subject_id)?.name;
-      bump(groupAgg, gid, e.lessons_count, e.days, sName || undefined);
-      bump(subjectAgg, sid, e.lessons_count, e.days, gName || undefined);
-      for (const tId of tIds) {
-        bump(teacherAgg, makeAtlasNodeId("teacher", tId), e.lessons_count, e.days, sName || undefined);
       }
     }
   }
@@ -1014,7 +1060,7 @@ export function getNodeInspectorData(
   ): AtlasRelationRow[] => {
     const out: AtlasRelationRow[] = [];
     for (const [id, rec] of Array.from(map.entries())) {
-      const targetNode = graph.nodeMap.get(id);
+      const targetNode = resolveInspectorTarget(id);
       if (!targetNode) continue;
       out.push({
         node: targetNode,

@@ -110,16 +110,17 @@ function makeSampleAtlasPayload() {
   };
 }
 
-test("buildAtlasGraph produces deterministic coordinates, rings, and adjacency", () => {
+test("buildAtlasGraph produces deterministic 2-kind coordinates, rings, and adjacency", () => {
   const engine = loadAtlasEngine();
   const payload = makeSampleAtlasPayload();
 
   const graphA = engine.buildAtlasGraph(payload);
   const graphB = engine.buildAtlasGraph(payload);
 
-  assert.equal(graphA.nodes.length, 8);
-  assert.ok(graphA.rings.length >= 4);
+  assert.equal(graphA.nodes.length, 4);
+  assert.equal(graphA.rings.length, 2);
   assert.ok(graphA.links.length > 0);
+  assert.ok(graphA.nodes.every((n) => n.kind === "group" || n.kind === "teacher"));
 
   for (let i = 0; i < graphA.nodes.length; i++) {
     const a = graphA.nodes[i];
@@ -137,45 +138,54 @@ test("buildAtlasGraph produces deterministic coordinates, rings, and adjacency",
   assert.equal(graphA.adjacency.get(g10Id).has(t101Id), true);
 });
 
-test("computeEgoLayout centers selected node at origin with neighbor orbits", () => {
+test("computeEgoLayout centers selected node at origin with neighbor orbits and subtitles", () => {
   const engine = loadAtlasEngine();
   const graph = engine.buildAtlasGraph(makeSampleAtlasPayload());
   const centerId = engine.makeAtlasNodeId("group", 10);
+  const t100Id = engine.makeAtlasNodeId("teacher", 100);
+  const t101Id = engine.makeAtlasNodeId("teacher", 101);
 
   const ego = engine.computeEgoLayout(graph, centerId);
   assert.equal(ego.visibleNodeIds.has(centerId), true);
 
   const centerPos = ego.positions.get(centerId);
   assert.deepEqual({ x: centerPos.x, y: centerPos.y }, { x: 0, y: 0 });
-  assert.ok(centerPos.radius >= 26);
-  assert.ok(ego.rings.length === 1);
+  assert.equal(centerPos.radius, 30);
+  assert.equal(ego.rings.length, 1);
 
   for (const neighborId of graph.adjacency.get(centerId)) {
     assert.equal(ego.visibleNodeIds.has(neighborId), true);
     const nPos = ego.positions.get(neighborId);
     assert.ok(Math.hypot(nPos.x, nPos.y) > 150);
   }
+
+  const t100Sub = ego.positions.get(t100Id).subtitle;
+  assert.ok(t100Sub && t100Sub.includes("Куратор") && t100Sub.includes("205"));
+  const t101Sub = ego.positions.get(t101Id).subtitle;
+  assert.ok(t101Sub && t101Sub.includes("каб. 104"));
 });
 
-test("computeEgoLayout splits into two rings when neighbor count exceeds 16", () => {
+test("computeEgoLayout uses radial stagger when neighbor count exceeds 12", () => {
   const engine = loadAtlasEngine();
   const payload = makeSampleAtlasPayload();
-  for (let i = 1; i <= 18; i++) {
-    payload.subjects.push({
-      id: 300 + i,
-      name: `Предмет ${i}`,
-      short_name: `П-${i}`,
+  for (let i = 1; i <= 13; i++) {
+    const teacherId = 300 + i;
+    payload.teachers.push({
+      id: teacherId,
+      name: `Викладач ${i}`,
+      full_name: `Викладач Повний ${i}`,
+      room: "205",
       groups_count: 1,
-      teachers_count: 1,
-      lessons_count: 1,
+      subjects_count: 1,
+      lessons_count: 2,
     });
     payload.edges.push({
       group_id: 10,
-      teacher_id: 100,
+      teacher_id: teacherId,
       second_teacher_id: null,
-      subject_id: 300 + i,
+      subject_id: 200,
       room: "205",
-      lessons_count: 1,
+      lessons_count: 2,
       days: [1],
     });
   }
@@ -183,24 +193,37 @@ test("computeEgoLayout splits into two rings when neighbor count exceeds 16", ()
   const graph = engine.buildAtlasGraph(payload);
   const centerId = engine.makeAtlasNodeId("group", 10);
   const ego = engine.computeEgoLayout(graph, centerId);
-  assert.equal(ego.rings.length, 2);
+  assert.equal(ego.rings.length, 1);
+
+  const radii = new Set();
+  for (const [id, pos] of ego.positions.entries()) {
+    if (id !== centerId) {
+      radii.add(Math.round(Math.hypot(pos.x, pos.y)));
+    }
+  }
+  assert.equal(radii.size, 2);
+  const sortedRadii = Array.from(radii).sort((a, b) => a - b);
+  assert.equal(sortedRadii[1] - sortedRadii[0], 48);
 });
 
-test("computeNodeIntersection and computeCompareLayout highlight shared bridges", () => {
+test("computeNodeIntersection and computeCompareLayout highlight shared bridges, subjects, and rooms", () => {
   const engine = loadAtlasEngine();
   const graph = engine.buildAtlasGraph(makeSampleAtlasPayload());
 
   const g10Id = engine.makeAtlasNodeId("group", 10);
   const g11Id = engine.makeAtlasNodeId("group", 11);
   const t100Id = engine.makeAtlasNodeId("teacher", 100);
-  const s200Id = engine.makeAtlasNodeId("subject", 200);
-  const r205Id = engine.makeAtlasNodeId("room", "205");
+  const t101Id = engine.makeAtlasNodeId("teacher", 101);
 
   const intersection = engine.computeNodeIntersection(graph, g10Id, g11Id);
   assert.equal(intersection.directConnected, false);
   assert.equal(intersection.sharedNodeIds.has(t100Id), true);
-  assert.equal(intersection.sharedNodeIds.has(s200Id), true);
-  assert.equal(intersection.sharedNodeIds.has(r205Id), true);
+  assert.equal(intersection.sharedNodeIds.has(t101Id), true);
+  assert.equal(intersection.sharedByKind.teachers.length, 2);
+  assert.equal(intersection.sharedSubjects.length, 1);
+  assert.equal(intersection.sharedSubjects[0].id, 200);
+  assert.equal(intersection.sharedRooms.length, 1);
+  assert.equal(intersection.sharedRooms[0].name, "205");
 
   const compare = engine.computeCompareLayout(graph, intersection);
   assert.ok(compare.positions.get(g10Id).x < 0);

@@ -107,24 +107,37 @@ function formatPairsLabel(count: number): string {
   return `${count} пар`;
 }
 
-function searchGraphNodes(
+interface AtlasSearchCandidate {
+  node: AtlasGraphNode;
+  matchHint: string | null;
+  score: number;
+}
+
+function searchAtlasNodes(
   graph: AtlasGraph,
   query: string,
   options?: { excludeId?: string | null; limit?: number; onlyConnected?: boolean },
-): AtlasGraphNode[] {
+): AtlasSearchCandidate[] {
   const needle = query.trim().toLowerCase();
   const limit = options?.limit ?? 24;
   const excludeId = options?.excludeId ?? null;
   const onlyConnected = options?.onlyConnected ?? false;
 
-  const matches: Array<{ node: AtlasGraphNode; score: number }> = [];
+  const bestByNodeId = new Map<string, AtlasSearchCandidate>();
+
+  const register = (node: AtlasGraphNode, score: number, matchHint: string | null) => {
+    if (excludeId && node.id === excludeId) return;
+    if (onlyConnected && !node.isConnected) return;
+    const weightedScore = score + (node.isConnected ? 5 : 0);
+    const existing = bestByNodeId.get(node.id);
+    if (!existing || weightedScore > existing.score) {
+      bestByNodeId.set(node.id, { node, matchHint, score: weightedScore });
+    }
+  };
 
   for (const node of graph.nodes) {
-    if (excludeId && node.id === excludeId) continue;
-    if (onlyConnected && !node.isConnected) continue;
-
     if (!needle) {
-      matches.push({ node, score: node.isConnected ? 10 : 1 });
+      register(node, node.isConnected ? 10 : 1, null);
       continue;
     }
 
@@ -141,17 +154,63 @@ function searchGraphNodes(
     else if (fullLow.includes(needle) || subLow.includes(needle)) score = 20;
 
     if (score > 0) {
-      matches.push({ node, score: score + (node.isConnected ? 5 : 0) });
+      register(node, score, null);
     }
   }
 
-  matches.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    if (b.node.lessonsCount !== a.node.lessonsCount) return b.node.lessonsCount - a.node.lessonsCount;
-    return a.node.label.localeCompare(b.node.label, "uk");
-  });
+  // Also resolve matching subjects & rooms from raw catalog to their linked Groups / Teachers
+  if (needle) {
+    const matchedSubjects = new Map<number, string>();
+    for (const s of Array.from(graph.subjectsRaw.values())) {
+      const nameLow = s.name.toLowerCase();
+      const shortLow = (s.short_name ?? "").toLowerCase();
+      if (nameLow.includes(needle) || (shortLow && shortLow.includes(needle))) {
+        matchedSubjects.set(s.id, s.short_name || s.name);
+      }
+    }
 
-  return matches.slice(0, limit).map((item) => item.node);
+    const matchedRooms = new Set<string>();
+    for (const r of Array.from(graph.roomsRaw.values())) {
+      if (r.name.toLowerCase().includes(needle)) {
+        matchedRooms.add(r.id);
+      }
+    }
+
+    if (matchedSubjects.size > 0 || matchedRooms.size > 0) {
+      for (const edge of graph.edgesRaw) {
+        const subjMatch = matchedSubjects.get(edge.subject_id);
+        const roomMatch = edge.room && matchedRooms.has(edge.room) ? edge.room : null;
+        if (!subjMatch && !roomMatch) continue;
+
+        const hint = subjMatch ? `Предмет: ${subjMatch}` : `Ауд. ${roomMatch}`;
+        const gNode = graph.nodeMap.get(makeAtlasNodeId("group", edge.group_id));
+        if (gNode) register(gNode, 18, hint);
+
+        const tIds = edge.second_teacher_id ? [edge.teacher_id, edge.second_teacher_id] : [edge.teacher_id];
+        for (const tid of tIds) {
+          const tNode = graph.nodeMap.get(makeAtlasNodeId("teacher", tid));
+          if (tNode) register(tNode, 16, hint);
+        }
+      }
+
+      if (matchedRooms.size > 0) {
+        for (const t of Array.from(graph.teachersRaw.values())) {
+          if (t.room && matchedRooms.has(t.room)) {
+            const tNode = graph.nodeMap.get(makeAtlasNodeId("teacher", t.id));
+            if (tNode) register(tNode, 19, `Закріплений каб. ${t.room}`);
+          }
+        }
+      }
+    }
+  }
+
+  return Array.from(bestByNodeId.values())
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.node.lessonsCount !== a.node.lessonsCount) return b.node.lessonsCount - a.node.lessonsCount;
+      return a.node.label.localeCompare(b.node.label, "uk");
+    })
+    .slice(0, limit);
 }
 
 function getScheduleHref(node: AtlasGraphNode): string | null {
@@ -179,7 +238,7 @@ function RelationListSection({
 
   if (rows.length === 0) return null;
 
-  const limit = 6;
+  const limit = 8;
   const visibleRows = expanded ? rows : rows.slice(0, limit);
   const hiddenCount = Math.max(0, rows.length - limit);
   const meta = KIND_META[kind];
@@ -252,6 +311,116 @@ function RelationListSection({
   );
 }
 
+function SubjectsAndRoomsSection({
+  subjects,
+  rooms,
+}: {
+  subjects: AtlasRelationRow[];
+  rooms: AtlasRelationRow[];
+}) {
+  const [subjectsExpanded, setSubjectsExpanded] = useState(false);
+
+  if (subjects.length === 0 && rooms.length === 0) return null;
+
+  const limit = 6;
+  const visibleSubjects = subjectsExpanded ? subjects : subjects.slice(0, limit);
+  const hiddenSubjects = Math.max(0, subjects.length - limit);
+
+  return (
+    <div className="space-y-4">
+      {subjects.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
+              <BookOpenIcon className="w-3.5 h-3.5 text-violet-600 dark:text-violet-300" />
+              <span>Предмети</span>
+            </h3>
+            <span className="rounded-md bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold text-sys-text-muted tabular-nums">
+              {subjects.length}
+            </span>
+          </div>
+
+          <ul role="list" className="space-y-1.5">
+            {visibleSubjects.map((row) => {
+              const daysText = row.days.map((d) => DAY_SHORT_NAMES[d] ?? String(d)).join(", ");
+              const tagsPreview = row.tags.slice(0, 2).join(" · ");
+              return (
+                <li
+                  key={row.node.id}
+                  className="rounded-xl border border-sys-border bg-sys-bg/65 px-3 py-2 flex items-start justify-between gap-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-sys-text-primary break-words">
+                      {row.node.label}
+                    </p>
+                    {(tagsPreview || daysText) && (
+                      <p className="mt-0.5 text-xs text-sys-text-secondary line-clamp-1">
+                        {tagsPreview}
+                        {tagsPreview && daysText ? " · " : ""}
+                        {daysText && <span className="text-sys-text-muted">{daysText}</span>}
+                      </p>
+                    )}
+                  </div>
+                  {row.lessonsCount > 0 && (
+                    <span className="shrink-0 rounded-lg border border-sys-border bg-sys-card px-2 py-0.5 text-[11px] font-semibold text-sys-text-secondary tabular-nums">
+                      {formatPairsLabel(row.lessonsCount)}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          {hiddenSubjects > 0 && (
+            <button
+              type="button"
+              onClick={() => setSubjectsExpanded((prev) => !prev)}
+              className="w-full min-h-[36px] rounded-xl border border-dashed border-sys-border px-3 py-1.5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 transition-colors cursor-pointer"
+            >
+              {subjectsExpanded ? "Згорнути предмети" : `Показати ще ${hiddenSubjects}`}
+            </button>
+          )}
+        </section>
+      )}
+
+      {rooms.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
+              <DoorOpenIcon className="w-3.5 h-3.5 text-amber-800 dark:text-amber-300" />
+              <span>Аудиторії</span>
+            </h3>
+            <span className="rounded-md bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold text-sys-text-muted tabular-nums">
+              {rooms.length}
+            </span>
+          </div>
+
+          <ul role="list" className="flex flex-wrap gap-1.5">
+            {rooms.map((row) => (
+              <li
+                key={row.node.id}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium ${
+                  row.badge
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 font-semibold"
+                    : "border-sys-border bg-sys-bg/70 text-sys-text-primary"
+                }`}
+              >
+                <span>Каб. {row.node.label}</span>
+                {row.badge && <span className="text-[10px]">· {row.badge}</span>}
+                {row.lessonsCount > 0 && (
+                  <span className="text-[11px] text-sys-text-secondary tabular-nums">
+                    ({row.lessonsCount})
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
 function CompareSummaryCard({
   graph,
   nodeA,
@@ -271,16 +440,14 @@ function CompareSummaryCard({
 }) {
   const sharedGroups = intersection.sharedByKind.groups;
   const sharedTeachers = intersection.sharedByKind.teachers;
-  const sharedSubjects = intersection.sharedByKind.subjects;
-  const sharedRooms = intersection.sharedByKind.rooms;
-  const totalShared = intersection.sharedNodeIds.size;
+  const { sharedSubjects, sharedRooms } = intersection;
+  const totalShared =
+    intersection.sharedNodeIds.size + sharedSubjects.length + sharedRooms.length;
 
-  const sharedSections = (
+  const clickableSections = (
     [
       { label: "Спільні викладачі", kind: "teacher" as const, nodes: sharedTeachers },
-      { label: "Спільні предмети", kind: "subject" as const, nodes: sharedSubjects },
       { label: "Спільні групи", kind: "group" as const, nodes: sharedGroups },
-      { label: "Спільні аудиторії", kind: "room" as const, nodes: sharedRooms },
     ] satisfies Array<{ label: string; kind: AtlasNodeKind; nodes: AtlasGraphNode[] }>
   ).filter((sec) => sec.nodes.length > 0);
 
@@ -328,18 +495,18 @@ function CompareSummaryCard({
           {intersection.directConnected ? "Мають прямий зв'язок" : "Без прямого зв'язку"}
         </span>
         <span className="inline-flex items-center rounded-lg border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
-          Спільних вузлів: {totalShared}
+          Спільного: {totalShared}
         </span>
       </div>
 
       {totalShared === 0 ? (
         <p className="text-xs text-sys-text-secondary leading-relaxed">
-          У активному розкладі ці два вузли не мають спільних викладачів, предметів, груп чи
-          аудиторій. Спробуйте іншу пару для пошуку мостів.
+          У активному розкладі ці два вузли не мають спільних викладачів, груп, предметів чи
+          аудиторій. Спробуйте іншу пару.
         </p>
       ) : (
         <div className="space-y-2.5">
-          {sharedSections.map((sec) => (
+          {clickableSections.map((sec) => (
             <div key={sec.kind} className="space-y-1">
               <p className="text-[11px] font-semibold text-sys-text-muted uppercase tracking-wide">
                 {sec.label} ({sec.nodes.length})
@@ -367,6 +534,42 @@ function CompareSummaryCard({
               </div>
             </div>
           ))}
+
+          {sharedSubjects.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold text-sys-text-muted uppercase tracking-wide">
+                Спільні предмети ({sharedSubjects.length})
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {sharedSubjects.map((subj) => (
+                  <span
+                    key={subj.id}
+                    className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-medium ${KIND_META.subject.pillClass}`}
+                  >
+                    <span className="max-w-[220px] truncate">{subj.label}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {sharedRooms.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold text-sys-text-muted uppercase tracking-wide">
+                Спільні аудиторії ({sharedRooms.length})
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {sharedRooms.map((room) => (
+                  <span
+                    key={room.name}
+                    className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-medium ${KIND_META.room.pillClass}`}
+                  >
+                    Каб. {room.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -376,23 +579,19 @@ function CompareSummaryCard({
 function AtlasInspectorPanel({
   graph,
   inspector,
-  layoutMode,
   compareNodeId,
   intersection,
   onSelectNode,
   onSetCompareNode,
   onSwapCompare,
-  onLayoutModeChange,
 }: {
   graph: AtlasGraph;
   inspector: AtlasNodeInspectorData | null;
-  layoutMode: "constellation" | "ego";
   compareNodeId: string | null;
   intersection: AtlasIntersectionResult | null;
   onSelectNode: (nodeId: string) => void;
   onSetCompareNode: (nodeId: string | null) => void;
   onSwapCompare: () => void;
-  onLayoutModeChange: (mode: "constellation" | "ego") => void;
 }) {
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareQuery, setCompareQuery] = useState("");
@@ -407,17 +606,17 @@ function AtlasInspectorPanel({
 
   const compareCandidates = useMemo(() => {
     if (!inspector) return [];
-    const sameKindFirst = searchGraphNodes(graph, compareQuery, {
+    const results = searchAtlasNodes(graph, compareQuery, {
       excludeId: inspector.node.id,
       limit: 20,
       onlyConnected: true,
     });
     if (!compareQuery.trim()) {
-      const sameKind = sameKindFirst.filter((n) => n.kind === inspector.node.kind);
-      const others = sameKindFirst.filter((n) => n.kind !== inspector.node.kind);
+      const sameKind = results.filter((c) => c.node.kind === inspector.node.kind);
+      const others = results.filter((c) => c.node.kind !== inspector.node.kind);
       return [...sameKind, ...others].slice(0, 14);
     }
-    return sameKindFirst.slice(0, 14);
+    return results.slice(0, 14);
   }, [graph, inspector, compareQuery]);
 
   if (!inspector) {
@@ -433,7 +632,7 @@ function AtlasInspectorPanel({
           <div>
             <h2 className="text-base font-bold text-sys-text-primary">Паспорт вузла</h2>
             <p className="text-xs text-sys-text-secondary">
-              Оберіть будь-який вузол на мапі, у пошуку або в матриці
+              Оберіть групу або викладача на мапі чи через пошук
             </p>
           </div>
         </div>
@@ -441,17 +640,17 @@ function AtlasInspectorPanel({
         <div className="rounded-xl border border-sys-border bg-sys-bg/60 p-3.5 space-y-2 text-xs text-sys-text-secondary leading-relaxed">
           <p className="font-semibold text-sys-text-primary flex items-center gap-1.5">
             <InfoIcon className="w-4 h-4 text-sys-accent shrink-0" />
-            <span>Що можна дослідити в Атласі</span>
+            <span>Як працювати з Атласом</span>
           </p>
           <ul className="space-y-1.5 pl-4 list-disc">
-            <li>Клік по вузлу підсвічує всіх його сусідів і відкриває повний паспорт зв&apos;язків.</li>
+            <li>Клік по сусіду на орбіті ставить його у центр і відкриває його зв&apos;язки.</li>
             <li>
-              Режим <strong>«Орбіта вузла»</strong> ставить обрану групу, викладача, предмет чи
-              аудиторію в центр власного графа.
+              Перемикач <strong>«Весь коледж»</strong> показує карту усіх груп і викладачів
+              разом.
             </li>
             <li>
-              <strong>«Перетин»</strong> порівнює будь-які два вузли та показує спільні пари,
-              викладачів і кабінети.
+              <strong>«Порівняти перетин»</strong> знаходить спільних викладачів, групи, предмети
+              та кабінети для двох обраних вузлів.
             </li>
           </ul>
         </div>
@@ -527,19 +726,10 @@ function AtlasInspectorPanel({
                 <span>{node.facultyName}</span>
               </span>
             )}
-            {node.floor !== null && (
-              <span className="rounded-lg border border-sys-border bg-sys-bg px-2 py-0.5 text-xs font-medium text-sys-text-secondary">
-                {node.floor === 0 ? "Цоколь / партер" : `${node.floor} поверх`}
-              </span>
-            )}
             {node.homeRoom && (
-              <button
-                type="button"
-                onClick={() => onSelectNode(makeAtlasNodeId("room", node.homeRoom!))}
-                className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:brightness-95 transition-colors cursor-pointer"
-              >
+              <span className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
                 Кабінет {node.homeRoom}
-              </button>
+              </span>
             )}
           </div>
         </div>
@@ -555,19 +745,6 @@ function AtlasInspectorPanel({
               <span>Відкрити розклад</span>
             </Link>
           )}
-
-          <button
-            type="button"
-            onClick={() => onLayoutModeChange(layoutMode === "ego" ? "constellation" : "ego")}
-            className={`min-h-[38px] inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors cursor-pointer ${
-              layoutMode === "ego" && !intersection
-                ? "border-sys-accent bg-sys-accent/12 text-sys-accent"
-                : "border-sys-border bg-sys-bg text-sys-text-primary hover:border-sys-accent/45"
-            }`}
-          >
-            <NetworkIcon className="w-3.5 h-3.5" />
-            <span>{layoutMode === "ego" ? "Повернути сузір'я" : "Орбіта вузла"}</span>
-          </button>
 
           <button
             type="button"
@@ -588,18 +765,18 @@ function AtlasInspectorPanel({
         {compareOpen && (
           <div className="rounded-xl border border-sys-border bg-sys-bg p-3 space-y-2.5">
             <label htmlFor={compareInputId} className="block text-xs font-semibold text-sys-text-primary">
-              Оберіть другий вузол для пошуку спільних зв&apos;язків
+              Оберіть другу групу або викладача для пошуку спільного
             </label>
             <input
               id={compareInputId}
               type="search"
               value={compareQuery}
               onChange={(e) => setCompareQuery(e.target.value)}
-              placeholder="Наприклад: назва групи, викладач або кабінет..."
+              placeholder="Наприклад: назва групи, викладач або предмет..."
               className="w-full min-h-[36px] rounded-xl border border-sys-border bg-sys-card px-3 py-1.5 text-sm text-sys-text-primary placeholder:text-sys-text-muted focus:outline-none focus:border-sys-accent"
             />
             <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-              {compareCandidates.map((cand) => {
+              {compareCandidates.map(({ node: cand }) => {
                 const cMeta = KIND_META[cand.kind];
                 return (
                   <button
@@ -664,7 +841,7 @@ function AtlasInspectorPanel({
           </div>
         )}
 
-        {/* Relations */}
+        {/* Relations & Summary Lists */}
         <div className="space-y-4 pt-1 border-t border-sys-border/70">
           {node.lessonsCount === 0 && neighborsCount === 0 ? (
             <p className="text-xs text-sys-text-secondary leading-relaxed">
@@ -674,127 +851,23 @@ function AtlasInspectorPanel({
           ) : (
             <>
               <RelationListSection
-                title="Предмети"
-                kind="subject"
-                rows={subjects}
-                onSelectNode={onSelectNode}
-              />
-              <RelationListSection
-                title="Викладачі"
+                title={node.kind === "group" ? "Викладачі групи" : "Викладачі"}
                 kind="teacher"
                 rows={teachers}
                 onSelectNode={onSelectNode}
               />
               <RelationListSection
-                title="Групи"
+                title={node.kind === "teacher" ? "Групи викладача" : "Групи"}
                 kind="group"
                 rows={groups}
                 onSelectNode={onSelectNode}
               />
-              <RelationListSection
-                title="Аудиторії"
-                kind="room"
-                rows={rooms}
-                onSelectNode={onSelectNode}
-              />
+              <SubjectsAndRoomsSection subjects={subjects} rooms={rooms} />
             </>
           )}
         </div>
       </div>
     </aside>
-  );
-}
-
-function AtlasMatrixView({
-  graph,
-  kindFilter,
-  courseFilter,
-  selectedNodeId,
-  onSelectNode,
-}: {
-  graph: AtlasGraph;
-  kindFilter: "all" | AtlasNodeKind;
-  courseFilter: number | null;
-  selectedNodeId: string | null;
-  onSelectNode: (nodeId: string) => void;
-}) {
-  const orderedKinds: AtlasNodeKind[] =
-    kindFilter === "all" ? ["group", "teacher", "subject", "room"] : [kindFilter];
-
-  const sections = useMemo(() => {
-    return orderedKinds
-      .map((kind) => {
-        let nodes = graph.nodes.filter((n) => n.kind === kind);
-        if (kind === "group" && courseFilter !== null) {
-          nodes = nodes.filter((n) => n.course === courseFilter);
-        }
-        nodes.sort((a, b) => {
-          if (b.lessonsCount !== a.lessonsCount) return b.lessonsCount - a.lessonsCount;
-          return a.label.localeCompare(b.label, "uk");
-        });
-        return { kind, nodes };
-      })
-      .filter((sec) => sec.nodes.length > 0);
-  }, [graph, orderedKinds, courseFilter]);
-
-  return (
-    <div className="space-y-5">
-      {sections.map(({ kind, nodes }) => {
-        const meta = KIND_META[kind];
-        return (
-          <section
-            key={kind}
-            className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs space-y-3"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-sys-text-primary">
-                <span className={`inline-block h-2.5 w-2.5 rounded-full ${meta.dotClass}`} aria-hidden="true" />
-                <span>{meta.plural}</span>
-              </h2>
-              <span className="rounded-lg border border-sys-border bg-sys-bg px-2 py-0.5 text-xs font-semibold text-sys-text-secondary tabular-nums">
-                {nodes.length}
-              </span>
-            </div>
-
-            <ul
-              role="list"
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"
-            >
-              {nodes.map((node) => {
-                const isSelected = node.id === selectedNodeId;
-                const degree = graph.adjacency.get(node.id)?.size ?? 0;
-                return (
-                  <li key={node.id}>
-                    <button
-                      type="button"
-                      onClick={() => onSelectNode(node.id)}
-                      aria-pressed={isSelected}
-                      className={`w-full min-h-[54px] rounded-xl border p-2.5 text-left transition-colors cursor-pointer flex items-center justify-between gap-2 ${
-                        isSelected
-                          ? "border-sys-accent bg-sys-accent/12 shadow-xs"
-                          : "border-sys-border bg-sys-bg/60 hover:bg-sys-bg hover:border-sys-accent/45"
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-sys-text-primary truncate">
-                          {node.label}
-                        </p>
-                        <p className="text-[11px] text-sys-text-secondary truncate">
-                          {node.subtitle || `${degree} зв'язків`}
-                        </p>
-                      </div>
-                      <span className="shrink-0 rounded-md border border-sys-border bg-sys-card px-1.5 py-0.5 text-[11px] font-semibold text-sys-text-secondary tabular-nums">
-                        {node.lessonsCount > 0 ? formatPairsLabel(node.lessonsCount) : `${degree} зв.`}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        );
-      })}
-    </div>
   );
 }
 
@@ -809,10 +882,8 @@ export function AtlasClient() {
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [compareNodeId, setCompareNodeId] = useState<string | null>(null);
-  const [layoutMode, setLayoutMode] = useState<"constellation" | "ego">("constellation");
-  const [kindFilter, setKindFilter] = useState<"all" | AtlasNodeKind>("all");
+  const [layoutMode, setLayoutMode] = useState<"constellation" | "ego">("ego");
   const [courseFilter, setCourseFilter] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<"map" | "matrix">("map");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -936,7 +1007,7 @@ export function AtlasClient() {
 
   const searchResults = useMemo(() => {
     if (!graph || !searchQuery.trim()) return [];
-    return searchGraphNodes(graph, searchQuery, { limit: 24 });
+    return searchAtlasNodes(graph, searchQuery, { limit: 24 });
   }, [graph, searchQuery]);
 
   useEffect(() => {
@@ -951,17 +1022,32 @@ export function AtlasClient() {
       }
       if (nodeId && graph) {
         const picked = graph.nodeMap.get(nodeId);
-        if (picked) {
-          if (kindFilter !== "all" && kindFilter !== picked.kind) {
-            setKindFilter("all");
-          }
-          if (courseFilter !== null && picked.kind === "group" && picked.course !== courseFilter) {
-            setCourseFilter(null);
+        if (picked && courseFilter !== null && picked.kind === "group" && picked.course !== courseFilter) {
+          setCourseFilter(null);
+        }
+      }
+    },
+    [compareNodeId, graph, courseFilter],
+  );
+
+  const handleCourseFilterSelect = useCallback(
+    (course: number | null) => {
+      const next = courseFilter === course ? null : course;
+      setCourseFilter(next);
+      if (next !== null && graph) {
+        const current = selectedNodeId ? graph.nodeMap.get(selectedNodeId) : null;
+        if (!current || current.kind !== "group" || current.course !== next) {
+          const busiestInCourse = graph.nodes
+            .filter((n) => n.kind === "group" && n.course === next)
+            .sort((a, b) => b.lessonsCount - a.lessonsCount || a.label.localeCompare(b.label, "uk"))[0];
+          if (busiestInCourse) {
+            setSelectedNodeId(busiestInCourse.id);
+            setCompareNodeId(null);
           }
         }
       }
     },
-    [compareNodeId, graph, kindFilter, courseFilter],
+    [courseFilter, graph, selectedNodeId],
   );
 
   const handleSetCompareNode = useCallback(
@@ -971,9 +1057,7 @@ export function AtlasClient() {
         return;
       }
       setCompareNodeId(nextCompareId);
-      setKindFilter("all");
       setCourseFilter(null);
-      setViewMode("map");
     },
     [selectedNodeId],
   );
@@ -998,8 +1082,8 @@ export function AtlasClient() {
     return computeNodeIntersection(graph, selectedNodeId, compareNodeId);
   }, [graph, selectedNodeId, compareNodeId]);
 
-  const handlePickSearchNode = (node: AtlasGraphNode) => {
-    handleSelectNode(node.id);
+  const handlePickSearchCandidate = (candidate: AtlasSearchCandidate) => {
+    handleSelectNode(candidate.node.id);
     setSearchQuery("");
     setSearchOpen(false);
   };
@@ -1022,7 +1106,7 @@ export function AtlasClient() {
     } else if (e.key === "Enter" && searchOpen) {
       e.preventDefault();
       const target = searchResults[activeSearchIdx] ?? searchResults[0];
-      if (target) handlePickSearchNode(target);
+      if (target) handlePickSearchCandidate(target);
     }
   };
 
@@ -1033,7 +1117,11 @@ export function AtlasClient() {
     const deg = graph.adjacency.get(node.id)?.size ?? 0;
     if (intersection) {
       const b = graph.nodeMap.get(intersection.nodeBId);
-      return `Порівняння: ${node.label} та ${b?.label ?? ""}. Спільних вузлів: ${intersection.sharedNodeIds.size}.`;
+      const totalShared =
+        intersection.sharedNodeIds.size +
+        intersection.sharedSubjects.length +
+        intersection.sharedRooms.length;
+      return `Порівняння: ${node.label} та ${b?.label ?? ""}. Спільного: ${totalShared}.`;
     }
     return `Обрано ${KIND_META[node.kind].singular.toLowerCase()} ${node.label}. Зв'язків: ${deg}.`;
   }, [graph, selectedNodeId, intersection]);
@@ -1042,7 +1130,7 @@ export function AtlasClient() {
     <div className="min-h-screen bg-sys-bg text-sys-text-primary flex flex-col">
       <SubpageHeader
         title="Атлас ДФКР"
-        subtitle="Інтерактивна мапа зв'язків коледжу"
+        subtitle="Орбіти груп і викладачів коледжу"
         maxWidthClass="max-w-[1600px]"
         rightSlot={
           <button
@@ -1085,14 +1173,7 @@ export function AtlasClient() {
         {/* Loading Skeleton */}
         {loading && !data && (
           <div className="space-y-4" aria-busy="true">
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="h-16 rounded-2xl border border-sys-border bg-sys-card animate-pulse"
-                />
-              ))}
-            </div>
+            <div className="h-14 rounded-2xl border border-sys-border bg-sys-card animate-pulse" />
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
               <div className="xl:col-span-8 h-[460px] sm:h-[540px] lg:h-[680px] rounded-2xl border border-sys-border bg-sys-card animate-pulse" />
               <div className="xl:col-span-4 h-[460px] rounded-2xl border border-sys-border bg-sys-card animate-pulse" />
@@ -1117,316 +1198,164 @@ export function AtlasClient() {
 
         {data && graph && (
           <>
-            {/* Compact KPI Strip */}
-            <section aria-label="Зведення графа коледжу" className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-2.5">
-              {[
-                {
-                  key: "group" as const,
-                  label: "Груп",
-                  value: data.summary.groups_count,
-                  dotClass: KIND_META.group.dotClass,
-                },
-                {
-                  key: "teacher" as const,
-                  label: "Викладачів",
-                  value: data.summary.teachers_count,
-                  dotClass: KIND_META.teacher.dotClass,
-                },
-                {
-                  key: "subject" as const,
-                  label: "Предметів",
-                  value: data.summary.subjects_count,
-                  dotClass: KIND_META.subject.dotClass,
-                },
-                {
-                  key: "room" as const,
-                  label: "Аудиторій",
-                  value: data.summary.rooms_count,
-                  dotClass: KIND_META.room.dotClass,
-                },
-                {
-                  key: "all" as const,
-                  label: "Зв'язків у тижні",
-                  value: data.summary.edges_count,
-                  dotClass: "bg-sys-text-secondary",
-                },
-              ].map((stat, idx) => {
-                const isActiveFilter =
-                  stat.key !== "all" && kindFilter === stat.key;
-                return (
-                  <button
-                    key={stat.label}
-                    type="button"
-                    onClick={() => {
-                      if (stat.key === "all") {
-                        setKindFilter("all");
-                      } else {
-                        setKindFilter((prev) => (prev === stat.key ? "all" : stat.key));
-                      }
-                    }}
-                    className={`rounded-2xl border px-3 py-2 sm:px-3.5 sm:py-2.5 text-left transition-colors cursor-pointer ${
-                      idx === 4 ? "col-span-2 sm:col-span-1 flex sm:block items-center justify-between" : ""
-                    } ${
-                      isActiveFilter
-                        ? "border-sys-accent bg-sys-accent/10"
-                        : "border-sys-border bg-sys-card hover:border-sys-accent/40"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] sm:text-xs font-medium text-sys-text-secondary">{stat.label}</span>
-                      <span className={`h-2 w-2 rounded-full ${stat.dotClass}`} aria-hidden="true" />
-                    </div>
-                    <p className={`${idx === 4 ? "sm:mt-1" : "mt-0.5 sm:mt-1"} text-base sm:text-xl font-bold text-sys-text-primary tabular-nums`}>
-                      {stat.value}
-                    </p>
-                  </button>
-                );
-              })}
-            </section>
-
-            {/* Controls Bar: Search + Filters + View Mode Switch */}
+            {/* Compact Toolbar: Search + Course Filter Pills */}
             <section
-              aria-label="Пошук та фільтри мапи"
-              className="rounded-2xl border border-sys-border bg-sys-card p-2.5 sm:p-3.5 shadow-xs space-y-2.5 sm:space-y-3"
+              aria-label="Пошук та фільтр курсів"
+              className="rounded-2xl border border-sys-border bg-sys-card p-2.5 sm:p-3 shadow-xs flex flex-col lg:flex-row lg:items-center gap-2.5"
             >
-              <div className="flex flex-col md:flex-row md:items-center gap-2.5">
-                {/* Search Combobox */}
-                <div ref={searchBoxRef} className="relative flex-1 min-w-0">
-                  <label htmlFor={searchInputId} className="sr-only">
-                    Пошук групи, викладача, предмета або аудиторії
-                  </label>
-                  <div className="relative flex items-center">
-                    <SearchIcon className="w-4 h-4 text-sys-text-muted pointer-events-none absolute left-3" />
-                    <input
-                      id={searchInputId}
-                      type="search"
-                      role="combobox"
-                      aria-expanded={searchOpen && searchQuery.trim().length > 0}
-                      aria-controls={searchListboxId}
-                      aria-autocomplete="list"
-                      value={searchQuery}
-                      onFocus={() => setSearchOpen(true)}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setSearchOpen(true);
+              {/* Search Combobox */}
+              <div ref={searchBoxRef} className="relative flex-1 min-w-0">
+                <label htmlFor={searchInputId} className="sr-only">
+                  Пошук групи, викладача або предмета
+                </label>
+                <div className="relative flex items-center">
+                  <SearchIcon className="w-4 h-4 text-sys-text-muted pointer-events-none absolute left-3" />
+                  <input
+                    id={searchInputId}
+                    type="search"
+                    role="combobox"
+                    aria-expanded={searchOpen && searchQuery.trim().length > 0}
+                    aria-controls={searchListboxId}
+                    aria-autocomplete="list"
+                    value={searchQuery}
+                    onFocus={() => setSearchOpen(true)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setSearchOpen(true);
+                    }}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder="Пошук групи, викладача або предмета..."
+                    className="w-full min-h-[40px] rounded-xl border border-sys-border bg-sys-bg pl-9 pr-9 py-2 text-sm text-sys-text-primary placeholder:text-sys-text-muted focus:outline-none focus:border-sys-accent"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSearchOpen(false);
                       }}
-                      onKeyDown={handleSearchKeyDown}
-                      placeholder="Пошук групи, викладача, предмета..."
-                      className="w-full min-h-[40px] rounded-xl border border-sys-border bg-sys-bg pl-9 pr-9 py-2 text-sm text-sys-text-primary placeholder:text-sys-text-muted focus:outline-none focus:border-sys-accent"
-                    />
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSearchQuery("");
-                          setSearchOpen(false);
-                        }}
-                        aria-label="Очистити пошук"
-                        className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-text-primary cursor-pointer"
-                      >
-                        <CloseIcon className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {searchOpen && searchQuery.trim().length > 0 && (
-                    <div
-                      id={searchListboxId}
-                      role="listbox"
-                      aria-label="Результати пошуку"
-                      className="absolute left-0 right-0 top-full mt-1.5 z-30 max-h-80 overflow-y-auto rounded-2xl border border-sys-border bg-sys-card p-1.5 shadow-lg"
+                      aria-label="Очистити пошук"
+                      className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-text-primary cursor-pointer"
                     >
-                      {searchResults.length === 0 ? (
-                        <p className="px-3 py-4 text-center text-xs text-sys-text-muted">
-                          Нічого не знайдено за запитом «{searchQuery}»
-                        </p>
-                      ) : (
-                        searchResults.map((node, index) => {
-                          const meta = KIND_META[node.kind];
-                          const isHighlighted = index === activeSearchIdx;
-                          return (
-                            <button
-                              key={node.id}
-                              type="button"
-                              role="option"
-                              aria-selected={isHighlighted}
-                              onClick={() => handlePickSearchNode(node)}
-                              className={`w-full min-h-[40px] rounded-xl px-3 py-2 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
-                                isHighlighted ? "bg-sys-accent/12" : "hover:bg-sys-bg"
-                              }`}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-sys-text-primary truncate">
-                                  {node.fullName || node.label}
-                                </p>
-                                {node.subtitle && (
-                                  <p className="text-[11px] text-sys-text-secondary truncate">
-                                    {node.subtitle}
-                                  </p>
-                                )}
-                              </div>
-                              <span
-                                className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-semibold ${meta.pillClass}`}
-                              >
-                                {meta.singular}
-                              </span>
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
+                      <CloseIcon className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
 
-                {/* View Mode Toggle: Map <-> Matrix */}
-                <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                {searchOpen && searchQuery.trim().length > 0 && (
                   <div
-                    role="group"
-                    aria-label="Режим відображення"
-                    className="inline-flex rounded-xl border border-sys-border bg-sys-bg p-1"
+                    id={searchListboxId}
+                    role="listbox"
+                    aria-label="Результати пошуку"
+                    className="absolute left-0 right-0 top-full mt-1.5 z-30 max-h-80 overflow-y-auto rounded-2xl border border-sys-border bg-sys-card p-1.5 shadow-lg"
                   >
-                    <button
-                      type="button"
-                      aria-pressed={viewMode === "map"}
-                      onClick={() => setViewMode("map")}
-                      className={`min-h-[34px] px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                        viewMode === "map"
-                          ? "bg-sys-accent text-white shadow-xs"
-                          : "text-sys-text-secondary hover:text-sys-text-primary"
-                      }`}
-                    >
-                      Мапа графа
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={viewMode === "matrix"}
-                      onClick={() => setViewMode("matrix")}
-                      className={`min-h-[34px] px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                        viewMode === "matrix"
-                          ? "bg-sys-accent text-white shadow-xs"
-                          : "text-sys-text-secondary hover:text-sys-text-primary"
-                      }`}
-                    >
-                      Матриця
-                    </button>
+                    {searchResults.length === 0 ? (
+                      <p className="px-3 py-4 text-center text-xs text-sys-text-muted">
+                        Нічого не знайдено за запитом «{searchQuery}»
+                      </p>
+                    ) : (
+                      searchResults.map((candidate, index) => {
+                        const { node, matchHint } = candidate;
+                        const meta = KIND_META[node.kind];
+                        const isHighlighted = index === activeSearchIdx;
+                        const subtitleLine = [matchHint, node.subtitle].filter(Boolean).join(" · ");
+                        return (
+                          <button
+                            key={node.id}
+                            type="button"
+                            role="option"
+                            aria-selected={isHighlighted}
+                            onClick={() => handlePickSearchCandidate(candidate)}
+                            className={`w-full min-h-[40px] rounded-xl px-3 py-2 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                              isHighlighted ? "bg-sys-accent/12" : "hover:bg-sys-bg"
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-sys-text-primary truncate">
+                                {node.fullName || node.label}
+                              </p>
+                              {subtitleLine && (
+                                <p className="text-[11px] text-sys-text-secondary truncate">
+                                  {subtitleLine}
+                                </p>
+                              )}
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-semibold ${meta.pillClass}`}
+                            >
+                              {meta.singular}
+                            </span>
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
-                </div>
-              </div>
-
-              {/* Filter Chips Row */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {(
-                  [
-                    { id: "all" as const, label: "Усі шари" },
-                    { id: "group" as const, label: "Групи" },
-                    { id: "teacher" as const, label: "Викладачі" },
-                    { id: "subject" as const, label: "Предмети" },
-                    { id: "room" as const, label: "Аудиторії" },
-                  ]
-                ).map((chip) => {
-                  const active = kindFilter === chip.id;
-                  return (
-                    <button
-                      key={chip.id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => setKindFilter(chip.id)}
-                      className={`min-h-[32px] inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-                        active
-                          ? "border-sys-accent bg-sys-accent text-white"
-                          : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
-                      }`}
-                    >
-                      {chip.id !== "all" && (
-                        <span
-                          className={`h-2 w-2 rounded-full ${
-                            active ? "bg-white" : KIND_META[chip.id].dotClass
-                          }`}
-                          aria-hidden="true"
-                        />
-                      )}
-                      <span>{chip.label}</span>
-                    </button>
-                  );
-                })}
-
-                {availableCourses.length > 0 && (
-                  <>
-                    <div className="w-px h-5 bg-sys-border mx-1 hidden sm:block" aria-hidden="true" />
-                    <button
-                      type="button"
-                      aria-pressed={courseFilter === null}
-                      onClick={() => setCourseFilter(null)}
-                      className={`min-h-[32px] rounded-xl border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-                        courseFilter === null
-                          ? "border-sys-accent/45 bg-sys-accent/10 text-sys-accent"
-                          : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
-                      }`}
-                    >
-                      Усі курси
-                    </button>
-                    {availableCourses.map((course) => {
-                      const active = courseFilter === course;
-                      return (
-                        <button
-                          key={course}
-                          type="button"
-                          aria-pressed={active}
-                          onClick={() => setCourseFilter((prev) => (prev === course ? null : course))}
-                          className={`min-h-[32px] rounded-xl border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-                            active
-                              ? "border-sys-accent bg-sys-accent text-white"
-                              : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
-                          }`}
-                        >
-                          {course} курс
-                        </button>
-                      );
-                    })}
-                  </>
                 )}
               </div>
+
+              {/* Course Filter Pills */}
+              {availableCourses.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    aria-pressed={courseFilter === null}
+                    onClick={() => handleCourseFilterSelect(null)}
+                    className={`min-h-[34px] rounded-xl border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+                      courseFilter === null
+                        ? "border-sys-accent/45 bg-sys-accent/10 text-sys-accent"
+                        : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
+                    }`}
+                  >
+                    Усі курси
+                  </button>
+                  {availableCourses.map((course) => {
+                    const active = courseFilter === course;
+                    return (
+                      <button
+                        key={course}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => handleCourseFilterSelect(course)}
+                        className={`min-h-[34px] rounded-xl border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+                          active
+                            ? "border-sys-accent bg-sys-accent text-white"
+                            : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
+                        }`}
+                      >
+                        {course} курс
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             {/* Primary Workspace Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
               <div className="xl:col-span-8 min-w-0">
-                {viewMode === "map" ? (
-                  <AtlasCanvas
-                    graph={graph}
-                    layoutMode={layoutMode}
-                    selectedNodeId={selectedNodeId}
-                    compareNodeId={compareNodeId}
-                    intersection={intersection}
-                    kindFilter={kindFilter}
-                    courseFilter={courseFilter}
-                    resolvedTheme={resolvedTheme}
-                    shouldReduceMotion={shouldReduceMotion}
-                    onSelectNode={handleSelectNode}
-                    onLayoutModeChange={setLayoutMode}
-                  />
-                ) : (
-                  <AtlasMatrixView
-                    graph={graph}
-                    kindFilter={kindFilter}
-                    courseFilter={courseFilter}
-                    selectedNodeId={selectedNodeId}
-                    onSelectNode={(id) => handleSelectNode(id)}
-                  />
-                )}
+                <AtlasCanvas
+                  graph={graph}
+                  layoutMode={layoutMode}
+                  selectedNodeId={selectedNodeId}
+                  compareNodeId={compareNodeId}
+                  intersection={intersection}
+                  courseFilter={courseFilter}
+                  resolvedTheme={resolvedTheme}
+                  shouldReduceMotion={shouldReduceMotion}
+                  onSelectNode={handleSelectNode}
+                  onLayoutModeChange={setLayoutMode}
+                />
               </div>
 
               <div className="xl:col-span-4 min-w-0">
                 <AtlasInspectorPanel
                   graph={graph}
                   inspector={inspector}
-                  layoutMode={layoutMode}
                   compareNodeId={compareNodeId}
                   intersection={intersection}
                   onSelectNode={handleSelectNode}
                   onSetCompareNode={handleSetCompareNode}
                   onSwapCompare={handleSwapCompare}
-                  onLayoutModeChange={setLayoutMode}
                 />
               </div>
             </div>
