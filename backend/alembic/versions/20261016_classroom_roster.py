@@ -52,7 +52,7 @@ def upgrade():
         """)
         op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_classroom_group_bindings_group_id ON classroom_group_bindings (group_id)")
     else:
-        # PostgreSQL (Production on Fly.io)
+        # PostgreSQL (Production)
         op.execute("""
         DO $$
         BEGIN

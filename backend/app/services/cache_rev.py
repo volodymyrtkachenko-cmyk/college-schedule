@@ -9,7 +9,7 @@ Revisions are bumped only *after* a successful commit (see
 * ``any_rev``     – bumped on every change; used by teacher-scoped responses
   because a single group change can move a teacher.
 
-The process runs a single uvicorn worker. If several Fly machines serve
+The process runs a single uvicorn worker. If multiple worker instances serve
 traffic, each only sees its own writes, so ETags additionally embed a time
 bucket (``ETAG_BUCKET_SECONDS``) that bounds cross-machine staleness, matching
 the existing projection cache TTL semantics.

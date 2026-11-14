@@ -1,4 +1,5 @@
 from functools import lru_cache
+import os
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -49,12 +50,10 @@ class Settings(BaseSettings):
 
     @property
     def is_cookie_secure(self) -> bool:
-        import os
         return (
             self.auth_cookie_secure
             or self.environment.lower() == "production"
-            or bool(os.environ.get("FLY_APP_NAME"))
-            or bool(os.environ.get("FLY_ALLOC_ID"))
+            or bool(os.environ.get("DYNO"))
         )
 
     @property
