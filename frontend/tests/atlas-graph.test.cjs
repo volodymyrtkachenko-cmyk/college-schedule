@@ -366,3 +366,82 @@ test("buildAtlasGraph and computeEgoLayout order groups sequentially by course a
     .map((item) => item.label);
   assert.deepEqual([...egoGroupsByAngle], ["85", "86", "101", "102"]);
 });
+
+test("sortAtlasRelationRows and filterAtlasRelationRows sort and filter by lessons, alpha, room, day, and course", () => {
+  const engine = loadAtlasEngine();
+  const payload = makeSampleAtlasPayload();
+  payload.teachers.push({
+    id: 102,
+    name: "Авраменко В. П.",
+    full_name: "Василь Авраменко",
+    room: "310",
+    groups_count: 1,
+    subjects_count: 1,
+    lessons_count: 1,
+  });
+  payload.edges.push({
+    group_id: 10,
+    teacher_id: 102,
+    second_teacher_id: null,
+    subject_id: 200,
+    room: "310",
+    lessons_count: 1,
+    days: [2],
+  });
+
+  const graph = engine.buildAtlasGraph(payload);
+  const g10Inspector = engine.getNodeInspectorData(graph, engine.makeAtlasNodeId("group", 10));
+  assert.ok(g10Inspector);
+
+  const byAlpha = [...engine.sortAtlasRelationRows(g10Inspector.teachers, "alpha").map((r) => r.node.label)];
+  assert.deepEqual(byAlpha, ["Авраменко В. П.", "Бойко М. С.", "Коваль О. І."]);
+
+  const byRoom = [...engine.sortAtlasRelationRows(g10Inspector.teachers, "room").map((r) => r.rooms[0])];
+  assert.deepEqual(byRoom, ["104", "205", "310"]);
+
+  const byDay = [...engine.sortAtlasRelationRows(g10Inspector.teachers, "day").map((r) => r.node.label)];
+  assert.deepEqual(byDay, ["Коваль О. І.", "Авраменко В. П.", "Бойко М. С."]);
+
+  const filteredByRoom = engine.filterAtlasRelationRows(g10Inspector.teachers, "каб. 310");
+  assert.equal(filteredByRoom.length, 1);
+  assert.equal(filteredByRoom[0].node.label, "Авраменко В. П.");
+
+  const filteredByDay = engine.filterAtlasRelationRows(g10Inspector.teachers, "п'ятниця");
+  assert.ok(filteredByDay.some((r) => r.node.label === "Бойко М. С."));
+});
+
+test("getCompareCandidates prioritizes same-course sister groups in natural order instead of unrelated 1st-year groups", () => {
+  const engine = loadAtlasEngine();
+  const payload = {
+    summary: { groups_count: 4, teachers_count: 2, subjects_count: 1, rooms_count: 1, edges_count: 4 },
+    groups: [
+      { id: 1, name: "92", course: 1, faculty_id: 1, faculty_name: "КІ", curator_id: 100, lessons_count: 8 },
+      { id: 2, name: "93", course: 1, faculty_id: 1, faculty_name: "КІ", curator_id: 100, lessons_count: 8 },
+      { id: 3, name: "85", course: 3, faculty_id: 1, faculty_name: "КІ", curator_id: 100, lessons_count: 6 },
+      { id: 4, name: "86", course: 3, faculty_id: 1, faculty_name: "КІ", curator_id: 101, lessons_count: 6 },
+    ],
+    teachers: [
+      { id: 100, name: "Коваль О. І.", full_name: "Коваль Олександр Іванович", room: "205", groups_count: 4, subjects_count: 1, lessons_count: 16 },
+      { id: 101, name: "Бойко М. С.", full_name: "Бойко Марія Сергіївна", room: "104", groups_count: 2, subjects_count: 1, lessons_count: 6 },
+    ],
+    subjects: [
+      { id: 200, name: "Інформатика", short_name: "Інф", groups_count: 4, teachers_count: 2, lessons_count: 22 },
+    ],
+    rooms: [{ id: "205", name: "205", floor: 2, groups_count: 4, teachers_count: 2, lessons_count: 22 }],
+    edges: [
+      { group_id: 1, teacher_id: 100, second_teacher_id: null, subject_id: 200, room: "205", lessons_count: 8, days: [1] },
+      { group_id: 2, teacher_id: 100, second_teacher_id: null, subject_id: 200, room: "205", lessons_count: 8, days: [2] },
+      { group_id: 3, teacher_id: 100, second_teacher_id: 101, subject_id: 200, room: "205", lessons_count: 6, days: [3] },
+      { group_id: 4, teacher_id: 100, second_teacher_id: 101, subject_id: 200, room: "205", lessons_count: 6, days: [4] },
+    ],
+  };
+
+  const graph = engine.buildAtlasGraph(payload);
+  const g85Id = engine.makeAtlasNodeId("group", 3);
+  const candidates = engine.getCompareCandidates(graph, g85Id, { scope: "recommended" });
+  assert.ok(candidates.length >= 3);
+  // Sister group 86 (3rd course) must be the very first candidate for group 85 (3rd course)
+  assert.equal(candidates[0].node.label, "86");
+  assert.equal(candidates[0].sharedCount, 2);
+  assert.ok(candidates[0].reasonHint && candidates[0].reasonHint.includes("3к"));
+});

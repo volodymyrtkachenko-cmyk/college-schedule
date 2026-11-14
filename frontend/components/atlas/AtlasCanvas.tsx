@@ -21,6 +21,7 @@ interface AtlasCanvasProps {
   courseFilter: number | null;
   resolvedTheme: "light" | "dark";
   shouldReduceMotion: boolean;
+  mobileHeightMode?: "compact" | "expanded";
   onSelectNode: (nodeId: string | null) => void;
   onLayoutModeChange: (nextMode: "constellation" | "ego") => void;
 }
@@ -148,9 +149,33 @@ function boxesOverlap(a: LabelBox, b: LabelBox, margin = 4): boolean {
   );
 }
 
-function wrapSubtitleText(text: string, maxChars = 32): string[] {
+function compactCanvasSubtitleLine(text: string, maxChars = 32): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+
+  const roomIdx = trimmed.lastIndexOf(" · каб. ");
+  if (roomIdx > 4) {
+    const prefix = trimmed.slice(0, roomIdx).trim();
+    const suffix = trimmed.slice(roomIdx); // " · каб. XXX"
+    const budget = maxChars - suffix.length - 1;
+    if (budget >= 8 && prefix.length > budget) {
+      return `${prefix.slice(0, budget).trimEnd()}…${suffix}`;
+    }
+  }
+
+  return `${trimmed.slice(0, Math.max(8, maxChars - 1)).trimEnd()}…`;
+}
+
+function wrapSubtitleText(
+  text: string,
+  maxChars = 32,
+  singleLine = false,
+): string[] {
   const trimmed = text.trim();
   if (!trimmed) return [];
+  if (singleLine) {
+    return [compactCanvasSubtitleLine(trimmed, maxChars)];
+  }
   if (trimmed.length <= maxChars) return [trimmed];
 
   // Keep "каб. 123" together on one line
@@ -172,7 +197,7 @@ function wrapSubtitleText(text: string, maxChars = 32): string[] {
   if (current) lines.push(current);
 
   if (lines.length > 2) {
-    const balancedMax = Math.ceil(trimmed.length / 2) + 4;
+    const balancedMax = Math.min(maxChars + 4, Math.ceil(trimmed.length / 2) + 3);
     const twoLines: string[] = [];
     let buf = "";
     for (const word of words) {
@@ -188,7 +213,12 @@ function wrapSubtitleText(text: string, maxChars = 32): string[] {
       }
     }
     if (buf) twoLines.push(buf);
-    return twoLines.map((l) => l.replace(/\u00A0/g, " ").trim());
+    return twoLines.map((l, idx) => {
+      const clean = l.replace(/\u00A0/g, " ").trim();
+      return idx === 1 && clean.length > maxChars + 4
+        ? compactCanvasSubtitleLine(clean, maxChars + 3)
+        : clean;
+    });
   }
 
   return lines.map((l) => l.replace(/\u00A0/g, " ").trim());
@@ -233,6 +263,7 @@ export function AtlasCanvas({
   courseFilter,
   resolvedTheme,
   shouldReduceMotion,
+  mobileHeightMode = "compact",
   onSelectNode,
   onLayoutModeChange,
 }: AtlasCanvasProps) {
@@ -520,7 +551,8 @@ export function AtlasCanvas({
         ctx.arc(originScreenX, originScreenY, rScreen, 0, Math.PI * 2);
         ctx.stroke();
 
-        if (rScreen > 80) {
+        // Only draw ring category headers in multi-ring constellation mode so 12-o'clock orbit nodes stay unobstructed
+        if (rScreen > 80 && curLayoutMode === "constellation" && !curIntersection) {
           ctx.setLineDash([]);
           ctx.fillStyle = rgba(palette.textMuted, 0.7);
           ctx.fillText(ring.label.toUpperCase(), originScreenX, originScreenY - rScreen - 10);
@@ -686,6 +718,7 @@ export function AtlasCanvas({
       alpha: number;
       priority: number;
     }> = [];
+    const nodeCircleBoxes: Array<{ id: string; box: LabelBox }> = [];
 
     for (const node of curGraph.nodes) {
       if (!visibleIds.has(node.id)) continue;
@@ -769,6 +802,15 @@ export function AtlasCanvas({
 
       if (alpha >= 0.34 || isSelected || isCompare || isHovered || isCourseGroup) {
         labelCandidates.push({ node, sx: screen.x, sy: screen.y, sr, pos, alpha, priority });
+        nodeCircleBoxes.push({
+          id: node.id,
+          box: {
+            x1: screen.x - sr - 3,
+            y1: screen.y - sr - 3,
+            x2: screen.x + sr + 3,
+            y2: screen.y + sr + 3,
+          },
+        });
       }
     }
 
@@ -823,7 +865,7 @@ export function AtlasCanvas({
       if (onlyAVisible.length > 0) {
         const minY = Math.min(...onlyAVisible.map((p) => p.y));
         const top = toScreen(onlyAVisible[0].x, minY);
-        drawZoneHeader(`ТІЛЬКИ У ${nodeALabel}`, top.x, top.y - 36, palette.accent);
+        drawZoneHeader(`ТІЛЬКИ У ${nodeALabel}`, top.x, top.y - 44, palette.accent);
       }
 
       const sharedVisible = sharedAll
@@ -832,7 +874,7 @@ export function AtlasCanvas({
       if (sharedVisible.length > 0) {
         const minY = Math.min(...sharedVisible.map((p) => p.y));
         const top = toScreen(0, minY);
-        drawZoneHeader(`СПІЛЬНІ (${sharedAll.length})`, top.x, top.y - 42, palette.sharedGold);
+        drawZoneHeader(`СПІЛЬНІ (${sharedAll.length})`, top.x, top.y - 46, palette.sharedGold);
       }
 
       const onlyBVisible = curIntersection.onlyBRows
@@ -842,7 +884,7 @@ export function AtlasCanvas({
       if (onlyBVisible.length > 0) {
         const minY = Math.min(...onlyBVisible.map((p) => p.y));
         const top = toScreen(onlyBVisible[0].x, minY);
-        drawZoneHeader(`ТІЛЬКИ У ${nodeBLabel}`, top.x, top.y - 36, palette.compareB);
+        drawZoneHeader(`ТІЛЬКИ У ${nodeBLabel}`, top.x, top.y - 44, palette.compareB);
       }
     }
 
@@ -882,8 +924,11 @@ export function AtlasCanvas({
         (isOrbitNeighbor || Boolean(curIntersection)) && item.pos.subtitle
           ? item.pos.subtitle
           : null;
-      const maxSubChars = width < 460 ? 26 : 34;
-      const subLines = subtitleText ? wrapSubtitleText(subtitleText, maxSubChars) : [];
+      const singleLineSub = Boolean(curIntersection) || width < 520;
+      const maxSubChars = width < 480 ? 24 : curIntersection ? 32 : 34;
+      const subLines = subtitleText
+        ? wrapSubtitleText(subtitleText, maxSubChars, singleLineSub)
+        : [];
 
       const fontSize = isCenterInEgo ? 13 : isForceShown ? 11.5 : item.node.kind === "group" ? 11.5 : 10.5;
       const fontWeight = isForceShown || item.node.kind === "group" ? "700" : "600";
@@ -933,7 +978,8 @@ export function AtlasCanvas({
       if (radialDist > 40 && !curIntersection) {
         const cos = item.pos.x / radialDist;
         const sin = item.pos.y / radialDist;
-        if (width >= 520 && Math.abs(cos) > 0.36) {
+        const sideThreshold = width >= 440 ? 0.15 : 0.42;
+        if (Math.abs(cos) > sideThreshold) {
           const offset = item.sr + 7;
           if (cos >= 0) {
             align = "left";
@@ -942,22 +988,22 @@ export function AtlasCanvas({
             align = "right";
             cx = item.sx - offset - pillW * 0.5;
           }
-          cy = item.sy + sin * 4;
+          cy = item.sy + sin * 5;
         } else {
           align = "center";
           cx = item.sx;
           cy = sin >= 0
-            ? item.sy + item.sr + pillH * 0.5 + 4
-            : item.sy - item.sr - pillH * 0.5 - 4;
+            ? item.sy + item.sr + pillH * 0.5 + 5
+            : item.sy - item.sr - pillH * 0.5 - 5;
         }
       } else if (curIntersection) {
         if (item.node.id === curIntersection.nodeAId || item.node.id === curIntersection.nodeBId) {
           cy = item.sy - item.sr - pillH * 0.5 - 8;
         } else if (isSharedNode) {
           cx = item.sx;
-          cy = item.sy + item.sr + pillH * 0.5 + 6;
+          cy = item.sy + item.sr + pillH * 0.5 + 5;
         } else if (isOnlyANode) {
-          if (width >= 520) {
+          if (width >= 480) {
             cx = item.sx - item.sr - 8 - pillW * 0.5;
             cy = item.sy;
           } else {
@@ -965,7 +1011,7 @@ export function AtlasCanvas({
             cy = item.sy + item.sr + pillH * 0.5 + 5;
           }
         } else if (isOnlyBNode) {
-          if (width >= 520) {
+          if (width >= 480) {
             cx = item.sx + item.sr + 8 + pillW * 0.5;
             cy = item.sy;
           } else {
@@ -1014,23 +1060,44 @@ export function AtlasCanvas({
         for (let i = 0; i < placedBoxes.length; i++) {
           if (boxesOverlap(candidate, placedBoxes[i], 3)) return true;
         }
+        for (let i = 0; i < nodeCircleBoxes.length; i++) {
+          if (nodeCircleBoxes[i].id === item.node.id) continue;
+          if (boxesOverlap(candidate, nodeCircleBoxes[i].box, 2)) return true;
+        }
         return false;
       };
 
       if (!isForceShown) {
         if (hasCollision(box)) continue;
       } else if ((isOrbitNeighbor || Boolean(curIntersection) || isCourseTargetGroup) && hasCollision(box)) {
-        // Nudge overlapping orbit/compare/course labels slightly without clamping to viewport edges
-        const offsets = [-14, 14, -28, 28, -42, 42];
-        for (const dy of offsets) {
+        // Test candidate placements (vertical nudges, above/below node, opposite side) so force-shown labels never stack
+        const candidateCenters: Array<{ cx: number; cy: number }> = [];
+        for (const dy of [-14, 14, -28, 28, -42, 42, -58, 58]) {
+          candidateCenters.push({ cx, cy: cy + dy });
+        }
+        const sideOffset = item.sr + 7 + pillW * 0.5;
+        const vertOffset = item.sr + 5 + pillH * 0.5;
+        candidateCenters.push(
+          { cx: item.sx, cy: item.sy - vertOffset },
+          { cx: item.sx, cy: item.sy + vertOffset },
+          { cx: item.sx + sideOffset, cy: item.sy },
+          { cx: item.sx - sideOffset, cy: item.sy },
+          { cx: item.sx + sideOffset, cy: item.sy - 18 },
+          { cx: item.sx - sideOffset, cy: item.sy - 18 },
+          { cx: item.sx + sideOffset, cy: item.sy + 18 },
+          { cx: item.sx - sideOffset, cy: item.sy + 18 },
+        );
+
+        for (const cand of candidateCenters) {
           const nudged: LabelBox = {
-            x1: box.x1,
-            y1: box.y1 + dy,
-            x2: box.x2,
-            y2: box.y2 + dy,
+            x1: cand.cx - pillW * 0.5,
+            y1: cand.cy - pillH * 0.5,
+            x2: cand.cx + pillW * 0.5,
+            y2: cand.cy + pillH * 0.5,
           };
           if (!hasCollision(nudged)) {
-            cy += dy;
+            cx = cand.cx;
+            cy = cand.cy;
             box = nudged;
             break;
           }
@@ -1161,13 +1228,17 @@ export function AtlasCanvas({
       const width = Math.max(200, Math.round(rect.width));
       const height = Math.max(260, Math.round(rect.height));
       const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const prevSize = sizeRef.current;
+      const sizeChangedSignificantly =
+        initializedFitRef.current &&
+        (Math.abs(prevSize.width - width) > 24 || Math.abs(prevSize.height - height) > 24);
       sizeRef.current = { width, height, dpr };
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
 
-      if (!initializedFitRef.current && activeLayout.visibleNodeIds.size > 0) {
+      if ((!initializedFitRef.current || sizeChangedSignificantly) && activeLayout.visibleNodeIds.size > 0) {
         initializedFitRef.current = true;
         const fit = computeFitTransform(activeLayout.bounds);
         cameraRef.current = fit;
@@ -1504,7 +1575,11 @@ export function AtlasCanvas({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-[400px] sm:h-[540px] lg:h-[680px] rounded-2xl border border-sys-border bg-sys-card overflow-hidden select-none shadow-xs"
+      className={`relative w-full rounded-2xl border border-sys-border bg-sys-card overflow-hidden select-none shadow-xs ${
+        mobileHeightMode === "expanded"
+          ? "h-[420px] sm:h-[520px] lg:h-[660px]"
+          : "h-[290px] sm:h-[360px] lg:h-[660px]"
+      }`}
     >
       <canvas
         ref={canvasRef}

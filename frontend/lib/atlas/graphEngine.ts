@@ -126,6 +126,17 @@ export interface AtlasRelationRow {
   badge?: string | null;
 }
 
+export type AtlasRelationSortKey = "lessons" | "alpha" | "room" | "day" | "course";
+
+export type AtlasCompareScope = "recommended" | "groups" | "teachers";
+
+export interface AtlasCompareCandidate {
+  node: AtlasGraphNode;
+  sharedCount: number;
+  reasonHint: string | null;
+  score: number;
+}
+
 export interface AtlasNodeInspectorData {
   node: AtlasGraphNode;
   curatorTeacher: AtlasGraphNode | null;
@@ -973,7 +984,7 @@ export function computeCompareLayout(
   const sharedRowMap = new Map(intersection.sharedRows.map((r) => [r.node.id, r]));
 
   const cols = sharedNodes.length > 6 ? 2 : 1;
-  const anchorX = cols === 2 ? 360 : Math.max(250, Math.min(310, 220 + sharedNodes.length * 10));
+  const anchorX = cols === 2 ? 390 : Math.max(320, Math.min(370, 270 + sharedNodes.length * 14));
 
   visibleNodeIds.add(nodeA.id);
   visibleNodeIds.add(nodeB.id);
@@ -993,14 +1004,14 @@ export function computeCompareLayout(
   });
 
   // Place shared bridge nodes down x = 0 (split into two spaced columns when > 6)
-  const spacingY = 104;
+  const spacingY = 128;
   const rowsPerCol = Math.ceil(sharedNodes.length / cols);
   sharedNodes.forEach((n, idx) => {
     const col = cols === 1 ? 0 : idx % 2 === 0 ? -1 : 1;
     const row = cols === 1 ? idx : Math.floor(idx / 2);
     const totalH = (rowsPerCol - 1) * spacingY;
     const y = -totalH / 2 + row * spacingY;
-    const x = col * 126;
+    const x = col * 136;
 
     const r = sharedRowMap.get(n.id);
     visibleNodeIds.add(n.id);
@@ -1014,8 +1025,8 @@ export function computeCompareLayout(
   });
 
   // Place up to 8 unique difference nodes on outer left (A) and outer right (B) wings
-  const diffOffsetX = 240;
-  const diffSpacingY = 84;
+  const diffOffsetX = 256;
+  const diffSpacingY = 114;
   const onlyANodes = intersection.onlyARows.slice(0, 8);
   const onlyBNodes = intersection.onlyBRows.slice(0, 8);
 
@@ -1049,11 +1060,12 @@ export function computeCompareLayout(
     });
   }
 
-  const bounds = computeBoundsFromPositions(positions.values(), 145);
-  if (onlyANodes.length > 0) bounds.minX -= 130;
-  if (onlyBNodes.length > 0) bounds.maxX += 130;
+  const bounds = computeBoundsFromPositions(positions.values(), 150);
+  if (onlyANodes.length > 0) bounds.minX -= 165;
+  if (onlyBNodes.length > 0) bounds.maxX += 165;
   if (sharedNodes.length > 0 || onlyANodes.length > 0 || onlyBNodes.length > 0) {
-    bounds.minY -= 44;
+    bounds.minY -= 60;
+    bounds.maxY += 36;
   }
 
   return {
@@ -1314,4 +1326,237 @@ export function getNodeInspectorData(
     subjects: finalize(subjectAgg),
     rooms: finalize(roomAgg),
   };
+}
+
+const DAY_NAMES_SEARCH: Record<number, string> = {
+  1: "пн понеділок",
+  2: "вт вівторок",
+  3: "ср середа",
+  4: "чт четвер",
+  5: "пт п'ятниця пятниця",
+  6: "сб субота",
+  7: "нд неділя",
+};
+
+/**
+ * Deterministically sorts inspector/compare relation rows by the user's chosen criterion.
+ */
+export function sortAtlasRelationRows(
+  rows: readonly AtlasRelationRow[],
+  sortBy: AtlasRelationSortKey,
+): AtlasRelationRow[] {
+  const copy = [...rows];
+  copy.sort((a, b) => {
+    if (sortBy === "alpha") {
+      const cmp = compareAtlasLabels(a.node.label, b.node.label);
+      if (cmp !== 0) return cmp;
+      return b.lessonsCount - a.lessonsCount;
+    }
+
+    if (sortBy === "course") {
+      const ca = a.node.course ?? 99;
+      const cb = b.node.course ?? 99;
+      if (ca !== cb) return ca - cb;
+      const cmp = compareAtlasLabels(a.node.label, b.node.label);
+      if (cmp !== 0) return cmp;
+      return b.lessonsCount - a.lessonsCount;
+    }
+
+    if (sortBy === "room") {
+      const roomA = a.node.kind === "room" ? a.node.label : (a.rooms[0] ?? "");
+      const roomB = b.node.kind === "room" ? b.node.label : (b.rooms[0] ?? "");
+      const hasA = Boolean(roomA);
+      const hasB = Boolean(roomB);
+      if (hasA !== hasB) return hasA ? -1 : 1;
+      if (roomA && roomB) {
+        const cmp = compareAtlasLabels(roomA, roomB);
+        if (cmp !== 0) return cmp;
+      }
+      if (b.lessonsCount !== a.lessonsCount) return b.lessonsCount - a.lessonsCount;
+      return compareAtlasLabels(a.node.label, b.node.label);
+    }
+
+    if (sortBy === "day") {
+      const dayA = a.days.length > 0 ? a.days[0] : 99;
+      const dayB = b.days.length > 0 ? b.days[0] : 99;
+      if (dayA !== dayB) return dayA - dayB;
+      if (b.lessonsCount !== a.lessonsCount) return b.lessonsCount - a.lessonsCount;
+      return compareAtlasLabels(a.node.label, b.node.label);
+    }
+
+    // Default: "lessons" (workload desc, badges first)
+    if (Boolean(b.badge) !== Boolean(a.badge)) return b.badge ? 1 : -1;
+    if (b.lessonsCount !== a.lessonsCount) return b.lessonsCount - a.lessonsCount;
+    if (a.node.kind === "group" && b.node.kind === "group") {
+      const ca = a.node.course ?? 99;
+      const cb = b.node.course ?? 99;
+      if (ca !== cb) return ca - cb;
+    }
+    return compareAtlasLabels(a.node.label, b.node.label);
+  });
+  return copy;
+}
+
+/**
+ * Filters inspector/compare relation rows by name, full name, subject, room, badge, or day of week.
+ */
+export function filterAtlasRelationRows(
+  rows: readonly AtlasRelationRow[],
+  query: string,
+): AtlasRelationRow[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return [...rows];
+
+  return rows.filter((row) => {
+    if (row.node.label.toLowerCase().includes(needle)) return true;
+    if (row.node.fullName && row.node.fullName.toLowerCase().includes(needle)) return true;
+    if (row.node.subtitle && row.node.subtitle.toLowerCase().includes(needle)) return true;
+    if (row.badge && row.badge.toLowerCase().includes(needle)) return true;
+    if (row.subjects.some((s) => s.toLowerCase().includes(needle))) return true;
+    if (row.rooms.some((r) => r.toLowerCase().includes(needle) || `каб. ${r}`.toLowerCase().includes(needle))) {
+      return true;
+    }
+    if (row.tags.some((t) => t.toLowerCase().includes(needle))) return true;
+    if (row.days.some((d) => (DAY_NAMES_SEARCH[d] ?? "").includes(needle))) return true;
+    return false;
+  });
+}
+
+/**
+ * Computes context-aware, logically ordered candidates for the "Compare Intersection" picker.
+ * - For a Group: prioritizes groups of the same course & faculty in natural code order (so sister groups like 85 <-> 86 are first),
+ *   and computes shared neighbor counts.
+ * - For a Teacher: prioritizes colleague teachers who share groups with this teacher, sorted by shared group count.
+ */
+export function getCompareCandidates(
+  graph: AtlasGraph,
+  baseNodeId: string,
+  options?: {
+    query?: string;
+    scope?: AtlasCompareScope;
+    limit?: number;
+  },
+): AtlasCompareCandidate[] {
+  const baseNode = graph.nodeMap.get(baseNodeId);
+  if (!baseNode) return [];
+
+  const needle = (options?.query ?? "").trim().toLowerCase();
+  const scope: AtlasCompareScope = options?.scope ?? "recommended";
+  const limit = options?.limit ?? 24;
+  const baseAdj = graph.adjacency.get(baseNode.id) ?? new Set<string>();
+
+  const candidates: AtlasCompareCandidate[] = [];
+
+  for (const node of graph.nodes) {
+    if (node.id === baseNode.id || !node.isConnected) continue;
+    if (scope === "groups" && node.kind !== "group") continue;
+    if (scope === "teachers" && node.kind !== "teacher") continue;
+
+    // Count shared direct neighbors (teachers for two groups, groups for two teachers)
+    const nodeAdj = graph.adjacency.get(node.id) ?? new Set<string>();
+    let sharedCount = 0;
+    for (const nbId of Array.from(baseAdj)) {
+      if (nbId !== node.id && nodeAdj.has(nbId)) {
+        sharedCount++;
+      }
+    }
+    const isDirectNeighbor = baseAdj.has(node.id);
+
+    // Search match check if query is non-empty
+    let textMatchScore = 0;
+    if (needle) {
+      const labelLow = node.label.toLowerCase();
+      const fullLow = (node.fullName ?? "").toLowerCase();
+      const subLow = (node.subtitle ?? "").toLowerCase();
+      if (labelLow === needle) textMatchScore = 200;
+      else if (labelLow.startsWith(needle)) textMatchScore = 140;
+      else if (fullLow.startsWith(needle)) textMatchScore = 120;
+      else if (labelLow.includes(needle)) textMatchScore = 90;
+      else if (fullLow.includes(needle) || subLow.includes(needle)) textMatchScore = 60;
+      if (textMatchScore === 0) continue;
+    }
+
+    let score = textMatchScore;
+    let reasonHint: string | null = null;
+
+    if (baseNode.kind === "group") {
+      if (node.kind === "group") {
+        const sameCourse = baseNode.course !== null && node.course === baseNode.course;
+        const sameFaculty = Boolean(baseNode.facultyName && node.facultyName === baseNode.facultyName);
+        if (sameCourse) {
+          score += 500;
+          if (sameFaculty) score += 120;
+        } else {
+          score += 150;
+        }
+        score += sharedCount * 18;
+        const parts: string[] = [];
+        if (node.course) parts.push(`${node.course}к`);
+        if (sharedCount > 0) parts.push(`спільних: ${sharedCount}`);
+        reasonHint = parts.length > 0 ? parts.join(" · ") : null;
+      } else {
+        // Teacher candidate when base is group
+        if (isDirectNeighbor) {
+          score += 80;
+          reasonHint = "Викладач групи";
+        } else {
+          score += 10;
+        }
+      }
+    } else {
+      // baseNode is teacher
+      if (node.kind === "teacher") {
+        if (sharedCount > 0) {
+          score += 400 + sharedCount * 25;
+          reasonHint = `спільних груп: ${sharedCount}`;
+        } else {
+          score += 120;
+        }
+      } else if (node.kind === "group") {
+        if (isDirectNeighbor) {
+          score += 220;
+          reasonHint = node.course ? `${node.course}к · ваша група` : "ваша група";
+        } else {
+          score += 40;
+          reasonHint = node.course ? `${node.course}к` : null;
+        }
+      }
+    }
+
+    // In "recommended" mode without query, keep only same-kind or connected high-signal items first
+    if (!needle && scope === "recommended" && node.kind !== baseNode.kind && !isDirectNeighbor) {
+      continue;
+    }
+
+    candidates.push({
+      node,
+      sharedCount,
+      reasonHint,
+      score,
+    });
+  }
+
+  candidates.sort((a, b) => {
+    if (needle && b.score !== a.score) return b.score - a.score;
+
+    if (scope === "groups" || (scope === "recommended" && baseNode.kind === "group")) {
+      // Group-first ordering: same course first, then natural group code order within each course
+      if (a.node.kind !== b.node.kind) return a.node.kind === "group" ? -1 : 1;
+      if (a.node.kind === "group" && b.node.kind === "group") {
+        const aSameCourse = baseNode.kind === "group" && baseNode.course !== null && a.node.course === baseNode.course ? 0 : 1;
+        const bSameCourse = baseNode.kind === "group" && baseNode.course !== null && b.node.course === baseNode.course ? 0 : 1;
+        if (aSameCourse !== bSameCourse) return aSameCourse - bSameCourse;
+        const ca = a.node.course ?? 99;
+        const cb = b.node.course ?? 99;
+        if (ca !== cb) return ca - cb;
+        return compareAtlasLabels(a.node.label, b.node.label);
+      }
+    }
+
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.sharedCount !== a.sharedCount) return b.sharedCount - a.sharedCount;
+    return compareAtlasLabels(a.node.label, b.node.label);
+  });
+
+  return candidates.slice(0, limit);
 }
