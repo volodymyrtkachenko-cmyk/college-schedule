@@ -148,6 +148,52 @@ function boxesOverlap(a: LabelBox, b: LabelBox, margin = 4): boolean {
   );
 }
 
+function wrapSubtitleText(text: string, maxChars = 32): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  if (trimmed.length <= maxChars) return [trimmed];
+
+  // Keep "каб. 123" together on one line
+  const protectedText = trimmed.replace(/\bкаб\.\s+/g, "каб.\u00A0");
+  const words = protectedText.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    if (!current) {
+      current = word;
+    } else if (current.length + 1 + word.length <= maxChars) {
+      current = `${current} ${word}`;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+
+  if (lines.length > 2) {
+    const balancedMax = Math.ceil(trimmed.length / 2) + 4;
+    const twoLines: string[] = [];
+    let buf = "";
+    for (const word of words) {
+      if (!buf) {
+        buf = word;
+      } else if (buf.length + 1 + word.length <= balancedMax && twoLines.length === 0) {
+        buf = `${buf} ${word}`;
+      } else if (twoLines.length === 0) {
+        twoLines.push(buf);
+        buf = word;
+      } else {
+        buf = `${buf} ${word}`;
+      }
+    }
+    if (buf) twoLines.push(buf);
+    return twoLines.map((l) => l.replace(/\u00A0/g, " ").trim());
+  }
+
+  return lines.map((l) => l.replace(/\u00A0/g, " ").trim());
+}
+
 function drawRoundedRectPath(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -597,10 +643,10 @@ export function AtlasCanvas({
       const sr = Math.max(3.5, pos.radius * cam.zoom);
 
       if (
-        screen.x < -sr - 120 ||
-        screen.x > width + sr + 120 ||
-        screen.y < -sr - 60 ||
-        screen.y > height + sr + 60
+        screen.x < -sr - 260 ||
+        screen.x > width + sr + 260 ||
+        screen.y < -sr - 120 ||
+        screen.y > height + sr + 120
       ) {
         continue;
       }
@@ -684,7 +730,11 @@ export function AtlasCanvas({
           ? item.node.label
           : item.node.shortLabel;
       const subtitleText =
-        isOrbitNeighbor && item.pos.subtitle ? item.pos.subtitle : null;
+        (isOrbitNeighbor || Boolean(curIntersection)) && item.pos.subtitle
+          ? item.pos.subtitle
+          : null;
+      const maxSubChars = width < 460 ? 26 : 34;
+      const subLines = subtitleText ? wrapSubtitleText(subtitleText, maxSubChars) : [];
 
       const fontSize = isCenterInEgo ? 13 : isForceShown ? 11.5 : item.node.kind === "group" ? 11.5 : 10.5;
       const fontWeight = isForceShown || item.node.kind === "group" ? "700" : "600";
@@ -700,24 +750,32 @@ export function AtlasCanvas({
 
       let subW = 0;
       const subFont = "500 10px var(--font-manrope), system-ui, sans-serif";
-      if (subtitleText) {
-        const subCacheKey = `500:10:${subtitleText}`;
-        const cachedSubW = labelWidthCacheRef.current.get(subCacheKey);
-        if (cachedSubW !== undefined) {
-          subW = cachedSubW;
-        } else {
-          ctx.font = subFont;
-          subW = ctx.measureText(subtitleText).width;
-          labelWidthCacheRef.current.set(subCacheKey, subW);
-          ctx.font = font;
+      if (subLines.length > 0) {
+        ctx.font = subFont;
+        for (const subLine of subLines) {
+          const subCacheKey = `500:10:${subLine}`;
+          let lineW = labelWidthCacheRef.current.get(subCacheKey);
+          if (lineW === undefined) {
+            lineW = ctx.measureText(subLine).width;
+            labelWidthCacheRef.current.set(subCacheKey, lineW);
+          }
+          if (lineW > subW) subW = lineW;
         }
+        ctx.font = font;
       }
 
       const padX = isForceShown ? 9 : 5;
       const pillW = Math.max(textW, subW) + padX * 2;
-      const pillH = subtitleText ? 34 : isForceShown ? 22 : 18;
+      const pillH =
+        subLines.length === 0
+          ? isForceShown
+            ? 22
+            : 18
+          : subLines.length === 1
+            ? 34
+            : 20 + subLines.length * 14;
 
-      // Place radially outward in polar coordinates, or directly below in compare/center nodes
+      // Place radially outward in polar coordinates, or directly below/above in compare/center nodes
       const radialDist = Math.hypot(item.pos.x, item.pos.y);
       let cx = item.sx;
       let cy = item.sy + item.sr + pillH * 0.5 + 5;
@@ -747,20 +805,9 @@ export function AtlasCanvas({
         if (item.node.id === curIntersection.nodeAId || item.node.id === curIntersection.nodeBId) {
           cy = item.sy - item.sr - pillH * 0.5 - 8;
         } else if (curIntersection.sharedNodeIds.has(item.node.id)) {
-          align = "left";
-          cx = item.sx + item.sr + 8 + pillW * 0.5;
-          cy = item.sy;
+          cx = item.sx;
+          cy = item.sy + item.sr + pillH * 0.5 + 6;
         }
-      }
-
-      const safeMinX = 6 + pillW * 0.5;
-      const safeMaxX = width - 6 - pillW * 0.5;
-      const safeMinY = 48 + pillH * 0.5;
-      const safeMaxY = height - 46 - pillH * 0.5;
-
-      if (isForceShown) {
-        cx = safeMinX <= safeMaxX ? Math.max(safeMinX, Math.min(safeMaxX, cx)) : width * 0.5;
-        cy = safeMinY <= safeMaxY ? Math.max(safeMinY, Math.min(safeMaxY, cy)) : height * 0.5;
       }
 
       let box: LabelBox = {
@@ -807,22 +854,18 @@ export function AtlasCanvas({
 
       if (!isForceShown) {
         if (hasCollision(box)) continue;
-      } else if (isOrbitNeighbor && hasCollision(box)) {
-        // Nudge overlapping orbit labels slightly inside safe viewport so neighbor subtitles remain clean
-        const offsets = [-14, 14, -26, 26];
+      } else if ((isOrbitNeighbor || Boolean(curIntersection)) && hasCollision(box)) {
+        // Nudge overlapping orbit/compare labels slightly without clamping to viewport edges
+        const offsets = [-14, 14, -28, 28, -42, 42];
         for (const dy of offsets) {
-          const candCy = safeMinY <= safeMaxY
-            ? Math.max(safeMinY, Math.min(safeMaxY, cy + dy))
-            : cy + dy;
-          const actualDy = candCy - cy;
           const nudged: LabelBox = {
             x1: box.x1,
-            y1: box.y1 + actualDy,
+            y1: box.y1 + dy,
             x2: box.x2,
-            y2: box.y2 + actualDy,
+            y2: box.y2 + dy,
           };
           if (!hasCollision(nudged)) {
-            cy = candCy;
+            cy += dy;
             box = nudged;
             break;
           }
@@ -837,13 +880,13 @@ export function AtlasCanvas({
           ? palette.compareB
           : palette.kinds[item.node.kind];
 
-      drawRoundedRectPath(ctx, box.x1, box.y1, pillW, pillH, subtitleText ? 9 : 7);
+      drawRoundedRectPath(ctx, box.x1, box.y1, pillW, pillH, subLines.length > 0 ? 9 : 7);
       if (isAccentPill) {
         ctx.fillStyle = rgba(pillColor, 0.96);
         ctx.fill();
         ctx.fillStyle = "#ffffff";
       } else {
-        ctx.fillStyle = rgba(palette.card, palette.isDark ? 0.9 : 0.94);
+        ctx.fillStyle = rgba(palette.card, palette.isDark ? 0.92 : 0.96);
         ctx.fill();
         ctx.strokeStyle = rgba(
           isForceShown ? pillColor : palette.border,
@@ -855,14 +898,28 @@ export function AtlasCanvas({
       }
 
       ctx.textAlign = "center";
-      if (subtitleText) {
+      if (subLines.length === 1) {
         ctx.font = font;
         ctx.fillText(text, cx, cy - 6.5);
         ctx.font = subFont;
-        ctx.fillStyle = subtitleText.startsWith("Куратор")
-          ? rgba(palette.sharedGold, palette.isDark ? 0.95 : 0.92)
-          : rgba(palette.textSecondary, Math.min(1, item.alpha));
-        ctx.fillText(subtitleText, cx, cy + 7.5);
+        ctx.fillStyle = isAccentPill
+          ? "rgba(255, 255, 255, 0.92)"
+          : subtitleText?.startsWith("Куратор")
+            ? rgba(palette.sharedGold, palette.isDark ? 0.95 : 0.92)
+            : rgba(palette.textSecondary, Math.min(1, item.alpha));
+        ctx.fillText(subLines[0], cx, cy + 7.5);
+      } else if (subLines.length >= 2) {
+        ctx.font = font;
+        ctx.fillText(text, cx, box.y1 + 12);
+        ctx.font = subFont;
+        ctx.fillStyle = isAccentPill
+          ? "rgba(255, 255, 255, 0.92)"
+          : subtitleText?.startsWith("Куратор")
+            ? rgba(palette.sharedGold, palette.isDark ? 0.95 : 0.92)
+            : rgba(palette.textSecondary, Math.min(1, item.alpha));
+        subLines.forEach((line, idx) => {
+          ctx.fillText(line, cx, box.y1 + 26 + idx * 13.5);
+        });
       } else {
         ctx.font = font;
         ctx.fillText(text, cx, cy + 0.5);

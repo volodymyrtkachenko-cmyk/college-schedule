@@ -160,9 +160,10 @@ test("computeEgoLayout centers selected node at origin with neighbor orbits and 
   }
 
   const t100Sub = ego.positions.get(t100Id).subtitle;
-  assert.ok(t100Sub && t100Sub.includes("Куратор") && t100Sub.includes("205"));
+  assert.ok(t100Sub && t100Sub.includes("Куратор") && t100Sub.includes("Алгоритми та структури даних") && t100Sub.includes("205"));
   const t101Sub = ego.positions.get(t101Id).subtitle;
-  assert.ok(t101Sub && t101Sub.includes("каб. 104"));
+  assert.ok(t101Sub && t101Sub.includes("Англійська мова за професійним спрямуванням") && t101Sub.includes("каб. 104"));
+  assert.ok(!t101Sub.includes("…"));
 });
 
 test("computeEgoLayout uses radial stagger when neighbor count exceeds 12", () => {
@@ -206,20 +207,46 @@ test("computeEgoLayout uses radial stagger when neighbor count exceeds 12", () =
   assert.equal(sortedRadii[1] - sortedRadii[0], 48);
 });
 
-test("computeNodeIntersection and computeCompareLayout highlight shared bridges, subjects, and rooms", () => {
+test("computeNodeIntersection and computeCompareLayout highlight shared bridges, subjects, rooms, and per-node diffs", () => {
   const engine = loadAtlasEngine();
-  const graph = engine.buildAtlasGraph(makeSampleAtlasPayload());
+  const payload = makeSampleAtlasPayload();
+  payload.teachers.push({
+    id: 102,
+    name: "Мельник І. В.",
+    full_name: "Мельник Іван Васильович",
+    room: "301",
+    groups_count: 1,
+    subjects_count: 1,
+    lessons_count: 2,
+  });
+  payload.edges.push({
+    group_id: 10,
+    teacher_id: 102,
+    second_teacher_id: null,
+    subject_id: 201,
+    room: "301",
+    lessons_count: 2,
+    days: [4],
+  });
+  const graph = engine.buildAtlasGraph(payload);
 
   const g10Id = engine.makeAtlasNodeId("group", 10);
   const g11Id = engine.makeAtlasNodeId("group", 11);
   const t100Id = engine.makeAtlasNodeId("teacher", 100);
   const t101Id = engine.makeAtlasNodeId("teacher", 101);
+  const t102Id = engine.makeAtlasNodeId("teacher", 102);
 
   const intersection = engine.computeNodeIntersection(graph, g10Id, g11Id);
   assert.equal(intersection.directConnected, false);
   assert.equal(intersection.sharedNodeIds.has(t100Id), true);
   assert.equal(intersection.sharedNodeIds.has(t101Id), true);
   assert.equal(intersection.sharedByKind.teachers.length, 2);
+  assert.equal(intersection.sharedRows.length, 2);
+  assert.equal(intersection.onlyARows.length, 1);
+  assert.equal(intersection.onlyARows[0].node.id, t102Id);
+  assert.deepEqual([...intersection.onlyARows[0].subjects], ["Англійська мова за професійним спрямуванням"]);
+  assert.deepEqual([...intersection.onlyARows[0].rooms], ["301"]);
+  assert.equal(intersection.onlyBRows.length, 0);
   assert.equal(intersection.sharedSubjects.length, 1);
   assert.equal(intersection.sharedSubjects[0].id, 200);
   assert.equal(intersection.sharedRooms.length, 1);
@@ -229,9 +256,13 @@ test("computeNodeIntersection and computeCompareLayout highlight shared bridges,
   assert.ok(compare.positions.get(g10Id).x < 0);
   assert.ok(compare.positions.get(g11Id).x > 0);
   assert.equal(Math.abs(compare.positions.get(t100Id).x), 0);
+  // Compare canvas only shows the two anchors + shared bridge nodes (no clutter from unique outer nodes)
+  assert.equal(compare.visibleNodeIds.has(t102Id), false);
+  assert.ok(compare.positions.get(g10Id).subtitle.includes("Відмінних: 1"));
+  assert.ok(compare.positions.get(t100Id).subtitle.includes("Алгоритми та структури даних"));
 });
 
-test("getNodeInspectorData returns curator, curated groups, and sorted relation rows", () => {
+test("getNodeInspectorData returns curator, curated groups, and sorted relation rows with full subjects and rooms", () => {
   const engine = loadAtlasEngine();
   const graph = engine.buildAtlasGraph(makeSampleAtlasPayload());
 
@@ -241,6 +272,11 @@ test("getNodeInspectorData returns curator, curated groups, and sorted relation 
   assert.equal(g10Inspector.subjects.length, 2);
   assert.equal(g10Inspector.teachers.length, 2);
   assert.equal(g10Inspector.rooms.length, 2);
+  const t100Row = g10Inspector.teachers.find((r) => r.node.id === engine.makeAtlasNodeId("teacher", 100));
+  assert.ok(t100Row);
+  assert.equal(t100Row.badge, "Куратор");
+  assert.ok(t100Row.subjects.includes("Алгоритми та структури даних"));
+  assert.ok(t100Row.rooms.includes("205"));
 
   const t100Inspector = engine.getNodeInspectorData(graph, engine.makeAtlasNodeId("teacher", 100));
   assert.ok(t100Inspector);
