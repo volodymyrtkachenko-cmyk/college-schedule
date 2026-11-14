@@ -87,9 +87,17 @@ export function AppearanceStudioModal({
   const [tabSlideDir, setTabSlideDir] = useState<"next" | "prev">("next");
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const tabButtonRefs = useRef<Partial<Record<StudioTab, HTMLButtonElement | null>>>({});
-  const [tabPill, setTabPill] = useState<{ left: number; width: number; ready: boolean }>({
+  const [tabPill, setTabPill] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+    ready: boolean;
+  }>({
+    top: 0,
     left: 0,
     width: 0,
+    height: 0,
     ready: false,
   });
 
@@ -109,12 +117,16 @@ export function AppearanceStudioModal({
     (allowAnimate: boolean) => {
       const btn = tabButtonRefs.current[activeTab];
       if (!btn) return;
+      const nextTop = btn.offsetTop;
       const nextLeft = btn.offsetLeft;
       const nextWidth = btn.offsetWidth;
-      if (nextWidth <= 0) return;
+      const nextHeight = btn.offsetHeight;
+      if (nextWidth <= 0 || nextHeight <= 0) return;
       setTabPill((prev) => ({
+        top: nextTop,
         left: nextLeft,
         width: nextWidth,
+        height: nextHeight,
         ready: allowAnimate ? prev.ready || prev.width > 0 : false,
       }));
     },
@@ -132,10 +144,6 @@ export function AppearanceStudioModal({
   useLayoutEffect(() => {
     if (!isOpen) return;
     measureTabPill(tabPill.width > 0);
-    const btn = tabButtonRefs.current[activeTab];
-    if (btn && hasSwitchedTab) {
-      btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-    }
     // Note: tabPill.width intentionally excluded to avoid re-running measurement on its own update
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, activeTab, hasSwitchedTab]);
@@ -593,24 +601,25 @@ export function AppearanceStudioModal({
 
           {/* Controls Column (Scrollable Tabs Content) */}
           <div className="order-2 md:order-1 flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
-            {/* Scrollable Horizontal Tab Bar with GPU sliding pill */}
+            {/* Wrapping Tab Bar with GPU 2D sliding pill */}
             <div
               ref={tabListRef}
               role="tablist"
               aria-label="Розділи налаштування стилю"
-              className="relative shrink-0 flex items-center gap-1.5 overflow-x-auto custom-scrollbar border-b border-sys-border bg-sys-card px-4 py-2.5 isolate"
+              className="relative shrink-0 flex flex-wrap items-center gap-1.5 border-b border-sys-border bg-sys-card px-3 sm:px-4 py-2.5 isolate"
             >
               {tabPill.width > 0 && (
                 <div
                   aria-hidden="true"
-                  className={`pointer-events-none absolute top-2.5 bottom-2.5 left-0 z-0 rounded-xl border border-sys-accent bg-sys-accent/15 shadow-xs transform-gpu ${
+                  className={`pointer-events-none absolute top-0 left-0 z-0 rounded-xl border border-sys-accent bg-sys-accent/15 shadow-xs transform-gpu ${
                     tabPill.ready
-                      ? "transition-[transform,width] duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                      ? "transition-[transform,width,height] duration-base [transition-timing-function:var(--ease-spring-snappy)]"
                       : ""
                   }`}
                   style={{
                     width: `${tabPill.width}px`,
-                    transform: `translate3d(${tabPill.left}px, 0, 0)`,
+                    height: `${tabPill.height}px`,
+                    transform: `translate3d(${tabPill.left}px, ${tabPill.top}px, 0)`,
                   }}
                 />
               )}
@@ -627,7 +636,7 @@ export function AppearanceStudioModal({
                     aria-selected={active}
                     type="button"
                     onClick={() => handleSelectTab(tab.id)}
-                    className={`relative z-10 shrink-0 whitespace-nowrap min-h-[36px] rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors duration-fast cursor-pointer active:scale-[0.97] ${
+                    className={`relative z-10 shrink-0 whitespace-nowrap min-h-[36px] rounded-xl border px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors duration-fast cursor-pointer active:scale-[0.97] ${
                       showStaticActive
                         ? "border-sys-accent bg-sys-accent/15 text-sys-accent shadow-xs"
                         : active
