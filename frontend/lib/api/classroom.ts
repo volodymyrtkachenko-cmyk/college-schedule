@@ -7,6 +7,7 @@ import {
 } from "./client";
 import type {
   ClassroomAccountStat,
+  ClassroomCredentialsDiagnosticsResponse,
   ClassroomGroupRosterResponse,
   ClassroomWorkerHeartbeat,
 } from "./types";
@@ -221,16 +222,10 @@ export const classroomApi = {
       method: "POST",
     }),
   getDiagnostics: () =>
-    authenticatedRequest<{
-      primary_key_configured?: boolean;
-      total_credentials: number;
-      active_credentials?: number;
-      needs_relink_credentials?: number;
-      crypto_status?: any;
-      worker_heartbeat?: ClassroomWorkerHeartbeat | null;
-      group_backoffs?: Record<string, { failures: number; backoff_until: string; remaining_seconds: number }>;
-      credentials: any[];
-    }>("/api/classroom/credentials/diagnostics", {
-      method: "GET",
-    }),
+    authenticatedRequest<ClassroomCredentialsDiagnosticsResponse>(
+      "/api/classroom/credentials/diagnostics",
+      {
+        method: "GET",
+      },
+    ),
 };

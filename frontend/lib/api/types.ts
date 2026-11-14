@@ -748,6 +748,53 @@ export interface ClassroomAccountStat {
   last_client_seen_at?: string | null;
 }
 
+export interface ClassroomDiagnosticsCredential {
+  id: number;
+  group_id: number;
+  group_name?: string | null;
+  google_user_id: string;
+  email?: string | null;
+  student_name?: string | null;
+  subgroup?: number | null;
+  is_active: boolean;
+  needs_relink: boolean;
+  fail_count: number;
+  last_error: string | null;
+  reason_code?: string | null;
+  next_attempt_at: string | null;
+  last_synced_at: string | null;
+  last_refresh_ok_at?: string | null;
+  last_client_seen_at?: string | null;
+  granted_scopes?: string | null;
+  token_status: string;
+  token_format_valid: boolean;
+}
+
+export interface ClassroomCredentialsDiagnosticsResponse {
+  primary_key_configured: boolean;
+  encryption_key_source?: string;
+  total_credentials: number;
+  active_credentials?: number;
+  needs_relink_credentials?: number;
+  error_summary?: {
+    by_token_status?: Record<string, number>;
+    by_reason_code?: Record<string, number>;
+    in_backoff_count?: number;
+    inactive_count?: number;
+  };
+  worker_heartbeat?: ClassroomWorkerHeartbeat | null;
+  group_backoffs?: Record<
+    string,
+    {
+      group_name?: string | null;
+      failures: number;
+      backoff_until: string;
+      remaining_seconds: number;
+    }
+  >;
+  credentials: ClassroomDiagnosticsCredential[];
+}
+
 export interface ClassroomSyncResult {
   group_id: number;
   group_name: string;

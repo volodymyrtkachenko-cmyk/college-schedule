@@ -41,7 +41,14 @@ import { useToast } from "../../components/ToastProvider";
 import { PageHeader } from "../../components/admin/PageHeader";
 import { PublicationChangesModal } from "../../components/admin/PublicationChangesModal";
 import { invalidateScheduleCache } from "../../lib/hooks";
-import { TeacherPinAdminCard } from "../../components/admin/TeacherPinAdminCard";
+const TeacherPinAdminCard = dynamic(
+  () => import("../../components/admin/TeacherPinAdminCard").then((m) => m.TeacherPinAdminCard),
+  { ssr: false },
+);
+const ClassroomDiagnosticsPanel = dynamic(
+  () => import("../../components/admin/ClassroomDiagnosticsPanel").then((m) => m.ClassroomDiagnosticsPanel),
+  { ssr: false },
+);
 import { formatPlural } from "../../lib/format";
 
 const resources = Object.keys(referenceLabels) as ReferenceResource[];
@@ -543,6 +550,11 @@ function AdminContent() {
             />
             {activeResource === "teachers" && user?.role === "admin" && (
               <TeacherPinAdminCard
+                onNotify={(msg, tone) => setToast(msg, tone === "positive" ? "success" : "error")}
+              />
+            )}
+            {activeResource === "groups" && user?.role === "admin" && (
+              <ClassroomDiagnosticsPanel
                 onNotify={(msg, tone) => setToast(msg, tone === "positive" ? "success" : "error")}
               />
             )}
