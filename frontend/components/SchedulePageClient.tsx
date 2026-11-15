@@ -289,7 +289,7 @@ export function SchedulePageClient({
 
   const isTodaySelected =
     sel.selectedDaySchedule?.date === sel.todayActualIso ||
-    (sel.isWeekend && sel.selectedDayIndex === 0);
+    sel.isAutoSelectedWeekendDay;
 
   return (
     <div className="min-h-dvh bg-transparent pb-6 text-sys-text-primary md:pb-8">
@@ -555,7 +555,7 @@ export function SchedulePageClient({
                             onSelectDayIndex={sel.handleSelectDayIndex}
                           />
 
-                          {sel.isWeekend && (
+                          {sel.isAutoSelectedWeekendDay && (
                             <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-sys-border bg-sys-card px-5 py-4 text-[15px] shadow-sm">
                               <div className="flex items-center gap-3 min-w-0">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-500 dark:text-amber-300">
@@ -568,7 +568,7 @@ export function SchedulePageClient({
                                 </div>
                               </div>
                               <div className="flex items-center gap-3 shrink-0">
-                                <WeekTypeBadge weekType={today?.week_type ?? "both"} />
+                                <WeekTypeBadge weekType={sel.selectedDaySchedule?.week_type ?? sel.weekType ?? today?.week_type ?? "both"} />
                               </div>
                             </div>
                           )}
