@@ -1,6 +1,7 @@
 "use client";
 
-import type { WeekDayMini } from "../../lib/schedule";
+import type { HeaderLearningModeData, WeekDayMini } from "../../lib/schedule";
+import { LearningModeBadge } from "./LearningModeBadge";
 
 interface DesktopFocusDaySwitcherProps {
   visible: boolean;
@@ -9,6 +10,7 @@ interface DesktopFocusDaySwitcherProps {
   currentWeekNumber: number | null;
   weekType: string;
   weekRange: string;
+  learningModeBadge?: HeaderLearningModeData | null;
   weekDaysMini: WeekDayMini[];
   selectedDayIndex: number;
   todayActualIso: string;
@@ -23,6 +25,7 @@ export function DesktopFocusDaySwitcher({
   currentWeekNumber,
   weekType,
   weekRange,
+  learningModeBadge = null,
   weekDaysMini,
   selectedDayIndex,
   todayActualIso,
@@ -63,21 +66,24 @@ export function DesktopFocusDaySwitcher({
               </span>
             </div>
 
-            {mode !== "teacher" && (
-              <button
-                type="button"
-                onClick={onToggleFocusMode}
-                title="Показати бічну панель завдань"
-                aria-label="Показати бічну панель завдань"
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 active:scale-95 transition-colors duration-fast ease-smooth shrink-0 cursor-pointer"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect width="18" height="18" x="3" y="2" rx="2" />
-                  <path d="M15 3v18" />
-                  <path d="m8 9 3 3-3 3" />
-                </svg>
-              </button>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              <LearningModeBadge data={learningModeBadge} />
+              {mode !== "teacher" && (
+                <button
+                  type="button"
+                  onClick={onToggleFocusMode}
+                  title="Показати бічну панель завдань"
+                  aria-label="Показати бічну панель завдань"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 active:scale-95 transition-colors duration-fast ease-smooth shrink-0 cursor-pointer"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect width="18" height="18" x="3" y="2" rx="2" />
+                    <path d="M15 3v18" />
+                    <path d="m8 9 3 3-3 3" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="relative grid grid-cols-5 gap-2 isolate">

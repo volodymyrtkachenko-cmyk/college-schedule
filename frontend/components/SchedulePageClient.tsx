@@ -317,8 +317,6 @@ export function SchedulePageClient({
               canNavigateNextWeek={sel.canNavigateNextWeek}
               isCurrentWeek={isCurrentWeek}
               isTodaySelected={isTodaySelected}
-              compactWeekRange={sel.compactWeekRange}
-              headerLearningModeData={sel.headerLearningModeData}
               isTeacherUnlocked={isTeacherUnlocked}
               resolvedTheme={resolvedTheme}
               onOpenContextModal={() => setContextModalOpen(true)}
@@ -548,6 +546,7 @@ export function SchedulePageClient({
                             currentWeekNumber={sel.currentWeekNumber}
                             weekType={sel.weekType}
                             weekRange={sel.weekRange}
+                            learningModeBadge={sel.headerLearningModeData}
                             weekDaysMini={sel.weekDaysMini}
                             selectedDayIndex={sel.selectedDayIndex}
                             todayActualIso={sel.todayActualIso}
@@ -588,6 +587,7 @@ export function SchedulePageClient({
                                 currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
                                 daySlideDir={sel.daySlideDir}
                                 shouldReduceMotion={shouldReduceMotion}
+                                learningModeBadge={sel.headerLearningModeData}
                               />
                           </div>
                         </div>
@@ -629,6 +629,7 @@ export function SchedulePageClient({
                           weekRange={sel.weekRange}
                           currentWeekNumber={sel.currentWeekNumber}
                           weekType={sel.weekType}
+                          learningModeBadge={sel.headerLearningModeData}
                           activeWeekPeriodMeta={sel.activeWeekPeriodMeta}
                           resolvedTheme={resolvedTheme}
                           setToast={setToast}

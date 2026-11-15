@@ -12,7 +12,8 @@ import {
   getSharedKyivNowSnapshot,
   subscribeKyivNow,
 } from "./LessonCard";
-import type { SubjectHubTarget } from "../lib/schedule";
+import type { HeaderLearningModeData, SubjectHubTarget } from "../lib/schedule";
+import { LearningModeBadge } from "./schedule/LearningModeBadge";
 import { SchedulePeriodCard, CompactSchedulePeriodCard } from "./SchedulePeriodCard";
 import { ClockIcon, CoffeeIcon } from "./ui/Icons";
 import { useTheme } from "../lib/useTheme";
@@ -51,6 +52,7 @@ export function ScheduleDay({
   compactPeriod = false,
   daySlideDir = 0,
   shouldReduceMotion = false,
+  learningModeBadge = null,
   onOpenSubjectHub,
 }: {
   schedule: ScheduleResponse;
@@ -74,6 +76,7 @@ export function ScheduleDay({
   compactPeriod?: boolean;
   daySlideDir?: number;
   shouldReduceMotion?: boolean;
+  learningModeBadge?: HeaderLearningModeData | null;
   onOpenSubjectHub?: (target: SubjectHubTarget) => void;
 }) {
   const { showToast } = useToast();
@@ -199,6 +202,7 @@ export function ScheduleDay({
                       <span>Скорочений день (пари по 50 хв)</span>
                     </span>
                   )}
+                  <LearningModeBadge data={learningModeBadge} className="hidden lg:inline-flex" />
                 </div>
               </div>
             ) : (

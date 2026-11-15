@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import type { ReferenceRecord, ScheduleResponse } from "../../lib/api";
-import { formatWeekShareText } from "../../lib/schedule";
+import { formatWeekShareText, type HeaderLearningModeData } from "../../lib/schedule";
 import { PeriodIcon, type getPeriodMeta } from "../SchedulePeriodCard";
+import { LearningModeBadge } from "./LearningModeBadge";
 
 type PeriodBadgeMeta = ReturnType<typeof getPeriodMeta>;
 
@@ -17,6 +18,7 @@ interface DesktopWeekHeaderBarProps {
   weekRange: string;
   currentWeekNumber: number | null;
   weekType: string;
+  learningModeBadge?: HeaderLearningModeData | null;
   activeWeekPeriodMeta: PeriodBadgeMeta | null;
   resolvedTheme: "light" | "dark";
   setToast: (msg: string, type?: "success" | "error" | "info") => void;
@@ -32,6 +34,7 @@ export function DesktopWeekHeaderBar({
   weekRange,
   currentWeekNumber,
   weekType,
+  learningModeBadge = null,
   activeWeekPeriodMeta,
   resolvedTheme,
   setToast,
@@ -134,6 +137,9 @@ export function DesktopWeekHeaderBar({
               </span>
             )}
           </>
+        )}
+        {learningModeBadge && (
+          <LearningModeBadge data={learningModeBadge} />
         )}
         {activeWeekPeriodMeta && (
           <>
