@@ -1,12 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
-import { useMobileNav } from "../lib/useMobileNav";
-import { buildGuideTasksHref, isScheduleRoutePath } from "../lib/navigation";
 import { AppDialog } from "./ui/AppDialog";
 import { CheckIcon, CloseIcon } from "./ui/Icons";
 import { GuideDemoStage } from "./GuideDemoStage";
@@ -22,7 +20,7 @@ export interface GuideHubModalProps {
   groupName?: string | null;
   /** ПІБ обраного викладача (з довідника) — лише для бейджа в шапці */
   teacherName?: string | null;
-  /** Реальні лічильники з useTaskGroups (null, якщо Classroom не прив'язано) */
+  /** Реальні лічильники з useTaskGroups (залишено для зворотної сумісності пропсів) */
   taskCounts?: { pending: number; overdue: number; done: number } | null;
 }
 
@@ -35,87 +33,87 @@ interface GuideStepMeta {
 
 const STUDENT_STEPS: GuideStepMeta[] = [
   {
-    id: "st-1-classroom",
-    tabLabel: "Classroom",
-    title: "1. Пошта @kre.dp.ua: відкриття Meet/Zoom та ДЗ",
+    id: "st-subject-hub",
+    tabLabel: "Хаб пари",
+    title: "1. Хаб пари: усе про предмет в 1 клік",
     points: [
-      "Натисніть на закритий бейдж «Meet / Zoom» або кнопку Classroom у шапці й оберіть свій акаунт @kre.dp.ua.",
-      "Обмеження доступу зникне, до карток пар підтягнуться актуальні домашні завдання, а дані синхронізуються між ПК і телефоном.",
+      "Натисніть на назву будь-якої пари, щоб побачити зворотний відлік до наступного заняття, розклад за чисельником/знаменником та проведені години.",
+      "Якщо прив'язано @kre.dp.ua, прямо тут збираються всі домашні завдання й оцінки саме з цього предмета.",
     ],
   },
   {
-    id: "st-2-subgroup",
+    id: "st-subgroups",
     tabLabel: "Підгрупи",
-    title: "2. Фільтр своєї підгрупи в 1 клік",
+    title: "2. Фільтр своєї підгрупи прямо на парі",
     points: [
-      "Натисніть на бейдж «1 підгр.» або «2 підгр.» прямо на картці пари — другий викладач і чужий кабінет сховаються.",
-      "Повторний клік по бейджу підгрупи миттєво повертає показ обох підгруп.",
+      "Натисніть на бейдж «1 підгр.» або «2 підгр.» на картці пари — чужий викладач і кабінет одразу сховаються.",
+      "Повторний клік по бейджу повертає обидві підгрупи (на ПК також працюють клавіші 1, 2 і 0).",
     ],
   },
   {
-    id: "st-3-zoom",
+    id: "st-zoom",
     tabLabel: "Код Zoom",
     title: "3. Автокопіювання пароля Zoom при кліку",
     points: [
-      "Система сама знаходить ID та пароль у тексті викладача з Classroom і створює кнопку «Zoom ↗».",
-      "При натисканні на «Zoom ↗» пароль конференції автоматично копіюється в буфер обміну.",
+      "Система сама знаходить посилання, ID та пароль в описах Classroom і створює кнопку «Zoom ↗» (прив'яжіть @kre.dp.ua, щоб розблокувати доступ).",
+      "При натисканні на «Zoom ↗» код доступу автоматично копіюється в буфер обміну — залишається лише вставити його.",
     ],
   },
   {
-    id: "st-4-tasks",
-    tabLabel: "Завдання",
-    title: "4. Усі завдання в одному списку без гортання тижнів",
-    points: [
-      "У вкладці «Завдання» роботи поділені на «До здачі», «Борги» та «Здано», щоб старі борги не губилися.",
-      "Фільтр «Усі предмети» дозволяє залишити завдання лише з потрібної дисципліни.",
-    ],
-  },
-  {
-    id: "st-5-grades",
-    tabLabel: "Оцінки",
-    title: "5. Середній бал та всі оцінки за семестр",
-    points: [
-      "Вкладка «Оцінки» автоматично рахує загальний середній бал (за 5-бальною та 12-бальною шкалами).",
-      "Натисніть на предмет, щоб переглянути всі оцінені роботи з автоматичним перерахунком зі 100-бальної шкали.",
-    ],
-  },
-  {
-    id: "st-7-teacher-jump",
+    id: "st-teacher-jump",
     tabLabel: "Викладач",
-    title: "6. Швидкий перехід у розклад викладача",
+    title: "4. Швидкий перехід у розклад викладача",
     points: [
-      "Натисніть на прізвище викладача на картці пари, щоб побачити його розклад та аудиторію на сьогодні.",
-      "Кнопка «← До ...» у верхній плашці поверне вас назад до розкладу своєї групи.",
+      "Натисніть на прізвище викладача на картці пари — миттєво відкриється його розклад і кабінети на обраний день.",
+      "Кнопка «← Повернутися до ...» у верхній плашці поверне вас назад до розкладу своєї групи в один клік.",
+    ],
+  },
+  {
+    id: "st-nav-gestures",
+    tabLabel: "Навігація",
+    title: "5. Клавіші на ПК, фокус і свайпи на телефоні",
+    points: [
+      "На комп'ютері перемикайте дні й тижні стрілками ← →, вигляд Дня/Тижня — D / W, «Сьогодні» — T, а пошук — Ctrl+K або /.",
+      "На телефоні гортайте дні свайпом вліво чи вправо, а на ПК у режимі Дня можна згорнути бічну панель для фокусу.",
     ],
   },
 ];
 
 const TEACHER_STEPS: GuideStepMeta[] = [
   {
-    id: "tc-1-pin",
-    tabLabel: "PIN-код",
-    title: "1. PIN-код для відкриття посилань Meet та Zoom",
+    id: "tc-group-jump",
+    tabLabel: "Групи",
+    title: "1. Перехід до розкладу групи прямо з пари",
     points: [
-      "Натисніть на закритий бейдж «Zoom / Meet» або кнопку «Вхід викладача» у шапці та введіть PIN-код один раз.",
-      "Усі посилання на онлайн-пари відкриються на цьому пристрої для всіх навчальних груп.",
+      "Натисніть на номер групи на своїй картці пари — відкриється розклад цієї групи, щоб перевірити «вікна» чи інші заняття.",
+      "Кнопка «← Повернутися до ...» у верхній плашці миттєво повертає вас до власного розкладу.",
     ],
   },
   {
-    id: "tc-4-stats",
+    id: "tc-stats",
     tabLabel: "Статистика",
-    title: "2. Статистика проведених пар та годин",
+    title: "2. Підрахунок вичитаних годин і графік процесу",
     points: [
-      "Сторінка «Статистика» автоматично рахує вичитані академічні години та пари від початку семестру.",
-      "Доступний розподіл навантаження за кожною дисципліною та кожною навчальною групою.",
+      "«Статистика» автоматично рахує проведені пари й академічні години від початку семестру за кожним предметом та групою.",
+      "Розрахунок враховує дати семестру, сесії та канікули з розділу «Графік процесу», тож прогрес рахується точно.",
     ],
   },
   {
-    id: "tc-5-radar",
+    id: "tc-changes",
     tabLabel: "Заміни",
-    title: "3. Позначки замін та перенесень у розкладі",
+    title: "3. Позначки замін, перенесень і хаб предмета",
     points: [
-      "Перенесені заняття підписуються новою датою й номером пари («Перенесено → Четвер, 3 пара»).",
-      "Призначені разові заміни виділяються жовтою рамкою та бейджем «Заміна».",
+      "Перенесені пари підписані новим днем і часом («↪ Перенесено → ...»), а разові заміни виділені бейджем «⚡ Заміна».",
+      "Клік по назві дисципліни відкриває її хаб: повторювані пари за тижнями, дату наступного заняття та вичитані години.",
+    ],
+  },
+  {
+    id: "tc-export-nav",
+    tabLabel: "Експорт і ПК",
+    title: "4. Картинка розкладу PNG, клавіші та свайпи",
+    points: [
+      "Натисніть «Зберегти картинку» у шапці дня чи тижня — розклад експортується в чіткий PNG, який зручно надіслати групі або колегам.",
+      "На ПК працюють ← → (дні), D / W (День/Тиждень), T (Сьогодні) й Ctrl+K / / (пошук); на телефоні дні гортаються свайпом.",
     ],
   },
 ];
@@ -127,15 +125,14 @@ export function GuideHubModal({
   mode,
   groupName = null,
   teacherName = null,
-  taskCounts = null,
 }: GuideHubModalProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { syncScheduleLocation } = useMobileNav();
   const { isLinked, linkedEmail } = useClassroomSubmissions();
   const { isTeacherUnlocked } = useTeacherAccess();
   const { settings, updateSetting } = useUserSettings();
 
+  const tabListRef = useRef<HTMLDivElement>(null);
   const [role, setRole] = useState<"student" | "teacher">(initialRole ?? mode ?? "student");
   const [stepIdx, setStepIdx] = useState(0);
   const [slideDir, setSlideDir] = useState(1);
@@ -143,6 +140,8 @@ export function GuideHubModal({
 
   const steps = role === "student" ? STUDENT_STEPS : TEACHER_STEPS;
   const stepsCount = steps.length;
+  const safeIdx = stepIdx < stepsCount ? stepIdx : 0;
+  const activeStep = steps[safeIdx] ?? steps[0];
 
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
@@ -159,25 +158,57 @@ export function GuideHubModal({
   }, [isOpen, initialRole, mode]);
 
   useEffect(() => {
+    if (!isOpen || typeof window === "undefined") return;
+    const activeTab = tabListRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!activeTab) return;
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    activeTab.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [isOpen, role, safeIdx]);
+
+  useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const focusInTabs = Boolean(
+        document.activeElement && tabListRef.current?.contains(document.activeElement)
+      );
       if (e.key === "ArrowRight") {
+        e.preventDefault();
         setHasStepped(true);
         setSlideDir(1);
         setStepIdx((c) => Math.min(stepsCount - 1, c + 1));
-      }
-      if (e.key === "ArrowLeft") {
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
         setHasStepped(true);
         setSlideDir(-1);
         setStepIdx((c) => Math.max(0, c - 1));
+      } else if (focusInTabs && e.key === "Home") {
+        e.preventDefault();
+        setHasStepped(true);
+        setSlideDir(-1);
+        setStepIdx(0);
+      } else if (focusInTabs && e.key === "End") {
+        e.preventDefault();
+        setHasStepped(true);
+        setSlideDir(1);
+        setStepIdx(stepsCount - 1);
+      } else {
+        return;
+      }
+
+      if (focusInTabs) {
+        window.requestAnimationFrame(() => {
+          tabListRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]')?.focus();
+        });
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [isOpen, stepsCount]);
-
-  const safeIdx = stepIdx < stepsCount ? stepIdx : 0;
-  const activeStep = steps[safeIdx] ?? steps[0];
 
   const goToStep = (nextIdx: number) => {
     if (nextIdx === safeIdx) return;
@@ -267,6 +298,7 @@ export function GuideHubModal({
           </div>
 
           <div
+            ref={tabListRef}
             role="tablist"
             aria-label="Розділи гіду"
             className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-xl border border-sys-border bg-sys-bg p-1 text-[11px] font-semibold"
@@ -275,19 +307,21 @@ export function GuideHubModal({
               const isCurrent = idx === safeIdx;
               const isConfigured =
                 role === "student"
-                  ? (idx === 0 && isLinked) || (idx === 1 && settings.defaultSubgroup !== "all")
-                  : idx === 0 && isTeacherUnlocked;
+                  ? (idx === 1 && settings.defaultSubgroup !== "all") || (idx === 2 && isLinked)
+                  : false;
               return (
                 <button
                   key={s.id}
+                  id={`guide-tab-${s.id}`}
                   type="button"
                   role="tab"
                   aria-selected={isCurrent}
+                  tabIndex={isCurrent ? 0 : -1}
                   onClick={() => goToStep(idx)}
-                  className={`shrink-0 flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+                  className={`shrink-0 flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg border transition-colors duration-200 cursor-pointer whitespace-nowrap ${
                     isCurrent
-                      ? "bg-sys-card text-sys-accent font-bold border border-sys-border shadow-2xs"
-                      : "text-sys-text-secondary hover:text-sys-text-primary"
+                      ? "bg-sys-card text-sys-accent font-bold border-sys-border border-b-2 border-b-sys-accent shadow-2xs"
+                      : "border-transparent text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
                   <span>{s.tabLabel}</span>
@@ -302,6 +336,9 @@ export function GuideHubModal({
         <div className="flex-1 overflow-y-auto overflow-x-clip lg:[scrollbar-gutter:stable] custom-scrollbar p-4">
           <div
             key={`${role}-${activeStep.id}`}
+            id={`guide-panel-${activeStep.id}`}
+            role="tabpanel"
+            aria-labelledby={`guide-tab-${activeStep.id}`}
             data-slide-dir={hasStepped ? (slideDir >= 0 ? "next" : "prev") : undefined}
             className="guide-step-slide space-y-3.5"
           >
@@ -328,27 +365,29 @@ export function GuideHubModal({
 
                 <div className="min-h-[44px] flex items-center">
                   {role === "student" && safeIdx === 0 && (
-                    <div className="w-full flex items-center justify-between rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
-                      <span className="inline-flex items-center gap-1.5 font-semibold text-sys-text-secondary truncate mr-2">
+                    <div className="w-full flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
+                      <span className="inline-flex items-center gap-1.5 font-semibold text-sys-text-secondary truncate">
                         {isLinked ? (
                           <>
                             <CheckIcon className="h-3.5 w-3.5 text-sys-status-okText shrink-0" />
-                            <span className="truncate">Підключено: {linkedEmail}</span>
+                            <span className="truncate">У хабі відкрито ДЗ й оцінки ({linkedEmail})</span>
                           </>
                         ) : (
-                          <span>Пошту @kre.dp.ua ще не прив&apos;язано</span>
+                          <span>Прив&apos;яжіть @kre.dp.ua для ДЗ й оцінок у хабі</span>
                         )}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onClose();
-                          setTimeout(() => window.dispatchEvent(new CustomEvent("trigger-classroom-sync")), 120);
-                        }}
-                        className="shrink-0 rounded-lg bg-sys-accentSolid px-3 py-1.5 text-[11px] font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
-                      >
-                        {isLinked ? "Оновити" : "Прив'язати →"}
-                      </button>
+                      {!isLinked && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            setTimeout(() => window.dispatchEvent(new CustomEvent("trigger-classroom-sync")), 120);
+                          }}
+                          className="shrink-0 rounded-lg bg-sys-accentSolid px-3 py-1.5 text-[11px] font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+                        >
+                          Прив&apos;язати →
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -375,58 +414,48 @@ export function GuideHubModal({
                     </div>
                   )}
 
-                  {role === "student" && (safeIdx === 3 || safeIdx === 4) && (
+                  {role === "student" && safeIdx === 2 && (
                     <div className="w-full flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
-                      <span className="font-semibold text-sys-text-secondary leading-snug break-words min-w-0">
-                        {taskCounts ? (
+                      <span className="inline-flex items-center gap-1.5 font-semibold text-sys-text-secondary truncate">
+                        {isLinked ? (
                           <>
-                            У вас зараз: <span className="text-sys-text-primary">{taskCounts.pending} до здачі</span>
-                            {" · "}
-                            <span className={taskCounts.overdue > 0 ? "text-sys-status-dangerText" : ""}>
-                              {taskCounts.overdue} борг.
-                            </span>
-                            {" · "}
-                            <span className="text-sys-status-okText">{taskCounts.done} здано</span>
+                            <CheckIcon className="h-3.5 w-3.5 text-sys-status-okText shrink-0" />
+                            <span className="truncate">Доступ відкрито: {linkedEmail}</span>
                           </>
                         ) : (
-                          "Прив'яжіть @kre.dp.ua, щоб бачити свої завдання"
+                          <span>Потрібна пошта @kre.dp.ua для доступу до посилань</span>
                         )}
                       </span>
                       <button
                         type="button"
                         onClick={() => {
-                          const subtab = safeIdx === 4 ? "grades" : "tasks";
-                          const onStudentScheduleRoute =
-                            isScheduleRoutePath(pathname) &&
-                            !pathname?.startsWith("/teacher/") &&
-                            mode !== "teacher";
                           onClose();
-                          if (onStudentScheduleRoute) {
-                            const nextHref =
-                              typeof window !== "undefined"
-                                ? buildGuideTasksHref(subtab, window.location.pathname, window.location.search)
-                                : buildGuideTasksHref(subtab);
-                            syncScheduleLocation(nextHref);
-                            window.dispatchEvent(
-                              new CustomEvent("schedule:open-tasks-panel", {
-                                detail: { subtab },
-                              })
-                            );
-                          } else {
-                            router.push(buildGuideTasksHref(subtab));
-                          }
+                          setTimeout(() => window.dispatchEvent(new CustomEvent("trigger-classroom-sync")), 120);
                         }}
                         className="shrink-0 rounded-lg bg-sys-accentSolid px-3 py-1.5 text-[11px] font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
                       >
-                        Відкрити →
+                        {isLinked ? "Оновити" : "Прив'язати →"}
                       </button>
+                    </div>
+                  )}
+
+                  {role === "student" && safeIdx === 3 && (
+                    <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
+                      Працює і в режимі Дня, і в режимі Тижня без втрати обраної дати.
+                    </div>
+                  )}
+
+                  {role === "student" && safeIdx === 4 && (
+                    <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
+                      Через <kbd className="font-mono font-bold text-sys-text-primary">Ctrl+K</kbd> або{" "}
+                      <kbd className="font-mono font-bold text-sys-text-primary">/</kbd> зручно шукати й групи, і викладачів.
                     </div>
                   )}
 
                   {role === "teacher" && safeIdx === 0 && isTeacherUnlocked && (
                     <div className="w-full inline-flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-semibold text-sys-status-okText">
                       <CheckIcon className="h-3.5 w-3.5 shrink-0" />
-                      <span>Доступ до посилань на цьому пристрої відкрито</span>
+                      <span>Посилання Meet/Zoom на цьому пристрої відкрито</span>
                     </div>
                   )}
 
@@ -443,21 +472,46 @@ export function GuideHubModal({
                       }}
                       className="w-full rounded-xl bg-sys-accentSolid py-2 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-[0.99] transition-opacity cursor-pointer"
                     >
-                      Ввести PIN-код викладача →
+                      Ввести PIN-код викладача для посилань →
                     </button>
                   )}
 
                   {role === "teacher" && safeIdx === 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        router.push("/statistics?mode=teacher");
-                      }}
-                      className="w-full rounded-xl bg-sys-accent/15 border border-sys-accent/35 py-2 text-xs font-bold text-sys-accent hover:bg-sys-accent/25 active:scale-[0.99] transition-colors cursor-pointer"
-                    >
-                      Відкрити сторінку Статистики →
-                    </button>
+                    <div className="w-full flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          router.push("/statistics?mode=teacher");
+                        }}
+                        className="flex-1 rounded-xl bg-sys-accentSolid py-2 px-3 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-[0.99] transition-opacity cursor-pointer"
+                      >
+                        Статистика →
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          router.push("/educational-process");
+                        }}
+                        className="flex-1 rounded-xl border border-sys-border bg-sys-bg py-2 px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.99] transition-colors cursor-pointer"
+                      >
+                        Графік процесу →
+                      </button>
+                    </div>
+                  )}
+
+                  {role === "teacher" && safeIdx === 2 && (
+                    <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
+                      Натисніть на назву будь-якої дисципліни в розкладі, щоб відкрити її хаб.
+                    </div>
+                  )}
+
+                  {role === "teacher" && safeIdx === 3 && (
+                    <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
+                      Через <kbd className="font-mono font-bold text-sys-text-primary">Ctrl+K</kbd> або{" "}
+                      <kbd className="font-mono font-bold text-sys-text-primary">/</kbd> зручно перемикатися між своїм розкладом і групами.
+                    </div>
                   )}
                 </div>
               </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { BoltIcon, LockIcon } from "./ui/Icons";
+import { BoltIcon } from "./ui/Icons";
 
 interface GuideDemoStageProps {
   role: "student" | "teacher";
@@ -39,25 +39,6 @@ function UserSvg() {
     >
       <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
-function ClipboardSvg() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="shrink-0 text-sys-text-muted"
-    >
-      <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
-      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
     </svg>
   );
 }
@@ -165,77 +146,93 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
   return (
     <div className="relative mx-auto w-full h-[236px] rounded-2xl border border-sys-border bg-sys-bg px-3.5 py-3 flex flex-col justify-center overflow-hidden [contain:layout_style_paint]">
       {/* =====================================================
-          СТУДЕНТ 0: CLASSROOM (Lock -> Meet + ДЗ, фіксована висота)
+          СТУДЕНТ 0: ХАБ ПРЕДМЕТА (Клік на назву -> SubjectHub)
          ===================================================== */}
       {role === "student" && stepIdx === 0 && (
-        <div className="relative w-full max-w-[400px] mx-auto h-[196px] flex flex-col justify-start pt-2">
+        <div className="relative w-full max-w-[400px] mx-auto h-[196px]">
           <DemoCursor
-            x={stage === 0 ? "45%" : stage <= 2 ? "84%" : "86%"}
-            y={stage === 0 ? "62%" : stage <= 2 ? "18%" : "58%"}
+            x={stage === 0 ? "74%" : stage <= 2 ? "38%" : "82%"}
+            y={stage === 0 ? "72%" : stage <= 2 ? "44%" : "22%"}
             clicking={stage === 2}
             hidden={cursorHidden}
           />
 
-          <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-2.5">
-            <div className="flex items-center justify-between gap-2 h-8">
-              <div className="flex items-center gap-2">
-                <span className="text-base font-black text-sys-text-primary leading-none">1</span>
-                <span className="text-sys-text-muted font-bold text-xs">·</span>
-                <span className="text-xs font-semibold text-sys-text-secondary">09:00–10:20</span>
+          <div
+            className={`absolute inset-x-0 top-2 transition-[opacity,transform] duration-base ease-spring ${
+              stage < 3 ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none"
+            }`}
+            aria-hidden={stage >= 3}
+          >
+            <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between gap-2 h-8">
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-black text-sys-text-primary leading-none">1</span>
+                  <span className="text-sys-text-muted font-bold text-xs">·</span>
+                  <span className="text-xs font-semibold text-sys-text-secondary">09:00–10:20</span>
+                </div>
+                <span className="inline-flex h-7 px-2.5 items-center rounded-lg border border-sys-border bg-sys-bg text-xs font-medium text-sys-text-secondary">
+                  ауд. 426
+                </span>
               </div>
 
-              <div className="inline-grid">
+              <div>
                 <span
-                  aria-hidden={stage >= 3}
-                  className={`col-start-1 row-start-1 inline-flex h-8 px-2.5 items-center justify-self-end gap-1.5 rounded-lg border border-sys-status-warnBg/40 bg-sys-status-warnBg/15 text-sys-status-warnText text-xs font-bold transition-[opacity,transform] duration-base ease-spring ${
-                    stage < 3
-                      ? `opacity-100 ${stage === 2 ? "scale-95" : "scale-100"}`
-                      : "opacity-0 scale-95 pointer-events-none"
-                  }`}
+                  className={`inline-block text-base font-semibold leading-snug rounded-md px-1 -mx-1 transition-colors duration-200 ${
+                    stage >= 1
+                      ? "text-sys-accent underline decoration-sys-accent/60 underline-offset-4 bg-sys-accent/10"
+                      : "text-sys-text-subject"
+                  } ${stage === 2 ? "scale-95" : ""}`}
                 >
-                  <LockIcon className="h-3 w-3 shrink-0" />
-                  <span>Meet</span>
+                  Вища математика
                 </span>
-                <span
-                  aria-hidden={stage < 3}
-                  className={`col-start-1 row-start-1 inline-flex h-8 px-2.5 items-center justify-self-end gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold shadow-xs transition-[opacity,transform] duration-base ease-spring ${
-                    stage >= 3 ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
-                  }`}
-                >
-                  <PlatformSvg platform="meet" />
-                  <span>Meet</span>
-                  <span className="opacity-75">↗</span>
-                </span>
+                <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary mt-1">
+                  <UserSvg />
+                  <span>Іваненко О.М.</span>
+                </div>
               </div>
             </div>
+          </div>
 
-            <div>
-              <div className="text-base font-semibold text-sys-text-subject leading-snug">
-                Вища математика
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary mt-1">
-                <UserSvg />
-                <span>Іваненко О.М.</span>
-              </div>
-            </div>
-
-            <div
-              className={`flex items-center justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs transition-[opacity,transform] duration-base ease-spring ${
-                stage >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none"
-              }`}
-              style={{ boxShadow: "inset 3px 0 0 #8b5cf6" }}
-              aria-hidden={stage < 3}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <ClipboardSvg />
-                <span className="font-semibold text-sys-text-primary truncate">
-                  Практична робота №5
+          <div
+            className={`absolute inset-x-0 top-0.5 transition-[opacity,transform] duration-base ease-spring ${
+              stage >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1.5 pointer-events-none"
+            }`}
+            aria-hidden={stage < 3}
+          >
+            <div className="rounded-2xl border border-sys-accent/35 bg-sys-card p-3.5 shadow-sm space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-sys-text-primary truncate">Вища математика</div>
+                  <div className="text-[11px] font-semibold text-sys-accent mt-0.5">
+                    Наступна: Чт, 09:00 · через 2 дні
+                  </div>
+                </div>
+                <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-0.5 text-[10px] font-bold text-sys-text-secondary">
+                  Знаменник
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-sys-status-denomBg" />
-                <span className="text-sys-status-denomText font-medium">до 15 лист.</span>
-                <span className="text-sys-text-muted ml-0.5">↗</span>
+
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="rounded-lg border border-sys-border bg-sys-bg px-2 py-0.5 font-medium text-sys-text-secondary">
+                  Пн · 1 пара
+                </span>
+                <span className="rounded-lg border border-sys-accent/30 bg-sys-accent/10 px-2 py-0.5 font-semibold text-sys-accent">
+                  Чт · 1 пара
+                </span>
+                <span className="rounded-lg border border-sys-border bg-sys-bg px-2 py-0.5 font-medium text-sys-text-muted">
+                  24 / 32 год
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl border border-sys-border bg-sys-bg/70 px-2.5 py-1.5">
+                  <div className="text-[10px] font-semibold text-sys-text-muted">Завдання</div>
+                  <div className="text-xs font-bold text-sys-text-primary">2 активні · до пт</div>
+                </div>
+                <div className="rounded-xl border border-sys-border bg-sys-bg/70 px-2.5 py-1.5">
+                  <div className="text-[10px] font-semibold text-sys-text-muted">Середній бал</div>
+                  <div className="text-xs font-bold text-sys-status-okText">11.0 / 12 б.</div>
+                </div>
               </div>
             </div>
           </div>
@@ -391,195 +388,9 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
       )}
 
       {/* =====================================================
-          СТУДЕНТ 3: ЗАВДАННЯ
+          СТУДЕНТ 3: ПЕРЕХІД ДО ВИКЛАДАЧА
          ===================================================== */}
       {role === "student" && stepIdx === 3 && (
-        <div className="relative w-full max-w-[400px] mx-auto h-[196px] flex flex-col justify-start pt-1.5 space-y-2">
-          <DemoCursor
-            x={stage === 0 ? "18%" : stage <= 2 ? "50%" : "82%"}
-            y={stage === 0 ? "14%" : stage <= 2 ? "14%" : "68%"}
-            clicking={stage === 2}
-            hidden={cursorHidden}
-          />
-
-          <div className="relative grid grid-cols-3 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold isolate">
-            <div
-              className="absolute top-1 bottom-1 transition-transform duration-base ease-spring transform-gpu z-0"
-              style={{
-                left: "4px",
-                width: "calc((100% - 8px) / 3)",
-                transform: `translate3d(${stage >= 3 ? "100%" : "0%"}, 0, 0)`,
-              }}
-            >
-              <div className={`h-full w-full rounded-lg shadow-xs ${stage >= 3 ? "bg-sys-destructive" : "bg-sys-accentSolid"}`} />
-            </div>
-
-            <div className={`relative z-10 flex items-center justify-center gap-1 py-1.5 ${stage < 3 ? "text-white font-bold" : "text-sys-text-secondary"}`}>
-              <span>До здачі</span>
-              <span className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${stage < 3 ? "bg-white/20 text-white" : "bg-sys-bg text-sys-text-secondary"}`}>
-                3
-              </span>
-            </div>
-
-            <div className={`relative z-10 flex items-center justify-center gap-1 py-1.5 ${stage >= 3 ? "text-white font-bold" : "text-sys-status-dangerText"}`}>
-              <span>Борги</span>
-              <span className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${stage >= 3 ? "bg-white/20 text-white" : "bg-sys-status-dangerBg/20 text-sys-status-dangerText"}`}>
-                1
-              </span>
-            </div>
-
-            <div className="relative z-10 flex items-center justify-center gap-1 py-1.5 text-sys-text-secondary">
-              <span>Здано</span>
-              <span className="inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-sys-bg px-1 text-[10px] font-bold text-sys-text-secondary">
-                14
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
-            <div className="flex items-center gap-2">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
-                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-              </svg>
-              <span>Усі предмети (6)</span>
-            </div>
-            <span>▾</span>
-          </div>
-
-          <div className="grid min-h-[82px]">
-            <div
-              aria-hidden={stage >= 3}
-              className={`col-start-1 row-start-1 rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1 min-h-[80px] transition-opacity duration-base ease-spring ${
-                stage < 3 ? "opacity-100" : "opacity-0 pointer-events-none"
-              }`}
-              style={{ boxShadow: "inset 3px 0 0 #f59e0b" }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-xs font-semibold text-sys-text-primary">Лабораторна робота №4</span>
-                <span className="text-xs text-sys-text-muted">↗</span>
-              </div>
-              <p className="text-[11px] text-sys-text-muted truncate">Комп&apos;ютерна схемотехніка · Іваненко О.М.</p>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-sys-status-warnText pt-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-sys-status-warnBg" />
-                <span>Завтра</span>
-              </div>
-            </div>
-            <div
-              aria-hidden={stage < 3}
-              className={`col-start-1 row-start-1 rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1 min-h-[80px] transition-opacity duration-base ease-spring ${
-                stage >= 3 ? "opacity-100" : "opacity-0 pointer-events-none"
-              }`}
-              style={{ boxShadow: "inset 3px 0 0 #ef4444" }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-xs font-semibold text-sys-text-primary">Практична робота №2</span>
-                <span className="text-xs text-sys-text-muted">↗</span>
-              </div>
-              <p className="text-[11px] text-sys-text-muted truncate">Вища математика · Петренко І.В.</p>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-sys-status-dangerText pt-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-sys-status-dangerBg" />
-                <span>10 лист. · прострочено 2 дні</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          СТУДЕНТ 4: ОЦІНКИ
-         ===================================================== */}
-      {role === "student" && stepIdx === 4 && (
-        <div className="relative w-full max-w-[400px] mx-auto h-[196px] flex flex-col justify-start pt-1.5 space-y-2">
-          <DemoCursor
-            x={stage === 0 ? "30%" : stage <= 2 ? "88%" : "88%"}
-            y={stage === 0 ? "22%" : stage <= 2 ? "56%" : "72%"}
-            clicking={stage === 2}
-            hidden={cursorHidden}
-          />
-
-          <div className="rounded-2xl border border-sys-border bg-sys-card px-3.5 py-2.5 shadow-xs flex items-center justify-between">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-sys-text-muted block">
-                Середній бал
-              </span>
-              <div className="flex items-baseline gap-2.5 mt-0.5">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-black text-sys-text-primary">4.75</span>
-                  <span className="text-xs font-semibold text-sys-text-secondary">/ 5.00</span>
-                </div>
-                <div className="flex items-baseline gap-1 pl-2.5 border-l border-sys-border/80">
-                  <span className="text-base font-bold text-sys-accent">11.0</span>
-                  <span className="text-xs font-semibold text-sys-text-secondary">/ 12 б.</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <div className="rounded-lg border border-sys-status-okBg/30 bg-sys-status-okBg/10 px-2 py-1 text-center">
-                <span className="text-[10px] font-bold text-sys-status-okText block">«5»</span>
-                <span className="text-xs font-black text-sys-text-primary">8</span>
-              </div>
-              <div className="rounded-lg border border-sys-status-infoBg/30 bg-sys-status-infoBg/10 px-2 py-1 text-center">
-                <span className="text-[10px] font-bold text-sys-status-infoText block">«4»</span>
-                <span className="text-xs font-black text-sys-text-primary">3</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-sys-border bg-sys-card p-3 shadow-xs space-y-2">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-sys-text-primary truncate">Вища математика</div>
-                <div className="text-[11px] text-sys-text-muted">3 оцінки · Іваненко О.М.</div>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <div className="text-right">
-                  <div className="text-xs font-black text-sys-text-primary leading-none">
-                    4.83 <span className="text-[10px] font-semibold text-sys-text-secondary">/ 5</span>
-                  </div>
-                  <div className="text-[10px] font-bold text-sys-accent mt-0.5">11.0 / 12 б.</div>
-                </div>
-                <span className="text-xs text-sys-text-muted">{stage >= 3 ? "▴" : "▾"}</span>
-              </div>
-            </div>
-
-            <div className="grid min-h-[36px] items-center">
-              <div
-                aria-hidden={stage >= 3}
-                className={`col-start-1 row-start-1 flex items-center gap-1 pt-1.5 border-t border-sys-border/40 w-full transition-opacity duration-base ease-spring ${
-                  stage < 3 ? "opacity-100" : "opacity-0 pointer-events-none"
-                }`}
-              >
-                {["11 б.", "12 б.", "10 б."].map((mark) => (
-                  <span
-                    key={mark}
-                    className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-bold border border-sys-status-okBg/30 bg-sys-status-okBg/15 text-sys-status-okText"
-                  >
-                    {mark}
-                  </span>
-                ))}
-              </div>
-              <div
-                aria-hidden={stage < 3}
-                className={`col-start-1 row-start-1 flex items-center justify-between w-full rounded-xl border border-sys-border/60 bg-sys-bg/60 px-2.5 py-1.5 text-xs transition-opacity duration-base ease-spring ${
-                  stage >= 3 ? "opacity-100" : "opacity-0 pointer-events-none"
-                }`}
-              >
-                <span className="font-semibold text-sys-text-primary truncate">Контрольна робота №1</span>
-                <span className="font-bold text-sys-text-primary shrink-0 ml-2">
-                  95<span className="text-[10px] text-sys-text-secondary">/100 б.</span>{" "}
-                  <span className="text-sys-status-okText">(5 за 5-б.)</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          СТУДЕНТ 5: ПЕРЕХІД ДО ВИКЛАДАЧА (Фіксована геометрія)
-         ===================================================== */}
-      {role === "student" && stepIdx === 5 && (
         <div className="relative w-full max-w-[400px] mx-auto h-[196px]">
           <DemoCursor
             x={stage === 0 ? "68%" : stage <= 2 ? "26%" : "82%"}
@@ -633,8 +444,8 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
               <span className="text-sys-text-secondary truncate mr-2">
                 Розклад: <strong className="text-sys-text-primary">Іваненко О.М.</strong>
               </span>
-              <span className="shrink-0 rounded-lg bg-sys-accent px-2.5 py-1 text-xs font-semibold text-white">
-                ← До групи
+              <span className="shrink-0 rounded-lg bg-sys-accentSolid px-2.5 py-1 text-xs font-semibold text-sys-onAccent">
+                ← Повернутися
               </span>
             </div>
 
@@ -657,79 +468,171 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
       )}
 
       {/* =====================================================
-          ВИКЛАДАЧ 0: PIN-ДОСТУП
+          СТУДЕНТ 4: НАВІГАЦІЯ З КЛАВІАТУРИ ТА СВАЙПИ
+         ===================================================== */}
+      {role === "student" && stepIdx === 4 && (
+        <div className="relative w-full max-w-[400px] mx-auto h-[196px] flex flex-col justify-between py-1">
+          <DemoCursor
+            x={stage === 0 ? "70%" : stage <= 2 ? "30%" : "82%"}
+            y={stage <= 2 ? "44%" : "84%"}
+            clicking={stage === 2}
+            hidden={cursorHidden}
+          />
+
+          <div className="relative grid grid-cols-5 rounded-xl border border-sys-border bg-sys-card p-1 text-[11px] font-semibold isolate">
+            <div
+              className="absolute top-1 bottom-1 transition-transform duration-base ease-spring transform-gpu z-0"
+              style={{
+                left: "4px",
+                width: "calc((100% - 8px) / 5)",
+                transform: `translate3d(${stage >= 3 ? "100%" : "0%"}, 0, 0)`,
+              }}
+            >
+              <div className="h-full w-full rounded-lg bg-sys-accentSolid shadow-2xs" />
+            </div>
+            {["Пн 16", "Вт 17", "Ср 18", "Чт 19", "Пт 20"].map((label, idx) => {
+              const isCurrent = (stage >= 3 ? 1 : 0) === idx;
+              return (
+                <div
+                  key={label}
+                  className={`relative z-10 py-1.5 text-center transition-colors duration-200 ${
+                    isCurrent ? "text-sys-onAccent font-bold" : "text-sys-text-secondary"
+                  }`}
+                >
+                  {label}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="relative h-[86px] rounded-2xl border border-sys-border bg-sys-card overflow-hidden shadow-xs">
+            <div
+              className={`absolute inset-0 p-3 flex flex-col justify-between transition-[opacity,transform] duration-base ease-spring ${
+                stage < 3 ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none"
+              }`}
+              aria-hidden={stage >= 3}
+            >
+              <div className="flex items-center justify-between text-[11px] text-sys-text-secondary">
+                <span className="font-bold text-sys-text-primary">Понеділок · 1 пара</span>
+                <span>09:00–10:20</span>
+              </div>
+              <div className="text-sm font-semibold text-sys-text-subject truncate">Вища математика</div>
+              <div className="flex items-center justify-between text-[11px] text-sys-text-muted">
+                <span>ауд. 426</span>
+                <span className="text-sys-accent font-medium">← Свайп або →</span>
+              </div>
+            </div>
+
+            <div
+              className={`absolute inset-0 p-3 flex flex-col justify-between transition-[opacity,transform] duration-base ease-spring ${
+                stage >= 3 ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4 pointer-events-none"
+              }`}
+              aria-hidden={stage < 3}
+            >
+              <div className="flex items-center justify-between text-[11px] text-sys-text-secondary">
+                <span className="font-bold text-sys-text-primary">Вівторок · 1 пара</span>
+                <span>09:00–10:20</span>
+              </div>
+              <div className="text-sm font-semibold text-sys-text-subject truncate">Алгоритми та структури даних</div>
+              <div className="flex items-center justify-between text-[11px] text-sys-text-muted">
+                <span>ауд. 312</span>
+                <span className="text-sys-status-okText font-semibold">Переключено</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-1.5 text-[10px] font-semibold text-sys-text-secondary">
+            {[
+              { k: "← / →", v: "дні" },
+              { k: "D / W", v: "вигляд" },
+              { k: "T", v: "сьогодні" },
+              { k: "Ctrl+K", v: "пошук" },
+            ].map((item) => (
+              <span
+                key={item.k}
+                className="inline-flex items-center gap-1 rounded-lg border border-sys-border bg-sys-card px-2 py-1"
+              >
+                <kbd className="font-mono font-bold text-sys-text-primary">{item.k}</kbd>
+                <span className="text-sys-text-muted">{item.v}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          ВИКЛАДАЧ 0: ПЕРЕХІД ДО РОЗКЛАДУ ГРУПИ
          ===================================================== */}
       {role === "teacher" && stepIdx === 0 && (
         <div className="relative w-full max-w-[400px] mx-auto h-[196px]">
           <DemoCursor
-            x={stage === 0 ? "35%" : stage <= 2 ? "74%" : "84%"}
-            y={stage === 0 ? "22%" : stage <= 2 ? "76%" : "24%"}
+            x={stage === 0 ? "68%" : stage <= 2 ? "22%" : "82%"}
+            y={stage === 0 ? "24%" : stage <= 2 ? "59%" : "16%"}
             clicking={stage === 2}
             hidden={cursorHidden}
           />
 
           <div
             className={`absolute inset-x-0 top-2 transition-[opacity,transform] duration-base ease-spring ${
-              stage < 3 ? "opacity-100 scale-100" : "opacity-0 scale-[0.98] pointer-events-none"
+              stage < 3 ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 pointer-events-none"
             }`}
             aria-hidden={stage >= 3}
           >
-            <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center border border-sys-status-infoBg/30 bg-sys-status-infoBg/15 text-sys-status-infoText shrink-0">
-                  <LockIcon className="h-4 w-4" />
+            <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between h-8">
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-black text-sys-text-primary leading-none">1</span>
+                  <span className="text-sys-text-muted font-bold text-xs">·</span>
+                  <span className="text-xs font-semibold text-sys-text-secondary">09:00–10:20</span>
                 </div>
-                <div>
-                  <div className="text-xs font-bold text-sys-text-primary">Вхід для викладача</div>
-                  <div className="text-[11px] text-sys-text-secondary">PIN-код для доступу до посилань</div>
-                </div>
-              </div>
-
-              <div className="h-9 px-3 rounded-xl border border-sys-accent bg-sys-bg flex items-center text-xs font-mono tracking-widest text-sys-text-primary">
-                {stage >= 1 ? "••••••" : "•••"}
-              </div>
-
-              <div className="flex gap-2">
-                <span className="flex-1 h-8 rounded-xl border border-sys-border bg-sys-bg text-xs font-semibold text-sys-text-secondary flex items-center justify-center">
-                  Скасувати
+                <span className="inline-flex h-8 px-2.5 items-center rounded-lg border border-sys-border bg-sys-bg text-xs font-medium text-sys-text-secondary">
+                  ауд. 305
                 </span>
+              </div>
+
+              <div className="text-base font-semibold text-sys-text-subject">
+                Комп&apos;ютерна схемотехніка
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs">
+                <UserSvg />
+                <span className="text-sys-text-muted">Група:</span>
                 <span
-                  className={`flex-1 h-8 rounded-xl bg-sys-accent text-white text-xs font-bold flex items-center justify-center transition-transform duration-base ease-spring ${
-                    stage === 2 ? "scale-95" : ""
-                  }`}
+                  className={`font-semibold rounded px-1.5 py-0.5 transition-colors duration-200 ${
+                    stage >= 1
+                      ? "text-sys-accent bg-sys-accent/10 underline underline-offset-2"
+                      : "text-sys-text-primary"
+                  } ${stage === 2 ? "scale-95" : ""}`}
                 >
-                  Розблокувати
+                  85
                 </span>
               </div>
             </div>
           </div>
 
           <div
-            className={`absolute inset-x-0 top-3 transition-[opacity,transform] duration-base ease-spring ${
+            className={`absolute inset-x-0 top-1 space-y-2 transition-[opacity,transform] duration-base ease-spring ${
               stage >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none"
             }`}
             aria-hidden={stage < 3}
           >
-            <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-2.5">
-              <div className="flex items-center justify-between gap-2 h-8">
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-black text-sys-text-primary leading-none">1</span>
-                  <span className="text-sys-text-muted font-bold text-xs">·</span>
-                  <span className="text-xs font-semibold text-sys-text-secondary">09:00–10:20</span>
-                </div>
-                <span className="inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-infoBg/50 bg-sys-status-infoBg/15 text-sys-status-infoText text-xs font-bold shadow-xs">
-                  <PlatformSvg platform="zoom" />
-                  <span>Zoom</span>
-                  <span className="opacity-75">↗</span>
-                </span>
+            <div className="flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3 py-2 text-xs">
+              <span className="text-sys-text-secondary truncate mr-2">
+                Розклад: <strong className="text-sys-text-primary">Група 85</strong>
+              </span>
+              <span className="shrink-0 rounded-lg bg-sys-accentSolid px-2.5 py-1 text-xs font-semibold text-sys-onAccent">
+                ← Повернутися
+              </span>
+            </div>
+
+            <div className="rounded-2xl border border-sys-border bg-sys-card p-3 shadow-xs space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sys-text-primary">1 · Вища математика</span>
+                <span className="text-[11px] text-sys-text-muted">ауд. 426</span>
               </div>
-              <div className="text-base font-semibold text-sys-text-subject">
-                Комп&apos;ютерна схемотехніка
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary">
-                <UserSvg />
-                <span className="text-sys-text-muted">Група:</span>
-                <span className="font-medium text-sys-text-secondary">85</span>
+              <div className="flex items-center justify-between rounded-xl border border-dashed border-sys-status-okBg/40 bg-sys-status-okBg/10 px-2.5 py-1.5">
+                <span className="font-semibold text-sys-status-okText">2 · 10:40–12:00</span>
+                <span className="text-[11px] font-bold text-sys-status-okText">Вільно («вікно»)</span>
               </div>
             </div>
           </div>
@@ -877,6 +780,100 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
               </div>
               <div className="text-xs text-sys-text-secondary">Група: 85 • ауд. 305</div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          ВИКЛАДАЧ 3: ЕКСПОРТ PNG ТА НАВІГАЦІЯ З КЛАВІАТУРИ / СВАЙПИ
+         ===================================================== */}
+      {role === "teacher" && stepIdx === 3 && (
+        <div className="relative w-full max-w-[400px] mx-auto h-[196px] flex flex-col justify-between py-1">
+          <DemoCursor
+            x={stage === 0 ? "22%" : stage <= 2 ? "56%" : "82%"}
+            y={stage === 0 ? "48%" : stage <= 2 ? "16%" : "68%"}
+            clicking={stage === 2}
+            hidden={cursorHidden}
+          />
+
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-sys-text-primary truncate">Понеділок · Тиждень</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span
+                className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition-[border-color,background-color,transform] duration-200 ${
+                  stage >= 1
+                    ? "border-sky-500/50 bg-sky-500/10 text-sky-600 dark:text-sky-300"
+                    : "border-sys-border bg-sys-card text-sys-text-secondary"
+                } ${stage === 2 ? "scale-95" : ""}`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                  <circle cx="9" cy="9" r="2" />
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                </svg>
+                <span>Зберегти картинку</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="grid min-h-[104px]">
+            <div
+              aria-hidden={stage >= 3}
+              className={`col-start-1 row-start-1 rounded-2xl border border-sys-border bg-sys-card p-3 space-y-2 transition-[opacity,transform] duration-base ease-spring ${
+                stage < 3 ? "opacity-100 scale-100" : "opacity-0 scale-[0.98] pointer-events-none"
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-sys-text-subject">1 · Дискретна математика</span>
+                <span className="text-[11px] text-sys-text-muted">гр. 85</span>
+              </div>
+              <div className="flex items-center justify-between text-xs border-t border-sys-border/60 pt-2">
+                <span className="font-semibold text-sys-text-subject">2 · Комп&apos;ютерна схемотехніка</span>
+                <span className="text-[11px] text-sys-text-muted">гр. 99</span>
+              </div>
+            </div>
+
+            <div
+              aria-hidden={stage < 3}
+              className={`col-start-1 row-start-1 rounded-2xl border border-sys-status-okBg/40 bg-sys-card p-3 flex items-center justify-between gap-3 transition-[opacity,transform] duration-base ease-spring ${
+                stage >= 3 ? "opacity-100 scale-100" : "opacity-0 scale-[0.98] pointer-events-none"
+              }`}
+            >
+              <div className="space-y-1 min-w-0">
+                <div className="inline-flex items-center gap-1 text-[11px] font-bold text-sys-status-okText">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12l5 5l10 -10" />
+                  </svg>
+                  <span>PNG готовий до відправки</span>
+                </div>
+                <div className="text-xs font-semibold text-sys-text-primary truncate">
+                  Чітка картка дня або всього тижня
+                </div>
+                <div className="text-[11px] text-sys-text-muted">
+                  Зберігає чи передає у буфер обміну
+                </div>
+              </div>
+              <span className="shrink-0 rounded-xl border border-sys-border bg-sys-bg px-2.5 py-1.5 text-[11px] font-mono font-bold text-sys-text-secondary">
+                .png
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-1.5 text-[10px] font-semibold text-sys-text-secondary">
+            {[
+              { k: "← / →", v: "дні" },
+              { k: "D / W", v: "вигляд" },
+              { k: "T", v: "сьогодні" },
+              { k: "Ctrl+K", v: "пошук" },
+            ].map((item) => (
+              <span
+                key={item.k}
+                className="inline-flex items-center gap-1 rounded-lg border border-sys-border bg-sys-card px-2 py-1"
+              >
+                <kbd className="font-mono font-bold text-sys-text-primary">{item.k}</kbd>
+                <span className="text-sys-text-muted">{item.v}</span>
+              </span>
+            ))}
           </div>
         </div>
       )}
