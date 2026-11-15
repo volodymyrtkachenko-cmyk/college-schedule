@@ -1,6 +1,7 @@
 from app.core.time import today_local, now_local
 import logging
 from datetime import date, time, timedelta
+import time as _time
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status, Request
 from pydantic import BaseModel
 from sqlalchemy import select, delete
@@ -12,7 +13,8 @@ from app.schemas import LessonMutation, ScheduleItem, ScheduleResponse
 from app.core.security import require_roles
 from app.models import Group, Teacher, ImportedScheduleChange, Schedule, Subject, User, ScheduleVersion, SchedulePeriod
 from sqlalchemy import and_
-from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicting_lesson, save_schedule_item, resolve_active_period_info, _active_periods
+from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicting_lesson, save_schedule_item, resolve_active_period_info, _active_periods, _active_periods_range
+from app.services.directory_cache import get_cached_scope
 from app.services.bells import (
     SHORTENED_BELL_TIMES,
     get_bell_times,
@@ -77,8 +79,21 @@ async def _has_admin_or_editor_access(request: Request | None, db: AsyncSession)
     return False
 
 
+_HORIZON_CACHE: dict[tuple[date, int], tuple[float, date]] = {}
+_HORIZON_CACHE_TTL = 60.0
+
+
 async def _resolve_public_schedule_horizon(db: AsyncSession) -> date:
     today = today_local()
+    can_use_cache = not db.new and not db.dirty and not db.deleted
+    from app.services import cache_rev
+    cache_key = (today, cache_rev.global_rev)
+    now_mono = _time.monotonic()
+    if can_use_cache:
+        cached = _HORIZON_CACHE.get(cache_key)
+        if cached is not None and (now_mono - cached[0]) < _HORIZON_CACHE_TTL:
+            return cached[1]
+
     anchor_today = today + timedelta(days=8 - today.isoweekday()) if today.isoweekday() > 5 else today
     curr_monday = anchor_today - timedelta(days=anchor_today.isoweekday() - 1)
     default_horizon = curr_monday + timedelta(days=13)
@@ -88,9 +103,12 @@ async def _resolve_public_schedule_horizon(db: AsyncSession) -> date:
         .order_by(ScheduleVersion.valid_until.desc())
         .limit(1)
     )
-    if max_valid_until is not None:
-        return max_valid_until
-    return default_horizon
+    resolved = max_valid_until if max_valid_until is not None else default_horizon
+    if can_use_cache:
+        if len(_HORIZON_CACHE) >= 32:
+            _HORIZON_CACHE.clear()
+        _HORIZON_CACHE[cache_key] = (now_mono, resolved)
+    return resolved
 
 @router.get("/schedule", response_model=ScheduleResponse)
 async def schedule(request: Request = None,
@@ -163,7 +181,7 @@ async def schedule(request: Request = None,
             if teacher_id and not group_id:
                 if is_teacher_auth:
                     item_has_access = True
-                elif item.group_id:
+                elif item.group_id and (item.note or has_meeting):
                     if item.group_id not in group_access_cache:
                         group_access_cache[item.group_id] = await check_classroom_group_access(db, item.group_id, request)
                     item_has_access = group_access_cache[item.group_id]
@@ -256,9 +274,9 @@ async def today(
         return Response(status_code=304, headers=dict(response.headers))
 
     if group_id:
-        scope = await db.get(Group, group_id)
+        scope = await get_cached_scope(db, Group, group_id)
     elif teacher_id:
-        scope = await db.get(Teacher, teacher_id)
+        scope = await get_cached_scope(db, Teacher, teacher_id)
     else:
         scope = None
 
@@ -350,9 +368,9 @@ async def week(
 
     # T11: PWA Offline caching via Last-Modified
     if group_id:
-        scope = await db.get(Group, group_id)
+        scope = await get_cached_scope(db, Group, group_id)
     elif teacher_id:
-        scope = await db.get(Teacher, teacher_id)
+        scope = await get_cached_scope(db, Teacher, teacher_id)
     else:
         scope = None
 
@@ -417,7 +435,7 @@ async def week(
             if teacher_id and not group_id:
                 if is_auth:
                     item_has_access = True
-                elif item.group_id:
+                elif item.group_id and (item.note or has_meeting):
                     if item.group_id not in group_access_cache:
                         group_access_cache[item.group_id] = await check_classroom_group_access(db, item.group_id, request)
                     item_has_access = group_access_cache[item.group_id]
@@ -440,16 +458,7 @@ async def week(
         db, group_id, week_dates, group=scope if isinstance(scope, Group) else None
     )
 
-    week_periods = (
-        await db.scalars(
-            select(SchedulePeriod)
-            .where(
-                SchedulePeriod.start_date <= (start + timedelta(days=4)),
-                SchedulePeriod.end_date >= start,
-            )
-            .options(selectinload(SchedulePeriod.groups))
-        )
-    ).unique().all()
+    week_periods = await _active_periods_range(db, start, start + timedelta(days=4))
 
     return [
         ScheduleResponse(

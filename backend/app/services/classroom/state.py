@@ -1,4 +1,5 @@
 import json
+import time as _time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -9,6 +10,8 @@ from app.models import Setting
 MAX_ACCOUNTS_PER_CYCLE = 5
 CACHE_TTL_TEACHERS_TOPICS = 12 * 3600  # 12 годин TTL для статичних метаданих курсів (викладачі та теми)
 CLASSROOM_AUTO_SYNC_HEARTBEAT_KEY = "classroom_auto_sync_heartbeat"
+_HEARTBEAT_CACHE_TTL = 30.0
+_heartbeat_cache: tuple[float, Optional[dict[str, Any]]] | None = None
 
 _last_students_synced_at: dict[int, datetime] = {}
 _course_teachers_cache: dict[str, tuple[float, Any]] = {}
@@ -64,15 +67,25 @@ async def _write_classroom_heartbeat(db: AsyncSession, payload: dict[str, Any]) 
             db.add(Setting(key=CLASSROOM_AUTO_SYNC_HEARTBEAT_KEY, value=value))
         else:
             existing.value = value
+    global _heartbeat_cache
     await db.commit()
+    _heartbeat_cache = (_time.monotonic(), payload)
 
 
 async def _read_classroom_heartbeat(db: AsyncSession) -> Optional[dict[str, Any]]:
+    global _heartbeat_cache
+    now_mono = _time.monotonic()
+    if _heartbeat_cache is not None and (now_mono - _heartbeat_cache[0]) < _HEARTBEAT_CACHE_TTL:
+        return _heartbeat_cache[1]
     row = await db.get(Setting, CLASSROOM_AUTO_SYNC_HEARTBEAT_KEY)
     if not row or not row.value:
+        _heartbeat_cache = (now_mono, None)
         return None
     try:
         data = json.loads(row.value)
-        return data if isinstance(data, dict) else None
+        parsed = data if isinstance(data, dict) else None
+        _heartbeat_cache = (now_mono, parsed)
+        return parsed
     except Exception:
+        _heartbeat_cache = (now_mono, None)
         return None

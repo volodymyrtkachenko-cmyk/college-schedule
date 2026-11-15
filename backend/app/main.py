@@ -190,7 +190,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 app.add_middleware(
     GZipMiddleware,
-    minimum_size=1000,
+    minimum_size=500,
     compresslevel=5,
 )
 

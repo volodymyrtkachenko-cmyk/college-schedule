@@ -1,8 +1,9 @@
 from datetime import date, timedelta
+import sys
 from typing import Any, Optional, List, Dict, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_
-from sqlalchemy.orm import joinedload, aliased
+from sqlalchemy.orm import joinedload, selectinload, aliased
 from collections import defaultdict
 
 from app.models import (
@@ -22,18 +23,35 @@ import re
 import time as _time
 
 _WEEK_PROJ_CACHE: dict[tuple, tuple[float, str, Dict[int, List["EffectiveLesson"]]]] = {}
-_WEEK_PROJ_TTL = 45.0
-_WEEK_PROJ_MAX = 256
+_WEEK_PROJ_TTL = 180.0
+_WEEK_PROJ_MAX = 512
 
 _DAY_PROJ_CACHE: dict[tuple, tuple[float, List["EffectiveLesson"]]] = {}
-_DAY_PROJ_TTL = 30.0
-_DAY_PROJ_MAX = 256
+_DAY_PROJ_TTL = 120.0
+_DAY_PROJ_MAX = 512
 
 
 def invalidate_projection_cache(group_id: Optional[int] = None) -> None:
     if group_id is None:
         _WEEK_PROJ_CACHE.clear()
         _DAY_PROJ_CACHE.clear()
+        if "app.services.lesson_notes" in sys.modules:
+            sys.modules["app.services.lesson_notes"].invalidate_notes_cache()
+        if "app.services.directory_cache" in sys.modules:
+            sys.modules["app.services.directory_cache"].invalidate_directory_cache()
+        if "app.services.bells" in sys.modules:
+            sys.modules["app.services.bells"].invalidate_bell_cache()
+        if "app.services.schedule" in sys.modules:
+            sys.modules["app.services.schedule"].invalidate_periods_cache()
+        sched_router = sys.modules.get("app.routers.schedule")
+        if sched_router is not None and hasattr(sched_router, "_HORIZON_CACHE"):
+            sched_router._HORIZON_CACHE.clear()
+        classroom_sync_mod = sys.modules.get("app.services.classroom.sync")
+        if classroom_sync_mod is not None and hasattr(classroom_sync_mod, "_HAS_SUBGROUPS_CACHE"):
+            classroom_sync_mod._HAS_SUBGROUPS_CACHE.clear()
+        classroom_state_mod = sys.modules.get("app.services.classroom.state")
+        if classroom_state_mod is not None and hasattr(classroom_state_mod, "_heartbeat_cache"):
+            classroom_state_mod._heartbeat_cache = None
         return
     stale_week = [k for k in _WEEK_PROJ_CACHE if k[1] == group_id or k[1] is None]
     for k in stale_week:
@@ -41,6 +59,15 @@ def invalidate_projection_cache(group_id: Optional[int] = None) -> None:
     stale_day = [k for k in _DAY_PROJ_CACHE if k[1] == group_id or k[1] is None]
     for k in stale_day:
         _DAY_PROJ_CACHE.pop(k, None)
+    if "app.services.lesson_notes" in sys.modules:
+        sys.modules["app.services.lesson_notes"].invalidate_notes_cache(group_id)
+    if "app.services.directory_cache" in sys.modules:
+        sys.modules["app.services.directory_cache"].invalidate_scope_cache(group_id)
+    classroom_sync_mod = sys.modules.get("app.services.classroom.sync")
+    if classroom_sync_mod is not None and hasattr(classroom_sync_mod, "_HAS_SUBGROUPS_CACHE"):
+        stale_sub = [k for k in classroom_sync_mod._HAS_SUBGROUPS_CACHE if k[0] == group_id]
+        for k in stale_sub:
+            classroom_sync_mod._HAS_SUBGROUPS_CACHE.pop(k, None)
 
 
 class EffectiveLesson:
@@ -230,11 +257,13 @@ async def build_projection(
         SchedulePeriod.start_date <= target_date,
         SchedulePeriod.end_date >= target_date
     ).options(
-        joinedload(SchedulePeriod.groups),
-        joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.group),
-        joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.subject),
-        joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.teacher),
-        joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.second_teacher)
+        selectinload(SchedulePeriod.groups),
+        selectinload(SchedulePeriod.slots).options(
+            joinedload(SchedulePeriodSlot.group),
+            joinedload(SchedulePeriodSlot.subject),
+            joinedload(SchedulePeriodSlot.teacher),
+            joinedload(SchedulePeriodSlot.second_teacher),
+        ),
     )
     periods = (await db.scalars(periods_query)).unique().all()
 
@@ -563,11 +592,13 @@ async def build_week_projection(
     teacher_id: Optional[int] = None,
     include_cancelled: bool = False,
 ) -> Tuple[str, Dict[int, List[EffectiveLesson]]]:
+    can_use_cache = not db.new and not db.dirty and not db.deleted
     cache_key = (start_date, group_id, teacher_id, include_cancelled)
     now_mono = _time.monotonic()
-    cached = _WEEK_PROJ_CACHE.get(cache_key)
-    if cached is not None and (now_mono - cached[0]) < _WEEK_PROJ_TTL:
-        return cached[1], {k: list(v) for k, v in cached[2].items()}
+    if can_use_cache:
+        cached = _WEEK_PROJ_CACHE.get(cache_key)
+        if cached is not None and (now_mono - cached[0]) < _WEEK_PROJ_TTL:
+            return cached[1], {k: list(v) for k, v in cached[2].items()}
 
     """Batch-load 5 weekdays (Mon..Fri) in 5 queries instead of 25."""
     end_date = start_date + timedelta(days=4)
@@ -594,11 +625,13 @@ async def build_week_projection(
                 SchedulePeriod.end_date >= start_date,
             )
             .options(
-                joinedload(SchedulePeriod.groups),
-                joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.group),
-                joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.subject),
-                joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.teacher),
-                joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.second_teacher),
+                selectinload(SchedulePeriod.groups),
+                selectinload(SchedulePeriod.slots).options(
+                    joinedload(SchedulePeriodSlot.group),
+                    joinedload(SchedulePeriodSlot.subject),
+                    joinedload(SchedulePeriodSlot.teacher),
+                    joinedload(SchedulePeriodSlot.second_teacher),
+                ),
             )
         )
     ).unique().all()
@@ -996,9 +1029,10 @@ async def build_week_projection(
 
         lessons_by_day[weekday] = sorted(results, key=lambda x: x.lesson_number)
 
-    if len(_WEEK_PROJ_CACHE) >= _WEEK_PROJ_MAX:
-        oldest_key = min(_WEEK_PROJ_CACHE, key=lambda k: _WEEK_PROJ_CACHE[k][0])
-        _WEEK_PROJ_CACHE.pop(oldest_key, None)
-    _WEEK_PROJ_CACHE[cache_key] = (now_mono, week_type, {k: list(v) for k, v in lessons_by_day.items()})
+    if can_use_cache:
+        if len(_WEEK_PROJ_CACHE) >= _WEEK_PROJ_MAX:
+            oldest_key = min(_WEEK_PROJ_CACHE, key=lambda k: _WEEK_PROJ_CACHE[k][0])
+            _WEEK_PROJ_CACHE.pop(oldest_key, None)
+        _WEEK_PROJ_CACHE[cache_key] = (now_mono, week_type, {k: list(v) for k, v in lessons_by_day.items()})
 
     return week_type, lessons_by_day

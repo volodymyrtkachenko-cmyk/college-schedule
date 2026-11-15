@@ -1,5 +1,6 @@
 """Note writes join the same transaction/lock as schedule mutations."""
 from datetime import timedelta
+import time as _time
 from fastapi import HTTPException
 from sqlalchemy import select
 from app.models import (Group, User, Schedule, ScheduleVersion, ScheduleOverride,
@@ -9,6 +10,19 @@ from app.services.projection import build_projection
 from app.models import Subject
 from app.services.settings import settings_service
 from app.services.week import get_week_type
+
+_NOTES_CACHE: dict[tuple, tuple[float, object]] = {}
+_NOTES_CACHE_TTL = 60.0
+_NOTES_CACHE_MAX = 512
+
+
+def invalidate_notes_cache(group_id: int | None = None) -> None:
+    if group_id is None:
+        _NOTES_CACHE.clear()
+        return
+    stale = [k for k in _NOTES_CACHE if group_id in k[2]]
+    for k in stale:
+        _NOTES_CACHE.pop(k, None)
 
 
 def reject(code, message, status=409):
@@ -76,6 +90,7 @@ async def archive_note(db, row, event, actor_id):
     row.revision += 1
     row.updated_by = actor_id
     row.updated_at = utcnow()
+    invalidate_notes_cache(row.group_id)
     await snapshot_revision(db, row, event, actor_id)
 
 
@@ -128,58 +143,97 @@ async def write_note(db, user, group_id, note_date, lesson_number, payload):
         current.updated_at = utcnow()
         event = "updated"
     await snapshot_revision(db, current, event, user.id)
+    invalidate_notes_cache(group_id)
     return current
 
 
 async def attach_notes(db, target_date, items):
     if not items:
         return items
-    rows = (await db.scalars(select(LessonOccurrenceNote).where(
-        LessonOccurrenceNote.note_date == target_date,
-        LessonOccurrenceNote.group_id.in_({item.group_id for item in items}),
-        LessonOccurrenceNote.archived.is_(False),
-    ))).all()
-    indexed = {(row.group_id, row.lesson_number, row.subject_id): row for row in rows}
-    # Never expose the old subject's text when an unapplied legacy override changes it.
-    ordinary = [item.id for item in items if item.id > 0 and not item.is_replacement]
-    overrides = (await db.scalars(select(ScheduleOverride).where(
-        ScheduleOverride.date == target_date, ScheduleOverride.schedule_id.in_(ordinary),
-        ScheduleOverride.subject_id.is_not(None),
-    ))).all() if ordinary else []
-    changed = {o.schedule_id: o.subject_id for o in overrides}
+    groups_tuple = tuple(sorted({item.group_id for item in items if item.group_id}))
+    if not groups_tuple:
+        return items
+    can_use_cache = not db.new and not db.dirty and not db.deleted
+    from app.services import cache_rev
+    rev_sig = (cache_rev.global_rev, tuple(cache_rev.group_rev.get(g, 0) for g in groups_tuple))
+    ordinary = tuple(sorted(item.id for item in items if item.id > 0 and not item.is_replacement))
+    cache_key = ("day", target_date, groups_tuple, rev_sig, ordinary)
+    now_mono = _time.monotonic()
+
+    cached_val = _NOTES_CACHE.get(cache_key) if can_use_cache else None
+    if cached_val is not None and (now_mono - cached_val[0]) < _NOTES_CACHE_TTL:
+        indexed, changed = cached_val[1]
+    else:
+        rows = (await db.scalars(select(LessonOccurrenceNote).where(
+            LessonOccurrenceNote.note_date == target_date,
+            LessonOccurrenceNote.group_id.in_(groups_tuple),
+            LessonOccurrenceNote.archived.is_(False),
+        ))).all()
+        indexed = {
+            (row.group_id, row.lesson_number, row.subject_id): (row.note, row.id, row.revision)
+            for row in rows
+        }
+        # Never expose the old subject's text when an unapplied legacy override changes it.
+        overrides = (await db.scalars(select(ScheduleOverride).where(
+            ScheduleOverride.date == target_date, ScheduleOverride.schedule_id.in_(ordinary),
+            ScheduleOverride.subject_id.is_not(None),
+        ))).all() if ordinary else []
+        changed = {o.schedule_id: o.subject_id for o in overrides}
+        if can_use_cache:
+            if len(_NOTES_CACHE) >= _NOTES_CACHE_MAX:
+                oldest_k = min(_NOTES_CACHE, key=lambda k: _NOTES_CACHE[k][0])
+                _NOTES_CACHE.pop(oldest_k, None)
+            _NOTES_CACHE[cache_key] = (now_mono, (indexed, changed))
+
     for item in items:
-        row = indexed.get((item.group_id, item.lesson_number, item.subject_id))
-        if row and changed.get(item.id, item.subject_id) == item.subject_id:
-            item.note, item.note_id, item.note_revision = row.note, row.id, row.revision
+        row_data = indexed.get((item.group_id, item.lesson_number, item.subject_id))
+        if row_data and changed.get(item.id, item.subject_id) == item.subject_id:
+            item.note, item.note_id, item.note_revision = row_data
             item.note_date = target_date
     return items
 
 
 async def attach_week_notes(db, days_items: list[tuple]):
     """Attach occurrence notes for multiple (target_date, items) pairs in a single query."""
-    all_dates = {d for d, items in days_items if items}
-    all_groups = {item.group_id for _, items in days_items for item in items if item.group_id}
+    all_dates = tuple(sorted({d for d, items in days_items if items}))
+    all_groups = tuple(sorted({item.group_id for _, items in days_items for item in items if item.group_id}))
     if not all_dates or not all_groups:
         return
 
-    rows = (
-        await db.scalars(
-            select(LessonOccurrenceNote).where(
-                LessonOccurrenceNote.note_date.in_(all_dates),
-                LessonOccurrenceNote.group_id.in_(all_groups),
-                LessonOccurrenceNote.archived.is_(False),
+    can_use_cache = not db.new and not db.dirty and not db.deleted
+    from app.services import cache_rev
+    rev_sig = (cache_rev.global_rev, tuple(cache_rev.group_rev.get(g, 0) for g in all_groups))
+    cache_key = ("week", all_dates, all_groups, rev_sig)
+    now_mono = _time.monotonic()
+
+    cached_val = _NOTES_CACHE.get(cache_key) if can_use_cache else None
+    if cached_val is not None and (now_mono - cached_val[0]) < _NOTES_CACHE_TTL:
+        indexed = cached_val[1]
+    else:
+        rows = (
+            await db.scalars(
+                select(LessonOccurrenceNote).where(
+                    LessonOccurrenceNote.note_date.in_(all_dates),
+                    LessonOccurrenceNote.group_id.in_(all_groups),
+                    LessonOccurrenceNote.archived.is_(False),
+                )
             )
-        )
-    ).all()
-    indexed = {(r.note_date, r.group_id, r.lesson_number, r.subject_id): r for r in rows}
+        ).all()
+        indexed = {
+            (r.note_date, r.group_id, r.lesson_number, r.subject_id): (r.note, r.id, r.revision)
+            for r in rows
+        }
+        if can_use_cache:
+            if len(_NOTES_CACHE) >= _NOTES_CACHE_MAX:
+                oldest_k = min(_NOTES_CACHE, key=lambda k: _NOTES_CACHE[k][0])
+                _NOTES_CACHE.pop(oldest_k, None)
+            _NOTES_CACHE[cache_key] = (now_mono, indexed)
 
     for target_date, items in days_items:
         for item in items:
-            row = indexed.get((target_date, item.group_id, item.lesson_number, item.subject_id))
-            if row:
-                item.note = row.note
-                item.note_id = row.id
-                item.note_revision = row.revision
+            row_data = indexed.get((target_date, item.group_id, item.lesson_number, item.subject_id))
+            if row_data:
+                item.note, item.note_id, item.note_revision = row_data
                 item.note_date = target_date
 
 
@@ -222,6 +276,8 @@ async def reconcile_template_notes(db, item, *, group_id, subject_id, day, lesso
             row.group_id, row.note_date, row.lesson_number = group_id, destination, lesson_number
             row.revision += 1
             row.updated_by, row.updated_at = actor_id, utcnow()
+            invalidate_notes_cache(item.group_id)
+            invalidate_notes_cache(group_id)
             await snapshot_revision(db, row, "moved", actor_id)
 
 

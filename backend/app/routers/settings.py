@@ -1,10 +1,11 @@
 import secrets
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pydantic import BaseModel, Field
 from app.core.rate_limit import limiter
 from app.core.security import require_roles
+from app.core.time import today_local
 from app.database import get_db
 from app.schemas import (
     LearningModeConfig,
@@ -15,6 +16,7 @@ from app.schemas import (
     ShortenedDayItem,
     ShortenedDayTogglePayload,
 )
+from app.services import cache_rev
 from app.services.bells import get_public_bells_payload
 from app.services.learning_mode import get_learning_mode_config, save_learning_mode_config
 from app.services.settings import SEMESTER_START_KEY, TEACHER_PIN_KEY, settings_service
@@ -22,8 +24,21 @@ from app.services.settings import SEMESTER_START_KEY, TEACHER_PIN_KEY, settings_
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
+def _apply_public_cache_headers(request: Request, response: Response, kind: str, extra: str = "") -> Response | None:
+    etag = cache_rev.directory_etag(f"settings-{kind}", extra)
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    response.headers["Vary"] = "Accept-Encoding"
+    if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers=dict(response.headers))
+    return None
+
+
 @router.get("/semester-start", response_model=SemesterStartSetting)
-async def get_semester_start(db: AsyncSession = Depends(get_db)):
+async def get_semester_start(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    cached_resp = _apply_public_cache_headers(request, response, "semester-start")
+    if cached_resp is not None:
+        return cached_resp
     try:
         value = await settings_service.get_semester_start(db)
     except ValueError as exc:
@@ -49,7 +64,10 @@ async def update_semester_start(
 
 
 @router.get("/learning-mode", response_model=LearningModeConfig)
-async def get_learning_mode(db: AsyncSession = Depends(get_db)):
+async def get_learning_mode(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    cached_resp = _apply_public_cache_headers(request, response, "learning-mode")
+    if cached_resp is not None:
+        return cached_resp
     return await get_learning_mode_config(db)
 
 
@@ -64,7 +82,10 @@ async def update_learning_mode(
 
 
 @router.get("/semester-dates", response_model=SemesterDatesSetting)
-async def get_semester_dates(db: AsyncSession = Depends(get_db)):
+async def get_semester_dates(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    cached_resp = _apply_public_cache_headers(request, response, "semester-dates")
+    if cached_resp is not None:
+        return cached_resp
     try:
         start, end = await settings_service.get_saved_semester_dates(db)
     except ValueError as exc:
@@ -137,12 +158,18 @@ async def update_teacher_pin_setting(
 
 
 @router.get("/bells", response_model=PublicBellsResponse)
-async def get_public_bells(db: AsyncSession = Depends(get_db)):
+async def get_public_bells(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    cached_resp = _apply_public_cache_headers(request, response, "bells", today_local().isoformat())
+    if cached_resp is not None:
+        return cached_resp
     return await get_public_bells_payload(db)
 
 
 @router.get("/shortened-days", response_model=list[ShortenedDayItem])
-async def list_shortened_days(db: AsyncSession = Depends(get_db)):
+async def list_shortened_days(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    cached_resp = _apply_public_cache_headers(request, response, "shortened-days")
+    if cached_resp is not None:
+        return cached_resp
     items = await settings_service.get_shortened_days(db)
     return [ShortenedDayItem(date=it["date"], reason=it.get("reason")) for it in items]
 

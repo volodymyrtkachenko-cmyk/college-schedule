@@ -69,6 +69,13 @@ def schedule_etag(*, group_id: int | None, teacher_id: int | None, variant: str)
     return f'W/"{_BOOT}-{format(bucket, "x")}-{scope}-{variant}"'
 
 
+def directory_etag(kind: str, extra: str = "") -> str:
+    """Weak ETag for public directory and settings responses."""
+    bucket = int(time.time() // ETAG_BUCKET_SECONDS)
+    suffix = f"-{extra}" if extra else ""
+    return f'W/"{_BOOT}-{format(bucket, "x")}-dir-{kind}.{global_rev}{suffix}"'
+
+
 def etag_matches(if_none_match: str | None, etag: str) -> bool:
     if not if_none_match:
         return False

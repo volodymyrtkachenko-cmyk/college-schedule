@@ -107,7 +107,8 @@ async def resolve_group_learning_mode_detail(
     if not group_id:
         return None, None
     if group is None:
-        group = await db.get(Group, group_id)
+        from app.services.directory_cache import get_cached_scope
+        group = await get_cached_scope(db, Group, group_id)
     if group is None:
         return None, None
     config = await get_learning_mode_config(db)
@@ -127,7 +128,8 @@ async def resolve_group_week_learning_modes(
     if not group_id or not dates:
         return {d: (None, None) for d in dates}
     if group is None:
-        group = await db.get(Group, group_id)
+        from app.services.directory_cache import get_cached_scope
+        group = await get_cached_scope(db, Group, group_id)
     if group is None:
         return {d: (None, None) for d in dates}
     config = await get_learning_mode_config(db)

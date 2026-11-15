@@ -1,7 +1,8 @@
 """Public directory reads and administrator-only directory management."""
 from collections import defaultdict
+import json
 import re
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +20,7 @@ from app.schemas import (
     SubjectResource, SubjectUpdate, TeacherCreate, TeacherResource, TeacherUpdate,
 )
 
-from app.services.directory_cache import _DIR_CACHE, invalidate_directory_cache
+from app.services.directory_cache import _DIR_CACHE, _DIR_JSON_CACHE, invalidate_directory_cache
 from app.services.projection import clean_room_string
 
 router = APIRouter(tags=["directory"])
@@ -49,25 +50,73 @@ async def items(model, db: AsyncSession):
     return data
 
 
+async def _cached_directory_response(
+    request: Request,
+    response: Response,
+    kind: str,
+    model,
+    schema,
+    db: AsyncSession,
+    *,
+    date_sensitive: bool = False,
+    filter_fn=None,
+) -> Response:
+    from app.services import cache_rev
+
+    today_key = today_local().isoformat() if date_sensitive else ""
+    etag = cache_rev.directory_etag(kind, today_key)
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    response.headers["Vary"] = "Accept-Encoding"
+
+    if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers=dict(response.headers))
+
+    rev = cache_rev.global_rev
+    json_key = (kind, rev, today_key)
+    raw_bytes = _DIR_JSON_CACHE.get(json_key)
+    if raw_bytes is None:
+        rows = await items(model, db)
+        if filter_fn is not None:
+            rows = [r for r in rows if filter_fn(r)]
+        serialized = [schema.model_validate(r).model_dump(mode="json") for r in rows]
+        raw_bytes = json.dumps(serialized, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        stale = [k for k in _DIR_JSON_CACHE if k[0] == kind and k[1] != rev]
+        for k in stale:
+            _DIR_JSON_CACHE.pop(k, None)
+        _DIR_JSON_CACHE[json_key] = raw_bytes
+
+    return Response(content=raw_bytes, media_type="application/json", headers=dict(response.headers))
+
+
 @router.get("/faculties", response_model=list[FacultyResource])
-async def faculties(db: AsyncSession = Depends(get_db)):
-    return await items(Faculty, db)
+async def faculties(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    return await _cached_directory_response(request, response, "faculties", Faculty, FacultyResource, db)
 
 
 @router.get("/groups", response_model=list[GroupResource])
-async def groups(db: AsyncSession = Depends(get_db)):
-    return await items(Group, db)
+async def groups(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    return await _cached_directory_response(
+        request, response, "groups", Group, GroupResource, db, date_sensitive=True
+    )
 
 
 @router.get("/teachers", response_model=list[TeacherResource])
-async def teachers(db: AsyncSession = Depends(get_db)):
-    all_teachers = await items(Teacher, db)
-    return [t for t in all_teachers if t.name and "!" not in t.name]
+async def teachers(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    return await _cached_directory_response(
+        request,
+        response,
+        "teachers",
+        Teacher,
+        TeacherResource,
+        db,
+        filter_fn=lambda t: bool(t.name and "!" not in t.name),
+    )
 
 
 @router.get("/subjects", response_model=list[SubjectResource])
-async def subjects(db: AsyncSession = Depends(get_db)):
-    return await items(Subject, db)
+async def subjects(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    return await _cached_directory_response(request, response, "subjects", Subject, SubjectResource, db)
 
 
 async def _duplicate(db, model, name: str, entity_id: int | None = None):
@@ -102,7 +151,7 @@ async def _create(db, model, payload, response_model):
     try:
         await db.commit()
         await db.refresh(entity)
-        _DIR_CACHE.clear()
+        invalidate_directory_cache()
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(409, "Запис із такими даними вже існує") from exc
@@ -129,7 +178,7 @@ async def _update(db, model, entity_id: int, payload):
     try:
         await db.commit()
         await db.refresh(entity)
-        _DIR_CACHE.clear()
+        invalidate_directory_cache()
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(409, "Запис із такими даними вже існує") from exc
@@ -150,7 +199,7 @@ async def _soft_delete(db, model, entity_id: int):
         raise HTTPException(404, f"Запис не знайдено")
     entity.is_active = False
     await db.commit()
-    _DIR_CACHE.clear()
+    invalidate_directory_cache()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

@@ -69,6 +69,10 @@ from app.services.projection import build_week_projection
 
 logger = logging.getLogger(__name__)
 
+_HAS_SUBGROUPS_CACHE: dict[tuple[int, int, int], tuple[float, bool]] = {}
+_HAS_SUBGROUPS_TTL = 300.0
+_HAS_SUBGROUPS_MAX = 256
+
 
 async def perform_course_sync(
     db: AsyncSession,
@@ -118,86 +122,6 @@ async def perform_course_sync(
     skipped_ids = {str(cid) for cid in (skip_course_ids or set()) if cid}
     effective_courses = [c for c in courses if str(c.get("id") or "") not in skipped_ids]
     current_sync_course_ids = {str(c.get("id")) for c in effective_courses if c.get("id")}
-
-    # КРОК 1: Розумне очищення старих авто-посилань та старих [TASK]
-    # Завдання інших підгруп/курсів (наприклад, іншої підгрупи англійської мови),
-    # яких немає у поточному списку курсів користувача, дбайливо ЗБЕРІГАЮТЬСЯ (Smart Merge)!
-    all_group_notes_all = (
-        await db.scalars(
-            select(LessonOccurrenceNote)
-            .where(LessonOccurrenceNote.group_id == group.id)
-            .order_by(LessonOccurrenceNote.id.asc())
-        )
-    ).all()
-    all_group_notes = [gn for gn in all_group_notes_all if not gn.archived]
-
-    for gn in all_group_notes:
-        manual_lines = []
-        for line in gn.note.split("\n"):
-            l_str = line.strip()
-            if not l_str:
-                continue
-            if l_str.startswith("[TASK"):
-                # Завдання [TASK] не видаляємо наосліп до завантаження авторів курсів:
-                # у КРОЦІ 1b прибираємо лише ті [TASK], що належать викладачам ПОТОЧНОГО синку.
-                # Завдання іншої підгрупи (навіть зі спільного курсу!) дбайливо зберігаються.
-                manual_lines.append(l_str)
-                continue
-            if "classroom.google.com/" in l_str.lower():
-                continue
-            if URL_RE.search(l_str):
-                # Посилання не видаляємо наосліп: після завантаження викладачів курсів (КРОК 1b)
-                # прибираємо лише ті, що належать викладачам ПОТОЧНОГО синку. Посилання іншої підгрупи лишаються.
-                manual_lines.append(l_str)
-                continue
-            if re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", l_str, re.IGNORECASE):
-                continue
-            manual_lines.append(l_str)
-
-        if manual_lines:
-            new_text = "\n".join(manual_lines)
-            if gn.note != new_text:
-                gn.note = new_text
-                gn.revision += 1
-                gn.updated_at = datetime.now(timezone.utc)
-        else:
-            gn.archived = True
-            gn.revision += 1
-            gn.updated_at = datetime.now(timezone.utc)
-
-    # Додатковий захист: очищаємо залишкові авто-нотатки з інших груп,
-    # які не мають власних активних прив'язок до Classroom
-    active_binding_group_ids = set(
-        (await db.scalars(select(ClassroomGroupBinding.group_id).where(ClassroomGroupBinding.is_active.is_(True)))).all()
-    ) | set(
-        (await db.scalars(select(ClassroomCredential.group_id).where(ClassroomCredential.is_active.is_(True)))).all()
-    ) | {group.id}
-    orphan_notes = (
-        await db.scalars(
-            select(LessonOccurrenceNote).where(
-                LessonOccurrenceNote.group_id.not_in(active_binding_group_ids),
-                LessonOccurrenceNote.archived.is_(False),
-                (LessonOccurrenceNote.note.like("%[TASK%") | LessonOccurrenceNote.note.like("%meet.google.com%") | LessonOccurrenceNote.note.like("%zoom.us%")),
-            )
-        )
-    ).all()
-    for on in orphan_notes:
-        clean_lines = [
-            l.strip()
-            for l in on.note.split("\n")
-            if l.strip()
-            and not l.strip().startswith("[TASK")
-            and not URL_RE.search(l)
-            and not re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", l, re.IGNORECASE)
-        ]
-        if clean_lines:
-            on.note = "\n".join(clean_lines)
-        else:
-            on.archived = True
-        on.revision += 1
-        on.updated_at = datetime.now(timezone.utc)
-
-    await db.flush()
 
     # КРОК 2: Завантажуємо розклад на базовий горизонт (від tasks_lookback_start до tasks_window_end)
     horizon_lessons_by_date: dict[date, list] = {}
@@ -413,7 +337,6 @@ async def perform_course_sync(
                         )
                     )
                     synced_students += 1
-            await db.flush()
             _last_students_synced_at[group.id] = now_utc
         else:
             logger.debug(
@@ -1097,6 +1020,79 @@ async def perform_course_sync(
                 if getattr(matched_lesson, "lesson_number", None):
                     replaced_link_slots.add((c_date, matched_lesson.lesson_number))
 
+    # КРОК 1: Розумне очищення старих авто-посилань та старих [TASK] після завершення мережевих запитів до Google API
+    # Завдання інших підгруп/курсів (наприклад, іншої підгрупи англійської мови),
+    # яких немає у поточному списку курсів користувача, дбайливо ЗБЕРІГАЮТЬСЯ (Smart Merge)!
+    all_group_notes_all = (
+        await db.scalars(
+            select(LessonOccurrenceNote)
+            .where(LessonOccurrenceNote.group_id == group.id)
+            .order_by(LessonOccurrenceNote.id.asc())
+        )
+    ).all()
+    all_group_notes = [gn for gn in all_group_notes_all if not gn.archived]
+
+    for gn in all_group_notes:
+        manual_lines = []
+        for line in gn.note.split("\n"):
+            l_str = line.strip()
+            if not l_str:
+                continue
+            if l_str.startswith("[TASK"):
+                manual_lines.append(l_str)
+                continue
+            if "classroom.google.com/" in l_str.lower():
+                continue
+            if URL_RE.search(l_str):
+                manual_lines.append(l_str)
+                continue
+            if re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", l_str, re.IGNORECASE):
+                continue
+            manual_lines.append(l_str)
+
+        if manual_lines:
+            new_text = "\n".join(manual_lines)
+            if gn.note != new_text:
+                gn.note = new_text
+                gn.revision += 1
+                gn.updated_at = datetime.now(timezone.utc)
+        else:
+            gn.archived = True
+            gn.revision += 1
+            gn.updated_at = datetime.now(timezone.utc)
+
+    # Додатковий захист: очищаємо залишкові авто-нотатки з інших груп,
+    # які не мають власних активних прив'язок до Classroom
+    active_binding_group_ids = set(
+        (await db.scalars(select(ClassroomGroupBinding.group_id).where(ClassroomGroupBinding.is_active.is_(True)))).all()
+    ) | set(
+        (await db.scalars(select(ClassroomCredential.group_id).where(ClassroomCredential.is_active.is_(True)))).all()
+    ) | {group.id}
+    orphan_notes = (
+        await db.scalars(
+            select(LessonOccurrenceNote).where(
+                LessonOccurrenceNote.group_id.not_in(active_binding_group_ids),
+                LessonOccurrenceNote.archived.is_(False),
+                (LessonOccurrenceNote.note.like("%[TASK%") | LessonOccurrenceNote.note.like("%meet.google.com%") | LessonOccurrenceNote.note.like("%zoom.us%")),
+            )
+        )
+    ).all()
+    for on in orphan_notes:
+        clean_lines = [
+            l.strip()
+            for l in on.note.split("\n")
+            if l.strip()
+            and not l.strip().startswith("[TASK")
+            and not URL_RE.search(l)
+            and not re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", l, re.IGNORECASE)
+        ]
+        if clean_lines:
+            on.note = "\n".join(clean_lines)
+        else:
+            on.archived = True
+        on.revision += 1
+        on.updated_at = datetime.now(timezone.utc)
+
     for gn in all_group_notes:
         if gn.archived:
             continue
@@ -1161,7 +1157,6 @@ async def perform_course_sync(
                 gn.archived = True
             gn.revision += 1
             gn.updated_at = datetime.now(timezone.utc)
-    await db.flush()
 
     notes_by_slot: dict[tuple[date, int], LessonOccurrenceNote] = {}
     for gn in all_group_notes_all:
@@ -2515,18 +2510,31 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
 
         return False
 
-    effective_active_creds = [c for c in creds if _is_cred_healthy(c)]
+    healthy_by_id = {c.id: _is_cred_healthy(c) for c in creds}
+    effective_active_creds = [c for c in creds if healthy_by_id[c.id]]
     active_count = len(effective_active_creds)
     needs_reconnect = bool(creds) and active_count == 0
 
-    subgroup_lessons_count = await db.scalar(
-        select(func.count(Schedule.id)).where(
-            Schedule.group_id == group_id,
-            Schedule.second_teacher_id.is_not(None),
-            Schedule.is_active.is_(True),
-        )
-    ) or 0
-    has_subgroups = subgroup_lessons_count > 0
+    from app.services import cache_rev
+    sub_cache_key = (group_id, cache_rev.global_rev, cache_rev.group_rev.get(group_id, 0))
+    now_mono = _time.monotonic()
+    can_use_sub_cache = not db.new and not db.dirty and not db.deleted
+    cached_sub = _HAS_SUBGROUPS_CACHE.get(sub_cache_key) if can_use_sub_cache else None
+    if cached_sub is not None and (now_mono - cached_sub[0]) < _HAS_SUBGROUPS_TTL:
+        has_subgroups = cached_sub[1]
+    else:
+        subgroup_lessons_count = await db.scalar(
+            select(func.count(Schedule.id)).where(
+                Schedule.group_id == group_id,
+                Schedule.second_teacher_id.is_not(None),
+                Schedule.is_active.is_(True),
+            )
+        ) or 0
+        has_subgroups = subgroup_lessons_count > 0
+        if can_use_sub_cache:
+            if len(_HAS_SUBGROUPS_CACHE) >= _HAS_SUBGROUPS_MAX:
+                _HAS_SUBGROUPS_CACHE.clear()
+            _HAS_SUBGROUPS_CACHE[sub_cache_key] = (now_mono, has_subgroups)
 
     covered_subgroups = {c.subgroup for c in effective_active_creds if c.subgroup in (1, 2)}
 
@@ -2551,26 +2559,35 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
             if latest_sync_dt is None or ts > latest_sync_dt:
                 latest_sync_dt = ts
 
-    students = (
-        await db.scalars(
-            select(GroupStudent).where(GroupStudent.group_id == group_id)
-        )
-    ).all()
-    student_by_uid: dict[str, GroupStudent] = {s.classroom_user_id: s for s in students if s.classroom_user_id}
-    student_by_email: dict[str, GroupStudent] = {s.email.lower(): s for s in students if s.email}
+    needs_student_lookup = bool(creds) and any(
+        not c.student_name or not c.email or not c.photo_url for c in creds
+    )
+    if needs_student_lookup:
+        students = (
+            await db.scalars(
+                select(GroupStudent).where(GroupStudent.group_id == group_id)
+            )
+        ).all()
+        student_by_uid: dict[str, GroupStudent] = {s.classroom_user_id: s for s in students if s.classroom_user_id}
+        student_by_email: dict[str, GroupStudent] = {s.email.lower(): s for s in students if s.email}
+    else:
+        student_by_uid = {}
+        student_by_email = {}
 
     account_items = []
     for c in creds:
-        matched: Optional[GroupStudent] = student_by_uid.get(c.google_user_id)
-        if not matched and c.email:
-            matched = student_by_email.get(c.email.lower())
-        if not matched and c.google_user_id and "@" in c.google_user_id:
-            matched = student_by_email.get(c.google_user_id.lower())
+        matched: Optional[GroupStudent] = None
+        if needs_student_lookup:
+            matched = student_by_uid.get(c.google_user_id)
+            if not matched and c.email:
+                matched = student_by_email.get(c.email.lower())
+            if not matched and c.google_user_id and "@" in c.google_user_id:
+                matched = student_by_email.get(c.google_user_id.lower())
 
         student_name = c.student_name or (matched.full_name if matched else None)
         email = c.email or (matched.email if matched else None)
         photo_url = c.photo_url or (matched.photo_url if matched else None)
-        healthy = _is_cred_healthy(c)
+        healthy = healthy_by_id[c.id]
 
         account_items.append({
             "id": c.id,

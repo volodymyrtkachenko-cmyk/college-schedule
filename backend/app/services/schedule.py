@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 from datetime import date, timedelta
+import time as _time
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +9,30 @@ from sqlalchemy.orm import aliased, joinedload, selectinload, with_loader_criter
 from app.models import ImportedScheduleChange, Schedule, SchedulePeriod, SchedulePeriodSlot, ScheduleVersion
 from app.services.settings import settings_service
 from app.services.week import get_week_type
+
+
+@dataclass(frozen=True)
+class _CachedPeriodGroup:
+    id: int
+
+
+@dataclass(frozen=True)
+class _CachedPeriod:
+    id: int
+    name: str
+    period_type: str
+    start_date: date
+    end_date: date
+    groups: tuple[_CachedPeriodGroup, ...]
+
+
+_PERIODS_CACHE: dict[tuple, tuple[float, list[_CachedPeriod]]] = {}
+_PERIODS_CACHE_TTL = 60.0
+_PERIODS_CACHE_MAX = 128
+
+
+def invalidate_periods_cache() -> None:
+    _PERIODS_CACHE.clear()
 
 
 def _schedule_load_options(target_date: date | None = None, start_date: date | None = None, end_date: date | None = None):
@@ -77,13 +103,45 @@ def resolve_active_period_info(periods: list, target_date: date, group_id: int |
             )
     return None
 
+async def _active_periods_range(db: AsyncSession, start_date: date, end_date: date):
+    can_use_cache = not db.new and not db.dirty and not db.deleted
+    from app.services import cache_rev
+    cache_key = (start_date, end_date, cache_rev.global_rev)
+    now_mono = _time.monotonic()
+    if can_use_cache:
+        cached = _PERIODS_CACHE.get(cache_key)
+        if cached is not None and (now_mono - cached[0]) < _PERIODS_CACHE_TTL:
+            return cached[1]
+
+    rows = (
+        await db.scalars(
+            select(SchedulePeriod)
+            .where(SchedulePeriod.start_date <= end_date, SchedulePeriod.end_date >= start_date)
+            .options(selectinload(SchedulePeriod.groups))
+        )
+    ).unique().all()
+
+    snapshots = [
+        _CachedPeriod(
+            id=p.id,
+            name=p.name,
+            period_type=p.period_type,
+            start_date=p.start_date,
+            end_date=p.end_date,
+            groups=tuple(_CachedPeriodGroup(id=g.id) for g in p.groups),
+        )
+        for p in rows
+    ]
+    if can_use_cache:
+        if len(_PERIODS_CACHE) >= _PERIODS_CACHE_MAX:
+            oldest_k = min(_PERIODS_CACHE, key=lambda k: _PERIODS_CACHE[k][0])
+            _PERIODS_CACHE.pop(oldest_k, None)
+        _PERIODS_CACHE[cache_key] = (now_mono, snapshots)
+    return snapshots
+
+
 async def _active_periods(db: AsyncSession, target_date: date):
-    result = await db.scalars(
-        select(SchedulePeriod)
-        .where(SchedulePeriod.start_date <= target_date, SchedulePeriod.end_date >= target_date)
-        .options(selectinload(SchedulePeriod.groups))
-    )
-    return result.unique().all()
+    return await _active_periods_range(db, target_date, target_date)
 
 
 
