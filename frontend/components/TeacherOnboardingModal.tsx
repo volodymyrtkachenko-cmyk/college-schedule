@@ -98,8 +98,9 @@ export function TeacherOnboardingModal({
       closeDisabled={isVerifyingPin}
       labelledBy="teacher-onboarding-title"
     >
-      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-lg sm:shadow-2xl overflow-hidden select-none">
-        <header className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
+      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-lg sm:shadow-2xl overflow-hidden select-none pb-safe">
+        <header className="px-4 pt-2.5 sm:pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
+          <div className="mx-auto h-1 w-9 rounded-full bg-sys-border/80 sm:hidden" aria-hidden="true" />
           <div className="flex items-center justify-between gap-2">
             <h2 id="teacher-onboarding-title" className="text-sm sm:text-base font-bold text-sys-text-primary truncate">
               Налаштування викладача {teacherName ? `· ${teacherName}` : ""}
@@ -107,7 +108,7 @@ export function TeacherOnboardingModal({
             <button
               type="button"
               onClick={handleFinish}
-              className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors cursor-pointer shrink-0"
+              className="relative after:absolute after:-inset-1.5 after:content-[''] rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors cursor-pointer shrink-0"
             >
               Пропустити
             </button>
@@ -213,7 +214,7 @@ export function TeacherOnboardingModal({
                           <button
                             type="submit"
                             disabled={isVerifyingPin || !pinInput.trim()}
-                            className="rounded-xl bg-sys-accent px-4 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity disabled:opacity-40 cursor-pointer"
+                            className="rounded-xl bg-sys-accentSolid px-4 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity disabled:opacity-40 cursor-pointer"
                           >
                             {isVerifyingPin ? "Перевірка..." : "Розблокувати"}
                           </button>
@@ -235,10 +236,11 @@ export function TeacherOnboardingModal({
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
+                        aria-pressed={resolvedTheme === "dark"}
                         onClick={() => setTheme("dark")}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold border transition-colors cursor-pointer ${
                           resolvedTheme === "dark"
-                            ? "bg-sys-accent text-white border-sys-accent"
+                            ? "bg-sys-accentSolid text-sys-onAccent border-sys-accentSolid"
                             : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                         }`}
                       >
@@ -247,10 +249,11 @@ export function TeacherOnboardingModal({
                       </button>
                       <button
                         type="button"
+                        aria-pressed={resolvedTheme === "light"}
                         onClick={() => setTheme("light")}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold border transition-colors cursor-pointer ${
                           resolvedTheme === "light"
-                            ? "bg-sys-accent text-white border-sys-accent"
+                            ? "bg-sys-accentSolid text-sys-onAccent border-sys-accentSolid"
                             : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                         }`}
                       >
@@ -266,6 +269,7 @@ export function TeacherOnboardingModal({
                           <button
                             key={opt.id}
                             type="button"
+                            aria-pressed={isSelected}
                             onClick={() => setAccent(opt.id as AccentColor)}
                             className={`flex flex-col items-center gap-1 rounded-xl p-2 border transition-colors cursor-pointer ${
                               isSelected
@@ -308,7 +312,7 @@ export function TeacherOnboardingModal({
                 handleFinish();
               }
             }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-sys-accentSolid px-4 py-2 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
           >
             {currentStepIndex === steps.length - 1 ? (
               <>

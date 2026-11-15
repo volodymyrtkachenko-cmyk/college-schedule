@@ -100,8 +100,8 @@ export function ContextSelectionModal({
       maxWidth="448px"
       labelledBy="context-modal-title"
     >
-      <div className="w-full rounded-t-3xl sm:rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 pb-safe shadow-2xl h-[min(78dvh,500px)] flex flex-col overflow-hidden">
-            <div className="mx-auto mb-2.5 h-1.5 w-10 rounded-full bg-sys-border sm:hidden shrink-0" aria-hidden="true" />
+      <div className="w-full rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card px-4 pt-2.5 pb-4 sm:p-5 pb-safe shadow-2xl h-[min(78dvh,500px)] flex flex-col overflow-hidden">
+            <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-sys-border/80 sm:hidden shrink-0" aria-hidden="true" />
             <h2 id="context-modal-title" className="sr-only">
               Оберіть групу або викладача
             </h2>
@@ -126,7 +126,7 @@ export function ContextSelectionModal({
                   aria-selected={modalTab === "student"}
                   onClick={() => handleTabSwitch("student")}
                   className={`relative z-10 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
-                    modalTab === "student" ? "text-white font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
+                    modalTab === "student" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
                   Групи ({groups.length})
@@ -137,7 +137,7 @@ export function ContextSelectionModal({
                   aria-selected={modalTab === "teacher"}
                   onClick={() => handleTabSwitch("teacher")}
                   className={`relative z-10 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
-                    modalTab === "teacher" ? "text-white font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
+                    modalTab === "teacher" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
                   Викладачі ({teachers.length})
@@ -215,7 +215,7 @@ export function ContextSelectionModal({
                       onClick={() => setModalCourseFilter(course)}
                       className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold border transition-colors ${
                         active
-                          ? "bg-sys-accent text-white border-sys-accent shadow-xs"
+                          ? "bg-sys-accentSolid text-sys-onAccent border-sys-accentSolid shadow-xs"
                           : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40"
                       }`}
                     >

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useId, useMemo, useCallback } from "react";
 import { formatKyivDateIso, getSyncedNow } from "../lib/date";
 import {
   buildCalendarMonthGrid,
@@ -46,6 +46,7 @@ export function DatePickerModal({
   maxDateIso,
   onSelectDate,
 }: DatePickerModalProps) {
+  const titleId = useId();
   const effectiveMinIso = minDateIso ?? semesterStartIso ?? null;
   const effectiveMaxIso = maxDateIso ?? null;
 
@@ -131,19 +132,17 @@ export function DatePickerModal({
       isOpen={isOpen}
       onClose={onClose}
       maxWidth="384px"
-      ariaLabel="Вибір дати розкладу"
+      labelledBy={titleId}
     >
       <div className="surface-panel w-full rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-2xl relative select-none">
             {/* Header: Month & Year Navigator */}
         <div className="flex items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-sys-border/60">
-          <div className="flex items-center gap-1.5">
-            <span className="text-base font-bold text-sys-text-primary tracking-tight">
-              {UKR_MONTH_NAMES[viewMonth]}
-            </span>
+          <h2 id={titleId} className="flex items-center gap-1.5 text-base font-bold text-sys-text-primary tracking-tight">
+            <span>{UKR_MONTH_NAMES[viewMonth]}</span>
             <span className="text-sm font-semibold text-sys-text-muted">
               {viewYear}
             </span>
-          </div>
+          </h2>
 
           <div className="flex items-center gap-1">
             <button

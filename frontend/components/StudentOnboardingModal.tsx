@@ -169,8 +169,9 @@ export function StudentOnboardingModal({
       closeDisabled={isLinkingClassroom}
       labelledBy="onboarding-title"
     >
-      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-lg sm:shadow-2xl overflow-hidden select-none">
-        <header className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
+      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-lg sm:shadow-2xl overflow-hidden select-none pb-safe">
+        <header className="px-4 pt-2.5 sm:pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
+          <div className="mx-auto h-1 w-9 rounded-full bg-sys-border/80 sm:hidden" aria-hidden="true" />
           <div className="flex items-center justify-between gap-2">
             <h2 id="onboarding-title" className="text-sm sm:text-base font-bold text-sys-text-primary">
               Швидке налаштування
@@ -178,7 +179,7 @@ export function StudentOnboardingModal({
             <button
               type="button"
               onClick={handleFinish}
-              className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors cursor-pointer"
+              className="relative after:absolute after:-inset-1.5 after:content-[''] rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors cursor-pointer"
             >
               Пропустити
             </button>
@@ -321,6 +322,7 @@ export function StudentOnboardingModal({
                         <button
                           key={String(opt.val)}
                           type="button"
+                          aria-pressed={active}
                           onClick={() => handleSubgroupSelect(opt.val)}
                           className={`rounded-xl border p-2.5 text-left transition-colors cursor-pointer ${
                             active
@@ -344,10 +346,11 @@ export function StudentOnboardingModal({
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
+                        aria-pressed={resolvedTheme === "dark"}
                         onClick={() => setTheme("dark")}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold border transition-colors cursor-pointer ${
                           resolvedTheme === "dark"
-                            ? "bg-sys-accent text-white border-sys-accent"
+                            ? "bg-sys-accentSolid text-sys-onAccent border-sys-accentSolid"
                             : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                         }`}
                       >
@@ -356,10 +359,11 @@ export function StudentOnboardingModal({
                       </button>
                       <button
                         type="button"
+                        aria-pressed={resolvedTheme === "light"}
                         onClick={() => setTheme("light")}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold border transition-colors cursor-pointer ${
                           resolvedTheme === "light"
-                            ? "bg-sys-accent text-white border-sys-accent"
+                            ? "bg-sys-accentSolid text-sys-onAccent border-sys-accentSolid"
                             : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                         }`}
                       >
@@ -375,6 +379,7 @@ export function StudentOnboardingModal({
                           <button
                             key={opt.id}
                             type="button"
+                            aria-pressed={isSelected}
                             onClick={() => setAccent(opt.id as AccentColor)}
                             className={`flex flex-col items-center gap-1 rounded-xl p-2 border transition-colors cursor-pointer ${
                               isSelected
@@ -408,7 +413,7 @@ export function StudentOnboardingModal({
                         type="button"
                         onClick={handleClassroomAuth}
                         disabled={isLinkingClassroom}
-                        className="w-full rounded-xl bg-sys-accent py-2.5 px-4 text-xs font-bold text-white hover:opacity-95 active:scale-[0.99] transition-opacity disabled:opacity-50 cursor-pointer"
+                        className="w-full rounded-xl bg-sys-accentSolid py-2.5 px-4 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-[0.99] transition-opacity disabled:opacity-50 cursor-pointer"
                       >
                         {isLinkingClassroom ? "Підключення..." : "Прив'язати пошту @kre.dp.ua →"}
                       </button>
@@ -450,7 +455,7 @@ export function StudentOnboardingModal({
                 handleFinish();
               }
             }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-sys-accentSolid px-4 py-2 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
           >
             {currentStepIndex === steps.length - 1 ? (
               <>

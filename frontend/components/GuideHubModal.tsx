@@ -202,9 +202,10 @@ export function GuideHubModal({
       maxWidth="500px"
       labelledBy="guide-title"
     >
-      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-lg sm:shadow-2xl overflow-hidden select-none">
+      <div className="w-full max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-lg sm:shadow-2xl overflow-hidden select-none pb-safe">
         {/* 1. ШАПКА + ПЕРЕМИКАЧ РОЛІ + ВКЛАДКИ */}
-        <div className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
+        <div className="px-4 pt-2.5 sm:pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
+          <div className="mx-auto h-1 w-9 rounded-full bg-sys-border/80 sm:hidden" aria-hidden="true" />
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 min-h-[36px] flex flex-col justify-center">
               <h2 id="guide-title" className="text-sm sm:text-base font-bold text-sys-text-primary truncate">
@@ -234,18 +235,20 @@ export function GuideHubModal({
                 </div>
                 <button
                   type="button"
+                  aria-pressed={role === "student"}
                   onClick={() => handleRoleChange("student")}
                   className={`relative z-10 px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-                    role === "student" ? "text-white font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
+                    role === "student" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
                   Студент
                 </button>
                 <button
                   type="button"
+                  aria-pressed={role === "teacher"}
                   onClick={() => handleRoleChange("teacher")}
                   className={`relative z-10 px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-                    role === "teacher" ? "text-white font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
+                    role === "teacher" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
                   Викладач
@@ -342,7 +345,7 @@ export function GuideHubModal({
                           onClose();
                           setTimeout(() => window.dispatchEvent(new CustomEvent("trigger-classroom-sync")), 120);
                         }}
-                        className="shrink-0 rounded-lg bg-sys-accent px-3 py-1.5 text-[11px] font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+                        className="shrink-0 rounded-lg bg-sys-accentSolid px-3 py-1.5 text-[11px] font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
                       >
                         {isLinked ? "Оновити" : "Прив'язати →"}
                       </button>
@@ -357,10 +360,11 @@ export function GuideHubModal({
                           <button
                             key={String(sub)}
                             type="button"
+                            aria-pressed={settings.defaultSubgroup === sub}
                             onClick={() => updateSetting("defaultSubgroup", sub)}
                             className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer ${
                               settings.defaultSubgroup === sub
-                                ? "bg-sys-accent text-white"
+                                ? "bg-sys-accentSolid text-sys-onAccent"
                                 : "bg-sys-card text-sys-text-secondary border border-sys-border hover:text-sys-text-primary"
                             }`}
                           >
@@ -437,7 +441,7 @@ export function GuideHubModal({
                           router.push("/settings?mode=teacher");
                         }
                       }}
-                      className="w-full rounded-xl bg-sys-accent py-2 text-xs font-bold text-white hover:opacity-95 active:scale-[0.99] transition-opacity cursor-pointer"
+                      className="w-full rounded-xl bg-sys-accentSolid py-2 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-[0.99] transition-opacity cursor-pointer"
                     >
                       Ввести PIN-код викладача →
                     </button>
@@ -484,7 +488,7 @@ export function GuideHubModal({
                 goToStep(safeIdx + 1);
               }
             }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-sys-accentSolid px-4 py-2 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
           >
             {safeIdx === stepsCount - 1 ? (
               <>

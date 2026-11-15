@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AcademicEvent, AcademicEventType, api, ReferenceRecord } from "../../lib/api";
 import { SearchableSelect } from "../SearchableSelect";
 import { invalidateScheduleCache } from "../../lib/hooks";
+import { CloseIcon } from "../ui/Icons";
 
 const LESSON_START_TIMES: Record<number, string> = {
   1: "09:00",
@@ -227,9 +228,9 @@ export function EventsModal({
             type="button"
             onClick={onClose}
             aria-label="Закрити"
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary text-lg transition-colors"
+            className="relative after:absolute after:-inset-1.5 after:content-[''] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:bg-sys-surface hover:text-sys-text-primary transition-colors cursor-pointer"
           >
-            ✕
+            <CloseIcon className="h-4 w-4" />
           </button>
         </div>
 
@@ -424,7 +425,7 @@ export function EventsModal({
                     type="button"
                     disabled={saving || !groupId}
                     onClick={() => void handleSave()}
-                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs transition-opacity hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
+                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accentSolid px-5 py-2 text-xs sm:text-sm font-semibold text-sys-onAccent shadow-xs transition-opacity hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                   >
                     {saving ? "Зберігаємо..." : "Зберегти зміни"}
                   </button>
@@ -443,7 +444,7 @@ export function EventsModal({
                   type="button"
                   disabled={saving || !groupId}
                   onClick={() => void handleSave()}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs transition-opacity hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accentSolid px-5 py-2 text-xs sm:text-sm font-semibold text-sys-onAccent shadow-xs transition-opacity hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                 >
                   {saving ? "Додаємо..." : "+ Додати подію у розклад"}
                 </button>

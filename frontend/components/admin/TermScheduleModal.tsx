@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AcademicTermRecord, TermCourseScheduleInput, api } from "../../lib/api";
 import { useToast } from "../ToastProvider";
+import { CloseIcon } from "../ui/Icons";
 
 interface TermScheduleModalProps {
   term: AcademicTermRecord;
@@ -233,14 +234,12 @@ export function TermScheduleModal({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="h-8 w-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 active:scale-95 transition-colors"
+            className="relative after:absolute after:-inset-1.5 after:content-[''] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:bg-sys-surface hover:text-sys-text-primary active:scale-95 transition-colors cursor-pointer"
             aria-label="Закрити"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
+            <CloseIcon className="h-4 w-4" />
           </button>
         </div>
 
@@ -477,7 +476,7 @@ export function TermScheduleModal({
                   type="button"
                   onClick={handleCreateNextTerm}
                   disabled={loading}
-                  className="w-full py-2.5 rounded-xl bg-sys-accent hover:bg-sys-accent-hover text-white text-xs font-bold transition-colors shadow-md active:scale-[0.99] disabled:opacity-50"
+                  className="w-full py-2.5 rounded-xl bg-sys-accentSolid hover:opacity-95 text-sys-onAccent text-xs font-bold transition-opacity shadow-md active:scale-[0.99] disabled:opacity-50"
                 >
                   {loading ? "Створення..." : "➕ Створити семестр для планування"}
                 </button>
@@ -543,7 +542,7 @@ export function TermScheduleModal({
               type="button"
               onClick={handleSaveSchedule}
               disabled={loading}
-              className="px-5 py-2 rounded-xl bg-sys-accent hover:bg-sys-accent-hover text-white text-xs font-bold transition-colors shadow-md active:scale-95 disabled:opacity-50"
+              className="px-5 py-2 rounded-xl bg-sys-accentSolid hover:opacity-95 text-sys-onAccent text-xs font-bold transition-opacity shadow-md active:scale-95 disabled:opacity-50"
             >
               {loading ? "Збереження..." : "Зберегти графік процесу"}
             </button>

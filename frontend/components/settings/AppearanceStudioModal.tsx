@@ -361,9 +361,11 @@ export function AppearanceStudioModal({
       maxHeight="90dvh"
       labelledBy={titleId}
     >
-      <div className="w-full max-w-full min-w-0 max-h-[90dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden">
+      <div className="w-full max-w-full min-w-0 max-h-[90dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden pb-safe">
         {/* Sticky Studio Header */}
-        <div className="shrink-0 flex items-center justify-between gap-2 border-b border-sys-border bg-sys-surface px-3.5 py-2.5 sm:px-5 sm:py-3">
+        <div className="shrink-0 border-b border-sys-border bg-sys-surface px-3.5 pt-2 sm:pt-3 pb-2.5 sm:px-5 sm:pb-3">
+          <div className="mx-auto mb-2 h-1 w-9 rounded-full bg-sys-border/80 sm:hidden" aria-hidden="true" />
+          <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <h2 id={titleId} className="text-sm sm:text-lg font-bold text-sys-text-primary leading-tight">
               Студія оформлення
@@ -391,7 +393,7 @@ export function AppearanceStudioModal({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[36px] rounded-xl bg-sys-accentSolid px-3.5 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition-opacity cursor-pointer"
+              className="min-h-[36px] rounded-xl bg-sys-accentSolid px-3.5 py-1.5 text-xs font-semibold text-sys-onAccent hover:opacity-90 transition-opacity cursor-pointer"
             >
               Готово
             </button>
@@ -399,10 +401,11 @@ export function AppearanceStudioModal({
               type="button"
               onClick={onClose}
               aria-label="Закрити студію оформлення"
-              className="hidden sm:inline-flex h-9 w-9 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/50 transition-colors cursor-pointer"
+              className="relative after:absolute after:-inset-1.5 after:content-[''] hidden sm:inline-flex h-9 w-9 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/50 transition-colors cursor-pointer"
             >
               <CloseIcon className="h-4 w-4" />
             </button>
+          </div>
           </div>
         </div>
 
@@ -421,6 +424,7 @@ export function AppearanceStudioModal({
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
+                    aria-pressed={previewLive}
                     onClick={() => setPreviewLive((prev) => !prev)}
                     className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer ${
                       previewLive
@@ -565,10 +569,11 @@ export function AppearanceStudioModal({
                     <button
                       key={`preview-mode-${m.id}`}
                       type="button"
+                      aria-pressed={theme === m.id}
                       onClick={() => setTheme(m.id)}
                       className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer ${
                         theme === m.id
-                          ? "bg-sys-accentSolid text-white"
+                          ? "bg-sys-accentSolid text-sys-onAccent"
                           : "text-sys-text-secondary hover:text-sys-text-primary"
                       }`}
                     >

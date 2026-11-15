@@ -16,7 +16,6 @@ import {
 } from "../../lib/date";
 import { copyTextToClipboard, isSubjectMatch, type MeetingInfo } from "../../lib/format";
 import {
-  formatTaskCount,
   getKyivNow,
   getTaskDeadlineDotColor,
   getTaskDeadlineTextColor,
@@ -103,21 +102,34 @@ function getGradeChipTone(grade5: number): string {
   return "border-rose-500/35 bg-rose-500/12 text-rose-700 dark:text-rose-300";
 }
 
-function getFrequencyBadge(freq: string): { label: string; tone: string } {
+const UKR_WEEKDAY_SHORT: Record<number, string> = {
+  1: "Пн",
+  2: "Вт",
+  3: "Ср",
+  4: "Чт",
+  5: "Пт",
+  6: "Сб",
+  7: "Нд",
+};
+
+function getFrequencyBadge(freq: string): { label: string; shortLabel: string; tone: string } {
   if (freq === "numerator") {
     return {
       label: "Чисельник",
+      shortLabel: "Чис.",
       tone: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
     };
   }
   if (freq === "denominator") {
     return {
       label: "Знаменник",
+      shortLabel: "Знам.",
       tone: "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300",
     };
   }
   return {
     label: "Щотижня",
+    shortLabel: "Щотижня",
     tone: "border-sys-border bg-sys-bg text-sys-text-secondary",
   };
 }
@@ -477,6 +489,43 @@ export function SubjectHubModal({
         : null;
 
   const canShowStudentClassroom = !isTeacherView && effectiveGroupId != null;
+  const hasStudentGrades = Boolean(
+    canShowStudentClassroom && hasGroupAccess && subjectGradeSummary && subjectGradeSummary.grades.length > 0
+  );
+  const matchingNextRecurringSlot = nextOccurrence
+    ? recurringSlots.find(
+        (s) =>
+          s.dayOfWeek === nextOccurrence.dayOfWeek &&
+          s.lessonNumber === nextOccurrence.lesson.lesson_number
+      ) ?? null
+    : null;
+  const showRecurringStrip =
+    recurringSlots.length > 0 &&
+    (recurringSlots.length > 1 ||
+      !nextOccurrence ||
+      !matchingNextRecurringSlot ||
+      recurringSlots[0].frequency !== "both");
+
+  const slotLocationHints = recurringSlots.map((slot) => {
+    const slotDetails = resolveSubjectLessonDetails(slot.sampleLesson, {
+      defaultSubgroup: settings.defaultSubgroup,
+      isLinked,
+      personalSubgroup: effectivePersonalSubgroup,
+      personalTeachers,
+      hasGroupAccess,
+    });
+    return slotDetails.primaryMeeting
+      ? slotDetails.primaryMeeting.platform === "zoom"
+        ? "Zoom"
+        : slotDetails.primaryMeeting.platform === "meet"
+          ? "Meet"
+          : "Онлайн"
+      : slotDetails.hasProtectedOnline
+        ? "Онлайн"
+        : slotDetails.roomsLabel || "";
+  });
+  const uniqueSlotLocations = new Set(slotLocationHints.filter(Boolean));
+  const hasMixedSlotLocations = uniqueSlotLocations.size > 1;
 
   return (
     <AppDialog
@@ -487,9 +536,10 @@ export function SubjectHubModal({
       maxHeight="88dvh"
       labelledBy={titleId}
     >
-      <div className="w-full max-h-[88dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden">
+      <div className="w-full max-h-[88dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden pb-safe">
         {/* Header */}
-        <div className="bg-sys-surface border-b border-sys-border px-4 sm:px-5 py-3.5 shrink-0">
+        <div className="bg-sys-surface border-b border-sys-border px-4 sm:px-5 pt-2.5 sm:pt-3.5 pb-3.5 shrink-0">
+          <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-sys-border/80 sm:hidden" aria-hidden="true" />
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
@@ -549,7 +599,7 @@ export function SubjectHubModal({
               type="button"
               onClick={onClose}
               aria-label="Закрити картку предмета"
-              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated transition-colors cursor-pointer shrink-0"
+              className="relative after:absolute after:-inset-1 after:content-[''] flex h-9 w-9 items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary transition-colors cursor-pointer shrink-0"
             >
               <CloseIcon className="w-4 h-4" />
             </button>
@@ -558,12 +608,12 @@ export function SubjectHubModal({
 
         {/* Scrollable Content (solid opaque sheet bands divided by hairline borders — zero gaps) */}
         <div className="flex-1 overflow-y-auto overscroll-contain bg-sys-card divide-y divide-sys-border/75 custom-scrollbar">
-          {/* 1. Next Occurrence */}
+          {/* 1. Schedule Overview: Next Lesson + Weekly Cycle */}
           <section className="px-4 sm:px-5 py-3.5">
             <div className="flex items-center justify-between gap-2 mb-2.5">
               <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                 <ClockIcon className="w-3.5 h-3.5 text-sys-accent" />
-                <span>Наступна пара</span>
+                <span>Розклад предмета</span>
               </h3>
               {nextOccurrence?.isShortenedDay && (
                 <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
@@ -575,7 +625,7 @@ export function SubjectHubModal({
 
             {nextOccurrence && nextDetails ? (
               <div className="space-y-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="flex flex-wrap items-start justify-between gap-2.5">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       {nextOccurrence.isLive ? (
@@ -603,20 +653,25 @@ export function SubjectHubModal({
                       )}
                     </div>
 
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-sm text-sys-text-secondary">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-sys-text-secondary">
                       <span className="font-semibold text-sys-text-primary">
                         {nextOccurrence.lesson.lesson_number} пара
                       </span>
                       <span>·</span>
                       <span>{nextOccurrence.lesson.time}</span>
-                      {nextOccurrence.weekType !== "both" && (
-                        <>
-                          <span>·</span>
-                          <span className="text-sys-text-muted">
-                            {nextOccurrence.weekType === "numerator" ? "Чисельник" : "Знаменник"}
-                          </span>
-                        </>
-                      )}
+                      {(() => {
+                        const effectiveFreq =
+                          matchingNextRecurringSlot?.frequency ??
+                          (nextOccurrence.weekType !== "both" ? nextOccurrence.weekType : null);
+                        if (!effectiveFreq) return null;
+                        const badge = getFrequencyBadge(effectiveFreq);
+                        return (
+                          <>
+                            <span>·</span>
+                            <span className="text-sys-text-muted">{badge.label}</span>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -688,143 +743,184 @@ export function SubjectHubModal({
               </div>
             ) : (
               <p className="text-xs sm:text-sm text-sys-text-secondary">
-                У найближчі 2 тижні пар немає.
+                У найближчі 2 тижні пар за розкладом немає.
               </p>
+            )}
+
+            {/* Compact Weekly Cycle Chips (shown only when adding non-redundant schedule context) */}
+            {showRecurringStrip && (
+              <div className="mt-3 pt-3 border-t border-sys-border/60 space-y-2">
+                <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-sys-text-muted">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarIcon className="w-3.5 h-3.5 text-sys-text-muted shrink-0" />
+                    <span>Графік у циклі тижнів</span>
+                  </span>
+                  <span>
+                    {recurringSlots.length}{" "}
+                    {recurringSlots.length === 1 ? "пара" : recurringSlots.length <= 4 ? "пари" : "пар"}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {recurringSlots.map((slot, idx) => {
+                    const freq = getFrequencyBadge(slot.frequency);
+                    const dayShort = UKR_WEEKDAY_SHORT[slot.dayOfWeek] || slot.dayName;
+                    const locationHint = slotLocationHints[idx];
+
+                    return (
+                      <div
+                        key={`${slot.dayOfWeek}-${slot.lessonNumber}`}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-sys-border/75 bg-sys-bg px-2.5 py-1.5 text-xs"
+                      >
+                        <span className="font-bold text-sys-text-primary">{dayShort}</span>
+                        <span className="text-sys-text-muted">·</span>
+                        <span className="font-medium text-sys-text-secondary">
+                          {slot.lessonNumber} пара ({slot.time})
+                        </span>
+                        {hasMixedSlotLocations && locationHint && (
+                          <>
+                            <span className="text-sys-text-muted">·</span>
+                            <span className="text-sys-text-muted">{locationHint}</span>
+                          </>
+                        )}
+                        {slot.frequency !== "both" && (
+                          <span
+                            className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold leading-none ${freq.tone}`}
+                            title={freq.label}
+                          >
+                            {freq.shortLabel}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </section>
 
-          {/* 2. Recurring Cycle Slots (Numerator / Denominator) */}
-          {recurringSlots.length > 0 && (
-            <section className="px-4 sm:px-5 py-3.5">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                  <CalendarIcon className="w-3.5 h-3.5 text-sys-accent" />
-                  <span>Графік у циклі тижнів</span>
-                </h3>
-                <span className="text-[11px] font-medium text-sys-text-muted">
-                  {recurringSlots.length} {recurringSlots.length === 1 ? "пара" : recurringSlots.length <= 4 ? "пари" : "пар"} у циклі
-                </span>
-              </div>
-
-              <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">
-                {recurringSlots.map((slot) => {
-                  const freq = getFrequencyBadge(slot.frequency);
-                  const slotDetails = resolveSubjectLessonDetails(slot.sampleLesson, {
-                    defaultSubgroup: settings.defaultSubgroup,
-                    isLinked,
-                    personalSubgroup: effectivePersonalSubgroup,
-                    personalTeachers,
-                    hasGroupAccess,
-                  });
-                  const locationHint = slotDetails.primaryMeeting
-                    ? slotDetails.primaryMeeting.platform === "zoom"
-                      ? "Zoom"
-                      : slotDetails.primaryMeeting.platform === "meet"
-                        ? "Meet"
-                        : "Онлайн"
-                    : slotDetails.hasProtectedOnline
-                      ? "Онлайн (потрібен доступ)"
-                      : slotDetails.roomsLabel;
-
-                  return (
-                    <li
-                      key={`${slot.dayOfWeek}-${slot.lessonNumber}`}
-                      className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs"
-                    >
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
-                        <span className="font-semibold text-sys-text-primary">{slot.dayName}</span>
-                        <span className="text-sys-text-muted">·</span>
-                        <span className="text-sys-text-secondary">
-                          {slot.lessonNumber} пара ({slot.time})
-                        </span>
-                        {locationHint && (
-                          <>
-                            <span className="text-sys-text-muted">·</span>
-                            <span className="text-sys-text-secondary">{locationHint}</span>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span
-                          className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold ${freq.tone}`}
-                        >
-                          {freq.label}
-                        </span>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
-
-          {/* 3. Hours Progress */}
-          {(subjectStat || enriching) && (
-            <section className="px-4 sm:px-5 py-3.5">
-              <div className="flex items-center justify-between gap-2 mb-2">
+          {/* 2. Course Hours Progress & Student Grades */}
+          {(subjectStat || enriching || hasStudentGrades) && (
+            <section className="px-4 sm:px-5 py-3.5 space-y-3">
+              <div className="flex items-center justify-between gap-2">
                 <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                   <BarChartIcon className="w-3.5 h-3.5 text-sys-accent" />
-                  <span>Прогрес курсу</span>
+                  <span>
+                    {hasStudentGrades && (subjectStat || enriching)
+                      ? "Курс та оцінки"
+                      : hasStudentGrades
+                        ? "Успішність"
+                        : "Виконання курсу"}
+                  </span>
                 </h3>
                 {progressPct !== null && (
                   <span className="text-xs font-bold text-sys-accent">{progressPct}%</span>
                 )}
               </div>
 
-              {subjectStat ? (
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-xl font-black text-sys-text-primary leading-none">
-                        {subjectStat.completed_hours}
-                      </span>
-                      <span className="text-xs font-semibold text-sys-text-secondary">
-                        {subjectStat.planned_hours != null
-                          ? `/ ${subjectStat.planned_hours} год`
-                          : "год проведено"}
-                      </span>
+              {(subjectStat || enriching) && (
+                subjectStat ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-xl font-black text-sys-text-primary leading-none">
+                          {subjectStat.completed_hours}
+                        </span>
+                        <span className="text-xs font-semibold text-sys-text-secondary">
+                          {subjectStat.planned_hours != null
+                            ? `/ ${subjectStat.planned_hours} год`
+                            : "год проведено"}
+                        </span>
+                      </div>
+
+                      {typeof subjectStat.lessons_count === "number" && (
+                        <span className="text-[11px] font-medium text-sys-text-muted">
+                          Проведено пар: {subjectStat.lessons_count}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-sys-text-muted">
-                      {typeof subjectStat.lessons_count === "number" && (
-                        <span>Проведено пар: {subjectStat.lessons_count}</span>
-                      )}
-                      {Boolean(subjectStat.replaced_count) && (
-                        <span>Замін: {subjectStat.replaced_count}</span>
-                      )}
-                      {Boolean(subjectStat.cancelled_count) && (
-                        <span>Скасовано: {subjectStat.cancelled_count}</span>
+                    {progressPct !== null && (
+                      <div
+                        role="progressbar"
+                        aria-label="Виконання навчальних годин"
+                        aria-valuenow={progressPct}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        className="h-2 w-full rounded-full bg-sys-bg border border-sys-border/70 overflow-hidden"
+                      >
+                        <div
+                          className="h-full rounded-full bg-sys-accentSolid transition-[width] duration-300 ease-out"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2 animate-pulse" aria-busy="true">
+                    <div className="h-5 w-28 rounded bg-sys-bg" />
+                    <div className="h-2 w-full rounded-full bg-sys-bg" />
+                  </div>
+                )
+              )}
+
+              {hasStudentGrades && subjectGradeSummary && (
+                <div className="rounded-xl border border-sys-border/70 bg-sys-bg px-3 py-2.5 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xs font-medium text-sys-text-secondary">Середній бал:</span>
+                      <span className="text-base font-black text-sys-text-primary">
+                        {subjectGradeSummary.average5.toFixed(2)}
+                        <span className="text-xs font-semibold text-sys-text-secondary"> / 5</span>
+                      </span>
+                      {subjectGradeSummary.has12Scale && subjectGradeSummary.average12 !== null && (
+                        <span className="text-xs font-bold text-sys-accent">
+                          ({subjectGradeSummary.average12.toFixed(1)} / 12 б.)
+                        </span>
                       )}
                     </div>
+                    <span className="text-[11px] text-sys-text-muted">
+                      Оцінок: {subjectGradeSummary.grades.length}
+                    </span>
                   </div>
 
-                  {progressPct !== null && (
-                    <div
-                      role="progressbar"
-                      aria-label="Виконання навчальних годин"
-                      aria-valuenow={progressPct}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      className="h-2 w-full rounded-full bg-sys-bg border border-sys-border/70 overflow-hidden"
-                    >
-                      <div
-                        className="h-full rounded-full bg-sys-accent transition-[width] duration-300 ease-out"
-                        style={{ width: `${progressPct}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2 animate-pulse" aria-busy="true">
-                  <div className="h-5 w-28 rounded bg-sys-bg" />
-                  <div className="h-2 w-full rounded-full bg-sys-bg" />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {subjectGradeSummary.grades.slice(0, 8).map((g: GradeItem) => {
+                      const chipText =
+                        g.maxPoints > 5 && g.maxPoints <= 12
+                          ? `${g.rawGrade} б.`
+                          : g.maxPoints <= 5
+                            ? `${g.rawGrade}`
+                            : g.grade5;
+                      const cls = `inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold ${getGradeChipTone(g.grade5)}`;
+                      return g.url ? (
+                        <a
+                          key={g.id}
+                          href={g.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`${g.title}: ${g.rawGrade}/${g.maxPoints} (${g.percentage}%)`}
+                          className={`${cls} hover:opacity-85 transition-opacity`}
+                        >
+                          {chipText}
+                        </a>
+                      ) : (
+                        <span
+                          key={g.id}
+                          title={`${g.title}: ${g.rawGrade}/${g.maxPoints} (${g.percentage}%)`}
+                          className={cls}
+                        >
+                          {chipText}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </section>
           )}
 
-          {/* 4. Upcoming Academic Events (Exams / Credits / Consultations) */}
+          {/* 3. Upcoming Academic Events (Exams / Credits / Consultations) */}
           {subjectEvents.length > 0 && (
             <section className="px-4 sm:px-5 py-3.5">
               <div className="flex items-center justify-between gap-2 mb-2">
@@ -877,19 +973,14 @@ export function SubjectHubModal({
             </section>
           )}
 
-          {/* 5. Google Classroom: Grades & Tasks (Student Mode) */}
-          {canShowStudentClassroom && (
+          {/* 4. Google Classroom Tasks (Student Mode) */}
+          {canShowStudentClassroom && (!hasGroupAccess || subjectTasks.all.length > 0 || !isLinked) && (
             <section className="px-4 sm:px-5 py-3.5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                   <ClipboardListIcon className="w-3.5 h-3.5 text-sys-accent" />
-                  <span>Classroom та оцінки</span>
+                  <span>Завдання Classroom</span>
                 </h3>
-                {subjectTasks.all.length > 0 && hasGroupAccess && (
-                  <span className="text-[11px] font-semibold text-sys-text-muted">
-                    Усього: {formatTaskCount(subjectTasks.all.length)}
-                  </span>
-                )}
               </div>
 
               {!hasGroupAccess ? (
@@ -911,63 +1002,8 @@ export function SubjectHubModal({
                 </div>
               ) : (
                 <>
-                  {/* Grades summary for this subject */}
-                  {subjectGradeSummary && subjectGradeSummary.grades.length > 0 && (
-                    <div className="rounded-xl border border-sys-border/70 bg-sys-bg px-3 py-2.5 space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-xs font-medium text-sys-text-secondary">Середній бал:</span>
-                          <span className="text-base font-black text-sys-text-primary">
-                            {subjectGradeSummary.average5.toFixed(2)}
-                            <span className="text-xs font-semibold text-sys-text-secondary"> / 5</span>
-                          </span>
-                          {subjectGradeSummary.has12Scale && subjectGradeSummary.average12 !== null && (
-                            <span className="text-xs font-bold text-sys-accent">
-                              ({subjectGradeSummary.average12.toFixed(1)} / 12 б.)
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[11px] text-sys-text-muted">
-                          Оцінок: {subjectGradeSummary.grades.length}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {subjectGradeSummary.grades.slice(0, 8).map((g: GradeItem) => {
-                          const chipText =
-                            g.maxPoints > 5 && g.maxPoints <= 12
-                              ? `${g.rawGrade} б.`
-                              : g.maxPoints <= 5
-                                ? `${g.rawGrade}`
-                                : g.grade5;
-                          const cls = `inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold ${getGradeChipTone(g.grade5)}`;
-                          return g.url ? (
-                            <a
-                              key={g.id}
-                              href={g.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title={`${g.title}: ${g.rawGrade}/${g.maxPoints} (${g.percentage}%)`}
-                              className={`${cls} hover:opacity-85 transition-opacity`}
-                            >
-                              {chipText}
-                            </a>
-                          ) : (
-                            <span
-                              key={g.id}
-                              title={`${g.title}: ${g.rawGrade}/${g.maxPoints} (${g.percentage}%)`}
-                              className={cls}
-                            >
-                              {chipText}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Tasks Switcher matching ordinary Tasks tab: До здачі | Борги | Здано */}
-                  {subjectTasks.all.length > 0 ? (() => {
+                  {subjectTasks.all.length > 0 && (() => {
                     const tabOrder: Array<"pending" | "overdue" | "done"> = isLinked
                       ? ["pending", "overdue", "done"]
                       : ["pending", "overdue"];
@@ -1011,7 +1047,7 @@ export function SubjectHubModal({
                           }`}
                         >
                           <span className="whitespace-nowrap">До здачі</span>
-                          <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold text-sys-text-secondary">
+                          <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold text-sys-text-secondary">
                             {subjectTasks.active.length}
                           </span>
                         </button>
@@ -1030,7 +1066,7 @@ export function SubjectHubModal({
                           }`}
                         >
                           <span className="whitespace-nowrap">{isLinked ? "Борги" : "Минув час"}</span>
-                          <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold">
+                          <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold">
                             {subjectTasks.overdue.length}
                           </span>
                         </button>
@@ -1048,7 +1084,7 @@ export function SubjectHubModal({
                             }`}
                           >
                             <span className="whitespace-nowrap">Здано</span>
-                            <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.2 text-[10px] font-bold">
+                            <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold">
                               {subjectTasks.completed.length}
                             </span>
                           </button>
@@ -1226,19 +1262,20 @@ export function SubjectHubModal({
                       </div>
                     </div>
                     );
-                  })() : (
-                    <p className="text-xs text-sys-text-secondary">
-                      Завдань із цього предмета у Classroom не знайдено.
-                    </p>
-                  )}
+                  })()}
 
-                  {!isLinked && subjectTasks.all.length > 0 && (
+                  {!isLinked && (
                     <button
                       type="button"
                       onClick={handleTriggerClassroomSync}
-                      className="text-[11px] font-semibold text-sys-accent hover:underline cursor-pointer text-left"
+                      className="w-full flex items-center justify-between gap-2 rounded-xl border border-sys-accent/25 bg-sys-accent/10 px-3 py-2 text-left text-[11px] font-bold text-sys-accent hover:bg-sys-accent/15 transition-colors cursor-pointer"
                     >
-                      Прив&apos;язати акаунт @kre.dp.ua для перегляду оцінок і статусів здачі →
+                      <span>
+                        {subjectTasks.all.length > 0
+                          ? "Прив'язати акаунт @kre.dp.ua для перегляду оцінок і статусів здачі"
+                          : "Підключити Google Classroom (@kre.dp.ua) для завдань та оцінок"}
+                      </span>
+                      <span aria-hidden="true" className="shrink-0">→</span>
                     </button>
                   )}
                 </>

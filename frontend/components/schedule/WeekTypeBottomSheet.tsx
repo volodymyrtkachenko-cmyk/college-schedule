@@ -32,7 +32,8 @@ export function WeekTypeBottomSheet({
       maxWidth="448px"
       labelledBy="week-type-sheet-title"
     >
-      <div className="w-full rounded-t-3xl sm:rounded-2xl border border-sys-border bg-sys-card p-5 pb-safe sm:p-6 shadow-2xl">
+      <div className="w-full rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card px-5 pt-2.5 pb-5 pb-safe sm:p-6 shadow-2xl">
+            <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-sys-border/80 sm:hidden" aria-hidden="true" />
             <div className="flex items-center justify-between pb-3 border-b border-sys-border/60">
               <h2 id="week-type-sheet-title" className="text-base font-bold text-sys-text-primary">
                 Тип тижня за графіком

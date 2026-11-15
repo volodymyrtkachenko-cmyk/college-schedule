@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { api, ClassroomGroupRosterResponse } from "../../lib/api";
 import { ClassroomSyncButton } from "../ClassroomSyncButton";
+import { CloseIcon } from "../ui/Icons";
 
 function extractSurname(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -295,9 +296,9 @@ export function GroupRosterModal({ group, onClose, onNotify }: GroupRosterModalP
                   type="button"
                   onClick={onClose}
                   aria-label="Закрити"
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/60 transition-colors shrink-0"
+                  className="relative after:absolute after:-inset-1.5 after:content-[''] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:bg-sys-surface hover:text-sys-text-primary transition-colors cursor-pointer"
                 >
-                  ✕
+                  <CloseIcon className="h-4 w-4" />
                 </button>
               </div>
 
@@ -826,20 +827,10 @@ export function GroupRosterModal({ group, onClose, onNotify }: GroupRosterModalP
                                     type="button"
                                     onClick={() => handleDeleteStudent(st.id, st.full_name)}
                                     className="rounded-lg p-1.5 text-sys-text-muted hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors shrink-0"
+                                    aria-label={`Видалити ${st.full_name}`}
                                     title={`Видалити ${st.full_name} зі списку групи`}
                                   >
-                                    <svg
-                                      width="14"
-                                      height="14"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    >
-                                      <path d="M18 6 6 18M6 6l12 12" />
-                                    </svg>
+                                    <CloseIcon className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
                               ))}
