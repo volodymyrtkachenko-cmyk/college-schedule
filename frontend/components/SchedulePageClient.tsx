@@ -127,6 +127,7 @@ export function SchedulePageClient({
     semesterStart,
     loading,
     completeSetup,
+    isSetupComplete,
     isPrivilegedUser,
     setToast,
     ssrNowIso,

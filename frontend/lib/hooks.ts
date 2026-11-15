@@ -11,6 +11,41 @@ import { useAuth } from "./auth";
 import { addDaysToCalendarIso, getCalendarWeekdayMon0 } from "./calendarDate";
 import { formatKyivDateIso } from "./date";
 import { checkScheduleHasSubgroups, extractSubgroupTeacherHints } from "./format";
+import { findTeacherBySlug } from "./slug";
+
+function safeDecodePathnameSegment(raw: string): string {
+  let decoded = raw;
+  for (let i = 0; i < 2; i++) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+  return decoded;
+}
+
+function matchEntityFromPathname(
+  pathname: string,
+  groupsList: import("./api").ReferenceRecord[],
+  teachersList: import("./api").ReferenceRecord[]
+): { mode: "student"; id: number } | { mode: "teacher"; id: number } | null {
+  const groupMatch = pathname.match(/^\/group\/([^/]+)/);
+  if (groupMatch && groupsList.length > 0) {
+    const rawCode = safeDecodePathnameSegment(groupMatch[1]).trim().toLowerCase();
+    const found = groupsList.find((g) => g.name.toLowerCase() === rawCode);
+    if (found) return { mode: "student", id: found.id };
+  }
+  const teacherMatch = pathname.match(/^\/teacher\/([^/]+)/);
+  if (teacherMatch && teachersList.length > 0) {
+    const rawSlug = safeDecodePathnameSegment(teacherMatch[1]).trim();
+    const found = findTeacherBySlug(teachersList, rawSlug);
+    if (found) return { mode: "teacher", id: found.id };
+  }
+  return null;
+}
 
 const memoryCache = new Map<
   string,
@@ -153,19 +188,52 @@ export function useSchedule(
 
   // Зберігаємо точний зліпок поточних даних на екрані, щоб не викликати setWeek/setToday, якщо дані з мережі не змінилися
   const lastRenderedWeekJsonRef = useRef<string>(hasInitialSeedOnMount ? initialWeekJson : "");
+  const initialPathnameRef = useRef<string>(
+    typeof window !== "undefined" ? window.location.pathname : ""
+  );
 
   // Миттєве підняття кешу ДО першого кадру (0 мс старт без скелетонів і без сплэш-екрана)
   useIsomorphicLayoutEffect(() => {
     try {
-      if (initialGroupId || initialTeacherId) {
+      const mountPath = initialPathnameRef.current || window.location.pathname;
+      const urlMatchedInitial =
+        !initialGroupId && !initialTeacherId
+          ? matchEntityFromPathname(mountPath, initialGroups, initialTeachers)
+          : null;
+
+      const effectiveInitialGroupId =
+        initialGroupId ?? (urlMatchedInitial?.mode === "student" ? urlMatchedInitial.id : undefined);
+      const effectiveInitialTeacherId =
+        initialTeacherId ?? (urlMatchedInitial?.mode === "teacher" ? urlMatchedInitial.id : undefined);
+      const effectiveInitialMode = initialMode ?? urlMatchedInitial?.mode;
+
+      if (effectiveInitialGroupId || effectiveInitialTeacherId) {
         setIsSetupComplete(true);
         window.localStorage.setItem("schedule:setupComplete", "1");
+        if (effectiveInitialGroupId) {
+          if (!window.localStorage.getItem("schedule:groupId")) {
+            window.localStorage.setItem("schedule:groupId", String(effectiveInitialGroupId));
+          }
+          if (!window.localStorage.getItem("schedule:mode")) {
+            window.localStorage.setItem("schedule:mode", "student");
+          }
+        }
+        if (effectiveInitialTeacherId) {
+          if (!window.localStorage.getItem("schedule:teacherId")) {
+            window.localStorage.setItem("schedule:teacherId", String(effectiveInitialTeacherId));
+          }
+          if (!window.localStorage.getItem("schedule:mode")) {
+            window.localStorage.setItem("schedule:mode", "teacher");
+          }
+        }
       } else if (window.localStorage.getItem("schedule:setupComplete") === "1") {
         setIsSetupComplete(true);
       }
 
-      let resolvedMode: "student" | "teacher" = initialMode ?? mode;
-      if (!initialMode) {
+      let resolvedMode: "student" | "teacher" = effectiveInitialMode ?? mode;
+      if (effectiveInitialMode) {
+        setMode(effectiveInitialMode);
+      } else {
         const savedMode = window.localStorage.getItem("schedule:mode");
         if (savedMode === "student" || savedMode === "teacher") {
           resolvedMode = savedMode;
@@ -173,8 +241,10 @@ export function useSchedule(
         }
       }
 
-      let resolvedGid = initialGroupId ?? groupId;
-      if (!initialGroupId) {
+      let resolvedGid = effectiveInitialGroupId ?? groupId;
+      if (effectiveInitialGroupId) {
+        setGroupId(effectiveInitialGroupId);
+      } else {
         const savedGid = Number(window.localStorage.getItem("schedule:groupId"));
         if (savedGid > 0) {
           resolvedGid = savedGid;
@@ -182,8 +252,10 @@ export function useSchedule(
         }
       }
 
-      let resolvedTid = initialTeacherId ?? teacherId;
-      if (!initialTeacherId) {
+      let resolvedTid = effectiveInitialTeacherId ?? teacherId;
+      if (effectiveInitialTeacherId) {
+        setTeacherId(effectiveInitialTeacherId);
+      } else {
         const savedTid = Number(window.localStorage.getItem("schedule:teacherId"));
         if (savedTid > 0) {
           resolvedTid = savedTid;
@@ -227,17 +299,23 @@ export function useSchedule(
     const cachedGroups = window.localStorage.getItem("schedule:groups");
     const cachedTeachers = window.localStorage.getItem("schedule:teachers");
 
+    const mountPath = initialPathnameRef.current || window.location.pathname;
+    const needsUrlResolution =
+      !initialGroupId &&
+      !initialTeacherId &&
+      (/^\/group\/[^/]+/.test(mountPath) || /^\/teacher\/[^/]+/.test(mountPath));
+
     let hasLocalDirectory = initialGroups.length > 0 && initialTeachers.length > 0;
+    let parsedCachedGroups: import("./api").ReferenceRecord[] = [];
+    let parsedCachedTeachers: import("./api").ReferenceRecord[] = [];
 
     if (cachedGroups) {
       try {
         const items = JSON.parse(cachedGroups) as import("./api").ReferenceRecord[];
         if (items.length > 0) {
+          parsedCachedGroups = items;
           setGroups(items);
           hasLocalDirectory = true;
-          if (!initialGroupId) {
-            setGroupId(cachedGroupId ? Number(cachedGroupId) : (items[0]?.id ?? null));
-          }
           setLoading(false);
         }
       } catch {
@@ -250,15 +328,57 @@ export function useSchedule(
         const rawItems = JSON.parse(cachedTeachers) as import("./api").ReferenceRecord[];
         const items = rawItems.filter((t) => t.name && !t.name.includes("!"));
         if (items.length > 0) {
+          parsedCachedTeachers = items;
           setTeachers(items);
-          if (!initialTeacherId) {
-            setTeacherId(cachedTeacherId ? Number(cachedTeacherId) : (items[0]?.id ?? null));
-          }
         }
       } catch {
         window.localStorage.removeItem("schedule:teachers");
       }
     }
+
+    const applyUrlOrStorageResolution = (
+      gList: import("./api").ReferenceRecord[],
+      tList: import("./api").ReferenceRecord[],
+      allowFallbackToStorage: boolean
+    ) => {
+      if (needsUrlResolution) {
+        const matched = matchEntityFromPathname(mountPath, gList, tList);
+        if (matched) {
+          setIsSetupComplete(true);
+          try {
+            window.localStorage.setItem("schedule:setupComplete", "1");
+            if (!window.localStorage.getItem("schedule:mode")) {
+              window.localStorage.setItem("schedule:mode", matched.mode);
+            }
+            if (matched.mode === "student" && !window.localStorage.getItem("schedule:groupId")) {
+              window.localStorage.setItem("schedule:groupId", String(matched.id));
+            }
+            if (matched.mode === "teacher" && !window.localStorage.getItem("schedule:teacherId")) {
+              window.localStorage.setItem("schedule:teacherId", String(matched.id));
+            }
+          } catch {}
+          setMode(matched.mode);
+          if (matched.mode === "student") setGroupId(matched.id);
+          else setTeacherId(matched.id);
+          return true;
+        }
+      }
+      if (allowFallbackToStorage) {
+        if (!initialGroupId && parsedCachedGroups.length > 0) {
+          setGroupId(cachedGroupId ? Number(cachedGroupId) : (parsedCachedGroups[0]?.id ?? null));
+        }
+        if (!initialTeacherId && parsedCachedTeachers.length > 0) {
+          setTeacherId(cachedTeacherId ? Number(cachedTeacherId) : (parsedCachedTeachers[0]?.id ?? null));
+        }
+      }
+      return false;
+    };
+
+    const resolvedFromCache = applyUrlOrStorageResolution(
+      parsedCachedGroups.length > 0 ? parsedCachedGroups : initialGroups,
+      parsedCachedTeachers.length > 0 ? parsedCachedTeachers : initialTeachers,
+      true
+    );
 
     let cancelled = false;
     const loadDirectory = () => {
@@ -281,6 +401,9 @@ export function useSchedule(
               setTeachers(ts);
               window.localStorage.setItem("schedule:teachers", newTeachersJson);
             }
+            if (needsUrlResolution) {
+              applyUrlOrStorageResolution(items, ts, false);
+            }
           }
         })
         .catch(() => {})
@@ -289,9 +412,10 @@ export function useSchedule(
         });
     };
 
-    const deferTimer = hasLocalDirectory
-      ? setTimeout(loadDirectory, 6000)
-      : (loadDirectory(), null);
+    const deferTimer =
+      hasLocalDirectory && (!needsUrlResolution || resolvedFromCache)
+        ? setTimeout(loadDirectory, 6000)
+        : (loadDirectory(), null);
 
     return () => {
       cancelled = true;

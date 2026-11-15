@@ -33,6 +33,20 @@ function getDayTitle(dateStr: string): string {
   }
 }
 
+function safeDecodeSegment(raw: string): string {
+  let decoded = raw || "";
+  for (let i = 0; i < 2; i++) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+  return decoded;
+}
+
 export async function generateStaticParams() {
   const { teachers } = await fetchDirectoryForSsr();
   return teachers.map((t) => ({
@@ -45,14 +59,26 @@ export async function generateMetadata({
 }: {
   params: { slug: string };
 }): Promise<Metadata> {
-  const rawSlug = decodeURIComponent(params.slug || "");
+  const rawSlug = safeDecodeSegment(params.slug || "");
   const { teachers } = await fetchDirectoryForSsr();
   const teacher = findTeacherBySlug(teachers, rawSlug);
 
   if (!teacher) {
+    const fallbackUrl = `${SITE_URL}/teacher/${encodeURIComponent(rawSlug)}`;
     return {
       title: "Розклад викладача — ДФКР",
       description: "Розклад викладачів Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ).",
+      alternates: {
+        canonical: fallbackUrl,
+      },
+      openGraph: {
+        title: "Розклад викладача — ДФКР",
+        description: "Розклад викладачів Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ).",
+        url: fallbackUrl,
+        type: "website",
+        locale: "uk_UA",
+        siteName: "Розклад ДФКР",
+      },
     };
   }
 
@@ -104,7 +130,7 @@ export default async function TeacherSchedulePage({
 }: {
   params: { slug: string };
 }) {
-  const rawSlug = decodeURIComponent(params.slug || "");
+  const rawSlug = safeDecodeSegment(params.slug || "");
   const { groups, teachers } = await fetchDirectoryForSsr();
 
   const teacher = findTeacherBySlug(teachers, rawSlug);
@@ -229,30 +255,31 @@ export default async function TeacherSchedulePage({
       </footer>
 
       {scheduleDays.length > 0 && (
-        <noscript>
-          <section style={{ maxWidth: "800px", margin: "16px auto", padding: "0 16px" }}>
-            <h2>Розклад занять викладача {teacherName}</h2>
-            {scheduleDays.map((day, idx) => (
-              <div key={day.date || idx}>
-                <h3>{getDayTitle(day.date)}</h3>
-                {day.lessons && day.lessons.length > 0 ? (
-                  <ul>
-                    {day.lessons.map((lesson, lIdx) => (
-                      <li key={lesson.id || lIdx}>
-                        <strong>{lesson.lesson_number} пара ({lesson.time}):</strong>{" "}
-                        {lesson.subject_name || lesson.subject || "Заняття"} —{" "}
-                        група {lesson.group_name || "Група"}
-                        {lesson.room ? `, ауд. ${lesson.room}` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>Цього дня пар за розкладом немає.</p>
-                )}
-              </div>
-            ))}
-          </section>
-        </noscript>
+        <section
+          className="sr-only"
+          aria-label={`Розклад занять викладача ${teacherName} на тиждень`}
+        >
+          <h2>Розклад занять викладача {teacherName}</h2>
+          {scheduleDays.map((day, idx) => (
+            <div key={day.date || idx}>
+              <h3>{getDayTitle(day.date)}</h3>
+              {day.lessons && day.lessons.length > 0 ? (
+                <ul>
+                  {day.lessons.map((lesson, lIdx) => (
+                    <li key={lesson.id || lIdx}>
+                      <strong>{lesson.lesson_number} пара ({lesson.time}):</strong>{" "}
+                      {lesson.subject_name || lesson.subject || "Заняття"} —{" "}
+                      група {lesson.group_name || "Група"}
+                      {lesson.room ? `, ауд. ${lesson.room}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Цього дня пар за розкладом немає.</p>
+              )}
+            </div>
+          ))}
+        </section>
       )}
     </div>
   );

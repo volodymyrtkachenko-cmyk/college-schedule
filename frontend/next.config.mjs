@@ -61,6 +61,21 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["framer-motion"],
   },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "(?<host>.*\\.vercel\\.app)",
+          },
+        ],
+        destination: "https://rozklad-dfkr.pp.ua/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withPwa(nextConfig);

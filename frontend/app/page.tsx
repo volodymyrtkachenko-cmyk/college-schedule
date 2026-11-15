@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { TransitionLink } from "../components/navigation/NavigationTransitionProvider";
 import { SchedulePageClient } from "../components/SchedulePageClient";
 import { SITE_URL } from "../lib/site";
+import { toTeacherSlug } from "../lib/slug";
 import { fetchDirectoryForSsr } from "../lib/ssrApi";
 
 export const revalidate = 1800; // Revalidate directory data for SEO every 30 minutes
@@ -45,6 +46,39 @@ export default async function HomePage() {
       </h1>
 
       <SchedulePageClient initialGroups={groups} initialTeachers={teachers} ssrNowIso={ssrNowIso} />
+
+      <section className="sr-only" aria-label="Довідник розкладу занять ДФКР">
+        <h2>Електронний розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ)</h2>
+        <p>
+          Актуальний розклад пар для студентів усіх навчальних груп і викладачів коледжу: розклад на
+          сьогодні та тиждень, чисельник і знаменник, заміни занять, розклад дзвінків та інтеграція з
+          Google Classroom.
+        </p>
+        {groups.length > 0 && (
+          <div>
+            <h3>Розклад навчальних груп ДФКР</h3>
+            <ul>
+              {groups.map((g) => (
+                <li key={g.id}>
+                  <a href={`/group/${encodeURIComponent(g.name)}`}>Група {g.name}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {teachers.length > 0 && (
+          <div>
+            <h3>Розклад викладачів ДФКР</h3>
+            <ul>
+              {teachers.map((t) => (
+                <li key={t.id}>
+                  <a href={`/teacher/${toTeacherSlug(t.name)}`}>{t.name}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
 
       <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-3 pt-3 pb-bottom-nav-safe text-[11px] text-sys-text-secondary sm:px-6 sm:pt-4 sm:text-xs lg:pb-8">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">

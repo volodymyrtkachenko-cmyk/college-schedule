@@ -37,10 +37,24 @@ function getDayTitle(dateStr: string): string {
   }
 }
 
+function safeDecodeSegment(raw: string): string {
+  let decoded = raw || "";
+  for (let i = 0; i < 2; i++) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+  return decoded;
+}
+
 export async function generateStaticParams() {
   const { groups } = await fetchDirectoryForSsr();
   return groups.map((g) => ({
-    code: encodeURIComponent(g.name),
+    code: g.name,
   }));
 }
 
@@ -49,16 +63,30 @@ export async function generateMetadata({
 }: {
   params: { code: string };
 }): Promise<Metadata> {
-  const rawCode = decodeURIComponent(params.code || "");
+  const rawCode = safeDecodeSegment(params.code || "");
   const { groups } = await fetchDirectoryForSsr();
   const group = groups.find(
-    (g) => g.name.toLowerCase() === rawCode.toLowerCase()
+    (g) =>
+      g.name.toLowerCase() === rawCode.toLowerCase() ||
+      encodeURIComponent(g.name).toLowerCase() === (params.code || "").toLowerCase()
   );
 
   if (!group) {
+    const fallbackUrl = `${SITE_URL}/group/${encodeURIComponent(rawCode)}`;
     return {
       title: `Розклад групи ${rawCode} — ДФКР`,
       description: `Розклад занять групи ${rawCode} Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ).`,
+      alternates: {
+        canonical: fallbackUrl,
+      },
+      openGraph: {
+        title: `Розклад групи ${rawCode} — ДФКР`,
+        description: `Розклад занять групи ${rawCode} Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ).`,
+        url: fallbackUrl,
+        type: "website",
+        locale: "uk_UA",
+        siteName: "Розклад ДФКР",
+      },
     };
   }
 
@@ -115,11 +143,13 @@ export default async function GroupSchedulePage({
 }: {
   params: { code: string };
 }) {
-  const rawCode = decodeURIComponent(params.code || "");
+  const rawCode = safeDecodeSegment(params.code || "");
   const { groups, teachers } = await fetchDirectoryForSsr();
 
   const group = groups.find(
-    (g) => g.name.toLowerCase() === rawCode.toLowerCase()
+    (g) =>
+      g.name.toLowerCase() === rawCode.toLowerCase() ||
+      encodeURIComponent(g.name).toLowerCase() === (params.code || "").toLowerCase()
   );
 
   if (!group && groups.length > 0) {
@@ -242,30 +272,31 @@ export default async function GroupSchedulePage({
       </footer>
 
       {scheduleDays.length > 0 && (
-        <noscript>
-          <section style={{ maxWidth: "800px", margin: "16px auto", padding: "0 16px" }}>
-            <h2>Розклад пар групи {group?.name || rawCode} на тиждень</h2>
-            {scheduleDays.map((day, idx) => (
-              <div key={day.date || idx}>
-                <h3>{getDayTitle(day.date)}</h3>
-                {day.lessons && day.lessons.length > 0 ? (
-                  <ul>
-                    {day.lessons.map((lesson, lIdx) => (
-                      <li key={lesson.id || lIdx}>
-                        <strong>{lesson.lesson_number} пара ({lesson.time}):</strong>{" "}
-                        {lesson.subject_name || lesson.subject || "Заняття"} —{" "}
-                        {lesson.teacher_name || lesson.teacher || "Викладач"}
-                        {lesson.room ? `, ауд. ${lesson.room}` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>Занять немає.</p>
-                )}
-              </div>
-            ))}
-          </section>
-        </noscript>
+        <section
+          className="sr-only"
+          aria-label={`Розклад пар групи ${group?.name || rawCode} на тиждень`}
+        >
+          <h2>Розклад пар групи {group?.name || rawCode} на тиждень</h2>
+          {scheduleDays.map((day, idx) => (
+            <div key={day.date || idx}>
+              <h3>{getDayTitle(day.date)}</h3>
+              {day.lessons && day.lessons.length > 0 ? (
+                <ul>
+                  {day.lessons.map((lesson, lIdx) => (
+                    <li key={lesson.id || lIdx}>
+                      <strong>{lesson.lesson_number} пара ({lesson.time}):</strong>{" "}
+                      {lesson.subject_name || lesson.subject || "Заняття"} —{" "}
+                      {lesson.teacher_name || lesson.teacher || "Викладач"}
+                      {lesson.room ? `, ауд. ${lesson.room}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Занять немає.</p>
+              )}
+            </div>
+          ))}
+        </section>
       )}
     </div>
   );

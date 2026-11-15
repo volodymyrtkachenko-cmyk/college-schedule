@@ -127,6 +127,7 @@ interface UseScheduleSelectionParams {
   semesterStart: string | null;
   loading: boolean;
   completeSetup: () => void;
+  isSetupComplete?: boolean;
   isPrivilegedUser: boolean;
   setToast: (msg: string, type?: "success" | "error" | "info") => void;
   ssrNowIso?: string;
@@ -152,6 +153,7 @@ export function useScheduleSelection({
   semesterStart,
   loading,
   completeSetup,
+  isSetupComplete = false,
   isPrivilegedUser,
   setToast,
   ssrNowIso,
@@ -340,19 +342,88 @@ export function useScheduleSelection({
     [groups, teachers]
   );
 
-  // Preserve homepage SSR title on "/"; update only /group/... or /teacher/... routes
+  // Sync slug URL & document.title for returning users on "/" and on /group/... or /teacher/... routes;
+  // leave "/" and its SSR title untouched before onboarding so Googlebot indexes the canonical homepage.
   useEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined") return;
-    if (window.location.pathname === "/") return;
+
+    const currentPath = window.location.pathname;
+    if (currentPath === "/") {
+      let setupStored = false;
+      try {
+        setupStored = window.localStorage.getItem("schedule:setupComplete") === "1";
+      } catch {}
+      if (!isSetupComplete || !setupStored) return;
+    }
+
+    let targetPath: string | null = null;
+    let targetTitle: string | null = null;
 
     if (mode === "student") {
       const g = groups.find((item) => item.id === groupId);
-      if (g) document.title = `Розклад групи ${g.name} ДФКР | Розклад ДФКР`;
+      if (g) {
+        targetPath = `/group/${encodeURIComponent(g.name)}`;
+        targetTitle = `Розклад групи ${g.name} ДФКР | Розклад ДФКР`;
+      }
     } else {
       const t = teachers.find((item) => item.id === teacherId);
-      if (t) document.title = `Розклад викладача ${t.name} — ДФКР | Розклад ДФКР`;
+      if (t) {
+        targetPath = `/teacher/${toTeacherSlug(t.name)}`;
+        targetTitle = `Розклад викладача ${t.name} — ДФКР | Розклад ДФКР`;
+      }
     }
-  }, [mode, groupId, teacherId, groups, teachers]);
+
+    if (!targetPath || !targetTitle) return;
+
+    const nextUrl = `${targetPath}${window.location.search}${window.location.hash}`;
+
+    if (currentPath === "/") {
+      window.history.replaceState(null, "", nextUrl);
+      document.title = targetTitle;
+      return;
+    }
+
+    if (currentPath === targetPath) {
+      document.title = targetTitle;
+      return;
+    }
+
+    const onGroupRoute = currentPath.startsWith("/group/");
+    const onTeacherRoute = currentPath.startsWith("/teacher/");
+    const modeMatchesRoute =
+      (mode === "student" && onGroupRoute) || (mode === "teacher" && onTeacherRoute);
+
+    if (!modeMatchesRoute) {
+      const searchMode = new URLSearchParams(window.location.search).get("mode");
+      if (searchMode === mode) {
+        window.history.replaceState(null, "", nextUrl);
+        document.title = targetTitle;
+      }
+      return;
+    }
+
+    if (onGroupRoute) {
+      const seg = currentPath.slice("/group/".length).split("/")[0] || "";
+      let decoded = seg;
+      try {
+        decoded = decodeURIComponent(seg);
+      } catch {}
+      if (groups.some((g) => g.name.toLowerCase() === decoded.toLowerCase())) {
+        window.history.replaceState(null, "", nextUrl);
+      }
+    } else if (onTeacherRoute) {
+      const seg = currentPath.slice("/teacher/".length).split("/")[0] || "";
+      let decoded = seg;
+      try {
+        decoded = decodeURIComponent(seg);
+      } catch {}
+      if (teachers.some((t) => toTeacherSlug(t.name) === decoded.toLowerCase())) {
+        window.history.replaceState(null, "", nextUrl);
+      }
+    }
+
+    document.title = targetTitle;
+  }, [isSetupComplete, mode, groupId, teacherId, groups, teachers]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
