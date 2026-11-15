@@ -202,6 +202,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
             <div className="grid grid-cols-4 gap-1.5">
               <button
                 type="button"
+                aria-pressed={activeFilter === "grade-5"}
                 onClick={() => setActiveFilter(activeFilter === "grade-5" ? "all" : "grade-5")}
                 className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-colors duration-fast ease-smooth cursor-pointer ${
                   activeFilter === "grade-5"
@@ -218,6 +219,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
 
               <button
                 type="button"
+                aria-pressed={activeFilter === "grade-4"}
                 onClick={() => setActiveFilter(activeFilter === "grade-4" ? "all" : "grade-4")}
                 className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-colors duration-fast ease-smooth cursor-pointer ${
                   activeFilter === "grade-4"
@@ -234,6 +236,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
 
               <button
                 type="button"
+                aria-pressed={activeFilter === "grade-3"}
                 onClick={() => setActiveFilter(activeFilter === "grade-3" ? "all" : "grade-3")}
                 className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-colors duration-fast ease-smooth cursor-pointer ${
                   activeFilter === "grade-3"
@@ -252,6 +255,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
 
               <button
                 type="button"
+                aria-pressed={activeFilter === "grade-2"}
                 onClick={() => setActiveFilter(activeFilter === "grade-2" ? "all" : "grade-2")}
                 className={`flex flex-col items-center justify-center p-1.5 rounded-xl border transition-colors duration-fast ease-smooth cursor-pointer ${
                   activeFilter === "grade-2"
@@ -338,6 +342,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
                   <button
                     key={flt.id}
                     type="button"
+                    aria-pressed={isSelected}
                     onClick={() => setActiveFilter(flt.id)}
                     className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer border ${
                       isSelected
@@ -369,6 +374,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
                 {/* Subject Header Button */}
                 <button
                   type="button"
+                  aria-expanded={isExpanded}
                   onClick={() => toggleSubject(subj.subject)}
                   className="w-full p-3 sm:p-4 text-left cursor-pointer hover:bg-sys-bg/40 transition-colors"
                 >

@@ -256,7 +256,7 @@ export function GuideHubModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Закрити"
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary active:scale-95 transition-colors cursor-pointer"
+                className="relative after:absolute after:-inset-1.5 after:content-[''] flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary active:scale-95 transition-colors cursor-pointer"
               >
                 <CloseIcon className="h-3.5 w-3.5" />
               </button>

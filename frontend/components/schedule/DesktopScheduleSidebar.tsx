@@ -200,6 +200,7 @@ export function DesktopScheduleSidebar({
                   <button
                     key={d.iso}
                     type="button"
+                    aria-pressed={isActive}
                     onClick={() => onSelectDayIndex(d.index)}
                     className={`relative z-10 flex flex-col items-center justify-center h-16 rounded-xl transition-colors duration-150 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card ${
                       isActive
@@ -239,7 +240,11 @@ export function DesktopScheduleSidebar({
               </div>
 
               {/* Desktop Segmented Toggle: Завдання vs Оцінки (Pure GPU translate3d) */}
-              <div className="relative grid grid-cols-2 items-center rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs isolate">
+              <div
+                role="group"
+                aria-label="Розділ Classroom"
+                className="relative grid grid-cols-2 items-center rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs isolate"
+              >
                 <div
                   aria-hidden="true"
                   className={`pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 z-0 rounded-md bg-sys-accentSolid shadow-xs transform-gpu ${
@@ -254,6 +259,7 @@ export function DesktopScheduleSidebar({
                 />
                 <button
                   type="button"
+                  aria-pressed={desktopSidebarTab === "tasks"}
                   onPointerEnter={preloadTasksBoardChunk}
                   onFocus={preloadTasksBoardChunk}
                   onClick={() => onChangeSidebarTab("tasks")}
@@ -267,6 +273,7 @@ export function DesktopScheduleSidebar({
                 </button>
                 <button
                   type="button"
+                  aria-pressed={desktopSidebarTab === "grades"}
                   onPointerEnter={preloadGradesChunk}
                   onFocus={preloadGradesChunk}
                   onClick={() => onChangeSidebarTab("grades")}
@@ -374,6 +381,7 @@ export function DesktopScheduleSidebar({
                   <GradesView
                     tasks={allTasks}
                     isLinked={isLinked}
+                    groupId={groupId}
                     onSyncClassroom={() =>
                       window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
                     }

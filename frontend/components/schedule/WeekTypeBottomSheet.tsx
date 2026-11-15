@@ -41,7 +41,7 @@ export function WeekTypeBottomSheet({
                 type="button"
                 onClick={onClose}
                 aria-label="Закрити"
-                className="flex h-8 w-8 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
+                className="relative after:absolute after:-inset-1.5 after:content-[''] flex h-8 w-8 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
               >
                 <CloseIcon className="h-4 w-4" />
               </button>

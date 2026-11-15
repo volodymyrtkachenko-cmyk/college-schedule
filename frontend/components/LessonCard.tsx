@@ -753,7 +753,7 @@ export const LessonCard = memo(function LessonCard({
                 {!canEdit && displayRooms.length > 0 && (
                   <div
                     title={roomsLabel}
-                    className="ui-mono-slot inline-flex min-h-[38px] px-3 items-center rounded-xl border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[55%] truncate"
+                    className="ui-mono-slot inline-flex min-h-[38px] px-3 items-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[55%] truncate"
                   >
                     <span className="truncate">{roomsLabel}</span>
                   </div>

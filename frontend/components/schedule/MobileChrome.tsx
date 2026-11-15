@@ -107,7 +107,7 @@ export function MobileChrome({
                 disabled={!canNavigatePrevWeek}
                 onClick={() => onShiftWeekPreservingDay(-1)}
                 aria-label="Попередній тиждень"
-                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+                className="relative after:absolute after:-inset-1.5 after:content-[''] flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
               >
                 <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m15 18-6-6 6-6" />
@@ -137,7 +137,7 @@ export function MobileChrome({
                 disabled={!canNavigateNextWeek}
                 onClick={() => onShiftWeekPreservingDay(1)}
                 aria-label="Наступний тиждень"
-                className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+                className="relative after:absolute after:-inset-1.5 after:content-[''] flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
               >
                 <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m9 18 6-6-6-6" />

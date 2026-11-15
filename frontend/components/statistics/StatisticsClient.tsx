@@ -257,6 +257,16 @@ export function StatisticsClient() {
         subtitle="Виконання навчального плану та навантаження"
         backHref="/"
         maxWidthClass="max-w-5xl"
+        rightSlot={
+          selectedName ? (
+            <span className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-2.5 text-xs font-semibold text-sys-text-primary max-w-[220px] truncate">
+              <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
+              <span className="truncate">
+                {mode === "student" ? `Група ${selectedName}` : selectedName}
+              </span>
+            </span>
+          ) : undefined
+        }
       />
 
       <main
@@ -284,6 +294,7 @@ export function StatisticsClient() {
               )}
               <button
                 type="button"
+                aria-pressed={mode === "student"}
                 onClick={() => changeMode("student")}
                 className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-colors ${
                   mode === "student"
@@ -298,6 +309,7 @@ export function StatisticsClient() {
               {teachers.length > 0 && (
                 <button
                   type="button"
+                  aria-pressed={mode === "teacher"}
                   onClick={() => changeMode("teacher")}
                   className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-colors ${
                     mode === "teacher"
@@ -377,9 +389,7 @@ export function StatisticsClient() {
           </div>
         ) : stats ? (
           <>
-            <div className="flex flex-col items-center justify-center text-center mt-4 mb-2">
-              <h2 className="text-2xl font-bold tracking-tight">{selectedName}</h2>
-            </div>
+            <h2 className="sr-only">{selectedName}</h2>
 
             {mode === "student" ? (
               <DesktopSpotlightGrid className="grid gap-4 grid-cols-2 mt-4">

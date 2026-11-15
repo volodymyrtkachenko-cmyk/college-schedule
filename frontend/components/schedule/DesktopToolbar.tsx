@@ -1,8 +1,39 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
-import { ChevronDownIcon, LightbulbIcon } from "@/components/ui/Icons";
+import {
+  BarChartIcon,
+  BellIcon,
+  BookOpenIcon,
+  CalendarIcon,
+  ChevronDownIcon,
+  LightbulbIcon,
+} from "@/components/ui/Icons";
+import { useAnimatedDisclosure } from "@/lib/useAnimatedDisclosure";
 import type { HeaderLearningModeData } from "../../lib/schedule";
+
+const SECTION_LINKS = [
+  { href: "/bells", label: "Дзвінки", description: "Розклад пар та перерв", icon: BellIcon },
+  {
+    href: "/educational-process",
+    label: "Графік процесу",
+    description: "Семестри, сесії та канікули",
+    icon: CalendarIcon,
+  },
+  {
+    href: "/statistics",
+    label: "Статистика",
+    description: "Виконання плану і години",
+    icon: BarChartIcon,
+  },
+  {
+    href: "/atlas",
+    label: "Атлас ДФКР",
+    description: "Навігація і структура",
+    icon: BookOpenIcon,
+  },
+] as const;
 
 interface DesktopToolbarProps {
   mode: "student" | "teacher";
@@ -53,6 +84,29 @@ export function DesktopToolbar({
   onToggleTheme,
   onOpenGuideHub,
 }: DesktopToolbarProps) {
+  const [navMenuOpen, setNavMenuOpen] = useState(false);
+  const navMenuRef = useRef<HTMLDivElement | null>(null);
+  const { shouldRender: shouldRenderNavMenu, isClosing: isNavMenuClosing } =
+    useAnimatedDisclosure(navMenuOpen, 170);
+
+  useEffect(() => {
+    if (!navMenuOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (navMenuRef.current && !navMenuRef.current.contains(e.target as Node)) {
+        setNavMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNavMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [navMenuOpen]);
+
   const isTodayButtonDisabled =
     (view === "today" && isCurrentWeek && isTodaySelected) ||
     (view === "week" && isCurrentWeek);
@@ -171,6 +225,7 @@ export function DesktopToolbar({
             </div>
             <button
               type="button"
+              aria-pressed={view === "today"}
               onClick={() => onViewChange("today")}
               className={`relative z-10 h-8 px-2.5 xl:px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer ${
                 view === "today" ? "text-white" : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -180,6 +235,7 @@ export function DesktopToolbar({
             </button>
             <button
               type="button"
+              aria-pressed={view === "week"}
               onClick={() => onViewChange("week")}
               className={`relative z-10 h-8 px-2.5 xl:px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer ${
                 view === "week" ? "text-white" : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -213,7 +269,7 @@ export function DesktopToolbar({
           )}
         </div>
 
-        {/* Right Zone: Teacher PIN, Theme, Guide, Settings */}
+        {/* Right Zone: Teacher PIN, Sections Popover, Theme, Guide, Settings */}
         <div className="flex items-center gap-2 justify-self-end">
           {mode === "teacher" && !isTeacherUnlocked && (
             <button
@@ -229,6 +285,81 @@ export function DesktopToolbar({
               <span>Вхід викладача</span>
             </button>
           )}
+
+          <div ref={navMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setNavMenuOpen((prev) => !prev)}
+              aria-expanded={navMenuOpen}
+              aria-haspopup="menu"
+              aria-label="Розділи коледжу"
+              title="Розділи: дзвінки, графік процесу, статистика, атлас"
+              className={`flex h-10 items-center justify-center gap-1.5 rounded-xl border px-2.5 xl:px-3 text-xs font-semibold transition-colors duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent cursor-pointer active:scale-95 ${
+                navMenuOpen
+                  ? "border-sys-accent/50 bg-sys-accent/10 text-sys-accent"
+                  : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated"
+              }`}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="shrink-0"
+              >
+                <rect width="7" height="7" x="3" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="14" rx="1" />
+                <rect width="7" height="7" x="3" y="14" rx="1" />
+              </svg>
+              <span className="hidden xl:inline">Розділи</span>
+              <ChevronDownIcon
+                className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${
+                  navMenuOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {shouldRenderNavMenu && (
+              <div
+                role="menu"
+                aria-label="Додаткові розділи коледжу"
+                data-closing={isNavMenuClosing ? "true" : undefined}
+                style={{ "--popup-y": "-6px" } as React.CSSProperties}
+                className="discrete-popup absolute right-0 top-full mt-2 w-64 rounded-2xl border border-sys-border bg-sys-card p-1.5 shadow-xl z-50"
+              >
+                {SECTION_LINKS.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <TransitionLink
+                      key={item.href}
+                      href={item.href}
+                      role="menuitem"
+                      onClick={() => setNavMenuOpen(false)}
+                      className="flex items-start gap-2.5 rounded-xl px-3 py-2 text-left transition-colors hover:bg-sys-bg focus:bg-sys-bg focus:outline-none group"
+                    >
+                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-accent group-hover:border-sys-accent/40">
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-semibold text-sys-text-primary leading-snug">
+                          {item.label}
+                        </span>
+                        <span className="block text-[11px] text-sys-text-muted leading-snug">
+                          {item.description}
+                        </span>
+                      </span>
+                    </TransitionLink>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <button
             type="button"

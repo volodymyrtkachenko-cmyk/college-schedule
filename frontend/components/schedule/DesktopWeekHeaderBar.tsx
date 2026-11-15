@@ -98,32 +98,41 @@ export function DesktopWeekHeaderBar({
   return (
     <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-sys-card p-3 sm:px-4 sm:py-3 border border-sys-border shadow-xs">
       <div className="text-[13px] sm:text-sm font-medium text-sys-text-primary flex flex-wrap items-center gap-2">
-        <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0">
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-        </svg>
-        <span className="font-bold text-sys-text-primary">{weekRange}</span>
-        {currentWeekNumber && (
+        {currentWeekNumber ? (
           <>
-            <span className="text-sys-text-muted">•</span>
-            <span className="text-sys-text-secondary font-medium">{currentWeekNumber} тиждень</span>
-          </>
-        )}
-        {weekType !== "both" && (
-          <>
-            <span className="text-sys-text-muted">•</span>
-            <span
-              title={
-                weekType === "numerator"
-                  ? "Чисельник — непарний тиждень навчального графіка"
-                  : "Знаменник — парний тиждень навчального графіка"
-              }
-              className="text-sys-text-secondary font-medium lowercase cursor-help underline decoration-dotted underline-offset-2"
-            >
-              {weekType === "numerator" ? "чисельник" : "знаменник"}
+            <span className="font-bold text-sys-text-primary">
+              {currentWeekNumber}-й навчальний тиждень
             </span>
+            {weekType !== "both" && (
+              <span
+                title={
+                  weekType === "numerator"
+                    ? "Чисельник — непарний тиждень навчального графіка"
+                    : "Знаменник — парний тиждень навчального графіка"
+                }
+                className="inline-flex items-center rounded-md border border-sys-border bg-sys-bg px-2 py-0.5 text-xs font-semibold text-sys-text-secondary cursor-help"
+              >
+                {weekType === "numerator" ? "Чисельник" : "Знаменник"}
+              </span>
+            )}
+            <span className="text-sys-text-muted">•</span>
+            <span className="text-sys-text-secondary font-medium">{weekRange}</span>
+          </>
+        ) : (
+          <>
+            <span className="font-bold text-sys-text-primary">{weekRange}</span>
+            {weekType !== "both" && (
+              <span
+                title={
+                  weekType === "numerator"
+                    ? "Чисельник — непарний тиждень навчального графіка"
+                    : "Знаменник — парний тиждень навчального графіка"
+                }
+                className="inline-flex items-center rounded-md border border-sys-border bg-sys-bg px-2 py-0.5 text-xs font-semibold text-sys-text-secondary cursor-help"
+              >
+                {weekType === "numerator" ? "Чисельник" : "Знаменник"}
+              </span>
+            )}
           </>
         )}
         {activeWeekPeriodMeta && (

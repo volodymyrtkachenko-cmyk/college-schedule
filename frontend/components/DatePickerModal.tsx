@@ -152,7 +152,7 @@ export function DatePickerModal({
               disabled={!canGoPrevMonth}
               aria-label="Попередній місяць"
               title="Попередній місяць"
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              className="relative after:absolute after:-inset-1 after:content-[''] flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-colors disabled:opacity-30 disabled:pointer-events-none"
             >
               <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m15 18-6-6 6-6" />
@@ -164,7 +164,7 @@ export function DatePickerModal({
               disabled={!canGoNextMonth}
               aria-label="Наступний місяць"
               title="Наступний місяць"
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              className="relative after:absolute after:-inset-1 after:content-[''] flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-colors disabled:opacity-30 disabled:pointer-events-none"
             >
               <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m9 18 6-6-6-6" />
@@ -174,7 +174,7 @@ export function DatePickerModal({
               type="button"
               onClick={onClose}
               aria-label="Закрити календар"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-bg transition-colors ml-1"
+              className="relative after:absolute after:-inset-1 after:content-[''] flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-bg transition-colors ml-1"
             >
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />

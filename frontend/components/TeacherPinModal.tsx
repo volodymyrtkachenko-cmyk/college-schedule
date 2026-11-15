@@ -98,7 +98,7 @@ export function TeacherPinModal({
             type="button"
             onClick={onClose}
             aria-label="Закрити"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-bg transition-colors -mr-1 -mt-1"
+            className="relative after:absolute after:-inset-1.5 after:content-[''] w-8 h-8 rounded-lg flex items-center justify-center text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-bg transition-colors -mr-1 -mt-1"
           >
             <CloseIcon className="h-4 w-4" />
           </button>
@@ -176,11 +176,11 @@ export function TeacherPinModal({
               <button
                 type="submit"
                 disabled={isSubmitting || !pin.trim()}
-                className="flex-1 h-11 rounded-xl bg-sys-accent text-slate-950 text-xs font-bold shadow-md hover:bg-sys-accent/90 disabled:opacity-50 disabled:cursor-not-allowed active:scale-98 transition-colors duration-fast ease-smooth flex items-center justify-center gap-2"
+                className="flex-1 h-11 rounded-xl bg-sys-accentSolid text-sys-onAccent text-xs font-bold shadow-md hover:bg-sys-accentSolid/90 disabled:opacity-50 disabled:cursor-not-allowed active:scale-98 transition-colors duration-fast ease-smooth flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>
-                    <span className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                    <span className="w-3.5 h-3.5 border-2 border-sys-onAccent border-t-transparent rounded-full animate-spin" />
                     <span>Перевірка...</span>
                   </>
                 ) : (

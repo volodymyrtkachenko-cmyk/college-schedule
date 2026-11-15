@@ -56,9 +56,28 @@ export function TasksTodoBoard({
   }
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [subjectMenuOpen, setSubjectMenuOpen] = useState(false);
+  const subjectMenuRef = useRef<HTMLDivElement | null>(null);
   const { shouldRender: shouldRenderSubjectMenu, isClosing: isSubjectMenuClosing } =
     useAnimatedDisclosure(subjectMenuOpen, 170);
   const [showAllDone, setShowAllDone] = useState(false);
+
+  useEffect(() => {
+    if (!subjectMenuOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (subjectMenuRef.current && !subjectMenuRef.current.contains(e.target as Node)) {
+        setSubjectMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSubjectMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [subjectMenuOpen]);
 
   const filters: TaskFilterState = useMemo(
     () => ({
@@ -223,7 +242,7 @@ export function TasksTodoBoard({
 
       {/* Compact Collapsible Subject Selector */}
       {subjects.length > 1 && (
-        <div className="relative">
+        <div ref={subjectMenuRef} className="relative">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -777,6 +796,7 @@ export function MobileTasksView({
                 <GradesView
                   tasks={tasks}
                   isLinked={isLinked}
+                  groupId={groupId}
                   onSyncClassroom={() =>
                     window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
                   }

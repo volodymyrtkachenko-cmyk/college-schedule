@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DesktopSpotlightGrid } from "@/components/navigation/DesktopSpotlightGrid";
 import { SubpageHeader } from "@/components/navigation/SubpageHeader";
-import { ChevronDownIcon, ChevronUpIcon, CloseIcon, SearchIcon, UsersIcon } from "@/components/ui/Icons";
+import { ChevronDownIcon, ChevronUpIcon, CloseIcon, SearchIcon } from "@/components/ui/Icons";
 import {
   api,
   type EducationalProcessMatrix,
@@ -400,9 +400,7 @@ export function EducationalProcessClient() {
 
   const academicYearLabel = `${selectedYear}/${selectedYear + 1}`;
   const totalWeeksCount = matrix?.weeks?.length || 52;
-  const headerSubtitle = currentGroupData
-    ? `Група ${currentGroupData.group.group_name} · ${currentGroupData.course} курс · ${academicYearLabel} н. р.`
-    : `Семестри, екзамени, практика та канікули · ${academicYearLabel} навчальний рік`;
+  const headerSubtitle = `Семестри, сесії, практика та канікули · ${academicYearLabel} навчальний рік`;
 
   return (
     <div className="min-h-screen bg-[var(--page-bg)] text-sys-text-primary">
@@ -473,24 +471,36 @@ export function EducationalProcessClient() {
               </button>
             </div>
 
-            <div className="relative min-w-[180px] md:w-52">
-              <SearchIcon className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-muted pointer-events-none" />
-              <input
-                type="search"
-                aria-label="Пошук групи"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Пошук групи..."
-                className="w-full rounded-xl border border-sys-border bg-sys-bg py-1.5 pl-8 pr-8 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent transition-colors"
-              />
-              {searchQuery && (
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+              <div className="relative flex-1 min-w-[180px] md:w-52">
+                <SearchIcon className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-muted pointer-events-none" />
+                <input
+                  type="search"
+                  aria-label="Пошук групи"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Пошук групи..."
+                  className="w-full rounded-xl border border-sys-border bg-sys-bg py-1.5 pl-8 pr-8 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    aria-label="Очистити пошук"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sys-text-muted hover:text-sys-text-primary p-0.5 rounded"
+                  >
+                    <CloseIcon className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {savedGroup && currentGroupData && savedGroup.id !== currentGroupData.group.group_id && (
                 <button
                   type="button"
-                  aria-label="Очистити пошук"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sys-text-muted hover:text-sys-text-primary p-0.5 rounded"
+                  onClick={() => handleSelectGroup(savedGroup.id)}
+                  className="shrink-0 rounded-xl border border-sys-accent/40 bg-sys-accent/10 px-2.5 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/15 transition-colors cursor-pointer"
+                  title={`Повернутися до моєї групи (${savedGroup.name})`}
                 >
-                  <CloseIcon className="h-3.5 w-3.5" />
+                  Моя група ({savedGroup.name})
                 </button>
               )}
             </div>
@@ -528,35 +538,6 @@ export function EducationalProcessClient() {
               <span className="text-xs text-sys-text-secondary py-1">Групи не знайдені.</span>
             )}
           </div>
-
-          {currentGroupData && (
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-sys-border/60 pt-2.5 text-xs">
-              <div className="flex flex-wrap items-center gap-2 text-sys-text-secondary">
-                <UsersIcon className="h-3.5 w-3.5 text-sys-accent" />
-                <span>
-                  Зараз обрано:{" "}
-                  <strong className="font-bold text-sys-text-primary">
-                    група {currentGroupData.group.group_name}
-                  </strong>{" "}
-                  ({currentGroupData.course} курс)
-                </span>
-                {savedGroup && savedGroup.id === currentGroupData.group.group_id && (
-                  <span className="rounded-md bg-sys-accent-subtle px-2 py-0.5 text-[11px] font-semibold text-sys-accent">
-                    Моя група
-                  </span>
-                )}
-              </div>
-              {savedGroup && savedGroup.id !== currentGroupData.group.group_id && (
-                <button
-                  type="button"
-                  onClick={() => handleSelectGroup(savedGroup.id)}
-                  className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-[11px] font-semibold text-sys-accent hover:border-sys-accent/50 hover:bg-sys-card transition-colors"
-                >
-                  Повернутися до моєї групи ({savedGroup.name})
-                </button>
-              )}
-            </div>
-          )}
         </section>
 
         {loading ? (
