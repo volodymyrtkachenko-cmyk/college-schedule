@@ -60,9 +60,7 @@ export function ScheduleErrorState({
         {error}
       </p>
       <p className={isDesktop ? "text-xs sm:text-sm text-sys-text-secondary" : "text-xs text-sys-text-secondary"}>
-        {isDesktop
-          ? "Ви можете обрати іншу збережену групу у верхній панелі або повторити спробу."
-          : "Ви можете обрати іншу збережену групу у шапці або спробувати оновити дані."}
+        Оберіть іншу групу чи викладача або спробуйте ще раз.
       </p>
       <div className={`flex items-center justify-center ${isDesktop ? "gap-3 pt-2" : "gap-2 pt-1"}`}>
         <button

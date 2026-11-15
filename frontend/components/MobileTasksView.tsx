@@ -109,7 +109,7 @@ export function TasksTodoBoard({
             <div className="flex items-start gap-2 min-w-0">
               <span className="text-sky-600 dark:text-sky-400 font-bold shrink-0">ⓘ</span>
               <span className="leading-snug text-sys-text-primary">
-                Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити свої здачі та оцінки.
+                Це завдання всієї групи. Прив&apos;яжіть пошту @kre.dp.ua, щоб бачити свої здачі та оцінки.
               </span>
             </div>
             <button
@@ -406,7 +406,7 @@ export function TasksTodoBoard({
                   <div className="flex items-center gap-2 px-1">
                     <span className="h-2 w-2 rounded-full bg-sys-accent" />
                     <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                      За розкладом дедлайнів ({activeTasks.length})
+                      З терміном здачі ({activeTasks.length})
                     </h3>
                   </div>
                   <div className="space-y-2">
@@ -738,7 +738,7 @@ export function MobileTasksView({
               {viewMode === "grades" ? "Оцінки захищено" : "Завдання захищено"}
             </h3>
             <p className="text-xs text-sys-text-secondary leading-relaxed max-w-sm mx-auto mb-5">
-              Домашні завдання та оцінки доступні лише для студентів цієї групи. Підключіть студентський Google Classroom, щоб отримати доступ.
+              Завдання та оцінки доступні лише студентам цієї групи. Прив&apos;яжіть пошту @kre.dp.ua своєї групи.
             </p>
             <button
               type="button"

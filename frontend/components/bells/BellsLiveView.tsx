@@ -423,7 +423,7 @@ export function BellsLiveView({ initialData }: { initialData: PublicBellsRespons
           isTodayMode={todayState.isShortenedToday && !todayState.isWeekend}
           activeLesson={todayState.activeLesson}
           nextLesson={todayState.nextLesson}
-          footnote="Застосовується у передсвяткові дні та дні педагогічних нарад за окремим розпорядженням адміністрації."
+          footnote="Діє у передсвяткові дні та під час педрад за рішенням адміністрації."
           staggerIndex={1}
           icon="clock"
         />

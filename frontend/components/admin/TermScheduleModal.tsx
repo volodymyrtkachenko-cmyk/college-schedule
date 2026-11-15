@@ -134,7 +134,7 @@ export function TermScheduleModal({
         },
         session.access_token
       );
-      showToast("Графік навчального процесу збережено", "success");
+      showToast("Графік освітнього процесу збережено", "success");
       onSaved(updated);
       onClose();
     } catch (e: any) {
@@ -209,7 +209,7 @@ export function TermScheduleModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Графік навчального процесу та семестри"
+        aria-label="Графік освітнього процесу та семестри"
         className="flex max-h-[94dvh] w-full sm:max-w-3xl flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
       >
         {/* Header */}
@@ -225,7 +225,7 @@ export function TermScheduleModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-sys-text-primary leading-tight">
-                Графік навчального процесу та семестри
+                Графік освітнього процесу та семестри
               </h3>
               <p className="text-xs text-sys-text-secondary mt-0.5">
                 {term.name} • {term.is_current ? "Поточний семестр" : "Семестр планування"}
@@ -422,7 +422,7 @@ export function TermScheduleModal({
                   Підготовка наступного семестру
                 </h4>
                 <p className="text-xs text-sys-text-secondary">
-                  Створює окремий навчальний семестр у режимі «PLANNING». У ньому викладачі та адміністратори можуть вносити нові предмети, перерозподіляти навантаження та генерувати чернетки, <strong>не змінюючи поточний розклад та статистику</strong>.
+                  Створює новий семестр у режимі планування. Тут можна редагувати навантаження та генерувати чернетки <strong>без змін у поточному розкладі</strong>.
                 </p>
               </div>
 

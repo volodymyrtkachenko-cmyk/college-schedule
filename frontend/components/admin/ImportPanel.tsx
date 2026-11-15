@@ -201,7 +201,7 @@ export function ImportPanel() {
       }
       await loadStatus();
     } catch (err: any) {
-      setError(err?.message || "Скоріш за все сталася помилка з'єднання.");
+      setError(err?.message || "Помилка з'єднання з сервером.");
       setStatus("idle");
     } finally {
       setLoading(false);
@@ -480,7 +480,7 @@ export function ImportPanel() {
         {status === "idle" && (
             <div>
                <p className="text-sys-text-secondary text-sm mb-6 max-w-lg">
-                   Система сама обходить усі групи на kre.dp.ua, знаходить зміни й одразу застосовує їх. Останню публікацію можна відкотити.
+                   Завантажує розклад і заміни з kre.dp.ua для всіх груп. Будь-яку публікацію можна відкотити в історії.
                </p>
                <button onClick={handleImport} disabled={loading} className="bg-sys-accent text-white font-semibold shadow-xs py-2.5 px-6 rounded-lg disabled:opacity-50 flex items-center gap-2 hover:opacity-95 active:scale-98 transition-all">
                    {loading ? (
@@ -499,7 +499,7 @@ export function ImportPanel() {
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                         Знайдено нові записи
                     </h3>
-                    <p className="opacity-80">Перед тим, як залити розклад у базу, переконайтеся, що ви зв'язали ці нові назви з наявними в системі. Заповніть усі поля.</p>
+                    <p className="opacity-80">Зіставте нові назви із сайту kre.dp.ua із записами в базі або створіть нові.</p>
                 </div>
 
                 <div className="space-y-3 mb-6 bg-sys-card p-4 rounded-xl border border-sys-border">
@@ -782,7 +782,7 @@ export function ImportPanel() {
                     </svg>
                 </div>
                 <h3 className="text-2xl font-bold text-sys-text-primary mb-2">Змін не знайдено</h3>
-                <p className="text-sys-text-secondary max-w-md mx-auto mb-6">Поточний розклад та імпортні зміни такі самі, як у попередньому імпорті. Нову чернетку створювати не потрібно.</p>
+                <p className="text-sys-text-secondary max-w-md mx-auto mb-6">Розклад на kre.dp.ua не змінився з часу останнього імпорту.</p>
                 <button onClick={() => setStatus("idle")} className="bg-sys-card border border-sys-border px-6 py-2 rounded-lg text-sm font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
                     Зрозуміло
                 </button>

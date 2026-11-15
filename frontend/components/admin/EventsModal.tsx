@@ -133,7 +133,7 @@ export function EventsModal({
     const hasSubject = Boolean(subjectId || customSubject.trim());
     const hasTitle = Boolean(customTitle.trim());
     if (!hasSubject && !hasTitle) {
-      setToast("Оберіть предмет, введіть власну назву предмету або назву події", "error");
+      setToast("Оберіть предмет або введіть власну назву", "error");
       return;
     }
     setSaving(true);
@@ -311,7 +311,7 @@ export function EventsModal({
               />
             </label>
             <label className="space-y-1">
-              <span className="text-xs font-medium text-sys-text-secondary">Власна назва предмету</span>
+              <span className="text-xs font-medium text-sys-text-secondary">Власна назва предмета</span>
               <input
                 type="text"
                 value={customSubject}
@@ -390,7 +390,7 @@ export function EventsModal({
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="напр. Принести заліковку та курсовий проект..."
+                placeholder="напр. Принести залікову книжку та курсовий проєкт..."
                 className="form-control w-full text-sm"
               />
             </label>

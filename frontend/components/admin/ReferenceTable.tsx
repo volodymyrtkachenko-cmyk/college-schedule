@@ -70,7 +70,7 @@ export function ReferenceTable({
           <thead className="bg-slate-100 dark:bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-xs uppercase tracking-wider text-slate-700 dark:text-sys-text-secondary">
             <tr>
               <th scope="col" className={`px-5 py-3.5 font-semibold ${resource === "groups" ? "w-36 sm:w-48" : ""}`}>
-                {resource === "groups" ? "Група" : resource === "teachers" ? "Викладач" : resource === "subjects" ? "Назва предмету" : "Назва"}
+                {resource === "groups" ? "Група" : resource === "teachers" ? "Викладач" : resource === "subjects" ? "Назва предмета" : "Назва"}
               </th>
               {resource === "groups" && (
                 <>

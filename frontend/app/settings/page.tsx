@@ -231,7 +231,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-sys-bg text-sys-text-primary">
       <SubpageHeader
         title="Налаштування"
-        subtitle="Параметри пристрою та інтеграції"
+        subtitle="Зберігаються лише на цьому пристрої"
         backHref="/"
         onBackClick={() => setHomeTab("schedule")}
         maxWidthClass="max-w-2xl"
@@ -258,11 +258,6 @@ export default function SettingsPage() {
         tabIndex={-1}
         className="vt-main-content focus:outline-none max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-6 pb-bottom-nav-safe lg:pb-12"
       >
-        {/* Subtitle */}
-        <p className="text-xs sm:text-sm text-sys-text-secondary">
-          Параметри розкладу й інтерфейсу. Діють лише на цьому пристрої.
-        </p>
-
         {/* Section 1: Розклад */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
@@ -351,7 +346,7 @@ export default function SettingsPage() {
               Початковий вигляд
             </span>
             <p className="text-xs text-sys-text-secondary leading-relaxed">
-              Що відкривати першим на широких екранах (≥ 1024 px). На телефонах і вузьких екранах завжди відкривається розклад на день.
+              Який режим відкривати на комп&apos;ютері. На телефоні завжди відкривається розклад на день.
             </p>
             <div
               role="group"
@@ -402,7 +397,7 @@ export default function SettingsPage() {
                 Завдання (ДЗ) на картках пар
               </span>
               <p className="text-xs text-sys-text-secondary leading-relaxed">
-                Показує або приховує блок завдань з Classroom усередині карток пар; окрема вкладка «Завдання» лишається доступною.
+                Показувати активні завдання з Classroom на картках пар.
               </p>
             </div>
             <button
@@ -513,7 +508,7 @@ export default function SettingsPage() {
               </div>
             )}
             <p className="text-xs text-sys-text-secondary leading-relaxed">
-              Прив&apos;язка корпоративної пошти @kre.dp.ua відкриває посилання Meet/Zoom, підтягує дедлайни завдань, статуси здачі та оцінки.
+              Пошта @kre.dp.ua відкриває посилання Meet/Zoom, завдання, статуси здачі та оцінки.
             </p>
           </section>
         )}
@@ -673,7 +668,7 @@ export default function SettingsPage() {
             >
               <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
                 <CalendarIcon className="h-4 w-4 text-sys-text-secondary" />
-                <span>Графік навчального процесу</span>
+                <span>Графік освітнього процесу</span>
               </span>
               <span className="text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">↗</span>
             </TransitionLink>
@@ -689,7 +684,7 @@ export default function SettingsPage() {
                     Атлас ДФКР — Мапа зв&apos;язків коледжу
                   </span>
                   <span className="text-[11px] text-sys-text-secondary leading-snug">
-                    Мапа орбіт груп і викладачів, порівняння спільних пар та кабінети
+                    Зв&apos;язки груп, викладачів, предметів і аудиторій
                   </span>
                 </span>
               </span>

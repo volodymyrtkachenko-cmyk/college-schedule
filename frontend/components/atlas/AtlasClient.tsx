@@ -1919,7 +1919,7 @@ export function AtlasClient() {
     <div className="min-h-screen bg-sys-bg text-sys-text-primary flex flex-col">
       <SubpageHeader
         title="Атлас ДФКР"
-        subtitle="Орбіти груп і викладачів коледжу"
+        subtitle="Зв'язки груп, викладачів, предметів і аудиторій"
         maxWidthClass="max-w-[1600px]"
       />
 

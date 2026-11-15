@@ -221,7 +221,7 @@ function AdminContent() {
           </div>
           <h1 className="text-2xl font-bold">Потрібна авторизація</h1>
           <p className="text-sm text-sys-text-secondary">
-            Для доступу до панелі керування розкладом необхідно увійти під обліковим записом адміністратора.
+            Увійдіть під обліковим записом адміністратора або редактора розкладу.
           </p>
           <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
             <a
@@ -527,7 +527,7 @@ function AdminContent() {
             <PageHeader
               eyebrow="ДОВІДНИК"
               title={referenceLabels[activeResource]}
-              description={`Керування списком записів: редагування, додавання та пошук у довіднику «${referenceLabels[activeResource]}».`}
+              description={`Додавання, редагування та пошук у довіднику «${referenceLabels[activeResource]}».`}
               actions={
                 user?.role === "admin" ? (
                   <div className="flex items-center gap-2 flex-wrap">

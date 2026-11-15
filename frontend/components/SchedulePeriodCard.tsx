@@ -53,8 +53,8 @@ export function getPeriodMeta(period: SchedulePeriodInfo) {
         cardBorder: "border-amber-500/30",
         cardBg: "bg-gradient-to-br from-amber-950/20 via-sys-card to-sys-card",
         title: period.name || "Виробнича практика",
-        description: "Навчальні заняття за розкладом замінено проходженням практики на підприємствах або базах практики коледжу.",
-        hint: "Не забувайте своєчасно заповнювати щоденник практики та формувати звіт.",
+        description: "Група проходить навчальну або виробничу практику. Аудиторні заняття не проводяться.",
+        hint: "Завдання та звітність узгоджуйте з керівником практики.",
       };
     case "session":
       return {
@@ -66,8 +66,8 @@ export function getPeriodMeta(period: SchedulePeriodInfo) {
         cardBorder: "border-purple-500/30",
         cardBg: "bg-gradient-to-br from-purple-950/20 via-sys-card to-sys-card",
         title: period.name || "Екзаменаційна сесія",
-        description: "Період складання заліків, консультацій та екзаменів.",
-        hint: "Розклад консультацій та екзаменів призначається навчальною частиною.",
+        description: "Звичайні заняття не проводяться. Консультації та іспити проходять за розкладом сесії.",
+        hint: "Дати консультацій та іспитів дивіться в розкладі або уточнюйте в куратора.",
       };
     case "holiday":
       return {
@@ -79,21 +79,21 @@ export function getPeriodMeta(period: SchedulePeriodInfo) {
         cardBorder: "border-emerald-500/30",
         cardBg: "bg-gradient-to-br from-emerald-950/20 via-sys-card to-sys-card",
         title: period.name || "Канікули",
-        description: "Навчальні заняття не проводяться. Бажаємо гарного відпочинку!",
+        description: "Навчальні заняття не проводяться.",
         hint: null,
       };
     case "diploma":
       return {
         periodType: period.period_type,
         icon: "🎓",
-        badgeLabel: "Дипломне проектування",
+        badgeLabel: "Дипломне проєктування",
         shortLabel: "Диплом",
         badgeTone: "border-sky-500/40 bg-sky-500/15 text-sky-800 dark:text-sky-300",
         cardBorder: "border-sky-500/30",
         cardBg: "bg-gradient-to-br from-sky-950/20 via-sys-card to-sys-card",
-        title: period.name || "Дипломне проектування",
-        description: "Підготовка та оформлення дипломного проєкту (роботи) під керівництвом викладачів.",
-        hint: "Звертайтесь до керівника дипломного проєкту за консультаціями.",
+        title: period.name || "Дипломне проєктування",
+        description: "Підготовка та оформлення дипломного проєкту під керівництвом викладачів.",
+        hint: "Консультації з керівником проходять за індивідуальним графіком.",
       };
     case "attestation":
       return {

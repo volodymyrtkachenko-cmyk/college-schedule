@@ -646,10 +646,8 @@ export function GroupRosterModal({ group, onClose, onNotify }: GroupRosterModalP
                       </button>
                     </div>
                     <div className="rounded-xl border border-sys-border/60 bg-sys-bg/40 p-3 text-xs text-sys-text-secondary">
-                      💡 <strong className="text-sys-text-primary">Швидкий імпорт:</strong> відкрийте вкладку{" "}
-                      <em>«Пользователи» (або «Люди»)</em> у своєму курсі Google Classroom, виділіть список
-                      одногрупників (Ctrl+A / мишкою), скопіюйте (Ctrl+C) та вставте сюди. Також підходить копіювання з
-                      Excel або відомості. Розумний парсер сам прибере номери та зайві слова.
+                      💡 <strong className="text-sys-text-primary">Швидкий імпорт:</strong> скопіюйте список студентів із вкладки{" "}
+                      <em>«Люди»</em> в Google Classroom, таблиці Excel або відомості та вставте нижче. Номери й зайві підписи приберуться автоматично.
                     </div>
                     <div>
                       <textarea

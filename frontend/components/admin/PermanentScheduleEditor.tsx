@@ -1136,7 +1136,7 @@ export function PermanentScheduleEditor() {
                     className="flex items-center gap-3 w-full rounded-xl border border-indigo-500/40 bg-indigo-500/15 p-3 text-left text-sm font-bold text-indigo-700 dark:text-indigo-400 hover:bg-indigo-500/25"
                   >
                     <span className="text-base">📥</span>
-                    <span>Вставити день у цей день</span>
+                    <span>Вставити скопійований день сюди</span>
                   </button>
                 )}
               </div>

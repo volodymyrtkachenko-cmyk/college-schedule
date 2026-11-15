@@ -688,7 +688,7 @@ export function SubjectHubModal({
               </div>
             ) : (
               <p className="text-xs sm:text-sm text-sys-text-secondary">
-                У найближчі 2 тижні занять із цього предмета в розкладі не заплановано.
+                У найближчі 2 тижні пар немає.
               </p>
             )}
           </section>
@@ -1067,7 +1067,7 @@ export function SubjectHubModal({
                               <div>
                                 {subjectTasks.activeNoDate.length > 0 && (
                                   <div className="text-[10px] font-bold uppercase tracking-wider text-sys-text-muted px-0.5 mb-1">
-                                    За розкладом дедлайнів
+                                    З терміном здачі
                                   </div>
                                 )}
                                 <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">

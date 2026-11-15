@@ -161,7 +161,7 @@ export function EducationalProcessClient() {
         if (cancelled) return;
         console.error(err);
         if (!cached?.data) {
-          setError("Не вдалося завантажити графік навчального процесу.");
+          setError("Не вдалося завантажити графік освітнього процесу.");
         }
         setLoading(false);
       });

@@ -140,7 +140,7 @@ export function ScheduleWeekGrid({
         )}
         {availabilityError && (
           <p role="alert" className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-200">
-            Не вдалося перевірити вільні місця: {availabilityError} Вільні місця не підсвічено, але під час збереження система ще раз перевірить розклад.
+            Не вдалося підсвітити вільні слоти ({availabilityError}). Накладки буде перевірено під час збереження.
           </p>
         )}
         <ScheduleEditGrid

@@ -277,10 +277,10 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
         <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sys-text-secondary flex items-start justify-between gap-3">
           <div className="space-y-0.5 min-w-0">
             <span className="font-semibold text-sys-text-primary block">
-              Автоматичне підтягування оцінок з Classroom
+              Оцінки з Google Classroom
             </span>
             <span className="leading-snug block">
-              Прив&apos;яжіть студентську пошту, щоб оцінки підтягувалися автоматично.
+              Прив&apos;яжіть пошту @kre.dp.ua, щоб бачити виставлені бали та середній результат з предметів.
             </span>
           </div>
           {onSyncClassroom && (

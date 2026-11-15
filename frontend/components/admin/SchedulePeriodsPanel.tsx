@@ -537,7 +537,7 @@ export function SchedulePeriodsPanel() {
                   onChange={(event) => setDraft({ ...draft, holiday_all_groups: event.target.checked })}
                   className="h-4 w-4 accent-sys-accent"
                 />
-                Застосувати цей період абсолютно до всіх груп коледжу
+                Застосувати цей період до всіх груп коледжу
               </label>
               {!draft.holiday_all_groups && renderGroupSelection("Групи, для яких діятиме період")}
               <p className="text-xs text-sys-text-secondary">

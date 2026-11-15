@@ -327,7 +327,9 @@ export function DesktopScheduleSidebar({
                 {desktopSidebarTab === "grades" ? "Оцінки захищено" : "Завдання захищено"}
               </h3>
               <p className="text-xs text-sys-text-secondary leading-relaxed mb-4">
-                Домашні завдання та матеріали доступні лише для студентів цієї групи. Підключіть студентський Google Classroom, щоб отримати доступ.
+                {desktopSidebarTab === "grades"
+                  ? "Оцінки доступні лише студентам цієї групи. Прив'яжіть пошту @kre.dp.ua своєї групи."
+                  : "Завдання та матеріали доступні лише студентам цієї групи. Прив'яжіть пошту @kre.dp.ua своєї групи."}
               </p>
               <button
                 type="button"

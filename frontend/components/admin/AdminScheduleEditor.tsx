@@ -129,7 +129,7 @@ export function AdminScheduleEditor() {
 
   const handlePrevWeek = () => {
     if (!canGoPrev) {
-      setToast("Далі змінювати не можна", "info");
+      setToast("Досягнуто межі доступних тижнів", "info");
       return;
     }
     const prev = new Date(weekAnchorDate);
@@ -139,7 +139,7 @@ export function AdminScheduleEditor() {
 
   const handleNextWeek = () => {
     if (!canGoNext) {
-      setToast("Далі змінювати не можна", "info");
+      setToast("Досягнуто межі доступних тижнів", "info");
       return;
     }
     const next = new Date(weekAnchorDate);
@@ -788,7 +788,7 @@ export function AdminScheduleEditor() {
           setSelectedDayIndex((prev) => prev + 1);
         } else {
           if (!canGoNext) {
-            setToast("Далі змінювати не можна", "info");
+            setToast("Досягнуто межі доступних тижнів", "info");
           } else {
             const next = new Date(weekAnchorDate);
             next.setDate(next.getDate() + 7);
@@ -802,7 +802,7 @@ export function AdminScheduleEditor() {
           setSelectedDayIndex((prev) => prev - 1);
         } else {
           if (!canGoPrev) {
-            setToast("Далі змінювати не можна", "info");
+            setToast("Досягнуто межі доступних тижнів", "info");
           } else {
             const prev = new Date(weekAnchorDate);
             prev.setDate(prev.getDate() - 7);
@@ -987,7 +987,7 @@ export function AdminScheduleEditor() {
                   type="button"
                   aria-label="Попередній тиждень"
                   aria-disabled={!canGoPrev}
-                  title={!canGoPrev ? "Далі змінювати не можна" : undefined}
+                  title={!canGoPrev ? "Досягнуто межі доступних тижнів" : undefined}
                   onClick={handlePrevWeek}
                   className={`relative z-10 flex min-h-[38px] min-w-[38px] items-center justify-center rounded-md p-1.5 px-3 transition-colors ${
                     !canGoPrev
@@ -1010,7 +1010,7 @@ export function AdminScheduleEditor() {
                   type="button"
                   aria-label="Наступний тиждень"
                   aria-disabled={!canGoNext}
-                  title={!canGoNext ? "Далі змінювати не можна" : undefined}
+                  title={!canGoNext ? "Досягнуто межі доступних тижнів" : undefined}
                   onClick={handleNextWeek}
                   className={`relative z-10 flex min-h-[38px] min-w-[38px] items-center justify-center rounded-md p-1.5 px-3 transition-colors ${
                     !canGoNext
@@ -1386,7 +1386,7 @@ export function AdminScheduleEditor() {
       ) : null}
 
       {!loading && !error && (!groups.length || (!groupId && mode === "student") || (!teacherId && mode === "teacher")) && (
-        <div className="rounded-2xl border border-dashed border-sys-border p-12 text-center text-sys-text-secondary">Оберіть ціль розкладу для перегляду та редагування.</div>
+        <div className="rounded-2xl border border-dashed border-sys-border p-12 text-center text-sys-text-secondary">Оберіть групу або викладача для перегляду й редагування розкладу.</div>
       )}
 
       {editor && (
@@ -1616,7 +1616,7 @@ export function AdminScheduleEditor() {
                     className="flex items-center gap-3 w-full rounded-xl border border-sys-accent/40 bg-sys-accent/15 p-3 text-left text-sm font-bold text-sys-accent hover:bg-sys-accent/25"
                   >
                     <span className="text-base">📥</span>
-                    <span>Вставити день у цей день</span>
+                    <span>Вставити скопійований день сюди</span>
                   </button>
                 )}
                 <button
