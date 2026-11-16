@@ -26,10 +26,6 @@ const preloadGradesChunk = () => {
 };
 
 const GradesView = dynamic(() => import("./GradesView").then((m) => m.GradesView), { ssr: false });
-const PriorityNavigatorPanel = dynamic(
-  () => import("./PriorityNavigatorPanel").then((m) => m.PriorityNavigatorPanel),
-  { ssr: false }
-);
 
 export type { FullTaskItem };
 export { renderTaskCard };
@@ -47,8 +43,6 @@ const DONE_INITIAL_LIMIT = 15;
 export function TasksTodoBoard({
   tasks,
   isLinked,
-  week,
-  groupId,
 }: {
   tasks: FullTaskItem[];
   isLinked: boolean;
@@ -376,14 +370,6 @@ export function TasksTodoBoard({
           )}
         </div>
       )}
-
-      {/* Quiet collapsed-by-default priority & free-window navigator */}
-      <PriorityNavigatorPanel
-        tasks={tasks}
-        week={week}
-        groupId={groupId}
-        isLinked={isLinked}
-      />
 
       {/* Quick Overdue Alert inside "До здачі" tab */}
       {activeTab === "pending" && isLinked && overdueTotalCount > 0 && !effectiveSubject && (

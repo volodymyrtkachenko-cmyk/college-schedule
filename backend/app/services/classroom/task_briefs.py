@@ -1,4 +1,4 @@
-"""Cached task brief extraction (honest heuristics + optional Gemini API) with clickable materials."""
+"""Cached task brief extraction (honest heuristics + prioritized Gemini API) with clickable materials."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import hashlib
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Optional
 from urllib.parse import urlparse
 
@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.time import KYIV_TZ
 from app.models import ClassroomTaskBrief
 
 logger = logging.getLogger("app")
@@ -24,6 +25,7 @@ GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/inte
 GEMINI_API_REVISION = "2026-05-20"
 VALID_WORK_FORMATS = {"phone", "pc", "theory"}
 VALID_MATERIAL_KINDS = {"pdf", "doc", "sheet", "slide", "form", "video", "link", "file"}
+MIN_GEMINI_DESCRIPTION_CHARS = 20
 
 _PC_KEYWORDS = (
     "packet tracer", ".pkt", "python", ".py", "c++", ".cpp", "java", "javascript",
@@ -94,6 +96,7 @@ def extract_coursework_materials(cw: dict[str, Any]) -> list[dict[str, Optional[
         title = ""
         url: Optional[str] = None
         kind = "file"
+        share_mode: Optional[str] = None
 
         if "driveFile" in mat:
             df = mat["driveFile"] if isinstance(mat["driveFile"], dict) else {}
@@ -107,6 +110,8 @@ def extract_coursework_materials(cw: dict[str, Any]) -> list[dict[str, Optional[
                 or (f"https://drive.google.com/file/d/{file_id}/view" if file_id else None)
             )
             kind = _infer_drive_kind(title, url)
+            if str(df.get("shareMode") or "").upper() == "STUDENT_COPY":
+                share_mode = "student_copy"
             if not title:
                 title = "Файл Google Drive"
         elif "form" in mat:
@@ -145,7 +150,10 @@ def extract_coursework_materials(cw: dict[str, Any]) -> list[dict[str, Optional[
         if dedup_key in seen_keys:
             continue
         seen_keys.add(dedup_key)
-        items.append({"title": title, "url": url, "kind": kind})
+        entry: dict[str, Optional[str]] = {"title": title, "url": url, "kind": kind}
+        if share_mode:
+            entry["share_mode"] = share_mode
+        items.append(entry)
         if len(items) >= 5:
             break
 
@@ -163,11 +171,15 @@ def _materials_prompt_lines(materials: list[dict[str, Optional[str]]]) -> list[s
         "link": "Посилання",
         "file": "Файл",
     }
-    return [
-        f"{kind_labels.get(m.get('kind') or 'file', 'Файл')}: {m.get('title') or ''}".strip()
-        for m in materials
-        if m.get("title")
-    ]
+    lines: list[str] = []
+    for m in materials:
+        title = m.get("title")
+        if not title:
+            continue
+        label = kind_labels.get(m.get("kind") or "file", "Файл")
+        suffix = " (видана індивідуальна копія студенту для заповнення)" if m.get("share_mode") == "student_copy" else ""
+        lines.append(f"{label}: {title}{suffix}")
+    return lines
 
 
 def compute_task_content_hash(
@@ -176,16 +188,22 @@ def compute_task_content_hash(
     max_points: Optional[float | int] = None,
     materials: Optional[list[dict[str, Optional[str]]]] = None,
     work_type: str = "",
+    subject: str = "",
+    topic: str = "",
 ) -> str:
     norm_title = re.sub(r"\s+", " ", (title or "").strip()).lower()
     norm_desc = re.sub(r"\s+", " ", (description or "").strip()).lower()
+    norm_subj = re.sub(r"\s+", " ", (subject or "").strip()).lower()
+    norm_topic = re.sub(r"\s+", " ", (topic or "").strip()).lower()
     norm_mats = "|".join(
-        f"{(m.get('kind') or '').lower()}:{(m.get('title') or '').strip().lower()}:{(m.get('url') or '').strip()}"
+        f"{(m.get('kind') or '').lower()}:{(m.get('title') or '').strip().lower()}:{(m.get('url') or '').strip()}:{(m.get('share_mode') or '').lower()}"
         for m in (materials or [])
         if isinstance(m, dict) and m.get("title")
     )
     pts = "" if max_points is None else str(max_points)
-    payload = f"v3\n{norm_title}\n{norm_desc}\n{norm_mats}\n{work_type.lower()}\n{pts}".encode("utf-8")
+    payload = (
+        f"v4\n{norm_title}\n{norm_subj}\n{norm_topic}\n{norm_desc}\n{norm_mats}\n{work_type.lower()}\n{pts}"
+    ).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -240,6 +258,24 @@ def _extract_steps_from_description(description: str) -> list[str]:
     return steps
 
 
+def _public_material_items(materials: Optional[list[dict[str, Optional[str]]]]) -> list[dict[str, Optional[str]]]:
+    cleaned: list[dict[str, Optional[str]]] = []
+    for m in (materials or []):
+        if not isinstance(m, dict) or not m.get("title"):
+            continue
+        kind = str(m.get("kind") or "file").strip().lower()
+        if kind not in VALID_MATERIAL_KINDS:
+            kind = "file"
+        cleaned.append({
+            "title": str(m["title"]).strip()[:100],
+            "url": _safe_http_url(m.get("url")),
+            "kind": kind,
+        })
+        if len(cleaned) >= 5:
+            break
+    return cleaned
+
+
 def build_heuristic_task_brief(
     title: str,
     description: str = "",
@@ -253,7 +289,8 @@ def build_heuristic_task_brief(
     """
     clean_title = re.sub(r"\s+", " ", (title or "").strip()) or "Завдання"
     clean_desc = _clean_text(description)
-    mat_list = [m for m in (materials or []) if isinstance(m, dict) and m.get("title")][:5]
+    raw_mats = [m for m in (materials or []) if isinstance(m, dict) and m.get("title")][:5]
+    mat_list = _public_material_items(raw_mats)
     mat_text = " ".join(m.get("title") or "" for m in mat_list)
     combined_lower = f"{clean_title}\n{clean_desc}\n{mat_text}".lower()
 
@@ -275,8 +312,10 @@ def build_heuristic_task_brief(
             summary = first_chunk[:200]
 
     deliverable: Optional[str] = None
-    if any(m.get("kind") == "form" for m in mat_list):
+    if any(m.get("kind") == "form" for m in raw_mats):
         deliverable = "Заповнити та надіслати Google Форму"
+    elif any(m.get("share_mode") == "student_copy" for m in raw_mats):
+        deliverable = "Заповнити видану копію документа та здати в Classroom"
 
     return {
         "summary": summary,
@@ -344,7 +383,7 @@ def _sanitize_brief_payload(
         "summary": summary,
         "deliverable": deliverable,
         "steps": [],
-        "materials": [m for m in (materials or []) if isinstance(m, dict) and m.get("title")][:5],
+        "materials": _public_material_items(materials),
         "estimated_minutes": estimated_minutes,
         "work_format": work_format,
         "source": source,
@@ -357,11 +396,15 @@ async def _extract_brief_via_gemini(
     max_points: Optional[float | int] = None,
     materials: Optional[list[dict[str, Optional[str]]]] = None,
     work_type: str = "",
+    subject: str = "",
+    topic: str = "",
 ) -> Optional[dict[str, Any]]:
     api_key = (settings.gemini_api_key or "").strip()
-    mat_list = [m for m in (materials or []) if isinstance(m, dict) and m.get("title")]
+    raw_mats = [m for m in (materials or []) if isinstance(m, dict) and m.get("title")]
     clean_desc = (description or "").strip()
-    if not api_key or (len(clean_desc) < 20 and not mat_list):
+    # Never burn LLM calls or fabricate briefs when there is no real description text,
+    # because Classroom OAuth intentionally excludes drive.readonly (AI cannot read Drive file contents).
+    if not api_key or len(clean_desc) < MIN_GEMINI_DESCRIPTION_CHARS:
         return None
 
     primary_model = (settings.gemini_model or "gemini-3.5-flash-lite").strip()
@@ -369,21 +412,25 @@ async def _extract_brief_via_gemini(
     if primary_model != "gemini-3.5-flash-lite":
         candidate_models.append("gemini-3.5-flash-lite")
 
+    subj_line = f"\nПредмет: {subject.strip()}" if subject and subject.strip() else ""
+    topic_line = f"\nТема курсу: {topic.strip()}" if topic and topic.strip() else ""
     pts_line = f"\nМаксимум балів: {max_points}" if max_points is not None else ""
     type_line = f"\nТип у Classroom: {work_type}" if work_type else ""
-    prompt_mats = _materials_prompt_lines(mat_list)
-    mats_line = f"\nПрикріплені матеріали:\n- " + "\n- ".join(prompt_mats) if prompt_mats else ""
-    desc_block = f"\nОпис:\n{clean_desc[:2500]}" if clean_desc else "\nОпис: (відсутній)"
+    prompt_mats = _materials_prompt_lines(raw_mats)
+    mats_line = "\nПрикріплені матеріали (доступні лише назви й типи, без вмісту):\n- " + "\n- ".join(prompt_mats) if prompt_mats else ""
+    desc_block = f"\nОпис завдання:\n{clean_desc[:2500]}"
 
     prompt = (
         "Ти допомагаєш студенту коледжу швидко зрозуміти завдання з Google Classroom.\n"
         "Пиши живою, простою українською без канцеляризмів і банальностей на кшталт «ознайомтесь із умовою» чи «здайте в Classroom».\n"
+        "ВАЖЛИВО: ти НЕ можеш відкривати й читати внутрішній вміст прикріплених файлів (бачиш лише їхні назви та типи). "
+        "Спирайся суворо на текст опису, назву предмета, тему й наявні метадані — НІКОЛИ не вигадуй завдань або пунктів, яких немає в тексті.\n"
         "Поверни стислий JSON:\n"
         "- summary: 1–2 конкретні речення, що саме потрібно зробити (не повторюй просто назву).\n"
-        "- deliverable: коротко конкретний результат, який треба здати (напр. «Файл .pkt та звіт зі скріншотами», «Пройдена Google Форма», «Конспект у зошиті»). Якщо з тексту й файлів це незрозуміло — поверни null.\n"
-        "- estimated_minutes: число хвилин (10..180) ТІЛЬКИ якщо обсяг справді очевидний (напр. вказаний час тесту або чіткий обсяг); інакше null — НЕ вигадуй час навмання.\n"
+        "- deliverable: коротко конкретний результат для здачі (напр. «Файл .pkt та звіт зі скріншотами», «Пройдена Google Форма», «Конспект у зошиті»). Якщо з опису/типів це незрозуміло — поверни null.\n"
+        "- estimated_minutes: число хвилин (10..180) ТІЛЬКИ якщо обсяг справді очевидний (напр. вказаний час тесту або чітка кількість задач); інакше null — НЕ вигадуй час навмання.\n"
         "- work_format: 'phone' (тест, форма, опитування, читання), 'pc' (код, Packet Tracer, звіт, файл, діаграма), або 'theory' (конспект, параграф).\n\n"
-        f"Назва: {title.strip()}{pts_line}{type_line}{mats_line}{desc_block}"
+        f"Назва: {title.strip()}{subj_line}{topic_line}{pts_line}{type_line}{mats_line}{desc_block}"
     )
 
     schema = {
@@ -435,7 +482,7 @@ async def _extract_brief_via_gemini(
                 parsed = _extract_json_from_gemini_response(resp.json())
                 if not parsed:
                     return None
-                return _sanitize_brief_payload(parsed, source="gemini", materials=mat_list)
+                return _sanitize_brief_payload(parsed, source="gemini", materials=raw_mats)
         return None
     except Exception as exc:
         logger.debug("Gemini task brief fallback triggered: %s", exc)
@@ -518,6 +565,67 @@ def _brief_has_substance(brief: dict[str, Any]) -> bool:
     )
 
 
+def _parse_iso_date(raw_val: Any) -> Optional[date]:
+    if isinstance(raw_val, date) and not isinstance(raw_val, datetime):
+        return raw_val
+    s = str(raw_val or "").strip()
+    if not s:
+        return None
+    try:
+        return date.fromisoformat(s[:10])
+    except ValueError:
+        return None
+
+
+def _parse_ts(raw_val: Any) -> float:
+    if isinstance(raw_val, datetime):
+        dt = raw_val if raw_val.tzinfo else raw_val.replace(tzinfo=KYIV_TZ)
+        return dt.timestamp()
+    s = str(raw_val or "").strip()
+    if not s:
+        return 0.0
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=KYIV_TZ)
+        return dt.timestamp()
+    except ValueError:
+        return 0.0
+
+
+def _task_ai_priority_key(task: dict[str, Any], ref_today: date) -> tuple[int, int, float]:
+    """
+    Orders tasks from most immediately useful for AI extraction down to archive:
+      Tier 0: Unsubmitted with upcoming/today due_date (nearest deadline first).
+      Tier 1: Unsubmitted without due_date OR recently due/created (<=14d overdue or <=21d old; newest first).
+      Tier 2: Old overdue unsubmitted tasks (>14d overdue & >21d old; newest first).
+      Tier 3: Already turned-in / returned tasks (newest first, only if LLM budget remains).
+    """
+    is_done = str(task.get("state") or "").upper() in ("TURNED_IN", "RETURNED")
+    due = _parse_iso_date(task.get("due_date"))
+    created_ts = _parse_ts(task.get("creation_time") or task.get("created_at"))
+    due_ts = (
+        datetime.combine(due, datetime.min.time(), tzinfo=KYIV_TZ).timestamp()
+        if due is not None
+        else 0.0
+    )
+    activity_ts = created_ts or due_ts
+    ref_today_ts = datetime.combine(ref_today, datetime.min.time(), tzinfo=KYIV_TZ).timestamp()
+
+    if is_done:
+        return (3, 0, -activity_ts)
+
+    if due is not None and due >= ref_today:
+        return (0, (due - ref_today).days, -activity_ts)
+
+    recently_due = due is not None and (ref_today - due).days <= 14
+    recently_created = created_ts > 0 and (ref_today_ts - created_ts) <= 21 * 86_400
+    if due is None or recently_due or recently_created:
+        return (1, 0, -activity_ts)
+
+    return (2, 0, -activity_ts)
+
+
 async def ensure_and_attach_task_briefs(
     db: AsyncSession,
     group_id: int,
@@ -525,11 +633,14 @@ async def ensure_and_attach_task_briefs(
     descriptions_by_url: Optional[dict[str, str]] = None,
     materials_by_url: Optional[dict[str, list[dict[str, Optional[str]]]]] = None,
     work_types_by_url: Optional[dict[str, str]] = None,
+    topics_by_url: Optional[dict[str, str]] = None,
     max_llm_calls: int = 12,
+    today: Optional[date] = None,
 ) -> list[dict[str, Any]]:
     """
-    Ensures group task briefs are cached in `classroom_task_briefs` (prioritizing active
-    unsubmitted tasks for Gemini extraction) and attaches `brief` onto tasks that have real substance.
+    Ensures group task briefs are cached in `classroom_task_briefs` (prioritizing upcoming
+    and recent unsubmitted tasks with real text descriptions for Gemini extraction) and attaches
+    `brief` onto tasks that have real substance or attached materials.
     """
     if not tasks:
         return tasks
@@ -537,6 +648,7 @@ async def ensure_and_attach_task_briefs(
     desc_map = descriptions_by_url or {}
     mat_map = materials_by_url or {}
     wt_map = work_types_by_url or {}
+    topic_map = topics_by_url or {}
 
     urls = [
         normalize_task_url(t.get("url") or t.get("alternate_link") or "")
@@ -558,15 +670,11 @@ async def ensure_and_attach_task_briefs(
 
     has_gemini = bool((settings.gemini_api_key or "").strip())
     now_utc = datetime.now(timezone.utc)
+    ref_today = today or datetime.now(KYIV_TZ).date()
 
-    def _task_priority_key(task: dict[str, Any]) -> tuple[int, str]:
-        is_done = str(task.get("state") or "").upper() in ("TURNED_IN", "RETURNED")
-        due = str(task.get("due_date") or "9999-12-31")
-        return (1 if is_done else 0, due)
-
-    ordered_tasks = sorted(tasks, key=_task_priority_key)
+    ordered_tasks = sorted(tasks, key=lambda t: _task_ai_priority_key(t, ref_today))
     llm_candidates: list[
-        tuple[dict[str, Any], str, str, str, list[dict[str, Optional[str]]], str, Optional[float | int], str]
+        tuple[dict[str, Any], str, str, str, list[dict[str, Optional[str]]], str, Optional[float | int], str, str, str]
     ] = []
     seen_refresh_urls: set[str] = set()
 
@@ -577,13 +685,22 @@ async def ensure_and_attach_task_briefs(
             continue
 
         title = str(task.get("title") or "").strip() or "Завдання"
+        subject = str(task.get("subject") or task.get("course_name") or "").strip()
+        topic = _clean_text(topic_map.get(raw_url) or topic_map.get(norm_url) or "")
         description = _clean_text(desc_map.get(raw_url) or desc_map.get(norm_url) or "")
         materials = mat_map.get(raw_url) or mat_map.get(norm_url) or []
         work_type = wt_map.get(raw_url) or wt_map.get(norm_url) or ""
         max_points = task.get("max_points") if "max_points" in task else task.get("maxPoints")
-        has_context = len(description) >= 20 or len(materials) > 0
+        has_rich_description = len(description) >= MIN_GEMINI_DESCRIPTION_CHARS
+        has_context = has_rich_description or len(materials) > 0
         content_hash = compute_task_content_hash(
-            title, description, max_points, materials=materials, work_type=work_type
+            title,
+            description,
+            max_points,
+            materials=materials,
+            work_type=work_type,
+            subject=subject,
+            topic=topic,
         )
 
         cached = rows_by_url.get(norm_url)
@@ -591,41 +708,53 @@ async def ensure_and_attach_task_briefs(
             cached is not None
             and has_gemini
             and cached.source != "gemini"
-            and has_context
+            and has_rich_description
+        )
+        should_downgrade_empty_ai = (
+            cached is not None
+            and cached.source == "gemini"
+            and not has_rich_description
         )
         needs_refresh = (
             cached is None
             or (has_context and cached.content_hash != content_hash)
             or should_upgrade_to_gemini
+            or should_downgrade_empty_ai
         )
 
         if needs_refresh:
             seen_refresh_urls.add(norm_url)
             llm_candidates.append(
-                (task, norm_url, title, description, materials, work_type, max_points, content_hash)
+                (task, norm_url, title, description, materials, work_type, max_points, content_hash, subject, topic)
             )
 
     gemini_results: dict[str, Optional[dict[str, Any]]] = {}
     if has_gemini and max_llm_calls > 0:
         eligible = [
             c for c in llm_candidates
-            if len(c[3]) >= 20 or len(c[4]) > 0
+            if len(c[3]) >= MIN_GEMINI_DESCRIPTION_CHARS
         ][:max_llm_calls]
         if eligible:
             sem = asyncio.Semaphore(4)
 
             async def _run_one(cand):
-                _, n_url, t_title, t_desc, t_mats, t_wt, t_pts, _ = cand
+                _, n_url, t_title, t_desc, t_mats, t_wt, t_pts, _, t_subj, t_topic = cand
                 async with sem:
                     return n_url, await _extract_brief_via_gemini(
-                        t_title, t_desc, t_pts, materials=t_mats, work_type=t_wt
+                        t_title,
+                        t_desc,
+                        t_pts,
+                        materials=t_mats,
+                        work_type=t_wt,
+                        subject=t_subj,
+                        topic=t_topic,
                     )
 
             pairs = await asyncio.gather(*(_run_one(c) for c in eligible))
             for n_url, res in pairs:
                 gemini_results[n_url] = res
 
-    for _, norm_url, title, description, materials, work_type, max_points, content_hash in llm_candidates:
+    for _, norm_url, title, description, materials, work_type, max_points, content_hash, _, _ in llm_candidates:
         brief_data = gemini_results.get(norm_url)
         if brief_data is None:
             brief_data = build_heuristic_task_brief(

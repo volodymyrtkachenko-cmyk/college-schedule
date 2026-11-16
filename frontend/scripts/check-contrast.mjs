@@ -264,7 +264,6 @@ function auditLegacyClasses() {
     "components/WelcomeScreen.tsx",
     "components/BottomNav.tsx",
     "components/MobileTasksView.tsx",
-    "components/PriorityNavigatorPanel.tsx",
     "components/TaskCardItem.tsx",
     "components/TaskChecklistSection.tsx",
     "components/ClassroomRelinkBanner.tsx",

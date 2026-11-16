@@ -151,8 +151,9 @@ async def perform_course_sync(
     raw_coursework_items: list[dict] = []
     all_classroom_tasks: list[dict] = []
     task_descriptions_by_url: dict[str, str] = {}
-    task_materials_by_url: dict[str, list[str]] = {}
+    task_materials_by_url: dict[str, list[dict[str, Optional[str]]]] = {}
     task_work_types_by_url: dict[str, str] = {}
+    task_topics_by_url: dict[str, str] = {}
     course_cw_total: dict[str, int] = {}
     course_cw_active: dict[str, int] = {}
     teacher_tokens_by_uid: dict[str, list[str]] = {}
@@ -771,6 +772,8 @@ async def perform_course_sync(
 
                     creator_id = cw.get("creatorUserId", "")
                     topic_name = topics_by_id.get(cw.get("topicId"), "")
+                    if topic_name:
+                        task_topics_by_url[alt_link] = topic_name
                     topic_norm = _norm(topic_name)
 
                     task_author_tokens = list(teacher_tokens_by_uid.get(creator_id, []))
@@ -1341,6 +1344,7 @@ async def perform_course_sync(
             descriptions_by_url=task_descriptions_by_url,
             materials_by_url=task_materials_by_url,
             work_types_by_url=task_work_types_by_url,
+            topics_by_url=task_topics_by_url,
         )
     except Exception as exc:
         logger.warning("Task briefs enrichment error during group sync: %s", _sanitize_error_msg(str(exc)))
@@ -2353,7 +2357,7 @@ async def _fetch_user_submissions(
             submissions_map: dict[str, dict] = {}
             tasks_list: list[dict] = []
             sub_descriptions_by_url: dict[str, str] = {}
-            sub_materials_by_url: dict[str, list[str]] = {}
+            sub_materials_by_url: dict[str, list[dict[str, Optional[str]]]] = {}
             sub_work_types_by_url: dict[str, str] = {}
             eff_gid = detected_group_id or group_id
             mapped_by_url: dict[str, dict] = {
