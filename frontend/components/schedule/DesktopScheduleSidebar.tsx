@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { ScheduleResponse } from "../../lib/api";
 import type { SubjectHubTarget, WeekDayMini } from "../../lib/schedule";
 import { formatTaskWord, type TaskGroupsResult } from "../../lib/useTaskGroups";
 import { ClassroomSyncButton } from "../ClassroomSyncButton";
@@ -38,6 +39,7 @@ interface DesktopScheduleSidebarProps {
   sidebarTaskGroups: TaskGroupsResult;
   formattedSyncTime: string | null;
   allTasks: FullTaskItem[];
+  week?: ScheduleResponse[];
   onToggleFocusMode: () => void;
   onSelectDayIndex: (index: number) => void;
   onChangeSidebarTab: (tab: "tasks" | "grades") => void;
@@ -68,6 +70,7 @@ export function DesktopScheduleSidebar({
   sidebarTaskGroups,
   formattedSyncTime,
   allTasks,
+  week,
   onToggleFocusMode,
   onSelectDayIndex,
   onChangeSidebarTab,
@@ -366,6 +369,8 @@ export function DesktopScheduleSidebar({
                   <TasksTodoBoard
                     tasks={allTasks}
                     isLinked={isLinked}
+                    week={week}
+                    groupId={groupId}
                     layoutPrefix="desktop-sidebar-tasks"
                   />
                 </div>

@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
+import type { ScheduleResponse } from "../lib/api";
 import { KYIV_TIME_FMT } from "../lib/date";
 import { buildCurrentScheduleHref, resolveScheduleSubtabFromSearch } from "../lib/navigation";
 import type { SubjectHubTarget } from "../lib/schedule";
@@ -25,6 +26,10 @@ const preloadGradesChunk = () => {
 };
 
 const GradesView = dynamic(() => import("./GradesView").then((m) => m.GradesView), { ssr: false });
+const PriorityNavigatorPanel = dynamic(
+  () => import("./PriorityNavigatorPanel").then((m) => m.PriorityNavigatorPanel),
+  { ssr: false }
+);
 
 export type { FullTaskItem };
 export { renderTaskCard };
@@ -42,9 +47,13 @@ const DONE_INITIAL_LIMIT = 15;
 export function TasksTodoBoard({
   tasks,
   isLinked,
+  week,
+  groupId,
 }: {
   tasks: FullTaskItem[];
   isLinked: boolean;
+  week?: ScheduleResponse[];
+  groupId?: number | null;
   layoutPrefix?: string;
 }) {
   const [activeTab, setActiveTab] = useState<TasksTabMode>("pending");
@@ -368,6 +377,14 @@ export function TasksTodoBoard({
         </div>
       )}
 
+      {/* Quiet collapsed-by-default priority & free-window navigator */}
+      <PriorityNavigatorPanel
+        tasks={tasks}
+        week={week}
+        groupId={groupId}
+        isLinked={isLinked}
+      />
+
       {/* Quick Overdue Alert inside "До здачі" tab */}
       {activeTab === "pending" && isLinked && overdueTotalCount > 0 && !effectiveSubject && (
         <button
@@ -518,6 +535,7 @@ export function MobileTasksView({
   tasks,
   summaryTaskGroups,
   groupId,
+  week,
   weekStart,
   lastSyncedAt,
   onSynced,
@@ -526,6 +544,7 @@ export function MobileTasksView({
   tasks: FullTaskItem[];
   summaryTaskGroups?: TaskGroupsResult;
   groupId: number | null;
+  week?: ScheduleResponse[];
   weekStart?: string;
   weekAnchorDate?: Date;
   weekNumber?: number | null;
@@ -783,7 +802,12 @@ export function MobileTasksView({
               aria-hidden={viewMode !== "tasks"}
               className="spa-tab-panel"
             >
-              <TasksTodoBoard tasks={tasks} isLinked={isLinked} />
+              <TasksTodoBoard
+                tasks={tasks}
+                isLinked={isLinked}
+                week={week}
+                groupId={groupId}
+              />
             </div>
             {(gradesVisited || viewMode === "grades") && (
               <div

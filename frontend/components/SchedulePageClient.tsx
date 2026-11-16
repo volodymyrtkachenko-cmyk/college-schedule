@@ -402,6 +402,7 @@ export function SchedulePageClient({
                     <MobileTasksView
                       tasks={allTasks}
                       groupId={groupId}
+                      week={week}
                       weekStart={weekStartStr}
                       weekAnchorDate={weekAnchorDate}
                       weekNumber={sel.currentWeekNumber}
@@ -612,6 +613,7 @@ export function SchedulePageClient({
                           sidebarTaskGroups={sidebarTaskGroups}
                           formattedSyncTime={formattedSyncTime}
                           allTasks={allTasks}
+                          week={week}
                           onToggleFocusMode={sel.toggleFocusMode}
                           onSelectDayIndex={sel.handleSelectDayIndex}
                           onChangeSidebarTab={setDesktopSidebarTab}

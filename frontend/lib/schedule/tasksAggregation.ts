@@ -14,6 +14,7 @@ import {
   parseTaskDeadline,
   sortTasksByDeadline,
 } from "../lesson-card";
+import { normalizeTaskBrief } from "./priorityNavigator";
 
 /**
  * Merges incoming Classroom tasks onto existing cached items without dropping older metadata.
@@ -69,10 +70,14 @@ export function aggregateClassroomTasks(params: {
             seenUrls.add(t.url);
 
             const key = extractClassroomTaskKey(t.url);
+            const matchedTask = classroomTasks?.find(
+              (ct) => (ct.alternate_link || ct.url) === t.url || (ct.id && key && ct.id === key)
+            );
             const personalSub = isLinked ? (submissions[t.url] || (key ? submissions[key] : null)) : null;
             const effectiveState = personalSub ? personalSub.state : "NEW";
             const effectiveGrade = personalSub ? (personalSub.grade ?? null) : null;
-            const effectiveMaxPoints = personalSub ? (personalSub.maxPoints ?? null) : null;
+            const effectiveMaxPoints =
+              personalSub?.maxPoints ?? matchedTask?.max_points ?? matchedTask?.maxPoints ?? null;
             const isDone = isLinked && (effectiveState === "TURNED_IN" || effectiveState === "RETURNED");
 
             let deadline = t.deadline;
@@ -90,9 +95,6 @@ export function aggregateClassroomTasks(params: {
 
             const dueIso = t.deadline.date ? KYIV_DATE_FMT.format(t.deadline.date) : null;
 
-            const matchedTask = classroomTasks?.find(
-              (ct) => (ct.alternate_link || ct.url) === t.url || (ct.id && key && ct.id === key)
-            );
             const rawCreated =
               (t as any).creationTime ??
               (t as any).creation_time ??
@@ -118,6 +120,7 @@ export function aggregateClassroomTasks(params: {
               creation_time: rawCreated,
               created_at: rawCreated,
               isBoundToWeek: true,
+              brief: normalizeTaskBrief(matchedTask?.brief),
             });
           }
         }
@@ -138,7 +141,7 @@ export function aggregateClassroomTasks(params: {
       const personalSub = isLinked ? (submissions[url] || (key ? submissions[key] : null)) : null;
       const effectiveState = personalSub ? personalSub.state : "NEW";
       const effectiveGrade = personalSub ? (personalSub.grade ?? null) : null;
-      const effectiveMaxPoints = personalSub ? (personalSub.maxPoints ?? null) : null;
+      const effectiveMaxPoints = personalSub?.maxPoints ?? ct.max_points ?? ct.maxPoints ?? null;
       const isDone = isLinked && (effectiveState === "TURNED_IN" || effectiveState === "RETURNED");
 
       let deadline: TaskDeadline;
@@ -199,6 +202,7 @@ export function aggregateClassroomTasks(params: {
         creation_time: rawCreated,
         created_at: rawCreated,
         isBoundToWeek: boundUrls.has(url),
+        brief: normalizeTaskBrief(ct.brief),
       });
     }
   }

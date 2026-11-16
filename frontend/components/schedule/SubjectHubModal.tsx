@@ -31,17 +31,22 @@ import {
   filterEventsForSubject,
   findNextSubjectOccurrence,
   findSubjectStatistics,
+  formatWorkFormatLabel,
+  getNavigatorTaskKey,
   partitionSubjectTasks,
+  resolveEffectiveTaskBrief,
   resolveSubjectLessonDetails,
   type SubjectHubTarget,
 } from "../../lib/schedule";
 import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { formatTaskGradeDisplay, useGradesSummary, type GradeItem } from "../../lib/useGradesSummary";
+import { useTaskChecklist } from "../../lib/useTaskChecklist";
 import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useUserSettings } from "../../lib/useUserSettings";
 import { LockedMeetingBadge, MeetingActionBadge } from "../lesson-card/LessonCardMeetingControls";
 import { getEventBadge } from "../lesson-card/LessonCardStatusBadges";
 import type { FullTaskItem } from "../TaskCardItem";
+import { TaskChecklistSection } from "../TaskChecklistSection";
 import { useOptionalToast } from "../ToastProvider";
 import { AppDialog } from "../ui/AppDialog";
 import {
@@ -160,6 +165,8 @@ export function SubjectHubModal({
   const titleId = useId();
   const toast = useOptionalToast();
   const { settings } = useUserSettings();
+  const { checklistMap, toggleStep } = useTaskChecklist();
+  const [expandedTaskKeys, setExpandedTaskKeys] = useState<Record<string, boolean>>({});
   const { isTeacherUnlocked } = useTeacherAccess();
   const {
     isLinked,
@@ -974,13 +981,88 @@ export function SubjectHubModal({
           )}
 
           {/* 4. Google Classroom Tasks (Student Mode) */}
-          {canShowStudentClassroom && (!hasGroupAccess || subjectTasks.all.length > 0 || !isLinked) && (
+          {canShowStudentClassroom && (!hasGroupAccess || subjectTasks.all.length > 0 || !isLinked) && (() => {
+            const pendingTasksSum = [...subjectTasks.active, ...subjectTasks.overdue].reduce(
+              (acc, t) => acc + (typeof t.maxPoints === "number" && Number.isFinite(t.maxPoints) ? t.maxPoints : 0),
+              0
+            );
+            const toggleHubTaskExpand = (taskKey: string) => {
+              setExpandedTaskKeys((prev) => ({ ...prev, [taskKey]: !prev[taskKey] }));
+            };
+            const renderHubTaskRow = (task: FullTaskItem, rowKey: string, withDot: boolean) => {
+              const statusText = getTaskStatusText(task.deadline, isLinked);
+              const dotCls = getTaskDeadlineDotColor(task.deadline.badgeTone, isLinked);
+              const statusCls = getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked);
+              const taskKey = getNavigatorTaskKey(task);
+              const brief = resolveEffectiveTaskBrief(task);
+              const isExpanded = Boolean(expandedTaskKeys[taskKey]);
+              const checkedIndices = checklistMap[taskKey] || [];
+              const fmtLabel = formatWorkFormatLabel(brief.workFormat);
+              const briefHint = brief.estimatedMinutes
+                ? `~${brief.estimatedMinutes} хв · ${fmtLabel}`
+                : fmtLabel;
+
+              return (
+                <li key={rowKey} className="px-3 py-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <a
+                      href={task.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group min-w-0 flex-1 space-y-0.5 hover:opacity-90 transition-opacity"
+                    >
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-xs sm:text-[13px] font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors break-words">
+                          {task.title}
+                        </span>
+                        <span aria-hidden="true" className="shrink-0 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors">
+                          ↗
+                        </span>
+                      </div>
+                      {statusText && (
+                        <div className={`flex items-center gap-1.5 text-[11px] ${withDot ? statusCls : "text-sys-text-muted"}`}>
+                          {withDot && <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />}
+                          <span>{statusText}</span>
+                        </div>
+                      )}
+                    </a>
+
+                    <button
+                      type="button"
+                      aria-expanded={isExpanded}
+                      onClick={() => toggleHubTaskExpand(taskKey)}
+                      className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-sys-text-muted hover:text-sys-text-secondary hover:bg-sys-card transition-colors cursor-pointer"
+                    >
+                      {briefHint} {isExpanded ? "▴" : "▾"}
+                    </button>
+                  </div>
+
+                  {isExpanded && (
+                    <TaskChecklistSection
+                      taskKey={taskKey}
+                      brief={brief}
+                      maxPoints={task.maxPoints}
+                      checkedIndices={checkedIndices}
+                      onToggleStep={toggleStep}
+                      compact
+                    />
+                  )}
+                </li>
+              );
+            };
+
+            return (
             <section className="px-4 sm:px-5 py-3.5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                   <ClipboardListIcon className="w-3.5 h-3.5 text-sys-accent" />
                   <span>Завдання Classroom</span>
                 </h3>
+                {hasGroupAccess && pendingTasksSum > 0 && (
+                  <span className="text-[11px] font-medium text-sys-text-muted">
+                    до здачі: {Number.isInteger(pendingTasksSum) ? pendingTasksSum : pendingTasksSum.toFixed(1)} б.
+                  </span>
+                )}
               </div>
 
               {!hasGroupAccess ? (
@@ -1107,36 +1189,9 @@ export function SubjectHubModal({
                                   </div>
                                 )}
                                 <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">
-                                  {subjectTasks.activeDated.map((task, idx) => {
-                                    const statusText = getTaskStatusText(task.deadline, isLinked);
-                                    const dotCls = getTaskDeadlineDotColor(task.deadline.badgeTone, isLinked);
-                                    const statusCls = getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked);
-                                    return (
-                                      <li key={task.id || task.url || `act-d-${idx}`}>
-                                        <a
-                                          href={task.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="group flex items-start justify-between gap-2.5 px-3 py-2.5 hover:bg-sys-card/70 transition-colors"
-                                        >
-                                          <div className="min-w-0 flex-1 space-y-0.5">
-                                            <div className="text-xs sm:text-[13px] font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors break-words">
-                                              {task.title}
-                                            </div>
-                                            {statusText && (
-                                              <div className={`flex items-center gap-1.5 text-[11px] ${statusCls}`}>
-                                                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
-                                                <span>{statusText}</span>
-                                              </div>
-                                            )}
-                                          </div>
-                                          <span aria-hidden="true" className="shrink-0 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors">
-                                            ↗
-                                          </span>
-                                        </a>
-                                      </li>
-                                    );
-                                  })}
+                                  {subjectTasks.activeDated.map((task, idx) =>
+                                    renderHubTaskRow(task, task.id || task.url || `act-d-${idx}`, true)
+                                  )}
                                 </ul>
                               </div>
                             )}
@@ -1149,31 +1204,9 @@ export function SubjectHubModal({
                                   </div>
                                 )}
                                 <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">
-                                  {subjectTasks.activeNoDate.map((task, idx) => {
-                                    const statusText = getTaskStatusText(task.deadline, isLinked);
-                                    return (
-                                      <li key={task.id || task.url || `act-nd-${idx}`}>
-                                        <a
-                                          href={task.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="group flex items-center justify-between gap-2.5 px-3 py-2.5 hover:bg-sys-card/70 transition-colors"
-                                        >
-                                          <div className="min-w-0 flex-1 space-y-0.5">
-                                            <div className="text-xs sm:text-[13px] font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors break-words">
-                                              {task.title}
-                                            </div>
-                                            {statusText && (
-                                              <div className="text-[11px] text-sys-text-muted">{statusText}</div>
-                                            )}
-                                          </div>
-                                          <span aria-hidden="true" className="shrink-0 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors">
-                                            ↗
-                                          </span>
-                                        </a>
-                                      </li>
-                                    );
-                                  })}
+                                  {subjectTasks.activeNoDate.map((task, idx) =>
+                                    renderHubTaskRow(task, task.id || task.url || `act-nd-${idx}`, false)
+                                  )}
                                 </ul>
                               </div>
                             )}
@@ -1188,36 +1221,9 @@ export function SubjectHubModal({
                       {effectiveTaskTab === "overdue" && (
                         subjectTasks.overdue.length > 0 ? (
                           <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">
-                            {subjectTasks.overdue.map((task, idx) => {
-                              const statusText = getTaskStatusText(task.deadline, isLinked);
-                              const dotCls = getTaskDeadlineDotColor(task.deadline.badgeTone, isLinked);
-                              const statusCls = getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked);
-                              return (
-                                <li key={task.id || task.url || `ovr-${idx}`}>
-                                  <a
-                                    href={task.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="group flex items-start justify-between gap-2.5 px-3 py-2.5 hover:bg-sys-card/70 transition-colors"
-                                  >
-                                    <div className="min-w-0 flex-1 space-y-0.5">
-                                      <div className="text-xs sm:text-[13px] font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors break-words">
-                                        {task.title}
-                                      </div>
-                                      {statusText && (
-                                        <div className={`flex items-center gap-1.5 text-[11px] ${statusCls}`}>
-                                          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />
-                                          <span>{statusText}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                    <span aria-hidden="true" className="shrink-0 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors">
-                                      ↗
-                                    </span>
-                                  </a>
-                                </li>
-                              );
-                            })}
+                            {subjectTasks.overdue.map((task, idx) =>
+                              renderHubTaskRow(task, task.id || task.url || `ovr-${idx}`, true)
+                            )}
                           </ul>
                         ) : (
                           <p className="text-xs text-sys-text-secondary py-1">
@@ -1281,7 +1287,8 @@ export function SubjectHubModal({
                 </>
               )}
             </section>
-          )}
+            );
+          })()}
         </div>
       </div>
     </AppDialog>

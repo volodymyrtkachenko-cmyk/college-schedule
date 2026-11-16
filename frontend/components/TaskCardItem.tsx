@@ -1,8 +1,16 @@
 "use client";
 
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
+import {
+  formatWorkFormatLabel,
+  getNavigatorTaskKey,
+  resolveEffectiveTaskBrief,
+  type TaskBrief,
+} from "../lib/schedule/priorityNavigator";
 import { formatTaskGradeDisplay } from "../lib/useGradesSummary";
+import { useTaskChecklist } from "../lib/useTaskChecklist";
+import { TaskChecklistSection } from "./TaskChecklistSection";
 
 export interface FullTaskItem {
   id?: string;
@@ -20,6 +28,7 @@ export interface FullTaskItem {
   creation_time?: string | null;
   created_at?: string | null;
   isBoundToWeek?: boolean;
+  brief?: TaskBrief | null;
 }
 
 export interface TaskCardItemProps {
@@ -31,6 +40,9 @@ export const TaskCardItem = memo(function TaskCardItem({
   task: t,
   isLinked = false,
 }: TaskCardItemProps) {
+  const [briefOpen, setBriefOpen] = useState(false);
+  const { checklistMap, toggleStep } = useTaskChecklist();
+
   const isGenericTitle = !t.title || t.title === "Домашнє завдання" || t.title === "Завдання";
   const titleLine = isGenericTitle ? t.subject : t.title;
   const teacherLine = isGenericTitle ? (t.teacher || null) : `${t.subject}${t.teacher ? ` · ${t.teacher}` : ""}`;
@@ -81,38 +93,117 @@ export const TaskCardItem = memo(function TaskCardItem({
     ? "inset 3px 0 0 #f59e0b"
     : undefined;
 
+  if (isDone) {
+    return (
+      <a
+        href={t.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
+        style={{
+          boxShadow: borderAccentStyle,
+        }}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors flex-1">
+            {titleLine}
+          </h4>
+          <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs shrink-0 mt-0.5">
+            ↗
+          </span>
+        </div>
+
+        {teacherLine && (
+          <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
+            {teacherLine}
+          </p>
+        )}
+
+        {statusText ? (
+          <div className={`mt-2 flex items-center gap-1.5 text-xs font-medium ${statusColorClass}`}>
+            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColorClass}`} />
+            <span>{statusText}</span>
+          </div>
+        ) : null}
+      </a>
+    );
+  }
+
+  const taskKey = getNavigatorTaskKey(t);
+  const brief = resolveEffectiveTaskBrief(t);
+  const checkedSteps = checklistMap[taskKey] || [];
+  const totalSteps = brief.steps.length;
+  const fmtLabel = formatWorkFormatLabel(brief.workFormat);
+  const metaHint = brief.estimatedMinutes
+    ? `~${brief.estimatedMinutes} хв · ${fmtLabel}`
+    : fmtLabel;
+
   return (
-    <a
-      href={t.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
+    <div
+      className="min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated shadow-xs text-left overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
       style={{
         boxShadow: borderAccentStyle,
       }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors flex-1">
-          {titleLine}
-        </h4>
-        <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs shrink-0 mt-0.5">
-          ↗
-        </span>
+      <a
+        href={t.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group block cursor-pointer"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors flex-1">
+            {titleLine}
+          </h4>
+          <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs shrink-0 mt-0.5">
+            ↗
+          </span>
+        </div>
+
+        {teacherLine && (
+          <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
+            {teacherLine}
+          </p>
+        )}
+      </a>
+
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        {statusText ? (
+          <div className={`flex items-center gap-1.5 text-xs font-medium ${statusColorClass}`}>
+            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColorClass}`} />
+            <span>{statusText}</span>
+          </div>
+        ) : (
+          <span />
+        )}
+
+        <button
+          type="button"
+          aria-expanded={briefOpen}
+          onClick={() => setBriefOpen((prev) => !prev)}
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-sys-text-muted hover:text-sys-text-secondary hover:bg-sys-bg/70 transition-colors cursor-pointer"
+        >
+          <span>
+            {metaHint}
+            {totalSteps > 0 ? ` (${checkedSteps.length}/${totalSteps})` : ""}
+          </span>
+          <span aria-hidden="true" className="text-[10px]">
+            {briefOpen ? "▴" : "▾"}
+          </span>
+        </button>
       </div>
 
-      {teacherLine && (
-        <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
-          {teacherLine}
-        </p>
+      {briefOpen && (
+        <TaskChecklistSection
+          taskKey={taskKey}
+          brief={brief}
+          maxPoints={t.maxPoints}
+          checkedIndices={checkedSteps}
+          onToggleStep={toggleStep}
+          compact
+        />
       )}
-
-      {statusText ? (
-        <div className={`mt-2 flex items-center gap-1.5 text-xs font-medium ${statusColorClass}`}>
-          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColorClass}`} />
-          <span>{statusText}</span>
-        </div>
-      ) : null}
-    </a>
+    </div>
   );
 });
 

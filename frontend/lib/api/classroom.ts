@@ -12,6 +12,14 @@ import type {
   ClassroomWorkerHeartbeat,
 } from "./types";
 
+export interface RawTaskBrief {
+  summary: string;
+  steps?: string[];
+  estimated_minutes?: number | null;
+  work_format?: "phone" | "pc" | "theory" | string;
+  source?: "gemini" | "heuristic" | string;
+}
+
 export const classroomApi = {
   status: () =>
     rawRequest<{
@@ -51,6 +59,7 @@ export const classroomApi = {
         state: string;
         assigned_grade?: number | null;
         max_points?: number | null;
+        brief?: RawTaskBrief | null;
       }>;
       needs_reconnect?: boolean;
       requires_auth?: boolean;
@@ -103,6 +112,7 @@ export const classroomApi = {
         state: string;
         assigned_grade?: number | null;
         max_points?: number | null;
+        brief?: RawTaskBrief | null;
       }>;
       needs_reconnect?: boolean;
     }>("/api/classroom/sync", {
@@ -174,6 +184,7 @@ export const classroomApi = {
         grade?: number | null;
         max_points?: number | null;
         due_date?: string | null;
+        brief?: RawTaskBrief | null;
       }>;
       access_token?: string | null;
       updated_at?: string;
