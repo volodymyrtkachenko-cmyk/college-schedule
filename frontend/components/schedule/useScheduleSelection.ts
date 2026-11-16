@@ -130,7 +130,7 @@ function runDesktopDayTransition(
   };
 
   tagActiveDayDeck();
-  cleanupTimer = window.setTimeout(finishCleanup, 850);
+  cleanupTimer = window.setTimeout(finishCleanup, 600);
 
   startTypedViewTransition(
     [direction === "next" ? "day-next" : "day-prev"],
@@ -912,9 +912,7 @@ export function useScheduleSelection({
         localStorage.setItem("schedule:view", nextView);
       } catch {}
       if (nextView === view) return;
-      startTransition(() => {
-        setView(nextView);
-      });
+      setView(nextView);
       resetScroll();
     },
     [view, resetScroll]
@@ -926,11 +924,9 @@ export function useScheduleSelection({
         sessionStorage.setItem("schedule:view", "today");
         localStorage.setItem("schedule:view", "today");
       } catch {}
-      startTransition(() => {
-        setDaySlideDir(0);
-        setSelectedDayIndex(dayIdx);
-        setView("today");
-      });
+      setDaySlideDir(0);
+      setSelectedDayIndex(dayIdx);
+      setView("today");
       resetScroll();
     },
     [resetScroll]

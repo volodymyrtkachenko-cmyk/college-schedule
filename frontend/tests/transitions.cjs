@@ -101,6 +101,41 @@ test("startTypedViewTransition does not clobber overlapping vtKind on stale fini
   assert.equal(documentMock.documentElement.dataset.vtKind, undefined);
 });
 
+test("startTypedViewTransition does not clobber overlapping transitions with the same vtKind on stale finish", async () => {
+  const firstFinish = createDeferred();
+  const secondFinish = createDeferred();
+  let callIndex = 0;
+
+  const documentMock = {
+    documentElement: { dataset: {} },
+    startViewTransition() {
+      callIndex++;
+      return {
+        ready: Promise.resolve(),
+        finished: callIndex === 1 ? firstFinish.promise : secondFinish.promise,
+        updateCallbackDone: Promise.resolve(),
+      };
+    },
+  };
+
+  const vtMod = loadTsModule(path.resolve(__dirname, "../lib/viewTransition.ts"), {
+    window: { matchMedia: () => ({ matches: false }) },
+    document: documentMock,
+  });
+
+  vtMod.startTypedViewTransition(["day-next"], () => {}, { kind: "day-slide" });
+  vtMod.startTypedViewTransition(["day-next"], () => {}, { kind: "day-slide" });
+  assert.equal(documentMock.documentElement.dataset.vtKind, "day-slide");
+
+  firstFinish.resolve();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(documentMock.documentElement.dataset.vtKind, "day-slide");
+
+  secondFinish.resolve();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(documentMock.documentElement.dataset.vtKind, undefined);
+});
+
 test("startTypedViewTransition honors reduced motion without setting vtKind", () => {
   let updated = false;
   let finished = false;

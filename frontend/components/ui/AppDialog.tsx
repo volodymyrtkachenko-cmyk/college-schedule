@@ -86,10 +86,12 @@ export function AppDialog({
         openTopLayer(dialog);
         return;
       }
-      // Schedule showModal() on the next animation frame so React's newly committed
-      // children prepare layout before `@starting-style` starts its timer.
+      // Flush closed styles before `showModal()` so `@starting-style` transitions fire reliably every reopen.
       const rafId = window.requestAnimationFrame(() => {
         if (isOpenRef.current) {
+          const computed = window.getComputedStyle(dialog);
+          void computed.display;
+          void computed.opacity;
           openTopLayer(dialog);
         }
       });

@@ -22,8 +22,10 @@ type DocumentWithVT = Document & {
   ) => ViewTransitionHandle;
 };
 
-function clearVtKindIfMatching(kind?: string) {
-  if (!kind || typeof document === "undefined") return;
+let activeTransitionSeq = 0;
+
+function clearVtKindIfCurrent(seq: number, kind?: string) {
+  if (!kind || typeof document === "undefined" || seq !== activeTransitionSeq) return;
   if (document.documentElement.dataset.vtKind === kind) {
     delete document.documentElement.dataset.vtKind;
   }
@@ -58,6 +60,8 @@ export function startTypedViewTransition(
     return null;
   }
 
+  const seq = ++activeTransitionSeq;
+
   if (kind) {
     document.documentElement.dataset.vtKind = kind;
   }
@@ -69,7 +73,7 @@ export function startTypedViewTransition(
     try {
       handle = doc.startViewTransition(update);
     } catch {
-      clearVtKindIfMatching(kind);
+      clearVtKindIfCurrent(seq, kind);
       void update();
       options?.onReady?.();
       options?.onFinish?.();
@@ -89,7 +93,7 @@ export function startTypedViewTransition(
     if (finishedNotified) return;
     finishedNotified = true;
     notifyReady();
-    clearVtKindIfMatching(kind);
+    clearVtKindIfCurrent(seq, kind);
     options?.onFinish?.();
   };
 
