@@ -630,7 +630,7 @@ export function WeekTasksPopover({
   onClose: () => void;
   onToggleHw: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
-  const { shouldRender, isClosing } = useAnimatedDisclosure(show, 160);
+  const { shouldRender, isClosing } = useAnimatedDisclosure(show, 190);
   if (!shouldRender) return null;
 
   return (
@@ -648,7 +648,7 @@ export function WeekTasksPopover({
         data-closing={isClosing ? "true" : undefined}
         onClick={(e) => e.stopPropagation()}
         style={{
-          "--popup-y": lesson.lesson_number >= 3 ? "5px" : "-5px",
+          "--popup-y": lesson.lesson_number >= 3 ? "6px" : "-6px",
           "--popup-origin": lesson.lesson_number >= 3 ? "bottom left" : "top left",
         } as React.CSSProperties}
         className={`discrete-popup desktop-compact-popover absolute left-0 right-0 ${
