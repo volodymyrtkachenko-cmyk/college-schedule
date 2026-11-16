@@ -27,6 +27,13 @@ VALID_WORK_FORMATS = {"phone", "pc", "theory"}
 VALID_MATERIAL_KINDS = {"pdf", "doc", "sheet", "slide", "form", "video", "link", "file"}
 MIN_GEMINI_DESCRIPTION_CHARS = 20
 
+SUMMARY_MAX_CHARS = 700
+HEURISTIC_SUMMARY_MAX_CHARS = 450
+DELIVERABLE_MAX_CHARS = 300
+STEP_MAX_CHARS = 200
+MATERIAL_TITLE_MAX_CHARS = 180
+_TERMINAL_PUNCT_CHARS = ".!?»\"')…"
+
 _PC_KEYWORDS = (
     "packet tracer", ".pkt", "python", ".py", "c++", ".cpp", "java", "javascript",
     "typescript", "code", "код", "програм", "лаборатор", "практичн", "звіт",
@@ -58,6 +65,45 @@ def _clean_text(text: Optional[str]) -> str:
     if not text:
         return ""
     return re.sub(r"[ \t]+", " ", text.replace("\r\n", "\n").replace("\r", "\n")).strip()
+
+
+def _smart_trim_text(text: Optional[str], max_len: int) -> str:
+    """Normalizes whitespace and caps text at a sentence or word boundary without cutting mid-word."""
+    cleaned = re.sub(r"\s+", " ", (text or "").strip())
+    if len(cleaned) <= max_len:
+        return cleaned
+
+    head = cleaned[: max_len + 1]
+    min_sentence_idx = max(24, int(max_len * 0.45))
+    best_sentence_end = -1
+    for m in re.finditer(r"[.!?…](?:\s|$)", head):
+        end_idx = m.start() + 1
+        if min_sentence_idx <= end_idx <= max_len:
+            best_sentence_end = end_idx
+    if best_sentence_end > 0:
+        return cleaned[:best_sentence_end].strip()
+
+    limit = max(1, max_len - 1)
+    space_idx = cleaned.rfind(" ", 0, limit + 1)
+    if space_idx >= max(16, int(max_len * 0.45)):
+        return cleaned[:space_idx].rstrip(" ,;:-—–") + "…"
+    return cleaned[:limit].rstrip() + "…"
+
+
+def _looks_truncated_legacy_brief(row: ClassroomTaskBrief) -> bool:
+    """Detects previously cached briefs cut mid-word/mid-sentence at the old 160/200/240 limits."""
+    clean_sum = (row.summary or "").strip()
+    is_gemini = (row.source or "") == "gemini"
+    if clean_sum:
+        max_old = 240 if is_gemini else 200
+        if (max_old - 3) <= len(clean_sum) <= max_old and clean_sum[-1] not in _TERMINAL_PUNCT_CHARS:
+            return True
+
+    _, _, deliverable = _decode_steps_payload(row.steps_json)
+    if deliverable and 157 <= len(deliverable) <= 160 and deliverable[-1] not in _TERMINAL_PUNCT_CHARS:
+        return True
+
+    return False
 
 
 def _safe_http_url(raw_url: Optional[str]) -> Optional[str]:
@@ -145,7 +191,7 @@ def extract_coursework_materials(cw: dict[str, Any]) -> list[dict[str, Optional[
         else:
             continue
 
-        title = title[:100]
+        title = _smart_trim_text(title, MATERIAL_TITLE_MAX_CHARS)
         dedup_key = f"{kind}:{url or title.lower()}"
         if dedup_key in seen_keys:
             continue
@@ -253,7 +299,7 @@ def _extract_steps_from_description(description: str) -> list[str]:
             continue
         cleaned = _URL_RE.sub("", m.group(1)).strip(" .;-")
         if len(cleaned) >= 4:
-            steps.append(cleaned[:120])
+            steps.append(_smart_trim_text(cleaned, STEP_MAX_CHARS))
         if len(steps) >= 4:
             break
     return steps
@@ -268,7 +314,7 @@ def _public_material_items(materials: Optional[list[dict[str, Optional[str]]]]) 
         if kind not in VALID_MATERIAL_KINDS:
             kind = "file"
         cleaned.append({
-            "title": str(m["title"]).strip()[:100],
+            "title": _smart_trim_text(str(m["title"]), MATERIAL_TITLE_MAX_CHARS),
             "url": _safe_http_url(m.get("url")),
             "kind": kind,
         })
@@ -310,7 +356,7 @@ def build_heuristic_task_brief(
         candidate = " ".join(non_step_lines) or desc_no_urls
         first_chunk = re.split(r"(?<=[.!?])\s+", candidate, maxsplit=1)[0].strip()
         if first_chunk and first_chunk.lower() != clean_title.lower() and len(first_chunk) >= 8:
-            summary = first_chunk[:200]
+            summary = _smart_trim_text(first_chunk, HEURISTIC_SUMMARY_MAX_CHARS)
 
     deliverable: Optional[str] = None
     if any(m.get("kind") == "form" for m in raw_mats):
@@ -357,14 +403,14 @@ def _sanitize_brief_payload(
     raw_summary = str(payload.get("summary") or "").strip()
     if not raw_summary:
         return None
-    summary = re.sub(r"\s+", " ", raw_summary)[:240]
+    summary = _smart_trim_text(raw_summary, SUMMARY_MAX_CHARS)
 
     raw_deliv = payload.get("deliverable")
     deliverable: Optional[str] = None
     if isinstance(raw_deliv, str):
         clean_deliv = re.sub(r"\s+", " ", raw_deliv).strip()
         if clean_deliv and clean_deliv.lower() not in ("null", "none", "невідомо", "здати в classroom"):
-            deliverable = clean_deliv[:160]
+            deliverable = _smart_trim_text(clean_deliv, DELIVERABLE_MAX_CHARS)
 
     work_format = str(payload.get("work_format") or "pc").strip().lower()
     if work_format not in VALID_WORK_FORMATS:
@@ -427,7 +473,7 @@ async def _extract_brief_via_gemini(
         "ВАЖЛИВО: ти НЕ можеш відкривати й читати внутрішній вміст прикріплених файлів (бачиш лише їхні назви та типи). "
         "Спирайся суворо на текст опису, назву предмета, тему й наявні метадані — НІКОЛИ не вигадуй завдань або пунктів, яких немає в тексті.\n"
         "Поверни стислий JSON:\n"
-        "- summary: 1–2 конкретні речення, що саме потрібно зробити (не повторюй просто назву).\n"
+        "- summary: 1–2 закінчені, конкретні речення без обривів слів (зазвичай до ~380 символів), що саме потрібно зробити (не повторюй просто назву).\n"
         "- deliverable: коротко конкретний результат для здачі (напр. «Файл .pkt та звіт зі скріншотами», «Пройдена Google Форма», «Конспект у зошиті»). Якщо з опису/типів це незрозуміло — поверни null.\n"
         "- estimated_minutes: число хвилин (10..180) ТІЛЬКИ якщо обсяг справді очевидний (напр. вказаний час тесту або чітка кількість задач); інакше null — НЕ вигадуй час навмання.\n"
         "- work_format: 'phone' (тест, форма, опитування, читання), 'pc' (код, Packet Tracer, звіт, файл, діаграма), або 'theory' (конспект, параграф).\n\n"
@@ -505,7 +551,7 @@ def _encode_steps_payload(
 
 def _normalize_decoded_material(raw: Any) -> Optional[dict[str, Optional[str]]]:
     if isinstance(raw, dict):
-        title = str(raw.get("title") or "").strip()[:100]
+        title = _smart_trim_text(str(raw.get("title") or ""), MATERIAL_TITLE_MAX_CHARS)
         if not title:
             return None
         url = _safe_http_url(raw.get("url"))
@@ -514,7 +560,7 @@ def _normalize_decoded_material(raw: Any) -> Optional[dict[str, Optional[str]]]:
             kind = "file"
         return {"title": title, "url": url, "kind": kind}
     if isinstance(raw, str) and raw.strip():
-        return {"title": raw.strip()[:100], "url": None, "kind": "file"}
+        return {"title": _smart_trim_text(raw, MATERIAL_TITLE_MAX_CHARS), "url": None, "kind": "file"}
     return None
 
 
@@ -538,7 +584,11 @@ def _decode_steps_payload(
                 if norm:
                     clean_mats.append(norm)
         raw_deliv = parsed.get("deliverable")
-        deliverable = str(raw_deliv).strip()[:160] if isinstance(raw_deliv, str) and raw_deliv.strip() else None
+        deliverable = (
+            _smart_trim_text(raw_deliv, DELIVERABLE_MAX_CHARS)
+            if isinstance(raw_deliv, str) and raw_deliv.strip()
+            else None
+        )
         return clean_steps, clean_mats, deliverable
     return [], [], None
 
@@ -716,11 +766,17 @@ async def ensure_and_attach_task_briefs(
             and cached.source == "gemini"
             and not has_rich_description
         )
+        should_repair_truncated = (
+            cached is not None
+            and has_context
+            and _looks_truncated_legacy_brief(cached)
+        )
         needs_refresh = (
             cached is None
             or (has_context and cached.content_hash != content_hash)
             or should_upgrade_to_gemini
             or should_downgrade_empty_ai
+            or should_repair_truncated
         )
 
         if needs_refresh:
@@ -756,8 +812,17 @@ async def ensure_and_attach_task_briefs(
                 gemini_results[n_url] = res
 
     for _, norm_url, title, description, materials, work_type, max_points, content_hash, _, _ in llm_candidates:
+        cached = rows_by_url.get(norm_url)
         brief_data = gemini_results.get(norm_url)
         if brief_data is None:
+            if (
+                cached is not None
+                and cached.source == "gemini"
+                and cached.content_hash == content_hash
+                and len(description) >= MIN_GEMINI_DESCRIPTION_CHARS
+            ):
+                # Preserve existing Gemini brief when LLM budget/rate-limit deferred repair to next sync
+                continue
             brief_data = build_heuristic_task_brief(
                 title, description, max_points, materials=materials, work_type=work_type
             )

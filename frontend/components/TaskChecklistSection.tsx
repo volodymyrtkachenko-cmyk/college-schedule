@@ -83,7 +83,7 @@ function MaterialChip({ material }: { material: TaskMaterialItem }) {
           <MaterialKindIcon kind={material.kind} />
           <span>{kindLabel}</span>
         </span>
-        <span className="text-[12px] font-medium text-sys-text-primary group-hover:text-sys-accent truncate max-w-[190px] sm:max-w-[260px] transition-colors">
+        <span className="min-w-0 text-[12px] font-medium text-sys-text-primary group-hover:text-sys-accent leading-snug [overflow-wrap:anywhere] transition-colors">
           {material.title}
         </span>
         <svg
@@ -111,7 +111,7 @@ function MaterialChip({ material }: { material: TaskMaterialItem }) {
         <MaterialKindIcon kind={material.kind} />
         <span>{kindLabel}</span>
       </span>
-      <span className="text-[12px] font-medium text-sys-text-secondary truncate max-w-[190px] sm:max-w-[260px]">
+      <span className="min-w-0 text-[12px] font-medium text-sys-text-secondary leading-snug [overflow-wrap:anywhere]">
         {material.title}
       </span>
     </span>
@@ -209,7 +209,7 @@ export function TaskChecklistSection({
             <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-sys-text-secondary">
               Що зробити
             </div>
-            <p className="text-[12.5px] sm:text-[13px] font-medium text-sys-text-primary leading-[1.45] whitespace-pre-line">
+            <p className="text-[12.5px] sm:text-[13px] font-medium text-sys-text-primary leading-[1.45] whitespace-pre-line break-words">
               {displaySummary}
             </p>
           </div>
