@@ -9,6 +9,7 @@ export type WorkFormat = "phone" | "pc" | "theory";
 export interface TaskBrief {
   summary: string;
   steps: string[];
+  materials: string[];
   estimatedMinutes: number | null;
   workFormat: WorkFormat;
   source: "gemini" | "heuristic";
@@ -120,13 +121,22 @@ export function normalizeTaskBrief(raw: unknown): TaskBrief | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
   const summary = typeof obj.summary === "string" ? obj.summary.trim() : "";
-  if (!summary) return null;
 
   const rawSteps = Array.isArray(obj.steps) ? obj.steps : [];
   const steps = rawSteps
     .map((s) => (typeof s === "string" ? s.trim() : ""))
     .filter(Boolean)
     .slice(0, 4);
+
+  const rawMats = Array.isArray(obj.materials) ? obj.materials : [];
+  const materials = rawMats
+    .map((m) => (typeof m === "string" ? m.trim() : ""))
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (!summary && steps.length === 0 && materials.length === 0 && obj.source !== "gemini") {
+    return null;
+  }
 
   const rawEst = obj.estimatedMinutes ?? obj.estimated_minutes;
   const estNum = typeof rawEst === "number" && Number.isFinite(rawEst) && rawEst > 0
@@ -140,6 +150,7 @@ export function normalizeTaskBrief(raw: unknown): TaskBrief | null {
   return {
     summary,
     steps,
+    materials,
     estimatedMinutes: estNum,
     workFormat,
     source,
@@ -154,25 +165,44 @@ export function deriveClientTaskBrief(task: Pick<NavigatorTaskInput, "title" | "
       ? "theory"
       : "pc";
 
-  let estimatedMinutes = workFormat === "phone" ? 15 : workFormat === "theory" ? 25 : 35;
-  if (typeof task.maxPoints === "number" && Number.isFinite(task.maxPoints)) {
-    if (task.maxPoints >= 20) estimatedMinutes += 15;
-    else if (task.maxPoints <= 3) estimatedMinutes = Math.max(10, estimatedMinutes - 5);
-  }
-
-  const summaryByFormat: Record<WorkFormat, string> = {
-    phone: "Швидка робота або тест; зручно виконати з телефона.",
-    theory: "Опрацювання матеріалу або конспекту до наступної пари.",
-    pc: "Практична робота; зручніше виконувати на комп'ютері.",
-  };
+  // Never invent random minutes or boilerplate steps when real Classroom description/AI brief is missing
+  const explicitMatch = title.match(/(?:^|[^\d])(\d{1,3})\s*(?:хв|хвилин|min|мин)(?![А-Яа-яІіЇїЄєҐґA-Za-z])/i);
+  const parsedMin = explicitMatch ? parseInt(explicitMatch[1], 10) : NaN;
+  const estimatedMinutes = Number.isFinite(parsedMin) && parsedMin >= 5 && parsedMin <= 240 ? parsedMin : null;
 
   return {
-    summary: summaryByFormat[workFormat],
+    summary: "",
     steps: [],
+    materials: [],
     estimatedMinutes,
     workFormat,
     source: "heuristic",
   };
+}
+
+export function hasExpandableBrief(brief: TaskBrief | null | undefined): brief is TaskBrief {
+  if (!brief) return false;
+  return Boolean(
+    brief.summary.trim() ||
+    brief.steps.length > 0 ||
+    brief.materials.length > 0
+  );
+}
+
+export function formatBriefChipLabel(brief: TaskBrief | null | undefined): string | null {
+  if (!hasExpandableBrief(brief)) return null;
+  const parts: string[] = [];
+  if (brief.estimatedMinutes) {
+    parts.push(`~${brief.estimatedMinutes} хв`);
+  }
+  if (brief.source === "gemini" || brief.estimatedMinutes) {
+    parts.push(formatWorkFormatLabel(brief.workFormat));
+  } else if (brief.materials.length > 0) {
+    parts.push(
+      brief.materials.length === 1 ? "1 матеріал" : `${brief.materials.length} матеріали`
+    );
+  }
+  return parts.length > 0 ? parts.join(" · ") : "Розбір";
 }
 
 export function resolveEffectiveTaskBrief(task: NavigatorTaskInput): TaskBrief {
@@ -598,8 +628,8 @@ export function matchTasksToWindows(
       const suggestionId = `${win.id}::${item.taskKey}`;
       if (dismissedSet.has(suggestionId)) return false;
 
-      const est = item.brief.estimatedMinutes ?? 35;
-      if (est > win.durationMinutes + 10) return false;
+      const est = item.brief.estimatedMinutes;
+      if (est !== null && est > win.durationMinutes + 10) return false;
 
       // For in-college campus gaps, avoid suggesting heavy PC-only tasks
       if (win.environment === "campus" && item.brief.workFormat === "pc") {

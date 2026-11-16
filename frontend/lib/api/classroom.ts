@@ -15,6 +15,7 @@ import type {
 export interface RawTaskBrief {
   summary: string;
   steps?: string[];
+  materials?: string[];
   estimated_minutes?: number | null;
   work_format?: "phone" | "pc" | "theory" | string;
   source?: "gemini" | "heuristic" | string;

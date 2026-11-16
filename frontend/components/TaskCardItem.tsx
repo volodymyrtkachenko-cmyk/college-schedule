@@ -3,8 +3,10 @@
 import React, { memo, useState } from "react";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
 import {
-  formatWorkFormatLabel,
+  formatBriefChipLabel,
+  formatTaskWeightBadge,
   getNavigatorTaskKey,
+  hasExpandableBrief,
   resolveEffectiveTaskBrief,
   type TaskBrief,
 } from "../lib/schedule/priorityNavigator";
@@ -131,12 +133,58 @@ export const TaskCardItem = memo(function TaskCardItem({
 
   const taskKey = getNavigatorTaskKey(t);
   const brief = resolveEffectiveTaskBrief(t);
+  const canExpandBrief = hasExpandableBrief(brief);
   const checkedSteps = checklistMap[taskKey] || [];
   const totalSteps = brief.steps.length;
-  const fmtLabel = formatWorkFormatLabel(brief.workFormat);
-  const metaHint = brief.estimatedMinutes
-    ? `~${brief.estimatedMinutes} хв · ${fmtLabel}`
-    : fmtLabel;
+  const chipLabel = formatBriefChipLabel(brief);
+  const weightBadge = formatTaskWeightBadge(t.maxPoints ?? null);
+
+  if (!canExpandBrief) {
+    return (
+      <a
+        href={t.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
+        style={{
+          boxShadow: borderAccentStyle,
+        }}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors flex-1">
+            {titleLine}
+          </h4>
+          <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs shrink-0 mt-0.5">
+            ↗
+          </span>
+        </div>
+
+        {teacherLine && (
+          <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
+            {teacherLine}
+          </p>
+        )}
+
+        {(statusText || weightBadge) && (
+          <div className="mt-2 flex items-center justify-between gap-2">
+            {statusText ? (
+              <div className={`flex items-center gap-1.5 text-xs font-medium ${statusColorClass}`}>
+                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColorClass}`} />
+                <span>{statusText}</span>
+              </div>
+            ) : (
+              <span />
+            )}
+            {weightBadge && (
+              <span className="text-[11px] font-medium text-sys-text-muted shrink-0">
+                {weightBadge.label}
+              </span>
+            )}
+          </div>
+        )}
+      </a>
+    );
+  }
 
   return (
     <div
@@ -184,7 +232,7 @@ export const TaskCardItem = memo(function TaskCardItem({
           className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-sys-text-muted hover:text-sys-text-secondary hover:bg-sys-bg/70 transition-colors cursor-pointer"
         >
           <span>
-            {metaHint}
+            {chipLabel || "Розбір"}
             {totalSteps > 0 ? ` (${checkedSteps.length}/${totalSteps})` : ""}
           </span>
           <span aria-hidden="true" className="text-[10px]">

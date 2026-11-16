@@ -151,6 +151,8 @@ async def perform_course_sync(
     raw_coursework_items: list[dict] = []
     all_classroom_tasks: list[dict] = []
     task_descriptions_by_url: dict[str, str] = {}
+    task_materials_by_url: dict[str, list[str]] = {}
+    task_work_types_by_url: dict[str, str] = {}
     course_cw_total: dict[str, int] = {}
     course_cw_active: dict[str, int] = {}
     teacher_tokens_by_uid: dict[str, list[str]] = {}
@@ -747,6 +749,12 @@ async def perform_course_sync(
                     cw_desc = (cw.get("description") or "").strip()
                     if cw_desc:
                         task_descriptions_by_url[alt_link] = cw_desc
+                    cw_mats = classroom_briefs.extract_coursework_materials(cw)
+                    if cw_mats:
+                        task_materials_by_url[alt_link] = cw_mats
+                    cw_wt = (cw.get("workType") or "").strip()
+                    if cw_wt:
+                        task_work_types_by_url[alt_link] = cw_wt
 
                     sub_data = submissions_by_cw_id.get(cw_id)
                     if sub_data:
@@ -1331,6 +1339,8 @@ async def perform_course_sync(
             group.id,
             all_classroom_tasks,
             descriptions_by_url=task_descriptions_by_url,
+            materials_by_url=task_materials_by_url,
+            work_types_by_url=task_work_types_by_url,
         )
     except Exception as exc:
         logger.warning("Task briefs enrichment error during group sync: %s", _sanitize_error_msg(str(exc)))
@@ -2343,6 +2353,8 @@ async def _fetch_user_submissions(
             submissions_map: dict[str, dict] = {}
             tasks_list: list[dict] = []
             sub_descriptions_by_url: dict[str, str] = {}
+            sub_materials_by_url: dict[str, list[str]] = {}
+            sub_work_types_by_url: dict[str, str] = {}
             eff_gid = detected_group_id or group_id
             mapped_by_url: dict[str, dict] = {
                 str(gt.get("url") or gt.get("alternate_link")): gt
@@ -2423,6 +2435,12 @@ async def _fetch_user_submissions(
                         cw_desc = (cw.get("description") or "").strip()
                         if cw_desc:
                             sub_descriptions_by_url[alt_link] = cw_desc
+                        cw_mats = classroom_briefs.extract_coursework_materials(cw)
+                        if cw_mats:
+                            sub_materials_by_url[alt_link] = cw_mats
+                        cw_wt = (cw.get("workType") or "").strip()
+                        if cw_wt:
+                            sub_work_types_by_url[alt_link] = cw_wt
 
                         mapped_gt = mapped_by_url.get(alt_link) or {}
                         resolved_subj = mapped_gt.get("subject") or mapped_gt.get("course_name") or c_clean
@@ -2465,7 +2483,9 @@ async def _fetch_user_submissions(
                             eff_gid,
                             tasks_list,
                             descriptions_by_url=sub_descriptions_by_url,
-                            max_llm_calls=4,
+                            materials_by_url=sub_materials_by_url,
+                            work_types_by_url=sub_work_types_by_url,
+                            max_llm_calls=12,
                         )
                         briefs_dirty = True
                     except Exception as exc:
@@ -2475,11 +2495,15 @@ async def _fetch_user_submissions(
                         )
                 else:
                     for t_obj in tasks_list:
-                        t_obj["brief"] = classroom_briefs.build_heuristic_task_brief(
+                        t_url = t_obj.get("url") or ""
+                        h_brief = classroom_briefs.build_heuristic_task_brief(
                             t_obj.get("title") or "",
-                            sub_descriptions_by_url.get(t_obj.get("url") or "", ""),
+                            sub_descriptions_by_url.get(t_url, ""),
                             t_obj.get("max_points"),
+                            materials=sub_materials_by_url.get(t_url),
+                            work_type=sub_work_types_by_url.get(t_url, ""),
                         )
+                        t_obj["brief"] = h_brief if classroom_briefs._brief_has_substance(h_brief) else None
 
             resp_payload = {
                 "connected": True,

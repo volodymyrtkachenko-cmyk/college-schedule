@@ -6,7 +6,7 @@ import { getKyivNow, subscribeKyivNow, type KyivNowSnapshot } from "../lib/lesso
 import {
   PRIORITY_NAV_OPEN_KEY,
   findFreeStudyWindows,
-  formatWorkFormatLabel,
+  formatBriefChipLabel,
   matchTasksToWindows,
   readWindowDecisions,
   saveWindowDecision,
@@ -56,9 +56,9 @@ export function PriorityNavigatorPanel({
 
   const effectiveNow = kyivNow;
 
-  const { prioritizedTasks } = useMemo(() => {
+  const { prioritizedTasks, subjectRisks } = useMemo(() => {
     if (!effectiveNow) {
-      return { prioritizedTasks: [] };
+      return { prioritizedTasks: [], subjectRisks: [] };
     }
     return scorePriorityTasks({
       tasks,
@@ -86,6 +86,7 @@ export function PriorityNavigatorPanel({
   }
 
   const topItems = prioritizedTasks.slice(0, 3);
+  const topSubjects = subjectRisks.slice(0, 3);
   const topHint =
     windowSuggestions.length > 0
       ? `є вікно · ${topItems[0].task.subject}`
@@ -148,8 +149,11 @@ export function PriorityNavigatorPanel({
             </div>
             <ul className="space-y-1.5">
               {topItems.map((entry, idx) => {
-                const est = entry.brief.estimatedMinutes;
-                const fmtLabel = formatWorkFormatLabel(entry.brief.workFormat);
+                const briefChip = formatBriefChipLabel(entry.brief);
+                const rightMeta = [entry.weightLabel, entry.brief.estimatedMinutes ? `~${entry.brief.estimatedMinutes} хв` : null]
+                  .filter(Boolean)
+                  .join(" · ") || (briefChip !== "Розбір" ? briefChip : null);
+
                 return (
                   <li key={entry.taskKey}>
                     <a
@@ -173,7 +177,7 @@ export function PriorityNavigatorPanel({
                         </div>
                       </div>
                       <span className="shrink-0 text-[10px] font-medium text-sys-text-muted whitespace-nowrap pt-0.5">
-                        {est ? `~${est} хв · ${fmtLabel}` : fmtLabel} ↗
+                        {rightMeta ? `${rightMeta} ↗` : "↗"}
                       </span>
                     </a>
                   </li>
@@ -182,6 +186,29 @@ export function PriorityNavigatorPanel({
             </ul>
           </div>
 
+          {topSubjects.length >= 2 && (
+            <div className="space-y-1 pt-1 border-t border-sys-border/50">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
+                Навантаження за предметами
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {topSubjects.map((sr) => (
+                  <span
+                    key={sr.subject}
+                    className="inline-flex items-center gap-1 rounded-md border border-sys-border/70 bg-sys-card px-2 py-0.5 text-[11px] text-sys-text-secondary"
+                  >
+                    <span className="font-semibold text-sys-text-primary truncate max-w-[140px]">
+                      {sr.subject}
+                    </span>
+                    <span className="text-sys-text-muted">
+                      ({sr.pendingCount}{sr.totalPendingPoints > 0 ? ` · ${sr.totalPendingPoints} б.` : ""})
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {windowSuggestions.length > 0 && (
             <div className="space-y-1.5 pt-1 border-t border-sys-border/50">
               <div className="text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
@@ -189,8 +216,13 @@ export function PriorityNavigatorPanel({
               </div>
               <div className="space-y-1.5">
                 {windowSuggestions.map((s) => {
-                  const est = s.item.brief.estimatedMinutes;
-                  const fmtLabel = formatWorkFormatLabel(s.item.brief.workFormat);
+                  const rightInfo = [
+                    s.item.weightLabel,
+                    s.item.brief.estimatedMinutes ? `~${s.item.brief.estimatedMinutes} хв` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ");
+
                   return (
                     <div
                       key={s.suggestionId}
@@ -208,9 +240,11 @@ export function PriorityNavigatorPanel({
                         >
                           {s.item.task.title}
                         </a>
-                        <span className="shrink-0 text-[10px] text-sys-text-muted whitespace-nowrap">
-                          {est ? `~${est} хв · ${fmtLabel}` : fmtLabel}
-                        </span>
+                        {rightInfo && (
+                          <span className="shrink-0 text-[10px] text-sys-text-muted whitespace-nowrap">
+                            {rightInfo}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 pt-0.5">
                         <button

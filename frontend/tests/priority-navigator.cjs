@@ -292,8 +292,35 @@ test("aggregateClassroomTasks propagates brief and maxPoints fallback onto FullT
   assert.deepEqual(JSON.parse(JSON.stringify(items[0].brief)), {
     summary: "Спроєктувати схему БД та написати SQL-запити.",
     steps: ["Створити таблиці", "Додати SELECT-запити"],
+    materials: [],
     estimatedMinutes: 40,
     workFormat: "pc",
     source: "gemini",
   });
+});
+
+test("deriveClientTaskBrief never invents random minutes or boilerplate for bare tasks", () => {
+  const nav = loadTsModule("lib/schedule/priorityNavigator.ts");
+
+  const bare = nav.deriveClientTaskBrief({ title: "Практична робота №4", maxPoints: 12 });
+  assert.equal(bare.estimatedMinutes, null);
+  assert.equal(bare.summary, "");
+  assert.deepEqual(JSON.parse(JSON.stringify(bare.steps)), []);
+  assert.equal(nav.hasExpandableBrief(bare), false);
+  assert.equal(nav.formatBriefChipLabel(bare), null);
+
+  const explicit = nav.deriveClientTaskBrief({ title: "Тест (15 хв)", maxPoints: 5 });
+  assert.equal(explicit.estimatedMinutes, 15);
+  assert.equal(explicit.workFormat, "phone");
+
+  const withMats = nav.normalizeTaskBrief({
+    summary: "",
+    steps: [],
+    materials: ["Файл: Методичка.pdf"],
+    estimated_minutes: null,
+    work_format: "pc",
+    source: "heuristic",
+  });
+  assert.equal(nav.hasExpandableBrief(withMats), true);
+  assert.equal(nav.formatBriefChipLabel(withMats), "1 матеріал");
 });

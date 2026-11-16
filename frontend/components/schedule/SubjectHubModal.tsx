@@ -31,8 +31,10 @@ import {
   filterEventsForSubject,
   findNextSubjectOccurrence,
   findSubjectStatistics,
-  formatWorkFormatLabel,
+  formatBriefChipLabel,
+  formatTaskWeightBadge,
   getNavigatorTaskKey,
+  hasExpandableBrief,
   partitionSubjectTasks,
   resolveEffectiveTaskBrief,
   resolveSubjectLessonDetails,
@@ -995,12 +997,11 @@ export function SubjectHubModal({
               const statusCls = getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked);
               const taskKey = getNavigatorTaskKey(task);
               const brief = resolveEffectiveTaskBrief(task);
-              const isExpanded = Boolean(expandedTaskKeys[taskKey]);
+              const canExpandBrief = hasExpandableBrief(brief);
+              const isExpanded = canExpandBrief && Boolean(expandedTaskKeys[taskKey]);
               const checkedIndices = checklistMap[taskKey] || [];
-              const fmtLabel = formatWorkFormatLabel(brief.workFormat);
-              const briefHint = brief.estimatedMinutes
-                ? `~${brief.estimatedMinutes} хв · ${fmtLabel}`
-                : fmtLabel;
+              const briefChip = formatBriefChipLabel(brief);
+              const weightBadge = formatTaskWeightBadge(task.maxPoints ?? null);
 
               return (
                 <li key={rowKey} className="px-3 py-2.5">
@@ -1027,14 +1028,20 @@ export function SubjectHubModal({
                       )}
                     </a>
 
-                    <button
-                      type="button"
-                      aria-expanded={isExpanded}
-                      onClick={() => toggleHubTaskExpand(taskKey)}
-                      className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-sys-text-muted hover:text-sys-text-secondary hover:bg-sys-card transition-colors cursor-pointer"
-                    >
-                      {briefHint} {isExpanded ? "▴" : "▾"}
-                    </button>
+                    {canExpandBrief ? (
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        onClick={() => toggleHubTaskExpand(taskKey)}
+                        className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-sys-text-muted hover:text-sys-text-secondary hover:bg-sys-card transition-colors cursor-pointer"
+                      >
+                        {briefChip || "Розбір"} {isExpanded ? "▴" : "▾"}
+                      </button>
+                    ) : weightBadge ? (
+                      <span className="shrink-0 text-[11px] font-medium text-sys-text-muted pt-0.5">
+                        {weightBadge.label}
+                      </span>
+                    ) : null}
                   </div>
 
                   {isExpanded && (

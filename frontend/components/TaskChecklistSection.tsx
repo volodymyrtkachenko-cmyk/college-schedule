@@ -26,6 +26,7 @@ export function TaskChecklistSection({
 }: TaskChecklistSectionProps) {
   const weight = formatTaskWeightBadge(maxPoints ?? null);
   const formatLabel = formatWorkFormatLabel(brief.workFormat);
+  const hasMetaBadges = Boolean(brief.estimatedMinutes || weight || brief.source === "gemini");
 
   return (
     <div
@@ -33,29 +34,46 @@ export function TaskChecklistSection({
         compact ? "mt-2 pt-2 space-y-1.5" : "mt-2.5 pt-2.5 space-y-2"
       }`}
     >
-      <p className="text-xs text-sys-text-secondary leading-relaxed break-words">
-        {brief.summary}
-      </p>
+      {brief.summary && (
+        <p className="text-xs text-sys-text-secondary leading-relaxed break-words">
+          {brief.summary}
+        </p>
+      )}
 
-      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-sys-text-muted">
-        {brief.estimatedMinutes ? (
-          <span className="inline-flex items-center rounded-md border border-sys-border/70 bg-sys-bg px-1.5 py-0.5 font-medium text-sys-text-secondary">
-            ~{brief.estimatedMinutes} хв · {formatLabel}
-          </span>
-        ) : (
-          <span className="inline-flex items-center rounded-md border border-sys-border/70 bg-sys-bg px-1.5 py-0.5 font-medium text-sys-text-secondary">
-            {formatLabel}
-          </span>
-        )}
-        {weight && (
-          <span className="inline-flex items-center rounded-md border border-sys-border/70 bg-sys-bg px-1.5 py-0.5 font-medium text-sys-text-secondary">
-            Вага: {weight.label}
-          </span>
-        )}
-        {brief.source === "gemini" && (
-          <span className="text-[10px] text-sys-text-muted">AI-розбір</span>
-        )}
-      </div>
+      {brief.materials.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+          {brief.materials.map((mat, idx) => (
+            <span
+              key={idx}
+              className="inline-flex items-center rounded-md border border-sys-border/70 bg-sys-bg px-2 py-0.5 font-medium text-sys-text-secondary break-all"
+            >
+              {mat}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {hasMetaBadges && (
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-sys-text-muted">
+          {brief.estimatedMinutes ? (
+            <span className="inline-flex items-center rounded-md border border-sys-border/70 bg-sys-bg px-1.5 py-0.5 font-medium text-sys-text-secondary">
+              ~{brief.estimatedMinutes} хв · {formatLabel}
+            </span>
+          ) : brief.source === "gemini" ? (
+            <span className="inline-flex items-center rounded-md border border-sys-border/70 bg-sys-bg px-1.5 py-0.5 font-medium text-sys-text-secondary">
+              {formatLabel}
+            </span>
+          ) : null}
+          {weight && (
+            <span className="inline-flex items-center rounded-md border border-sys-border/70 bg-sys-bg px-1.5 py-0.5 font-medium text-sys-text-secondary">
+              Вага: {weight.label}
+            </span>
+          )}
+          {brief.source === "gemini" && (
+            <span className="text-[10px] text-sys-text-muted">AI-розбір</span>
+          )}
+        </div>
+      )}
 
       {brief.steps.length > 0 && (
         <ul className="space-y-1 pt-0.5">
