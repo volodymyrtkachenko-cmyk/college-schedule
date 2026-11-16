@@ -2,7 +2,7 @@ import type { PublicBellsResponse, ReferenceRecord, ScheduleResponse } from "./a
 import { BACKEND_API_URL, PROD_API_URL } from "./site";
 
 const PRIMARY_API_URL = BACKEND_API_URL;
-const SSR_TIMEOUT_MS = 8500;
+const SSR_TIMEOUT_MS = 5000;
 
 export async function fetchSsrJson<T>(
   path: string,
@@ -31,8 +31,8 @@ export async function fetchSsrJson<T>(
   const tryFetchWithRetry = async (baseUrl: string): Promise<T | null> => {
     const first = await fetchOnce(baseUrl);
     if (first.ok) return first.data;
-    // One lightweight retry on transient cold-start timeout or 5xx
-    if (first.status === 0 || first.status >= 500) {
+    // Повторюємо лише при миттєвому 5xx (напр. прокидання dyno), не подвоюючи 5-секундний таймаут мертвого хоста
+    if (first.status >= 500) {
       const second = await fetchOnce(baseUrl);
       if (second.ok) return second.data;
     }

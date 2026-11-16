@@ -132,27 +132,37 @@ export function ClassroomSyncButton({
     fetchGroupStatusAndSchedulePoll,
   ]);
 
-  // 1. Тиха синхронізація при завантаженні / зміні групи (відкладена, щоб не конкурувати за процесор смартфона під час старту)
+  // 1. Тиха синхронізація при завантаженні / зміні групи: без паузи коли кешу ще немає,
+  // та в найближчому idle-вікні браузера, якщо кеш завдань уже відображається.
   useEffect(() => {
     if (!currentGroupId) return;
     let cancelled = false;
     let idleId: number | null = null;
-    const timer = setTimeout(() => {
-      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-        idleId = (window as any).requestIdleCallback(
-          () => {
-            if (!cancelled) void performSilentSync();
-          },
-          { timeout: 2500 }
-        );
-      } else {
-        if (!cancelled) void performSilentSync();
-      }
-    }, 3200);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    let hasCachedTasks = false;
+    try {
+      hasCachedTasks = Boolean(
+        localStorage.getItem("schedule:classroom_tasks") ||
+          localStorage.getItem(`schedule:classroom_group_tasks:${currentGroupId}`)
+      );
+    } catch {}
+
+    const run = () => {
+      if (!cancelled) void performSilentSync();
+    };
+
+    if (!hasCachedTasks) {
+      run();
+    } else if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = (window as any).requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      timer = setTimeout(run, 250);
+    }
 
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       if (idleId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
         (window as any).cancelIdleCallback(idleId);
       }

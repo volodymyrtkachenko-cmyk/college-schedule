@@ -100,29 +100,25 @@ export default function SettingsPage() {
     }
 
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      if (cancelled) return;
-      api.week(gid)
-        .then((data) => {
-          if (cancelled) return;
-          if (Array.isArray(data) && data.length > 0) {
-            const allLessons = data.flatMap((d) => d.lessons || []);
-            const has = checkScheduleHasSubgroups(allLessons);
-            const hints = extractSubgroupTeacherHints(allLessons);
-            setGroupHasSubgroups(has);
-            setSubgroupHints(hints);
-            try {
-              localStorage.setItem(`schedule:has_subgroups:${gid}`, has ? "1" : "0");
-              localStorage.setItem(`schedule:subgroup_hints:${gid}`, JSON.stringify(hints));
-            } catch {}
-          }
-        })
-        .catch(() => {});
-    }, 250);
+    api.week(gid)
+      .then((data) => {
+        if (cancelled) return;
+        if (Array.isArray(data) && data.length > 0) {
+          const allLessons = data.flatMap((d) => d.lessons || []);
+          const has = checkScheduleHasSubgroups(allLessons);
+          const hints = extractSubgroupTeacherHints(allLessons);
+          setGroupHasSubgroups(has);
+          setSubgroupHints(hints);
+          try {
+            localStorage.setItem(`schedule:has_subgroups:${gid}`, has ? "1" : "0");
+            localStorage.setItem(`schedule:subgroup_hints:${gid}`, JSON.stringify(hints));
+          } catch {}
+        }
+      })
+      .catch(() => {});
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
   }, []);
 

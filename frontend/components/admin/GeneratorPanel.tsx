@@ -247,7 +247,6 @@ export function GeneratorPanel() {
       if (completed.status !== "DRAFT") {
         throw new Error("Створення не завершилося. Спробуйте ще раз або зверніться до адміністратора.");
       }
-      await new Promise(resolve => setTimeout(resolve, 450));
       setToast("Розклад створено.", "success");
       setShowGenModal(false);
       setGeneratingJob(null);

@@ -447,14 +447,25 @@ export function useSchedule(
         });
     };
 
-    const deferTimer =
-      hasLocalDirectory && (!needsUrlResolution || resolvedFromCache)
-        ? setTimeout(loadDirectory, 6000)
-        : (loadDirectory(), null);
+    let deferTimer: ReturnType<typeof setTimeout> | null = null;
+    let idleId: number | null = null;
+
+    if (hasLocalDirectory && (!needsUrlResolution || resolvedFromCache)) {
+      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        idleId = (window as any).requestIdleCallback(loadDirectory, { timeout: 2000 });
+      } else {
+        deferTimer = setTimeout(loadDirectory, 1000);
+      }
+    } else {
+      loadDirectory();
+    }
 
     return () => {
       cancelled = true;
       if (deferTimer) clearTimeout(deferTimer);
+      if (idleId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        (window as any).cancelIdleCallback(idleId);
+      }
     };
   }, [initialGroupId, initialTeacherId, initialMode, user]);
 
@@ -753,26 +764,41 @@ export function useSchedule(
     const cachedSemesterStart = window.localStorage.getItem("schedule:semesterStart");
     if (cachedSemesterStart) setSemesterStart(cachedSemesterStart);
 
-    const timer = setTimeout(
-      () => {
-        api.settings
-          .semesterStart()
-          .then((setting) => {
-            if (active && setting.value !== cachedSemesterStart) {
-              setSemesterStart(setting.value);
-            }
-            try {
-              window.localStorage.setItem("schedule:semesterStart", setting.value);
-            } catch {}
-          })
-          .catch(() => {});
-      },
-      cachedSemesterStart ? 5000 : 500
-    );
+    const fetchSemesterStart = () => {
+      api.settings
+        .semesterStart()
+        .then((setting) => {
+          if (active && setting.value !== cachedSemesterStart) {
+            setSemesterStart(setting.value);
+          }
+          try {
+            window.localStorage.setItem("schedule:semesterStart", setting.value);
+          } catch {}
+        })
+        .catch(() => {});
+    };
+
+    if (!cachedSemesterStart) {
+      fetchSemesterStart();
+      return () => {
+        active = false;
+      };
+    }
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let idleId: number | null = null;
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = (window as any).requestIdleCallback(fetchSemesterStart, { timeout: 2500 });
+    } else {
+      timer = setTimeout(fetchSemesterStart, 1000);
+    }
 
     return () => {
       active = false;
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
+      if (idleId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        (window as any).cancelIdleCallback(idleId);
+      }
     };
   }, []);
 

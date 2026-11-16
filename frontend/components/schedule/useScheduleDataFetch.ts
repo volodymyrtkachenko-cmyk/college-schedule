@@ -274,12 +274,27 @@ export function useScheduleDataFetch({
         tasksMemoryCache.set(groupId, { tasks: cached, lastSyncedAt: null });
         setClassroomTasks(cached);
       }
-      // Defer background sync when cached tasks already exist so mobile startup stays responsive
-      const delayMs = cached.length > 0 ? 1200 : 150;
-      const timer = setTimeout(() => {
+      if (cached.length === 0) {
         void fetchClassroomTasks(groupId);
-      }, delayMs);
-      return () => clearTimeout(timer);
+        return;
+      }
+
+      let idleId: number | null = null;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const run = () => {
+        void fetchClassroomTasks(groupId);
+      };
+      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        idleId = (window as any).requestIdleCallback(run, { timeout: 900 });
+      } else {
+        timer = setTimeout(run, 250);
+      }
+      return () => {
+        if (timer) clearTimeout(timer);
+        if (idleId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+          (window as any).cancelIdleCallback(idleId);
+        }
+      };
     }
     setClassroomTasks([]);
     setClassroomLastSyncedAt(null);

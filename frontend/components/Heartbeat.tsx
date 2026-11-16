@@ -65,15 +65,23 @@ export function Heartbeat() {
       fetch(`${baseUrl}/api/ping?${params.toString()}`, {
         headers: authHeader ? { Authorization: authHeader } : {},
         keepalive: true,
-      }).catch(() => {});
+        priority: "low",
+      } as RequestInit & { priority?: "high" | "low" | "auto" }).catch(() => {});
     };
 
-    // Відкладаємо перший пінг на 5 с, щоб не конкурувати із завантаженням розкладу на слабкому інтернеті
-    const initialTimer = setTimeout(() => {
+    // Запускаємо перший пінг у фоновому idle-вікні з низьким мережевим пріоритетом
+    let initialTimer: ReturnType<typeof setTimeout> | null = null;
+    let idleId: number | null = null;
+    const sendInitialPing = () => {
       if (document.visibilityState === "visible") {
         void ping();
       }
-    }, 5000);
+    };
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = (window as any).requestIdleCallback(sendInitialPing, { timeout: 2000 });
+    } else {
+      initialTimer = setTimeout(sendInitialPing, 1500);
+    }
 
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") {
@@ -98,7 +106,10 @@ export function Heartbeat() {
     window.addEventListener("beforeunload", handleLeave);
 
     return () => {
-      clearTimeout(initialTimer);
+      if (initialTimer) clearTimeout(initialTimer);
+      if (idleId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        (window as any).cancelIdleCallback(idleId);
+      }
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", handleLeave);
