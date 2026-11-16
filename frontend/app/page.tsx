@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { SchedulePageClient } from "../components/SchedulePageClient";
+import { formatKyivDateIso, getKyivInitialWeekAnchor } from "../lib/date";
 import { SITE_URL } from "../lib/site";
 import { toTeacherSlug } from "../lib/slug";
-import { fetchDirectoryForSsr } from "../lib/ssrApi";
+import { fetchDirectoryForSsr, fetchScheduleWeekForSsr } from "../lib/ssrApi";
 
 export const revalidate = 1800; // Revalidate directory data for SEO every 30 minutes
 
@@ -36,7 +37,16 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const { groups, teachers } = await fetchDirectoryForSsr();
-  const ssrNowIso = new Date().toISOString();
+  const ssrNow = new Date();
+  const ssrNowIso = ssrNow.toISOString();
+  const targetWeekAnchorIso = formatKyivDateIso(getKyivInitialWeekAnchor(ssrNow));
+  const previewGroupId = groups[0]?.id;
+  const previewWeek = previewGroupId
+    ? await fetchScheduleWeekForSsr({
+        groupId: previewGroupId,
+        targetDateIso: targetWeekAnchorIso,
+      })
+    : [];
 
   return (
     <div className="min-h-dvh bg-transparent text-sys-text-primary">
@@ -44,7 +54,12 @@ export default async function HomePage() {
         Розклад ДФКР — Дніпровський фаховий коледж радіоелектроніки
       </h1>
 
-      <SchedulePageClient initialGroups={groups} initialTeachers={teachers} ssrNowIso={ssrNowIso} />
+      <SchedulePageClient
+        initialGroups={groups}
+        initialTeachers={teachers}
+        initialPreviewWeek={previewWeek}
+        ssrNowIso={ssrNowIso}
+      />
 
       <section className="sr-only" aria-label="Довідник розкладу занять ДФКР">
         <h2>Електронний розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ)</h2>

@@ -5,6 +5,7 @@ import { TransitionLink } from "@/components/navigation/NavigationTransitionProv
 import { usePathname } from "next/navigation";
 import { buildCurrentScheduleHref, isModifiedMouseClick } from "../lib/navigation";
 import { useMobileNav, MobileTab, isScheduleRoutePath } from "../lib/useMobileNav";
+import { useOnboardingStatus } from "../lib/useOnboardingStatus";
 
 export type { MobileTab };
 
@@ -38,6 +39,7 @@ export function BottomNav() {
   };
 
   const isHiddenRoute = pathname?.startsWith("/admin") || pathname?.startsWith("/login");
+  const { isOnboarded } = useOnboardingStatus();
   const isOnSchedulePage = isScheduleRoutePath(pathname);
   const isSettings = pathname?.startsWith("/settings");
 
@@ -75,7 +77,7 @@ export function BottomNav() {
     };
   }, [hideTasksTab, isHiddenRoute]);
 
-  if (isHiddenRoute) {
+  if (isHiddenRoute || !isOnboarded) {
     return null;
   }
 

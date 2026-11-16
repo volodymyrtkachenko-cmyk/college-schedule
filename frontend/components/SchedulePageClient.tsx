@@ -9,6 +9,7 @@ import { canAccessAdmin, useAuth } from "../lib/auth";
 import { type ReferenceRecord, type ScheduleResponse } from "../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../lib/hooks";
 import { resolveScheduleSubtabFromSearch } from "../lib/navigation";
+import { buildBlurredPreviewScheduleDay, buildBlurredPreviewWeek } from "../lib/onboarding";
 import type { SubjectHubTarget } from "../lib/schedule";
 import { useMobileNav } from "../lib/useMobileNav";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
@@ -19,6 +20,7 @@ import { OfflineIndicator } from "./OfflineIndicator";
 import { ScheduleDay } from "./ScheduleDay";
 import { SplashScreen } from "./SplashScreen";
 import { useToast } from "./ToastProvider";
+import { WelcomeScreen } from "./WelcomeScreen";
 import { WeekTypeBadge } from "./WeekTypeBadge";
 import { DesktopFocusDaySwitcher } from "./schedule/DesktopFocusDaySwitcher";
 import { DesktopScheduleSidebar } from "./schedule/DesktopScheduleSidebar";
@@ -35,7 +37,6 @@ const ScheduleWeekGrid = dynamic(() => import("./ScheduleWeekGrid").then((m) => 
 const DesktopWeekHeaderBar = dynamic(() => import("./schedule/DesktopWeekHeaderBar").then((m) => m.DesktopWeekHeaderBar));
 const ContextSelectionModal = dynamic(() => import("./schedule/ContextSelectionModal").then((m) => m.ContextSelectionModal), { ssr: false });
 const WeekTypeBottomSheet = dynamic(() => import("./schedule/WeekTypeBottomSheet").then((m) => m.WeekTypeBottomSheet), { ssr: false });
-const WelcomeScreen = dynamic(() => import("./WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 const DatePickerModal = dynamic(() => import("./DatePickerModal").then((m) => m.DatePickerModal), { ssr: false });
 const TeacherPinModal = dynamic(() => import("./TeacherPinModal").then((m) => m.TeacherPinModal), { ssr: false });
 const MobileTasksView = dynamic(() => import("./MobileTasksView").then((m) => m.MobileTasksView), { ssr: false });
@@ -53,6 +54,7 @@ export interface SchedulePageClientProps {
   initialTeacherId?: number;
   initialMode?: "student" | "teacher";
   initialWeek?: ScheduleResponse[];
+  initialPreviewWeek?: ScheduleResponse[];
   initialWeekStartIso?: string;
   ssrNowIso?: string;
 }
@@ -64,6 +66,7 @@ export function SchedulePageClient({
   initialTeacherId,
   initialMode,
   initialWeek = EMPTY_SCHEDULE_WEEK,
+  initialPreviewWeek = EMPTY_SCHEDULE_WEEK,
   initialWeekStartIso,
   ssrNowIso,
 }: SchedulePageClientProps) {
@@ -268,7 +271,33 @@ export function SchedulePageClient({
     enableSidebarTaskGroups: showDesktop || guideHubMounted,
   });
 
-  const showWelcome = !loading && !isSetupComplete && !initialGroupId && !initialTeacherId;
+  const [onboardingHydrated, setOnboardingHydrated] = useState(false);
+  useIsomorphicLayoutEffect(() => {
+    setOnboardingHydrated(true);
+  }, []);
+
+  const showWelcome = onboardingHydrated && !isSetupComplete && !user;
+  const isPreviewContext =
+    showWelcome || (!initialGroupId && !initialTeacherId && !isSetupComplete);
+  const previewCandidateWeek = initialWeek.length > 0 ? initialWeek : initialPreviewWeek;
+  const blurredPreviewWeek = buildBlurredPreviewWeek(weekStartStr, previewCandidateWeek);
+  const blurredPreviewDay = buildBlurredPreviewScheduleDay(
+    sel.activeDayDate,
+    previewCandidateWeek
+  );
+  const effectiveWeek = isPreviewContext ? blurredPreviewWeek : week;
+  const effectiveDay = isPreviewContext
+    ? blurredPreviewDay
+    : (sel.selectedDaySchedule ?? today);
+  const effectiveLoading = isPreviewContext ? false : loading;
+  const effectiveError = isPreviewContext ? null : error;
+
+  const backgroundShellRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = backgroundShellRef.current as (HTMLDivElement & { inert?: boolean }) | null;
+    if (!el) return;
+    el.inert = showWelcome;
+  }, [showWelcome]);
 
   useKeyboardScheduleNav({
     view: sel.view,
@@ -295,23 +324,25 @@ export function SchedulePageClient({
 
   return (
     <div className="min-h-dvh bg-transparent pb-6 text-sys-text-primary md:pb-8">
-      {showWelcome ? (
-        <WelcomeScreen
-          groups={groups}
-          teachers={teachers}
-          initialMode={mode}
-          onComplete={sel.handleCompleteWelcome}
-        />
-      ) : (
-        <>
-          <SplashScreen isLoading={loading} />
-          <OfflineIndicator isSlowNetwork={isSlowNetwork} isUsingFallbackCache={isUsingFallbackCache} />
-          <InstallPrompt />
+      <div
+        ref={backgroundShellRef}
+        aria-hidden={showWelcome ? "true" : undefined}
+        className={
+          isPreviewContext
+            ? "blur-[8px] opacity-60 saturate-90 pointer-events-none select-none max-h-dvh overflow-hidden"
+            : undefined
+        }
+      >
+          <SplashScreen isLoading={effectiveLoading} />
+          {!isPreviewContext && (
+            <OfflineIndicator isSlowNetwork={isSlowNetwork} isUsingFallbackCache={isUsingFallbackCache} />
+          )}
+          {!isPreviewContext && <InstallPrompt />}
 
           {showDesktop && (
             <DesktopToolbar
               mode={mode}
-              currentName={sel.currentName}
+              currentName={isPreviewContext ? undefined : sel.currentName}
               view={sel.view}
               canNavigatePrevDay={sel.canNavigatePrevDay}
               canNavigateNextDay={sel.canNavigateNextDay}
@@ -337,7 +368,7 @@ export function SchedulePageClient({
             <MobileChrome
               mode={mode}
               mobileTab={sel.mobileTab}
-              currentName={sel.currentName}
+              currentName={isPreviewContext ? undefined : sel.currentName}
               isTeacherUnlocked={isTeacherUnlocked}
               resolvedTheme={resolvedTheme}
               canNavigatePrevWeek={sel.canNavigatePrevWeek}
@@ -375,10 +406,12 @@ export function SchedulePageClient({
           {/* Mobile Main Content (< 1024px) */}
           {showMobile && (
             <div className="lg:hidden pb-bottom-nav-safe min-w-0 overflow-x-clip">
-              <div className="px-3 pt-2">
-                <ClassroomRelinkBanner />
-              </div>
-              {sel.returnTarget && (
+              {!isPreviewContext && (
+                <div className="px-3 pt-2">
+                  <ClassroomRelinkBanner />
+                </div>
+              )}
+              {!isPreviewContext && sel.returnTarget && (
                 <div className="m-3 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3 py-2 text-xs">
                   <span className="text-sys-text-secondary truncate mr-2">
                     Розклад: <strong className="text-sys-text-primary">{sel.currentName}</strong>
@@ -435,16 +468,16 @@ export function SchedulePageClient({
                         onSelectDay={sel.handleSelectDayIndex}
                         isCurrentWeek={isCurrentWeek}
                         todayIso={sel.todayActualIso}
-                        week={week}
+                        week={effectiveWeek}
                       />
                     </div>
                   )}
                   <div className="px-3 py-3">
-                  {loading ? (
+                  {effectiveLoading ? (
                     <ScheduleLoadingSkeleton rows={3} />
-                  ) : error ? (
+                  ) : effectiveError ? (
                     <ScheduleErrorState
-                      error={error}
+                      error={effectiveError}
                       variant="mobile"
                       returnTarget={sel.returnTarget}
                       onRetry={() => invalidateScheduleCache()}
@@ -452,7 +485,7 @@ export function SchedulePageClient({
                     />
                   ) : sel.view === "today" ? (
                     <DayPager
-                      schedule={sel.selectedDaySchedule}
+                      schedule={effectiveDay ?? blurredPreviewDay}
                       todayDate={sel.todayActualIso}
                       tomorrowDate={sel.tomorrowActualIso}
                       scheduleMode={mode}
@@ -465,12 +498,12 @@ export function SchedulePageClient({
                       onJumpToTomorrow={sel.handleJumpToTomorrow}
                       daySlideDir={sel.daySlideDir}
                       shouldReduceMotion={shouldReduceMotion}
-                      isWeekend={sel.isAutoSelectedWeekendDay}
+                      isWeekend={!isPreviewContext && sel.isAutoSelectedWeekendDay}
                       isShowingTomorrow={sel.isEveningAfterLessons && isCurrentWeek}
                       weekNumber={sel.currentWeekNumber}
-                      currentGroupName={mode === "student" ? (sel.currentName ?? null) : null}
-                      currentTeacherId={mode === "teacher" ? teacherId : null}
-                      currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
+                      currentGroupName={!isPreviewContext && mode === "student" ? (sel.currentName ?? null) : null}
+                      currentTeacherId={!isPreviewContext && mode === "teacher" ? teacherId : null}
+                      currentTeacherName={!isPreviewContext && mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
                       canPrevDay={sel.canNavigatePrevDay}
                       canNextDay={sel.canNavigateNextDay}
                       minDateIso={sel.minDateIso}
@@ -478,22 +511,23 @@ export function SchedulePageClient({
                     />
                   ) : (
                     <ScheduleWeekGrid
-                      week={week}
+                      week={effectiveWeek}
                       todayDate={sel.todayActualIso}
                       scheduleMode={mode}
                       canEdit={false}
                       onQuickJump={sel.handleQuickJump}
                       onOpenSubjectHub={handleOpenSubjectHub}
                       weekNumber={sel.currentWeekNumber}
-                      currentTeacherId={mode === "teacher" ? teacherId : null}
-                      currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
+                      currentTeacherId={!isPreviewContext && mode === "teacher" ? teacherId : null}
+                      currentTeacherName={!isPreviewContext && mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
                       onSelectDay={sel.handleSelectDayFromWeek}
                       weekSlideDir={sel.weekSlideDir}
                     />
                   )}
 
-                  {!loading &&
-                    !error &&
+                  {!effectiveLoading &&
+                    !effectiveError &&
+                    !isPreviewContext &&
                     ((mode === "student" && !groups.length) || (mode === "teacher" && !teachers.length)) && (
                       <div className="mt-4 rounded-2xl border border-dashed border-sys-border p-8 text-center text-xs text-sys-text-secondary">
                         {mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."}
@@ -508,8 +542,8 @@ export function SchedulePageClient({
           {/* Desktop Main Content (>= 1024px) */}
           {showDesktop && (
             <div className="hidden lg:block mx-auto max-w-[1600px] px-4 lg:px-6 py-6">
-              <ClassroomRelinkBanner />
-              {sel.returnTarget && (
+              {!isPreviewContext && <ClassroomRelinkBanner />}
+              {!isPreviewContext && sel.returnTarget && (
                 <div className="mb-4 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-sm">
                   <span className="text-sys-text-secondary">
                     Перегляд розкладу: <strong className="text-sys-text-primary">{sel.currentName}</strong>
@@ -524,11 +558,11 @@ export function SchedulePageClient({
                 </div>
               )}
 
-              {loading ? (
+              {effectiveLoading ? (
                 <ScheduleLoadingSkeleton rows={4} />
-              ) : error ? (
+              ) : effectiveError ? (
                 <ScheduleErrorState
-                  error={error}
+                  error={effectiveError}
                   variant="desktop"
                   returnTarget={sel.returnTarget}
                   onRetry={() => invalidateScheduleCache()}
@@ -537,10 +571,10 @@ export function SchedulePageClient({
               ) : (() => {
                 const weekHeaderNode = (
                   <DesktopWeekHeaderBar
-                    week={week}
+                    week={effectiveWeek}
                     mode={mode}
-                    groupId={groupId}
-                    teacherId={teacherId}
+                    groupId={isPreviewContext ? null : groupId}
+                    teacherId={isPreviewContext ? null : teacherId}
                     groups={groups}
                     teachers={teachers}
                     weekRange={sel.weekRange}
@@ -574,7 +608,7 @@ export function SchedulePageClient({
                           onSelectDayIndex={sel.handleSelectDayIndex}
                         />
 
-                        {sel.isAutoSelectedWeekendDay && (
+                        {!isPreviewContext && sel.isAutoSelectedWeekendDay && (
                           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-sys-border bg-sys-card px-5 py-4 text-[15px] shadow-sm">
                             <div className="flex items-center gap-3 min-w-0">
                               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-500 dark:text-amber-300">
@@ -587,24 +621,28 @@ export function SchedulePageClient({
                               </div>
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
-                              <WeekTypeBadge weekType={sel.selectedDaySchedule?.week_type ?? sel.weekType ?? today?.week_type ?? "both"} />
+                              <WeekTypeBadge weekType={effectiveDay?.week_type ?? sel.weekType ?? today?.week_type ?? "both"} />
                             </div>
                           </div>
                         )}
 
                         <div className="relative w-full">
                           <ScheduleDay
-                            schedule={sel.selectedDaySchedule ?? today!}
-                            isToday={sel.selectedDaySchedule?.date === sel.todayActualIso && !sel.isWeekend}
+                            schedule={effectiveDay ?? blurredPreviewDay}
+                            isToday={
+                              !isPreviewContext &&
+                              effectiveDay?.date === sel.todayActualIso &&
+                              !sel.isWeekend
+                            }
                             scheduleMode={mode}
                             onQuickJump={sel.handleQuickJump}
                             onOpenSubjectHub={handleOpenSubjectHub}
                             hideHeaderOnMobile={false}
                             weekNumber={sel.currentWeekNumber}
                             hideDayTitle={sel.isFocusEffective}
-                            currentGroupName={mode === "student" ? (sel.currentName ?? null) : null}
-                            currentTeacherId={mode === "teacher" ? teacherId : null}
-                            currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
+                            currentGroupName={!isPreviewContext && mode === "student" ? (sel.currentName ?? null) : null}
+                            currentTeacherId={!isPreviewContext && mode === "teacher" ? teacherId : null}
+                            currentTeacherName={!isPreviewContext && mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
                             daySlideDir={sel.daySlideDir}
                             shouldReduceMotion={shouldReduceMotion}
                             animateOnMount={sel.hasMotionInteracted}
@@ -617,7 +655,7 @@ export function SchedulePageClient({
                         visible={!sel.isFocusEffective}
                         shouldReduceMotion={shouldReduceMotion}
                         mode={mode}
-                        groupId={groupId}
+                        groupId={isPreviewContext ? null : groupId}
                         weekStartStr={weekStartStr}
                         onClassroomSynced={handleToolbarClassroomSynced}
                         currentWeekNumber={sel.currentWeekNumber}
@@ -627,12 +665,12 @@ export function SchedulePageClient({
                         selectedDayIndex={sel.selectedDayIndex}
                         todayActualIso={sel.todayActualIso}
                         desktopSidebarTab={desktopSidebarTab}
-                        hasGroupTaskAccess={hasGroupTaskAccess}
-                        isLinked={isLinked}
+                        hasGroupTaskAccess={!isPreviewContext && hasGroupTaskAccess}
+                        isLinked={!isPreviewContext && isLinked}
                         sidebarTaskGroups={sidebarTaskGroups}
                         formattedSyncTime={formattedSyncTime}
-                        allTasks={allTasks}
-                        week={week}
+                        allTasks={isPreviewContext ? [] : allTasks}
+                        week={effectiveWeek}
                         onToggleFocusMode={sel.toggleFocusMode}
                         onSelectDayIndex={sel.handleSelectDayIndex}
                         onChangeSidebarTab={setDesktopSidebarTab}
@@ -656,15 +694,15 @@ export function SchedulePageClient({
                         weekHeaderNode
                       )}
                       <ScheduleWeekGrid
-                        week={week}
+                        week={effectiveWeek}
                         todayDate={sel.todayActualIso}
                         scheduleMode={mode}
                         canEdit={false}
                         onQuickJump={sel.handleQuickJump}
                         onOpenSubjectHub={handleOpenSubjectHub}
                         weekNumber={sel.currentWeekNumber}
-                        currentTeacherId={mode === "teacher" ? teacherId : null}
-                        currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
+                        currentTeacherId={!isPreviewContext && mode === "teacher" ? teacherId : null}
+                        currentTeacherName={!isPreviewContext && mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
                         onSelectDay={sel.handleSelectDayFromWeek}
                         weekSlideDir={sel.weekSlideDir}
                         animateOnMount={sel.hasMotionInteracted}
@@ -777,7 +815,16 @@ export function SchedulePageClient({
               }}
             />
           )}
-        </>
+      </div>
+
+      {showWelcome && (
+        <WelcomeScreen
+          groups={groups}
+          teachers={teachers}
+          initialMode={mode}
+          isLoadingDirectory={groups.length === 0 && teachers.length === 0 && loading}
+          onComplete={sel.handleCompleteWelcome}
+        />
       )}
     </div>
   );

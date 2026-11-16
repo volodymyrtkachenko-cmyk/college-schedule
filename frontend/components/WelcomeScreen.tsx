@@ -20,10 +20,17 @@ interface WelcomeScreenProps {
   groups: ReferenceRecord[];
   teachers: ReferenceRecord[];
   initialMode: "student" | "teacher";
+  isLoadingDirectory?: boolean;
   onComplete: (mode: "student" | "teacher", id: number) => void;
 }
 
-export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: WelcomeScreenProps) {
+export function WelcomeScreen({
+  groups,
+  teachers,
+  initialMode,
+  isLoadingDirectory = false,
+  onComplete,
+}: WelcomeScreenProps) {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(0);
   const [selectedStudentGroupId, setSelectedStudentGroupId] = useState<number | null>(null);
@@ -71,7 +78,12 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-sys-bg pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:p-6">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Початкове налаштування розкладу"
+      className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-sys-bg/70 backdrop-blur-md pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:p-6"
+    >
       <div className="fixed inset-0 bg-gradient-to-b from-sys-accent/5 to-transparent pointer-events-none" />
       <div className="mx-auto flex min-h-full w-full max-w-md items-start justify-center relative z-10">
       {step === 1 ? (
@@ -124,7 +136,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
         <div
           key="step2"
           data-slide-dir={direction > 0 ? "next" : "prev"}
-          className="guide-step-slide my-auto w-full flex flex-col [@media(min-height:600px)]:h-[min(40rem,calc(100dvh-2.5rem))] relative"
+          className="guide-step-slide my-auto w-full flex flex-col [@media(min-height:600px)]:h-[min(40rem,calc(100dvh-2.5rem))] relative rounded-2xl border border-sys-border bg-sys-card/95 p-4 shadow-2xl backdrop-blur-xl sm:p-5"
         >
              <div className="mb-3 [@media(max-height:520px)]:mb-2 shrink-0">
                 <button type="button" onClick={() => { setDirection(-1); setStep(1); setSearch(""); setCourseFilter(null); }} className="mb-2 [@media(max-height:520px)]:mb-1 inline-flex items-center gap-2 min-h-[36px] text-sm text-sys-text-secondary hover:text-sys-text-primary transition-colors">
@@ -166,7 +178,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                 </div>
              </div>
              
-             <div className="sticky top-0 z-20 bg-sys-bg pt-1 pb-2 shrink-0 space-y-2">
+            <div className="sticky top-0 z-20 bg-sys-card/95 pt-1 pb-2 shrink-0 space-y-2 backdrop-blur-md">
                <search className="relative block">
                  <svg aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-secondary pointer-events-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                  <input 
@@ -269,11 +281,22 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                   );
                 })}
                 {filtered.length === 0 && (
-                  <div className="text-center py-8 text-sys-text-secondary">
-                    {options.length === 0
-                      ? mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."
-                      : "За вашим запитом нічого не знайдено."}
-                  </div>
+                  isLoadingDirectory && options.length === 0 ? (
+                    <div className="space-y-2 py-2" aria-label="Завантаження списку">
+                      {Array.from({ length: 6 }).map((_, idx) => (
+                        <div
+                          key={idx}
+                          className="h-11 w-full animate-pulse rounded-xl bg-sys-surface-2"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-sys-text-secondary">
+                      {options.length === 0
+                        ? mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."
+                        : "За вашим запитом нічого не знайдено."}
+                    </div>
+                  )
                 )}
              </div>
         </div>

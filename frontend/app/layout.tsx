@@ -8,6 +8,7 @@ import { ThemeProvider } from "../lib/useTheme";
 import { MotionConfigProvider } from "../components/MotionConfigProvider";
 import { MobileNavProvider } from "../lib/useMobileNav";
 import { BottomNav } from "../components/BottomNav";
+import { OnboardingGate } from "../components/OnboardingGate";
 import { NavigationTransitionProvider } from "../components/navigation/NavigationTransitionProvider";
 import { AppBackdrop } from "../components/AppBackdrop";
 import { SITE_URL, BACKEND_API_URL } from "../lib/site";
@@ -334,7 +335,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                     <AppBackdrop />
                     <div className="app-content-layer relative z-[1]">
                       <Heartbeat />
-                      {children}
+                      <OnboardingGate>{children}</OnboardingGate>
                       <BottomNav />
                     </div>
                   </NavigationTransitionProvider>
