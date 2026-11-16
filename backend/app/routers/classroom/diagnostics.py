@@ -21,6 +21,7 @@ from app.models import (
 from app.models.lesson_notes import LessonOccurrenceNote
 from app.services.classroom import state as classroom_state
 from app.services.classroom import sync as classroom_sync
+from app.services.classroom import task_briefs as classroom_briefs
 from app.services.classroom import tokens as classroom_tokens
 from app.services.classroom import worker as classroom_worker
 from app.services.classroom.parser import URL_RE
@@ -137,6 +138,9 @@ async def get_classroom_group_status(
                 asyncio.create_task(classroom_worker.run_background_sync_task(group_id, force=True))
             except RuntimeError:
                 pass
+
+    if has_access and tasks and any("brief" not in t for t in tasks):
+        await classroom_briefs.attach_cached_briefs(db, group_id, tasks)
 
     last_synced = (
         accounts_summary["latest_cred_synced_at"]

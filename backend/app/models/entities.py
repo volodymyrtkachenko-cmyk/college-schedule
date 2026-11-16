@@ -543,3 +543,30 @@ class ClassroomCredential(Base):
     granted_scopes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     group: Mapped["Group"] = relationship("Group")
+
+
+class ClassroomTaskBrief(Base):
+    """Cached concise brief (summary, steps, estimated minutes, work format) per group Classroom task."""
+
+    __tablename__ = "classroom_task_briefs"
+    __table_args__ = (
+        UniqueConstraint("group_id", "task_url", name="uq_classroom_task_brief_group_url"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
+    task_url: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
+    coursework_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    steps_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]", server_default="[]")
+    estimated_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    work_format: Mapped[str] = mapped_column(String(24), nullable=False, default="pc", server_default="pc")
+    source: Mapped[str] = mapped_column(String(24), nullable=False, default="heuristic", server_default="heuristic")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    group: Mapped["Group"] = relationship("Group")

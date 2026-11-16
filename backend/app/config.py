@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     auto_import_enabled: bool = True
     auto_import_interval_minutes: int = 30
     classroom_sync_interval_minutes: int = 10
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.8-flash"
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),

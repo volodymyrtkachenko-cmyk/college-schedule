@@ -24,6 +24,7 @@ from app.models import (
 from app.models.lesson_notes import LessonOccurrenceNote
 from app.schemas.classroom import ClassroomDisconnectRequest, ClassroomSyncRequest
 from app.services.classroom import state as classroom_state
+from app.services.classroom import task_briefs as classroom_briefs
 from app.services.classroom import tokens as classroom_tokens
 from app.services.classroom.parser import (
     BELL_END_MINUTES,
@@ -149,6 +150,7 @@ async def perform_course_sync(
     parsed_announcements: list[dict] = []
     raw_coursework_items: list[dict] = []
     all_classroom_tasks: list[dict] = []
+    task_descriptions_by_url: dict[str, str] = {}
     course_cw_total: dict[str, int] = {}
     course_cw_active: dict[str, int] = {}
     teacher_tokens_by_uid: dict[str, list[str]] = {}
@@ -742,6 +744,9 @@ async def perform_course_sync(
                     title_raw = re.sub(r"\s+", " ", (cw.get("title") or "").replace("|", "/")).strip() or "Без назви"
                     title_norm = _norm(title_raw)
                     max_points = cw.get("maxPoints")
+                    cw_desc = (cw.get("description") or "").strip()
+                    if cw_desc:
+                        task_descriptions_by_url[alt_link] = cw_desc
 
                     sub_data = submissions_by_cw_id.get(cw_id)
                     if sub_data:
@@ -1320,6 +1325,15 @@ async def perform_course_sync(
         synced_links += 1
 
     await db.flush()
+    try:
+        await classroom_briefs.ensure_and_attach_task_briefs(
+            db,
+            group.id,
+            all_classroom_tasks,
+            descriptions_by_url=task_descriptions_by_url,
+        )
+    except Exception as exc:
+        logger.warning("Task briefs enrichment error during group sync: %s", _sanitize_error_msg(str(exc)))
 
     _latest_unmapped_tasks[group.id] = unmapped_tasks
 
@@ -2328,6 +2342,7 @@ async def _fetch_user_submissions(
 
             submissions_map: dict[str, dict] = {}
             tasks_list: list[dict] = []
+            sub_descriptions_by_url: dict[str, str] = {}
             eff_gid = detected_group_id or group_id
             mapped_by_url: dict[str, dict] = {
                 str(gt.get("url") or gt.get("alternate_link")): gt
@@ -2405,6 +2420,9 @@ async def _fetch_user_submissions(
                                 due_iso = None
 
                         title = re.sub(r"\s+", " ", (cw.get("title") or "").replace("|", "/")).strip() or "Без назви"
+                        cw_desc = (cw.get("description") or "").strip()
+                        if cw_desc:
+                            sub_descriptions_by_url[alt_link] = cw_desc
 
                         mapped_gt = mapped_by_url.get(alt_link) or {}
                         resolved_subj = mapped_gt.get("subject") or mapped_gt.get("course_name") or c_clean
@@ -2438,6 +2456,31 @@ async def _fetch_user_submissions(
                         key = f"{c_id}_{cw_id}"
                         submissions_map[key] = sub_obj
 
+            briefs_dirty = False
+            if tasks_list:
+                if eff_gid:
+                    try:
+                        await classroom_briefs.ensure_and_attach_task_briefs(
+                            db,
+                            eff_gid,
+                            tasks_list,
+                            descriptions_by_url=sub_descriptions_by_url,
+                            max_llm_calls=4,
+                        )
+                        briefs_dirty = True
+                    except Exception as exc:
+                        logger.warning(
+                            "Task briefs enrichment error during user-submissions: %s",
+                            _sanitize_error_msg(str(exc)),
+                        )
+                else:
+                    for t_obj in tasks_list:
+                        t_obj["brief"] = classroom_briefs.build_heuristic_task_brief(
+                            t_obj.get("title") or "",
+                            sub_descriptions_by_url.get(t_obj.get("url") or "", ""),
+                            t_obj.get("max_points"),
+                        )
+
             resp_payload = {
                 "connected": True,
                 "group_id": detected_group_id,
@@ -2449,7 +2492,7 @@ async def _fetch_user_submissions(
                 "updated_at": datetime.now(timezone.utc).isoformat(),
                 "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
             }
-            if cred is not None:
+            if cred is not None or briefs_dirty:
                 await db.commit()
             return resp_payload
     except Exception as exc:
@@ -2702,5 +2745,9 @@ async def reconstruct_tasks_from_notes(
                 "grade": None,
                 "max_points": max_points_val,
             })
+    try:
+        await classroom_briefs.attach_cached_briefs(db, group_id, reconstructed)
+    except Exception:
+        pass
     classroom_state._latest_group_tasks[group_id] = reconstructed
     return reconstructed

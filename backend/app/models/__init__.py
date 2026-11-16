@@ -5,7 +5,7 @@ from app.models.entities import (
     TokenBlocklist, BellSchedule, ScheduleOverride, SchedulePeriod, SchedulePeriodSlot,
     ImportedScheduleChange, AcademicTerm, TermCourseSchedule, Curriculum, TeacherConstraint, ScheduleDraft,
     ScheduleSlot, ScheduleVersion, AcademicEvent, GroupStudent, ClassroomGroupBinding,
-    ClassroomCredential,
+    ClassroomCredential, ClassroomTaskBrief,
 )
 
 __all__ = [
@@ -14,6 +14,6 @@ __all__ = [
     "ScheduleOverride", "SchedulePeriod", "SchedulePeriodSlot",
     "ImportedScheduleChange", "AcademicTerm", "TermCourseSchedule", "Curriculum", "TeacherConstraint",
     "ScheduleDraft", "ScheduleSlot", "ScheduleVersion", "AcademicEvent",
-    "GroupStudent", "ClassroomGroupBinding", "ClassroomCredential",
+    "GroupStudent", "ClassroomGroupBinding", "ClassroomCredential", "ClassroomTaskBrief",
 ]
 from . import bump_updated_at
