@@ -42,9 +42,9 @@ const THEME_MODES: Array<{ id: Theme; label: string }> = [
 
 const STUDIO_TABS: Array<{ id: StudioTab; label: string }> = [
   { id: "presets", label: "Образи" },
-  { id: "color", label: "Кольори й анімація" },
-  { id: "surface", label: "Стиль карток" },
-  { id: "backdrop", label: "Фони і шпалери" },
+  { id: "color", label: "Кольори й рух" },
+  { id: "surface", label: "Картки" },
+  { id: "backdrop", label: "Фони" },
   { id: "layout", label: "Шрифт і сітка" },
 ];
 
@@ -621,23 +621,22 @@ export function AppearanceStudioModal({
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
                 {[
-                  `Картки: ${activeSurfaceLabel}`,
-                  `Фон: ${activeBackdropLabel}`,
-                  `Шрифт: ${activeFontLabel}`,
-                  `Кути: ${activeRadiusLabel}`,
-                  `Щільність: ${activeDensityLabel}`,
-                ].map(
-                  (tag, idx) => (
-                    <span
-                      key={`${tag}-${idx}`}
-                      className="rounded-lg border border-sys-border bg-sys-bg px-2 py-0.5 text-[11px] font-medium text-sys-text-secondary"
-                    >
-                      {tag}
-                    </span>
-                  )
-                )}
+                  { label: "Картки", value: activeSurfaceLabel },
+                  { label: "Фон", value: activeBackdropLabel },
+                  { label: "Шрифт", value: activeFontLabel },
+                  { label: "Кути", value: activeRadiusLabel },
+                  { label: "Щільність", value: activeDensityLabel },
+                ].map((tag) => (
+                  <div
+                    key={tag.label}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-[11px]"
+                  >
+                    <span className="text-sys-text-muted">{tag.label}</span>
+                    <span className="font-semibold text-sys-text-primary truncate">{tag.value}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </aside>

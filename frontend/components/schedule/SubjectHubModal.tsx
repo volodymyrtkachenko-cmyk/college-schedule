@@ -745,8 +745,8 @@ export function SubjectHubModal({
               </div>
             ) : enriching ? (
               <div className="space-y-2 animate-pulse" aria-busy="true">
-                <div className="h-4 w-44 rounded bg-sys-bg" />
-                <div className="h-3.5 w-32 rounded bg-sys-bg" />
+                <div className="h-4 w-44 rounded-md bg-sys-border/60" />
+                <div className="h-3.5 w-32 rounded-md bg-sys-border/45" />
               </div>
             ) : (
               <p className="text-xs sm:text-sm text-sys-text-secondary">
@@ -865,8 +865,11 @@ export function SubjectHubModal({
                   </div>
                 ) : (
                   <div className="space-y-2 animate-pulse" aria-busy="true">
-                    <div className="h-5 w-28 rounded bg-sys-bg" />
-                    <div className="h-2 w-full rounded-full bg-sys-bg" />
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="h-4 w-28 rounded-md bg-sys-border/60" />
+                      <span className="text-[11px] font-medium text-sys-text-muted">Завантаження...</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-sys-border/45" />
                   </div>
                 )
               )}

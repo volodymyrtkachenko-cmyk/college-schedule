@@ -100,7 +100,7 @@ export function ContextSelectionModal({
       maxWidth="448px"
       labelledBy="context-modal-title"
     >
-      <div className="w-full rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card px-4 pt-2.5 pb-4 sm:p-5 pb-safe shadow-2xl h-[min(78dvh,500px)] flex flex-col overflow-hidden">
+      <div className="w-full rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card px-4 pt-2.5 pb-3 sm:p-5 pb-safe shadow-2xl h-[min(82dvh,540px)] flex flex-col overflow-hidden">
             <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-sys-border/80 sm:hidden shrink-0" aria-hidden="true" />
             <h2 id="context-modal-title" className="sr-only">
               Оберіть групу або викладача
@@ -240,17 +240,18 @@ export function ContextSelectionModal({
             )}
 
             {/* List of items */}
-            <div
-              role="listbox"
-              className="mt-2.5 flex-1 min-h-0 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain custom-scrollbar pr-1 pb-2"
-            >
+            <div className="relative mt-2.5 flex-1 min-h-0 flex flex-col">
               <div
-                key={modalTab}
-                data-slide-dir={tabSlideDir ?? undefined}
-                className={`guide-step-slide ${
-                  modalTab === "student" ? "grid grid-cols-2 sm:grid-cols-3 gap-2 content-start" : "space-y-1"
-                }`}
+                role="listbox"
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain custom-scrollbar pr-1.5 pb-6"
               >
+                <div
+                  key={modalTab}
+                  data-slide-dir={tabSlideDir ?? undefined}
+                  className={`guide-step-slide ${
+                    modalTab === "student" ? "grid grid-cols-2 sm:grid-cols-3 gap-2 content-start" : "space-y-1"
+                  }`}
+                >
               {filteredModalOptions.map((opt, idx) => {
                 const isSelected = modalTab === "student" ? opt.id === groupId : opt.id === teacherId;
                 const isHighlighted = idx === modalHighlightedIndex;
@@ -307,6 +308,11 @@ export function ContextSelectionModal({
               )}
               </div>
             </div>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-sys-card to-transparent"
+            />
+          </div>
       </div>
     </AppDialog>
   );

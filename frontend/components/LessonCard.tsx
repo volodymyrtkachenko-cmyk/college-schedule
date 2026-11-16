@@ -847,7 +847,7 @@ export const LessonCard = memo(function LessonCard({
 
       {/* Week Mode Layout */}
       {!isDay && (
-        <div className="flex items-start gap-2.5 sm:gap-3 h-full">
+        <div className="flex items-stretch gap-2.5 sm:gap-3 h-full">
           {!hideTimeColumn && (
             <div className="ui-mono-slot flex w-11 sm:w-12 shrink-0 flex-col text-left">
               <div className="flex items-center gap-1.5">
@@ -872,7 +872,7 @@ export const LessonCard = memo(function LessonCard({
             </div>
           )}
 
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex min-w-0 flex-1 flex-col gap-1 h-full">
             <div className="min-w-0">
               {renderSubjectTitle("font-semibold leading-snug text-sm sm:text-[15px]", lesson.subject_name)}
               {lesson.event_title && lesson.event_title !== lesson.subject_name && (

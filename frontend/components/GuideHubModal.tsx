@@ -245,7 +245,7 @@ export function GuideHubModal({
               {(role === "student" ? groupName : teacherName) && (
                 <p className="text-[11px] font-medium text-sys-text-secondary truncate">
                   {role === "student"
-                    ? `Група ${groupName}${settings.defaultSubgroup !== "all" ? ` · ${settings.defaultSubgroup} підгр.` : ""}`
+                    ? `Група ${groupName}${settings.defaultSubgroup === 1 || settings.defaultSubgroup === 2 ? ` · ${settings.defaultSubgroup} підгр.` : ""}`
                     : `Викладач: ${teacherName}`}
                 </p>
               )}

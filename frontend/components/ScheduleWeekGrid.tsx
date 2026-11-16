@@ -300,7 +300,7 @@ export function ScheduleWeekGrid({
                   : "bg-sys-card border-sys-border"
               }`}
             >
-              <div className="flex items-center justify-between gap-1.5">
+              <div className="flex min-h-[26px] items-center justify-between gap-1.5">
                 <span
                   data-morph-day={day.date}
                   className="w-fit max-w-full text-[17px] xl:text-[18px] font-bold capitalize tracking-tight truncate text-sys-text-primary"

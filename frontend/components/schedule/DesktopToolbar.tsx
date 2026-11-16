@@ -416,7 +416,7 @@ export function DesktopToolbar({
                 onKeyDown={handleMenuKeyDown}
                 data-closing={isNavMenuClosing ? "true" : undefined}
                 style={{ "--popup-y": "-6px", transformOrigin: "top right" } as React.CSSProperties}
-                className="discrete-popup desktop-spring-popup absolute right-0 top-full mt-2 w-64 rounded-2xl border border-sys-border bg-sys-card p-1.5 shadow-xl z-50"
+                className="discrete-popup desktop-spring-popup absolute right-0 top-full mt-2 w-64 rounded-2xl border border-sys-border bg-sys-card backdrop-blur-2xl p-1.5 shadow-[0_20px_50px_-12px_rgb(0_0_0/0.42)] z-50"
               >
                 {SECTION_LINKS.map((item) => {
                   const Icon = item.icon;

@@ -66,10 +66,48 @@ function clearMorphHeroMarkers() {
 function markVtRevealedNodes() {
   if (typeof document === "undefined") return;
   document
-    .querySelectorAll(".vt-main-content :is(.desktop-view-enter, .desktop-stagger-card, .week-grid-enter)")
+    .querySelectorAll(".vt-main-content :is(.desktop-view-enter, .desktop-day-slide, .desktop-stagger-card, .week-grid-enter)")
     .forEach((el) => {
       (el as HTMLElement).dataset.vtRevealed = "1";
     });
+}
+
+let daySlideSeq = 0;
+
+function runDesktopDayTransition(
+  currentView: "today" | "week",
+  direction: "next" | "prev",
+  commitUpdate: () => void,
+) {
+  if (
+    currentView !== "today" ||
+    !canUseDesktopMorphTransition() ||
+    !document.querySelector(".vt-schedule-day-stage")
+  ) {
+    commitUpdate();
+    return;
+  }
+
+  const seq = ++daySlideSeq;
+  document.documentElement.dataset.vtDayDir = direction;
+
+  const finishCleanup = () => {
+    if (daySlideSeq === seq) {
+      delete document.documentElement.dataset.vtDayDir;
+    }
+  };
+
+  startTypedViewTransition(
+    [direction === "next" ? "day-next" : "day-prev"],
+    () => {
+      flushSync(commitUpdate);
+      markVtRevealedNodes();
+    },
+    {
+      kind: "day-slide",
+      onFinish: finishCleanup,
+    },
+  );
 }
 
 function runScheduleDayMorph(
@@ -724,11 +762,14 @@ export function useScheduleSelection({
       if (idx === selectedDayIndex) return;
       const targetIso = addDaysToCalendarIso(formatKyivDateIso(weekAnchorDate), idx);
       if ((minDateIso && targetIso < minDateIso) || (maxDateIso && targetIso > maxDateIso)) return;
-      setDaySlideDir(idx > selectedDayIndex ? 1 : -1);
-      setSelectedDayIndex(idx);
+      const dir = idx > selectedDayIndex ? "next" : "prev";
+      runDesktopDayTransition(view, dir, () => {
+        setDaySlideDir(dir === "next" ? 1 : -1);
+        setSelectedDayIndex(idx);
+      });
       resetScroll();
     },
-    [selectedDayIndex, weekAnchorDate, minDateIso, maxDateIso, resetScroll]
+    [view, selectedDayIndex, weekAnchorDate, minDateIso, maxDateIso, resetScroll]
   );
 
   const canNavigatePrevDay = useMemo(
@@ -742,96 +783,119 @@ export function useScheduleSelection({
 
   const goToPrevDay = useCallback(() => {
     if (!canNavigatePrevDay) return;
-    if (selectedDayIndex > 0) {
-      setDaySlideDir(-1);
-      setSelectedDayIndex((prev) => prev - 1);
-      resetScroll();
-    } else {
-      setDaySlideDir(-1);
-      setWeekSlideDir(-1);
-      startTransition(() => {
+    runDesktopDayTransition(view, "prev", () => {
+      if (selectedDayIndex > 0) {
+        setDaySlideDir(-1);
+        setSelectedDayIndex((prev) => prev - 1);
+      } else {
+        setDaySlideDir(-1);
+        setWeekSlideDir(-1);
         setWeekAnchorDate((prev) =>
           calendarDateIsoToUtcDate(addDaysToCalendarIso(formatKyivDateIso(prev), -7))
         );
         setSelectedDayIndex(4);
-      });
-      resetScroll();
-    }
-  }, [canNavigatePrevDay, selectedDayIndex, setWeekAnchorDate, resetScroll]);
+      }
+    });
+    resetScroll();
+  }, [view, canNavigatePrevDay, selectedDayIndex, setWeekAnchorDate, resetScroll]);
 
   const goToNextDay = useCallback(() => {
     if (!canNavigateNextDay) return;
-    if (selectedDayIndex < 4) {
-      setDaySlideDir(1);
-      setSelectedDayIndex((prev) => prev + 1);
-      resetScroll();
-    } else {
-      setDaySlideDir(1);
-      setWeekSlideDir(1);
-      startTransition(() => {
+    runDesktopDayTransition(view, "next", () => {
+      if (selectedDayIndex < 4) {
+        setDaySlideDir(1);
+        setSelectedDayIndex((prev) => prev + 1);
+      } else {
+        setDaySlideDir(1);
+        setWeekSlideDir(1);
         setWeekAnchorDate((prev) =>
           calendarDateIsoToUtcDate(addDaysToCalendarIso(formatKyivDateIso(prev), 7))
         );
         setSelectedDayIndex(0);
-      });
-      resetScroll();
-    }
-  }, [canNavigateNextDay, selectedDayIndex, setWeekAnchorDate, resetScroll]);
+      }
+    });
+    resetScroll();
+  }, [view, canNavigateNextDay, selectedDayIndex, setWeekAnchorDate, resetScroll]);
 
   const shiftWeekPreservingDay = useCallback(
     (offset: number) => {
       if (offset < 0 && !canNavigatePrevWeek) return;
       if (offset > 0 && !canNavigateNextWeek) return;
-      setWeekSlideDir(offset > 0 ? 1 : -1);
-      setDaySlideDir(offset > 0 ? 1 : -1);
-      startTransition(() => {
+      const dir = offset > 0 ? "next" : "prev";
+      const commit = () => {
+        setWeekSlideDir(offset > 0 ? 1 : -1);
+        setDaySlideDir(offset > 0 ? 1 : -1);
         setWeekAnchorDate((prev) =>
           calendarDateIsoToUtcDate(addDaysToCalendarIso(formatKyivDateIso(prev), offset * 7))
         );
-      });
+      };
+      if (view === "today" && offset !== 0) {
+        runDesktopDayTransition(view, dir, commit);
+      } else {
+        startTransition(commit);
+      }
       resetScroll();
     },
-    [canNavigatePrevWeek, canNavigateNextWeek, setWeekAnchorDate, resetScroll]
+    [view, canNavigatePrevWeek, canNavigateNextWeek, setWeekAnchorDate, resetScroll]
   );
 
   const resetWeekPreservingDay = useCallback(() => {
     const currentAnchor = getKyivInitialWeekAnchor(getSyncedNow());
     const diffDays = diffCalendarDays(formatKyivDateIso(currentAnchor), formatKyivDateIso(weekAnchorDate));
-    setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
-    startTransition(() => {
+    const commit = () => {
+      setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
       setWeekAnchorDate(currentAnchor);
-    });
+    };
+    if (view === "today" && diffDays !== 0) {
+      runDesktopDayTransition(view, diffDays > 0 ? "next" : "prev", commit);
+    } else {
+      startTransition(commit);
+    }
     resetScroll();
-  }, [weekAnchorDate, setWeekAnchorDate, resetScroll]);
+  }, [view, weekAnchorDate, setWeekAnchorDate, resetScroll]);
 
   const handleJumpToToday = useCallback(() => {
     const liveNow = getSyncedNow();
     const currentAnchor = getKyivInitialWeekAnchor(liveNow);
+    const nextIdx = getActualTodayIndex(liveNow);
+    const targetIso = addDaysToCalendarIso(formatKyivDateIso(currentAnchor), nextIdx);
     const diffDays = diffCalendarDays(formatKyivDateIso(currentAnchor), formatKyivDateIso(weekAnchorDate));
-    setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
-    startTransition(() => {
+    const commit = () => {
+      setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
       setWeekAnchorDate(currentAnchor);
-      setSelectedDayIndex(getActualTodayIndex(liveNow));
+      setSelectedDayIndex(nextIdx);
       setDaySlideDir(0);
-    });
+    };
+    if (view === "today" && targetIso !== activeDayDate) {
+      runDesktopDayTransition(view, targetIso > activeDayDate ? "next" : "prev", commit);
+    } else {
+      startTransition(commit);
+    }
     resetScroll();
-  }, [weekAnchorDate, setWeekAnchorDate, resetScroll]);
+  }, [view, activeDayDate, weekAnchorDate, setWeekAnchorDate, resetScroll]);
 
   const handleJumpToTomorrow = useCallback(() => {
     const liveNow = getSyncedNow();
     const currentAnchor = getKyivInitialWeekAnchor(liveNow);
     const dow = getKyivWeekday(liveNow);
+    const nextIdx = dow >= 1 && dow <= 4 ? dow : selectedDayIndex;
+    const targetIso = addDaysToCalendarIso(formatKyivDateIso(currentAnchor), nextIdx);
     const diffDays = diffCalendarDays(formatKyivDateIso(currentAnchor), formatKyivDateIso(weekAnchorDate));
-    setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
-    startTransition(() => {
+    const commit = () => {
+      setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
       setWeekAnchorDate(currentAnchor);
       if (dow >= 1 && dow <= 4) {
         setSelectedDayIndex(dow);
       }
       setDaySlideDir(0);
-    });
+    };
+    if (view === "today" && targetIso !== activeDayDate) {
+      runDesktopDayTransition(view, targetIso > activeDayDate ? "next" : "prev", commit);
+    } else {
+      startTransition(commit);
+    }
     resetScroll();
-  }, [weekAnchorDate, setWeekAnchorDate, resetScroll]);
+  }, [view, activeDayDate, selectedDayIndex, weekAnchorDate, setWeekAnchorDate, resetScroll]);
 
   const handleDatePickerSelect = useCallback(
     (target: string | Date) => {
@@ -840,16 +904,23 @@ export function useScheduleSelection({
       const newAnchorIso = getMondayCalendarIso(targetIso);
       const newAnchor = calendarDateIsoToUtcDate(newAnchorIso);
       const kyivDowMon0 = getCalendarWeekdayMon0(targetIso);
+      const nextIdx = kyivDowMon0 < 5 ? kyivDowMon0 : 0;
+      const effectiveTargetIso = addDaysToCalendarIso(newAnchorIso, nextIdx);
       const diffDays = diffCalendarDays(newAnchorIso, formatKyivDateIso(weekAnchorDate));
-      setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
-      startTransition(() => {
+      const commit = () => {
+        setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
         setWeekAnchorDate(newAnchor);
-        setSelectedDayIndex(kyivDowMon0 < 5 ? kyivDowMon0 : 0);
+        setSelectedDayIndex(nextIdx);
         setDaySlideDir(0);
-      });
+      };
+      if (view === "today" && effectiveTargetIso !== activeDayDate) {
+        runDesktopDayTransition(view, effectiveTargetIso > activeDayDate ? "next" : "prev", commit);
+      } else {
+        startTransition(commit);
+      }
       resetScroll();
     },
-    [minDateIso, maxDateIso, weekAnchorDate, setWeekAnchorDate, resetScroll]
+    [view, activeDayDate, minDateIso, maxDateIso, weekAnchorDate, setWeekAnchorDate, resetScroll]
   );
 
   const handleViewChange = useCallback(

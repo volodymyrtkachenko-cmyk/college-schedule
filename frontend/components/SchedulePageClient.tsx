@@ -576,7 +576,7 @@ export function SchedulePageClient({
                             </div>
                           )}
 
-                          <div className="relative w-full">
+                          <div className="relative w-full vt-schedule-day-stage">
                               <ScheduleDay
                                 schedule={sel.selectedDaySchedule ?? today!}
                                 isToday={sel.selectedDaySchedule?.date === sel.todayActualIso && !sel.isWeekend}

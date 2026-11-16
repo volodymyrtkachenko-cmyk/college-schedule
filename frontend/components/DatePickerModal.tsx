@@ -57,11 +57,13 @@ export function DatePickerModal({
   }, [selectedDateIso, todayDateIso]);
 
   const [{ year: viewYear, monthIndex0: viewMonth }, setViewMonthAnchor] = useState(initialAnchor);
+  const [hoveredDateIso, setHoveredDateIso] = useState<string | null>(null);
 
   // Reset view to selected date when modal opens
   useEffect(() => {
     if (isOpen) {
       setViewMonthAnchor(initialAnchor);
+      setHoveredDateIso(null);
     }
   }, [isOpen, initialAnchor]);
 
@@ -198,7 +200,10 @@ export function DatePickerModal({
         </div>
 
         {/* Days Grid */}
-        <div className="grid grid-cols-7 gap-1">
+        <div
+          className="grid grid-cols-7 gap-1"
+          onMouseLeave={() => setHoveredDateIso(null)}
+        >
           {calendarGrid.map((item, idx) => {
             const isSelected = item.dateIso === selectedDateIso;
             const isToday = item.dateIso === todayDateIso;
@@ -213,6 +218,12 @@ export function DatePickerModal({
                 key={`${item.dateIso}-${idx}`}
                 type="button"
                 disabled={isOutOfBounds}
+                onMouseEnter={() => {
+                  if (!isOutOfBounds) setHoveredDateIso(item.dateIso);
+                }}
+                onFocus={() => {
+                  if (!isOutOfBounds) setHoveredDateIso(item.dateIso);
+                }}
                 onClick={() => handleSelect(item.dateIso)}
                 className={`relative flex h-10 w-full items-center justify-center rounded-xl text-xs sm:text-[13px] transition-[color,background-color,transform] duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent active:scale-95 disabled:opacity-25 disabled:pointer-events-none disabled:cursor-not-allowed ${
                   isSelected
@@ -241,10 +252,16 @@ export function DatePickerModal({
         <div className="mt-3.5 pt-2.5 border-t border-sys-border/60 flex items-center justify-between gap-2">
           <div className="text-[11px] text-sys-text-secondary truncate">
             {(() => {
-              const info = getWeekInfo(formatCalendarDateParts(viewYear, viewMonth, 15));
+              const monthPrefix = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-`;
+              const previewIso =
+                hoveredDateIso ??
+                (selectedDateIso.startsWith(monthPrefix)
+                  ? selectedDateIso
+                  : formatCalendarDateParts(viewYear, viewMonth, 15));
+              const info = getWeekInfo(previewIso);
               if (!info) return null;
               return (
-                <span className="inline-flex items-center gap-1 font-medium">
+                <span className="inline-flex items-center gap-1.5 font-medium">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-sys-accent" />
                   <span>{info.weekNum} тижд. ({info.type})</span>
                 </span>
