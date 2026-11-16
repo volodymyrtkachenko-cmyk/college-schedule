@@ -1669,7 +1669,7 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
   --lesson-day-min-h: 140px;
   --lesson-week-pad: 0.625rem;
   --lesson-stack-gap: 0.75rem;
-  --lesson-live-extra-b: 0.85rem;
+  --lesson-live-extra-b: 0.2rem;
 }
 
 html[data-radius="sharp"] {
@@ -1710,7 +1710,7 @@ html[data-density="compact"] {
   --lesson-day-min-h: 102px;
   --lesson-week-pad: 0.5rem;
   --lesson-stack-gap: 0.5rem;
-  --lesson-live-extra-b: 0.72rem;
+  --lesson-live-extra-b: 0.15rem;
 }
 
 html[data-density="relaxed"] {
@@ -1723,7 +1723,7 @@ html[data-density="relaxed"] {
   --lesson-day-min-h: 164px;
   --lesson-week-pad: 0.875rem;
   --lesson-stack-gap: 1.05rem;
-  --lesson-live-extra-b: 0.95rem;
+  --lesson-live-extra-b: 0.2rem;
 }
 
 .schedule-day-stack {
@@ -1743,9 +1743,12 @@ html[data-density="relaxed"] {
 }
 
 .live-card-ambient {
-  background-image:
-    radial-gradient(460px 200px at 0% 0%, rgb(var(--sys-accent) / 0.18), transparent 68%),
-    linear-gradient(96deg, rgb(var(--sys-accent) / 0.09) 0%, transparent 56%);
+  background-image: linear-gradient(
+    180deg,
+    rgb(var(--sys-accent) / 0.055) 0%,
+    rgb(var(--sys-accent) / 0.015) 58%,
+    transparent 100%
+  );
 }
 
 @media (min-width: 640px) {

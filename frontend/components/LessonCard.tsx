@@ -493,7 +493,7 @@ export const LessonCard = memo(function LessonCard({
       : lesson.is_cancelled
         ? "border-rose-500/40 border-dashed bg-rose-500/[0.04] opacity-80"
         : isLive
-          ? "border-sys-accent/80 ring-2 ring-sys-accent/25 shadow-[0_10px_30px_-8px_rgb(var(--sys-accent)/0.3)]"
+          ? "border-sys-accent/65 ring-1 ring-sys-accent/20 shadow-[0_6px_22px_-8px_rgb(var(--sys-accent)/0.22)]"
           : eventBadge
             ? eventBadge.cardClass
             : lesson.is_replacement
@@ -583,7 +583,23 @@ export const LessonCard = memo(function LessonCard({
           className="pointer-events-none absolute inset-0 rounded-[inherit] overflow-hidden"
         >
           <div className="live-card-ambient absolute inset-0" />
-          <span className="absolute left-0 top-2.5 bottom-2.5 w-[3.5px] sm:w-1 rounded-r-full bg-sys-accent shadow-[0_0_12px_rgb(var(--sys-accent)/0.65)]" />
+          <span
+            className={`absolute rounded-full bg-sys-accent/80 ${
+              isDay
+                ? "left-1.5 sm:left-2 top-3.5 bottom-3.5 w-[3px]"
+                : "left-1 top-2.5 bottom-2.5 w-[2.5px]"
+            }`}
+          />
+          <div
+            className={`absolute bottom-0 inset-x-0 bg-sys-accent/12 ${
+              isDay ? "h-[3px]" : "h-[2.5px]"
+            }`}
+          >
+            <div
+              className="h-full bg-sys-accent/90 transition-[width] duration-300 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
         </div>
       )}
 
@@ -592,9 +608,14 @@ export const LessonCard = memo(function LessonCard({
         <div className="hidden sm:flex sm:items-stretch gap-4 w-full flex-1">
           {!hideTimeColumn && (
             <div className="w-24 sm:w-28 shrink-0 self-start flex flex-col items-start pr-4 border-r border-sys-border/50 text-left pt-1">
-              <span className={`ui-mono-slot text-2xl sm:text-[26px] font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
-                {lesson.lesson_number}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`ui-mono-slot text-2xl sm:text-[26px] font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
+                  {lesson.lesson_number}
+                </span>
+                {isLive && (
+                  <span className="live-dot-settle h-2 w-2 rounded-full bg-sys-accent shrink-0" />
+                )}
+              </div>
               <div className="ui-mono-slot mt-1.5 flex flex-col leading-tight whitespace-nowrap">
                 <span className="text-sm sm:text-[15px] font-bold text-sys-text-primary">{startT}</span>
                 <span className="text-xs text-sys-text-muted mt-0.5">
@@ -602,15 +623,9 @@ export const LessonCard = memo(function LessonCard({
                 </span>
               </div>
               {isLive && (
-                <div className="mt-2 flex flex-col items-start gap-1">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-sys-accentSolid px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-white shadow-xs whitespace-nowrap">
-                    <span className="live-dot-settle h-1.5 w-1.5 rounded-full bg-white shrink-0" />
-                    <span>Зараз</span>
-                  </span>
-                  <span className="ui-mono-slot text-[11px] font-bold text-sys-accent whitespace-nowrap">
-                    ще {remainingMin} хв · {progressPercent}%
-                  </span>
-                </div>
+                <span className="ui-mono-slot mt-1.5 text-[11px] font-semibold text-sys-accent whitespace-nowrap">
+                  ще {remainingMin} хв
+                </span>
               )}
             </div>
           )}
@@ -631,6 +646,15 @@ export const LessonCard = memo(function LessonCard({
 
               <div className="shrink-0 sm:max-w-[42%] lg:max-w-[44%] flex flex-col items-end justify-start gap-2 pt-0.5">
                 <div className="flex flex-wrap items-center justify-end gap-2">
+                  {isLive && (
+                    <span
+                      title={`Триває пара · ${progressPercent}%`}
+                      className="inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-accent/30 bg-sys-accent/10 text-sys-accent font-semibold text-xs whitespace-nowrap"
+                    >
+                      <span className="live-dot-settle h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
+                      <span>Зараз</span>
+                    </span>
+                  )}
                   {(!isDualTeachers || isSingleSubgroupShown) && displayRooms.length > 0 && (
                     <div className="ui-mono-slot inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
                       <span>{roomsLabel}</span>
@@ -716,8 +740,11 @@ export const LessonCard = memo(function LessonCard({
               {canEdit ? (
                 <LessonCardActions variant="mobile-day" {...sharedActionProps} />
               ) : isLive ? (
-                <div className="ui-mono-slot shrink-0 flex items-center gap-1.5 rounded-full bg-sys-accentSolid px-2.5 py-0.5 text-[11px] font-bold text-white shadow-xs whitespace-nowrap ml-auto">
-                  <span className="live-dot-settle h-1.5 w-1.5 rounded-full bg-white shrink-0" />
+                <div
+                  title={`Триває пара · ${progressPercent}%`}
+                  className="ui-mono-slot shrink-0 flex items-center gap-1.5 rounded-full border border-sys-accent/30 bg-sys-accent/10 px-2.5 py-0.5 text-[11px] font-semibold text-sys-accent whitespace-nowrap ml-auto"
+                >
+                  <span className="live-dot-settle h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
                   <span>Зараз · {remainingMin} хв</span>
                 </div>
               ) : !hasBothRoomAndMeet && (!isDualTeachers || isSingleSubgroupShown) ? (
@@ -821,22 +848,24 @@ export const LessonCard = memo(function LessonCard({
         <div className="flex items-start gap-2.5 sm:gap-3 h-full">
           {!hideTimeColumn && (
             <div className="ui-mono-slot flex w-11 sm:w-12 shrink-0 flex-col text-left">
-              <span className={`text-lg sm:text-xl font-bold leading-none transition-colors ${isLive ? "text-sys-accent font-black" : "text-sys-text-primary"}`}>
-                {lesson.lesson_number}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-lg sm:text-xl font-bold leading-none transition-colors ${isLive ? "text-sys-accent font-black" : "text-sys-text-primary"}`}>
+                  {lesson.lesson_number}
+                </span>
+                {isLive && (
+                  <span className="live-dot-settle h-1.5 w-1.5 shrink-0 rounded-full bg-sys-accent" />
+                )}
+              </div>
               <span className="text-xs sm:text-xs font-semibold text-sys-text-secondary mt-1 whitespace-nowrap">
                 {startT}
               </span>
               {isLive && (
-                <div className="mt-1.5 flex flex-col items-start gap-0.5">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-sys-accentSolid px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-xs whitespace-nowrap">
-                    <span className="live-dot-settle h-1 w-1 rounded-full bg-white shrink-0" />
-                    <span>Зараз</span>
-                  </span>
-                  <span className="text-[11px] font-bold text-sys-accent whitespace-nowrap">
-                    {remainingMin} хв
-                  </span>
-                </div>
+                <span
+                  title={`Триває пара · ${progressPercent}%`}
+                  className="mt-1 inline-flex items-center rounded-md border border-sys-accent/25 bg-sys-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-sys-accent whitespace-nowrap self-start"
+                >
+                  {remainingMin} хв
+                </span>
               )}
             </div>
           )}
@@ -935,23 +964,6 @@ export const LessonCard = memo(function LessonCard({
           initialMode={noteModalMode}
           onClose={() => setNoteModalMode(null)}
         />
-      )}
-
-      {isLive && (
-        <div
-          aria-hidden="true"
-          title={`Триває пара · ${progressPercent}% (ще ${remainingMin} хв)`}
-          className={`absolute h-1 rounded-full bg-sys-accent/20 ${
-            isDay ? "left-4 right-4 bottom-2.5" : "left-2.5 right-2.5 bottom-2"
-          }`}
-        >
-          <div
-            className="relative h-full rounded-full bg-sys-accent transition-[width] duration-300 ease-out"
-            style={{ width: `${progressPercent}%` }}
-          >
-            <span className="live-dot-settle absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 translate-x-1/2 rounded-full bg-sys-accent ring-2 ring-sys-card shadow-[0_0_8px_rgb(var(--sys-accent)/0.85)]" />
-          </div>
-        </div>
       )}
     </article>
   );
