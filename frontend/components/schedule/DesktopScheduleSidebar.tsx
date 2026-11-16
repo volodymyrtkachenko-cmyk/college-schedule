@@ -2,8 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { m } from "framer-motion";
 import type { ScheduleResponse } from "../../lib/api";
 import type { SubjectHubTarget, WeekDayMini } from "../../lib/schedule";
+import { useDesktopMotionEnabled } from "../../lib/useViewportTier";
 import { formatTaskWord, type TaskGroupsResult } from "../../lib/useTaskGroups";
 import { ClassroomSyncButton } from "../ClassroomSyncButton";
 import type { FullTaskItem } from "../TaskCardItem";
@@ -78,6 +80,7 @@ export function DesktopScheduleSidebar({
   onOpenSubjectHub,
 }: DesktopScheduleSidebarProps) {
   const clampedDayIndex = Math.max(0, Math.min(selectedDayIndex, Math.max(0, weekDaysMini.length - 1)));
+  const desktopMotion = useDesktopMotionEnabled();
 
   const [tasksMounted, setTasksMounted] = useState(() => desktopSidebarTab === "tasks");
   const [gradesMounted, setGradesMounted] = useState(() => desktopSidebarTab === "grades");
@@ -178,10 +181,10 @@ export function DesktopScheduleSidebar({
             </button>
           </div>
 
-          {/* 5-Day Quick Switcher — Pure GPU translate3d pill */}
+          {/* 5-Day Quick Switcher — Framer layoutId pill on desktop or pure GPU translate3d */}
           <div className="mt-4">
             <div className="relative grid grid-cols-5 gap-2 isolate">
-              {weekDaysMini.length === 5 && (
+              {!desktopMotion && weekDaysMini.length === 5 && (
                 <div
                   aria-hidden="true"
                   className={`pointer-events-none absolute top-0 bottom-0 left-0 z-0 rounded-xl bg-sys-accentSolid shadow-md ring-2 ring-sys-accent/60 transform-gpu ${
@@ -211,7 +214,15 @@ export function DesktopScheduleSidebar({
                         : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
                     }`}
                   >
-                    <div className="flex items-center gap-1.5">
+                    {desktopMotion && isActive && (
+                      <m.div
+                        layoutId="desktop-sidebar-day-pill"
+                        transition={{ type: "spring", stiffness: 460, damping: 31 }}
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 rounded-xl bg-sys-accentSolid shadow-md ring-2 ring-sys-accent/60"
+                      />
+                    )}
+                    <div className="relative z-10 flex items-center gap-1.5">
                       <span className="text-xs uppercase font-semibold">{d.name}</span>
                       {isToday && (
                         <span
@@ -220,7 +231,7 @@ export function DesktopScheduleSidebar({
                         />
                       )}
                     </div>
-                    <span className="ui-mono-slot text-xl font-bold mt-0.5 leading-none">{d.dateStr}</span>
+                    <span className="relative z-10 ui-mono-slot text-xl font-bold mt-0.5 leading-none">{d.dateStr}</span>
                   </button>
                 );
               })}
@@ -242,24 +253,26 @@ export function DesktopScheduleSidebar({
                 </h2>
               </div>
 
-              {/* Desktop Segmented Toggle: Завдання vs Оцінки (Pure GPU translate3d) */}
+              {/* Desktop Segmented Toggle: Завдання vs Оцінки (layoutId on desktop, GPU slider fallback) */}
               <div
                 role="group"
                 aria-label="Розділ Classroom"
                 className="relative grid grid-cols-2 items-center rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs isolate"
               >
-                <div
-                  aria-hidden="true"
-                  className={`pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 z-0 rounded-md bg-sys-accentSolid shadow-xs transform-gpu ${
-                    shouldReduceMotion
-                      ? ""
-                      : "transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
-                  }`}
-                  style={{
-                    width: "calc((100% - 4px) / 2)",
-                    transform: `translate3d(${desktopSidebarTab === "grades" ? "100%" : "0%"}, 0, 0)`,
-                  }}
-                />
+                {!desktopMotion && (
+                  <div
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 z-0 rounded-md bg-sys-accentSolid shadow-xs transform-gpu ${
+                      shouldReduceMotion
+                        ? ""
+                        : "transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                    }`}
+                    style={{
+                      width: "calc((100% - 4px) / 2)",
+                      transform: `translate3d(${desktopSidebarTab === "grades" ? "100%" : "0%"}, 0, 0)`,
+                    }}
+                  />
+                )}
                 <button
                   type="button"
                   aria-pressed={desktopSidebarTab === "tasks"}
@@ -272,7 +285,15 @@ export function DesktopScheduleSidebar({
                       : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  Завдання
+                  {desktopMotion && desktopSidebarTab === "tasks" && (
+                    <m.div
+                      layoutId="desktop-sidebar-tab-pill"
+                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 rounded-md bg-sys-accentSolid shadow-xs"
+                    />
+                  )}
+                  <span className="relative z-10">Завдання</span>
                 </button>
                 <button
                   type="button"
@@ -286,7 +307,15 @@ export function DesktopScheduleSidebar({
                       : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  Оцінки
+                  {desktopMotion && desktopSidebarTab === "grades" && (
+                    <m.div
+                      layoutId="desktop-sidebar-tab-pill"
+                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 rounded-md bg-sys-accentSolid shadow-xs"
+                    />
+                  )}
+                  <span className="relative z-10">Оцінки</span>
                 </button>
               </div>
             </div>

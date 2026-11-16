@@ -100,7 +100,7 @@ export function LessonMoreMenu({
   onOpenPermanentSchedule?: (lesson: Lesson) => void;
   onOpenNoteModal: (mode: "edit" | "history") => void;
 }) {
-  const { shouldRender, isClosing } = useAnimatedDisclosure(open, 170);
+  const { shouldRender, isClosing } = useAnimatedDisclosure(open, 190);
   if (!shouldRender) return null;
 
   return (
@@ -116,8 +116,11 @@ export function LessonMoreMenu({
       <div
         data-closing={isClosing ? "true" : undefined}
         onClick={(e) => e.stopPropagation()}
-        style={{ "--popup-y": alignTop ? "6px" : "-6px" } as React.CSSProperties}
-        className={`discrete-popup absolute right-0 ${
+        style={{
+          "--popup-y": alignTop ? "6px" : "-6px",
+          "--popup-origin": alignTop ? "bottom right" : "top right",
+        } as React.CSSProperties}
+        className={`discrete-popup desktop-spring-popup absolute right-0 ${
           alignTop ? "bottom-full mb-1" : "top-full mt-1"
         } z-50 min-w-[200px] rounded-xl border border-sys-border bg-sys-card shadow-lg sm:shadow-2xl p-1 text-xs space-y-0.5`}
       >

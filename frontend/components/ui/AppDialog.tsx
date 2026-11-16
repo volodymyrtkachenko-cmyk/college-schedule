@@ -56,6 +56,7 @@ export function AppDialog({
   const isOpenRef = useRef(isOpen);
   const onCloseRef = useRef(onClose);
   const closeDisabledRef = useRef(closeDisabled);
+  const closingManagedRef = useRef(false);
 
   isOpenRef.current = isOpen;
   onCloseRef.current = onClose;
@@ -81,6 +82,7 @@ export function AppDialog({
     if (!dialog) return;
 
     if (isOpen) {
+      closingManagedRef.current = false;
       cancelPendingTopLayerClose(dialog);
       if (dialog.open || prefersReducedMotion()) {
         openTopLayer(dialog);
@@ -98,12 +100,17 @@ export function AppDialog({
       return () => window.cancelAnimationFrame(rafId);
     }
 
+    closingManagedRef.current = true;
     const cancelClose = closeTopLayer(dialog, () => {
+      closingManagedRef.current = false;
       if (!isOpenRef.current) {
         setKeepMountedForExit(false);
       }
     });
-    return cancelClose;
+    return () => {
+      closingManagedRef.current = false;
+      cancelClose();
+    };
   }, [isOpen]);
 
   // Ensure unmount cleans up top-layer immediately.
@@ -138,7 +145,7 @@ export function AppDialog({
     const handleNativeClose = () => {
       if (isOpenRef.current) {
         onCloseRef.current();
-      } else {
+      } else if (!closingManagedRef.current) {
         setKeepMountedForExit(false);
       }
     };

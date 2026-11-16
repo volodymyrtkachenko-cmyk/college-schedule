@@ -1,6 +1,8 @@
 "use client";
 
+import { m } from "framer-motion";
 import type { HeaderLearningModeData, WeekDayMini } from "../../lib/schedule";
+import { useDesktopMotionEnabled } from "../../lib/useViewportTier";
 import { LearningModeBadge } from "./LearningModeBadge";
 
 interface DesktopFocusDaySwitcherProps {
@@ -32,6 +34,8 @@ export function DesktopFocusDaySwitcher({
   onToggleFocusMode,
   onSelectDayIndex,
 }: DesktopFocusDaySwitcherProps) {
+  const desktopMotion = useDesktopMotionEnabled();
+
   return (
     <div
       style={{
@@ -41,11 +45,17 @@ export function DesktopFocusDaySwitcher({
         marginBottom: visible ? 20 : 0,
         transition: shouldReduceMotion
           ? "none"
-          : "grid-template-rows 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, margin-bottom 0.24s cubic-bezier(0.22, 1, 0.36, 1)",
+          : "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, margin-bottom 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
       className={`w-full overflow-hidden ${visible ? "" : "pointer-events-none"}`}
     >
-      <div className="min-h-0 overflow-hidden">
+      <div
+        className="min-h-0 overflow-hidden"
+        style={{
+          transform: shouldReduceMotion ? undefined : visible ? "translate3d(0, 0, 0)" : "translate3d(0, -10px, 0)",
+          transition: shouldReduceMotion ? "none" : "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+      >
         <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-sys-border/50">
             <div className="flex items-center gap-2 min-w-0">
@@ -87,7 +97,7 @@ export function DesktopFocusDaySwitcher({
           </div>
 
           <div className="relative grid grid-cols-5 gap-2 isolate">
-            {weekDaysMini.length === 5 && (
+            {!desktopMotion && weekDaysMini.length === 5 && (
               <div
                 aria-hidden="true"
                 className={`pointer-events-none absolute top-0 bottom-0 left-0 z-0 rounded-xl bg-sys-accentSolid shadow-md ring-2 ring-sys-accent/60 transform-gpu ${
@@ -115,7 +125,15 @@ export function DesktopFocusDaySwitcher({
                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5">
+                  {desktopMotion && isActive && (
+                    <m.div
+                      layoutId="desktop-focus-day-pill"
+                      transition={{ type: "spring", stiffness: 460, damping: 31 }}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 rounded-xl bg-sys-accentSolid shadow-md ring-2 ring-sys-accent/60"
+                    />
+                  )}
+                  <div className="relative z-10 flex items-center gap-1.5">
                     <span className="text-xs uppercase font-semibold">{d.name}</span>
                     {isToday && (
                       <span
@@ -124,7 +142,7 @@ export function DesktopFocusDaySwitcher({
                       />
                     )}
                   </div>
-                  <span className="text-xl font-bold mt-0.5 leading-none">{d.dateStr}</span>
+                  <span className="relative z-10 text-xl font-bold mt-0.5 leading-none">{d.dateStr}</span>
                 </button>
               );
             })}

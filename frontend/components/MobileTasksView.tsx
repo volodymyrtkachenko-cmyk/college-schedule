@@ -2,7 +2,9 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { AnimatePresence, m } from "framer-motion";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
+import { useDesktopMotionEnabled } from "../lib/useViewportTier";
 import type { ScheduleResponse } from "../lib/api";
 import { KYIV_TIME_FMT } from "../lib/date";
 import { buildCurrentScheduleHref, resolveScheduleSubtabFromSearch } from "../lib/navigation";
@@ -43,6 +45,7 @@ const DONE_INITIAL_LIMIT = 15;
 export function TasksTodoBoard({
   tasks,
   isLinked,
+  layoutPrefix = "tasks",
 }: {
   tasks: FullTaskItem[];
   isLinked: boolean;
@@ -50,18 +53,21 @@ export function TasksTodoBoard({
   groupId?: number | null;
   layoutPrefix?: string;
 }) {
+  const desktopMotion = useDesktopMotionEnabled();
   const [activeTab, setActiveTab] = useState<TasksTabMode>("pending");
   const [prevTab, setPrevTab] = useState<TasksTabMode>("pending");
+  const [hasSwitchedTab, setHasSwitchedTab] = useState(false);
   const [tabSlideDir, setTabSlideDir] = useState<"next" | "prev" | null>(null);
   if (activeTab !== prevTab) {
     setTabSlideDir(TASKS_TAB_ORDER[activeTab] > TASKS_TAB_ORDER[prevTab] ? "next" : "prev");
+    setHasSwitchedTab(true);
     setPrevTab(activeTab);
   }
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [subjectMenuOpen, setSubjectMenuOpen] = useState(false);
   const subjectMenuRef = useRef<HTMLDivElement | null>(null);
   const { shouldRender: shouldRenderSubjectMenu, isClosing: isSubjectMenuClosing } =
-    useAnimatedDisclosure(subjectMenuOpen, 170);
+    useAnimatedDisclosure(subjectMenuOpen, 190);
   const [showAllDone, setShowAllDone] = useState(false);
 
   useEffect(() => {
@@ -147,7 +153,7 @@ export function TasksTodoBoard({
         </div>
       )}
 
-      {/* 3 Status Segmented Pills — Pure GPU translate3d slider (zero layout thrashing) */}
+      {/* 3 Status Segmented Pills — Framer layoutId on desktop or pure GPU translate3d slider */}
       <div
         role="tablist"
         aria-label="Категорії завдань"
@@ -155,17 +161,19 @@ export function TasksTodoBoard({
           isLinked ? "grid-cols-3" : "grid-cols-2"
         } rounded-xl border border-sys-border bg-sys-bg p-1 text-xs font-semibold shadow-2xs select-none isolate`}
       >
-        <div
-          aria-hidden="true"
-          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
-          style={{
-            left: "4px",
-            width: `calc((100% - 8px) / ${totalStatusTabs})`,
-            transform: `translate3d(calc(${activeStatusIndex} * 100%), 0, 0)`,
-          }}
-        >
-          <div className={`h-full w-full rounded-lg shadow-xs transition-colors duration-150 ${pillBgColor}`} />
-        </div>
+        {!desktopMotion && (
+          <div
+            aria-hidden="true"
+            className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+            style={{
+              left: "4px",
+              width: `calc((100% - 8px) / ${totalStatusTabs})`,
+              transform: `translate3d(calc(${activeStatusIndex} * 100%), 0, 0)`,
+            }}
+          >
+            <div className={`h-full w-full rounded-lg shadow-xs transition-colors duration-150 ${pillBgColor}`} />
+          </div>
+        )}
 
         <button
           type="button"
@@ -178,9 +186,17 @@ export function TasksTodoBoard({
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          <span className="whitespace-nowrap">До здачі</span>
+          {desktopMotion && activeTab === "pending" && (
+            <m.div
+              layoutId={`${layoutPrefix}-status-pill`}
+              transition={{ type: "spring", stiffness: 460, damping: 32 }}
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-0 rounded-lg shadow-xs transition-colors duration-150 ${pillBgColor}`}
+            />
+          )}
+          <span className="relative z-10 whitespace-nowrap">До здачі</span>
           <span
-            className={`inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
+            className={`relative z-10 inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
               activeTab === "pending"
                 ? "bg-white/20 text-white"
                 : "bg-sys-card text-sys-text-secondary border border-sys-border/60"
@@ -203,9 +219,17 @@ export function TasksTodoBoard({
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          <span className="whitespace-nowrap">{isLinked ? "Борги" : "Минув час"}</span>
+          {desktopMotion && activeTab === "overdue" && (
+            <m.div
+              layoutId={`${layoutPrefix}-status-pill`}
+              transition={{ type: "spring", stiffness: 460, damping: 32 }}
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-0 rounded-lg shadow-xs transition-colors duration-150 ${pillBgColor}`}
+            />
+          )}
+          <span className="relative z-10 whitespace-nowrap">{isLinked ? "Борги" : "Минув час"}</span>
           <span
-            className={`inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
+            className={`relative z-10 inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
               activeTab === "overdue"
                 ? "bg-white/20 text-white"
                 : overdueTotalCount > 0 && isLinked
@@ -229,9 +253,17 @@ export function TasksTodoBoard({
                 : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
-            <span className="whitespace-nowrap">Здано</span>
+            {desktopMotion && activeTab === "done" && (
+              <m.div
+                layoutId={`${layoutPrefix}-status-pill`}
+                transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                aria-hidden="true"
+                className={`pointer-events-none absolute inset-0 rounded-lg shadow-xs transition-colors duration-150 ${pillBgColor}`}
+              />
+            )}
+            <span className="relative z-10 whitespace-nowrap">Здано</span>
             <span
-              className={`inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
+              className={`relative z-10 inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
                 activeTab === "done"
                   ? "bg-white/20 text-white"
                   : "bg-sys-card text-sys-text-secondary border border-sys-border/60"
@@ -316,8 +348,8 @@ export function TasksTodoBoard({
           {shouldRenderSubjectMenu && (
             <div
               data-closing={isSubjectMenuClosing ? "true" : undefined}
-              style={{ "--popup-y": "-6px" } as React.CSSProperties}
-              className="discrete-popup mt-1.5 max-h-60 overflow-y-auto custom-scrollbar rounded-xl border border-sys-border bg-sys-card p-1.5 shadow-lg space-y-0.5"
+              style={{ "--popup-y": "-6px", "--popup-origin": "top center" } as React.CSSProperties}
+              className="discrete-popup desktop-spring-popup mt-1.5 max-h-60 overflow-y-auto custom-scrollbar rounded-xl border border-sys-border bg-sys-card p-1.5 shadow-lg space-y-0.5"
             >
               <button
                 type="button"
@@ -391,101 +423,92 @@ export function TasksTodoBoard({
       )}
 
       {/* Tasks List by Selected Tab */}
-      <div className="overflow-x-clip">
-      {activeTab === "pending" && (
-        <div key="pending" className="guide-step-slide space-y-4" data-slide-dir={tabSlideDir ?? undefined}>
-          {activeTasks.length === 0 && noDateTasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-7 text-center">
-              <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+      {(() => {
+        const activeTabContent =
+          activeTab === "pending" ? (
+            activeTasks.length === 0 && noDateTasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-7 text-center">
+                <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-sys-text-primary">
+                  {effectiveSubject
+                    ? `З предмета «${effectiveSubject}» активних завдань немає`
+                    : "Нових завдань до здачі немає"}
+                </p>
+                <p className="text-xs text-sys-text-muted mt-1">
+                  {overdueTotalCount > 0
+                    ? `Але є нездані роботи у вкладці «${isLinked ? "Борги" : "Минув час"}» (${overdueTotalCount})`
+                    : "Усі поточні роботи виконано вчасно"}
+                </p>
+                {effectiveSubject && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubject("")}
+                    className="mt-3 rounded-lg bg-sys-accent/15 border border-sys-accent/30 px-3 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/25 transition-colors cursor-pointer"
+                  >
+                    Показати всі предмети
+                  </button>
+                )}
               </div>
-              <p className="text-sm font-semibold text-sys-text-primary">
-                {effectiveSubject
-                  ? `З предмета «${effectiveSubject}» активних завдань немає`
-                  : "Нових завдань до здачі немає"}
-              </p>
-              <p className="text-xs text-sys-text-muted mt-1">
-                {overdueTotalCount > 0
-                  ? `Але є нездані роботи у вкладці «${isLinked ? "Борги" : "Минув час"}» (${overdueTotalCount})`
-                  : "Усі поточні роботи виконано вчасно"}
-              </p>
-              {effectiveSubject && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedSubject("")}
-                  className="mt-3 rounded-lg bg-sys-accent/15 border border-sys-accent/30 px-3 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/25 transition-colors cursor-pointer"
-                >
-                  Показати всі предмети
-                </button>
-              )}
-            </div>
-          ) : (
-            <>
-              {activeTasks.length > 0 && (
-                <section className="space-y-2">
-                  <div className="flex items-center gap-2 px-1">
-                    <span className="h-2 w-2 rounded-full bg-sys-accent" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                      З терміном здачі ({activeTasks.length})
-                    </h3>
-                  </div>
-                  <div className="space-y-2">
-                    {activeTasks.map((t, idx) => (
-                      <TaskCardItem key={t.id || t.url || `act-${idx}`} task={t} isLinked={isLinked} />
-                    ))}
-                  </div>
-                </section>
-              )}
+            ) : (
+              <>
+                {activeTasks.length > 0 && (
+                  <section className="space-y-2">
+                    <div className="flex items-center gap-2 px-1">
+                      <span className="h-2 w-2 rounded-full bg-sys-accent" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+                        З терміном здачі ({activeTasks.length})
+                      </h3>
+                    </div>
+                    <div className="space-y-2">
+                      {activeTasks.map((t, idx) => (
+                        <TaskCardItem key={t.id || t.url || `act-${idx}`} task={t} isLinked={isLinked} />
+                      ))}
+                    </div>
+                  </section>
+                )}
 
-              {noDateTasks.length > 0 && (
-                <section className="space-y-2">
-                  <div className="flex items-center gap-2 px-1 pt-1">
-                    <span className="h-2 w-2 rounded-full bg-slate-400" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                      Без терміну здачі ({noDateTasks.length})
-                    </h3>
-                  </div>
-                  <div className="space-y-2">
-                    {noDateTasks.map((t, idx) => (
-                      <TaskCardItem key={t.id || t.url || `nodate-${idx}`} task={t} isLinked={isLinked} />
-                    ))}
-                  </div>
-                </section>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {activeTab === "overdue" && (
-        <div key="overdue" className="guide-step-slide space-y-2" data-slide-dir={tabSlideDir ?? undefined}>
-          {overdueTasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-7 text-center">
-              <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+                {noDateTasks.length > 0 && (
+                  <section className="space-y-2">
+                    <div className="flex items-center gap-2 px-1 pt-1">
+                      <span className="h-2 w-2 rounded-full bg-slate-400" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+                        Без терміну здачі ({noDateTasks.length})
+                      </h3>
+                    </div>
+                    <div className="space-y-2">
+                      {noDateTasks.map((t, idx) => (
+                        <TaskCardItem key={t.id || t.url || `nodate-${idx}`} task={t} isLinked={isLinked} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </>
+            )
+          ) : activeTab === "overdue" ? (
+            overdueTasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-7 text-center">
+                <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-sys-text-primary">
+                  Прострочених завдань немає
+                </p>
+                <p className="text-xs text-sys-text-muted mt-1">
+                  Жодних хвостів за попередні тижні!
+                </p>
               </div>
-              <p className="text-sm font-semibold text-sys-text-primary">
-                Прострочених завдань немає
-              </p>
-              <p className="text-xs text-sys-text-muted mt-1">
-                Жодних хвостів за попередні тижні!
-              </p>
-            </div>
-          ) : (
-            overdueTasks.map((t, idx) => (
-              <TaskCardItem key={t.id || t.url || `ovr-${idx}`} task={t} isLinked={isLinked} />
-            ))
-          )}
-        </div>
-      )}
-
-      {activeTab === "done" && (
-        <div key="done" className="guide-step-slide space-y-2" data-slide-dir={tabSlideDir ?? undefined}>
-          {turnedInTasks.length === 0 ? (
+            ) : (
+              overdueTasks.map((t, idx) => (
+                <TaskCardItem key={t.id || t.url || `ovr-${idx}`} task={t} isLinked={isLinked} />
+              ))
+            )
+          ) : turnedInTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-7 text-center">
               <p className="text-sm font-semibold text-sys-text-primary">
                 Зданих робіт поки немає
@@ -509,10 +532,52 @@ export function TasksTodoBoard({
                 </button>
               )}
             </>
-          )}
-        </div>
-      )}
-      </div>
+          );
+
+        if (desktopMotion) {
+          const tabMotionDir = tabSlideDir === "prev" ? -1 : 1;
+          return (
+            <div className="relative overflow-x-clip">
+              <AnimatePresence mode="popLayout" initial={false} custom={tabMotionDir}>
+                <m.div
+                  key={activeTab}
+                  custom={tabMotionDir}
+                  initial={hasSwitchedTab ? { opacity: 0, x: tabMotionDir * 24 } : false}
+                  animate={{
+                    opacity: 1,
+                    x: 0,
+                    transition: {
+                      x: { type: "spring", stiffness: 380, damping: 28 },
+                      opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+                    },
+                  }}
+                  exit={{
+                    opacity: 0,
+                    x: tabMotionDir * -20,
+                    pointerEvents: "none",
+                    transition: { duration: 0.14, ease: [0.32, 0, 0.24, 1] },
+                  }}
+                  className={activeTab === "pending" ? "space-y-4" : "space-y-2"}
+                >
+                  {activeTabContent}
+                </m.div>
+              </AnimatePresence>
+            </div>
+          );
+        }
+
+        return (
+          <div className="overflow-x-clip">
+            <div
+              key={activeTab}
+              className={`guide-step-slide ${activeTab === "pending" ? "space-y-4" : "space-y-2"}`}
+              data-slide-dir={tabSlideDir ?? undefined}
+            >
+              {activeTabContent}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -793,6 +858,7 @@ export function MobileTasksView({
                 isLinked={isLinked}
                 week={week}
                 groupId={groupId}
+                layoutPrefix="mobile-tasks"
               />
             </div>
             {(gradesVisited || viewMode === "grades") && (

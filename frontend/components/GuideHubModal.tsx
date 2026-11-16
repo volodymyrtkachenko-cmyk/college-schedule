@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
+import { useDesktopMotionEnabled } from "../lib/useViewportTier";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
@@ -225,6 +227,186 @@ export function GuideHubModal({
     setStepIdx(0);
   };
 
+  const desktopMotion = useDesktopMotionEnabled();
+
+  const guidePanelInner = (
+    <>
+      <GuideDemoStage role={role} stepIdx={safeIdx} isOpen={isOpen} />
+
+      {/* 3. ЛАКОНІЧНИЙ ОПИС + РЕЗЕРВОВАНИЙ СЛОТ ШВИДКОЇ ДІЇ */}
+      <div className="space-y-2.5 px-0.5 flex flex-col justify-between min-h-[168px]">
+        <div className="space-y-2">
+          <h3 className="text-sm sm:text-base font-bold text-sys-text-primary leading-snug">
+            {activeStep.title}
+          </h3>
+
+          <ul className="space-y-1.5 text-xs text-sys-text-secondary leading-relaxed">
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
+              <span>{activeStep.points[0]}</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
+              <span>{activeStep.points[1]}</span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="min-h-[44px] flex items-center">
+          {role === "student" && safeIdx === 0 && (
+            <div className="w-full flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-sys-text-secondary truncate">
+                {isLinked ? (
+                  <>
+                    <CheckIcon className="h-3.5 w-3.5 text-sys-status-okText shrink-0" />
+                    <span className="truncate">У хабі відкрито ДЗ й оцінки ({linkedEmail})</span>
+                  </>
+                ) : (
+                  <span>Прив&apos;яжіть @kre.dp.ua для ДЗ й оцінок у хабі</span>
+                )}
+              </span>
+              {!isLinked && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    setTimeout(() => window.dispatchEvent(new CustomEvent("trigger-classroom-sync")), 120);
+                  }}
+                  className="shrink-0 rounded-lg bg-sys-accentSolid px-3 py-1.5 text-[11px] font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+                >
+                  Прив&apos;язати →
+                </button>
+              )}
+            </div>
+          )}
+
+          {role === "student" && safeIdx === 1 && (
+            <div className="w-full flex items-center justify-between rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
+              <span className="font-semibold text-sys-text-secondary">Ваша підгрупа:</span>
+              <div className="inline-flex gap-1">
+                {(["all", 1, 2] as const).map((sub) => (
+                  <button
+                    key={String(sub)}
+                    type="button"
+                    aria-pressed={settings.defaultSubgroup === sub}
+                    onClick={() => updateSetting("defaultSubgroup", sub)}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer ${
+                      settings.defaultSubgroup === sub
+                        ? "bg-sys-accentSolid text-sys-onAccent"
+                        : "bg-sys-card text-sys-text-secondary border border-sys-border hover:text-sys-text-primary"
+                    }`}
+                  >
+                    {sub === "all" ? "Обидві" : `${sub} підгр.`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {role === "student" && safeIdx === 2 && (
+            <div className="w-full flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-sys-text-secondary truncate">
+                {isLinked ? (
+                  <>
+                    <CheckIcon className="h-3.5 w-3.5 text-sys-status-okText shrink-0" />
+                    <span className="truncate">Доступ відкрито: {linkedEmail}</span>
+                  </>
+                ) : (
+                  <span>Потрібна пошта @kre.dp.ua для доступу до посилань</span>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  setTimeout(() => window.dispatchEvent(new CustomEvent("trigger-classroom-sync")), 120);
+                }}
+                className="shrink-0 rounded-lg bg-sys-accentSolid px-3 py-1.5 text-[11px] font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+              >
+                {isLinked ? "Оновити" : "Прив'язати →"}
+              </button>
+            </div>
+          )}
+
+          {role === "student" && safeIdx === 3 && (
+            <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
+              Працює і в режимі Дня, і в режимі Тижня без втрати обраної дати.
+            </div>
+          )}
+
+          {role === "student" && safeIdx === 4 && (
+            <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
+              Через <kbd className="font-mono font-bold text-sys-text-primary">Ctrl+K</kbd> або{" "}
+              <kbd className="font-mono font-bold text-sys-text-primary">/</kbd> зручно шукати й групи, і викладачів.
+            </div>
+          )}
+
+          {role === "teacher" && safeIdx === 0 && isTeacherUnlocked && (
+            <div className="w-full inline-flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-semibold text-sys-status-okText">
+              <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+              <span>Посилання Meet/Zoom на цьому пристрої відкрито</span>
+            </div>
+          )}
+
+          {role === "teacher" && safeIdx === 0 && !isTeacherUnlocked && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                if (pathname?.startsWith("/settings")) {
+                  router.replace("/settings?mode=teacher");
+                } else {
+                  router.push("/settings?mode=teacher");
+                }
+              }}
+              className="w-full rounded-xl bg-sys-accentSolid py-2 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-[0.99] transition-opacity cursor-pointer"
+            >
+              Ввести PIN-код викладача для посилань →
+            </button>
+          )}
+
+          {role === "teacher" && safeIdx === 1 && (
+            <div className="w-full flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  router.push("/statistics?mode=teacher");
+                }}
+                className="flex-1 rounded-xl bg-sys-accentSolid py-2 px-3 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-[0.99] transition-opacity cursor-pointer"
+              >
+                Статистика →
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  router.push("/educational-process");
+                }}
+                className="flex-1 rounded-xl border border-sys-border bg-sys-bg py-2 px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.99] transition-colors cursor-pointer"
+              >
+                Графік процесу →
+              </button>
+            </div>
+          )}
+
+          {role === "teacher" && safeIdx === 2 && (
+            <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
+              Натисніть на назву будь-якої дисципліни в розкладі, щоб відкрити її хаб.
+            </div>
+          )}
+
+          {role === "teacher" && safeIdx === 3 && (
+            <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
+              Через <kbd className="font-mono font-bold text-sys-text-primary">Ctrl+K</kbd> або{" "}
+              <kbd className="font-mono font-bold text-sys-text-primary">/</kbd> зручно перемикатися між своїм розкладом і групами.
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <AppDialog
       isOpen={isOpen}
@@ -253,17 +435,19 @@ export function GuideHubModal({
 
             <div className="flex items-center gap-2 shrink-0">
               <div className="relative inline-grid grid-cols-2 rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs font-semibold isolate">
-                <div
-                  aria-hidden="true"
-                  className="absolute top-0.5 bottom-0.5 pointer-events-none transition-transform duration-base ease-spring transform-gpu will-change-transform z-0"
-                  style={{
-                    left: "2px",
-                    width: "calc((100% - 4px) / 2)",
-                    transform: `translate3d(${role === "teacher" ? "100%" : "0%"}, 0, 0)`,
-                  }}
-                >
-                  <div className="h-full w-full rounded-md bg-sys-accentSolid shadow-2xs" />
-                </div>
+                {!desktopMotion && (
+                  <div
+                    aria-hidden="true"
+                    className="absolute top-0.5 bottom-0.5 pointer-events-none transition-transform duration-base ease-spring transform-gpu will-change-transform z-0"
+                    style={{
+                      left: "2px",
+                      width: "calc((100% - 4px) / 2)",
+                      transform: `translate3d(${role === "teacher" ? "100%" : "0%"}, 0, 0)`,
+                    }}
+                  >
+                    <div className="h-full w-full rounded-md bg-sys-accentSolid shadow-2xs" />
+                  </div>
+                )}
                 <button
                   type="button"
                   aria-pressed={role === "student"}
@@ -272,7 +456,15 @@ export function GuideHubModal({
                     role === "student" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  Студент
+                  {desktopMotion && role === "student" && (
+                    <m.div
+                      layoutId="guide-role-pill"
+                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 rounded-md bg-sys-accentSolid shadow-2xs"
+                    />
+                  )}
+                  <span className="relative z-10">Студент</span>
                 </button>
                 <button
                   type="button"
@@ -282,7 +474,15 @@ export function GuideHubModal({
                     role === "teacher" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  Викладач
+                  {desktopMotion && role === "teacher" && (
+                    <m.div
+                      layoutId="guide-role-pill"
+                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 rounded-md bg-sys-accentSolid shadow-2xs"
+                    />
+                  )}
+                  <span className="relative z-10">Викладач</span>
                 </button>
               </div>
 
@@ -333,189 +533,50 @@ export function GuideHubModal({
         </div>
 
         {/* 2. СТАБІЛЬНА СЦЕНА + ОПИС БЕЗ СТРИБКІВ РОЗМІРУ */}
-        <div className="flex-1 overflow-y-auto overflow-x-clip lg:[scrollbar-gutter:stable] custom-scrollbar p-4">
-          <div
-            key={`${role}-${activeStep.id}`}
-            id={`guide-panel-${activeStep.id}`}
-            role="tabpanel"
-            aria-labelledby={`guide-tab-${activeStep.id}`}
-            data-slide-dir={hasStepped ? (slideDir >= 0 ? "next" : "prev") : undefined}
-            className="guide-step-slide space-y-3.5"
-          >
-            <GuideDemoStage role={role} stepIdx={safeIdx} isOpen={isOpen} />
-
-              {/* 3. ЛАКОНІЧНИЙ ОПИС + РЕЗЕРВОВАНИЙ СЛОТ ШВИДКОЇ ДІЇ */}
-              <div className="space-y-2.5 px-0.5 flex flex-col justify-between min-h-[168px]">
-                <div className="space-y-2">
-                  <h3 className="text-sm sm:text-base font-bold text-sys-text-primary leading-snug">
-                    {activeStep.title}
-                  </h3>
-
-                  <ul className="space-y-1.5 text-xs text-sys-text-secondary leading-relaxed">
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
-                      <span>{activeStep.points[0]}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
-                      <span>{activeStep.points[1]}</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="min-h-[44px] flex items-center">
-                  {role === "student" && safeIdx === 0 && (
-                    <div className="w-full flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
-                      <span className="inline-flex items-center gap-1.5 font-semibold text-sys-text-secondary truncate">
-                        {isLinked ? (
-                          <>
-                            <CheckIcon className="h-3.5 w-3.5 text-sys-status-okText shrink-0" />
-                            <span className="truncate">У хабі відкрито ДЗ й оцінки ({linkedEmail})</span>
-                          </>
-                        ) : (
-                          <span>Прив&apos;яжіть @kre.dp.ua для ДЗ й оцінок у хабі</span>
-                        )}
-                      </span>
-                      {!isLinked && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onClose();
-                            setTimeout(() => window.dispatchEvent(new CustomEvent("trigger-classroom-sync")), 120);
-                          }}
-                          className="shrink-0 rounded-lg bg-sys-accentSolid px-3 py-1.5 text-[11px] font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
-                        >
-                          Прив&apos;язати →
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {role === "student" && safeIdx === 1 && (
-                    <div className="w-full flex items-center justify-between rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
-                      <span className="font-semibold text-sys-text-secondary">Ваша підгрупа:</span>
-                      <div className="inline-flex gap-1">
-                        {(["all", 1, 2] as const).map((sub) => (
-                          <button
-                            key={String(sub)}
-                            type="button"
-                            aria-pressed={settings.defaultSubgroup === sub}
-                            onClick={() => updateSetting("defaultSubgroup", sub)}
-                            className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer ${
-                              settings.defaultSubgroup === sub
-                                ? "bg-sys-accentSolid text-sys-onAccent"
-                                : "bg-sys-card text-sys-text-secondary border border-sys-border hover:text-sys-text-primary"
-                            }`}
-                          >
-                            {sub === "all" ? "Обидві" : `${sub} підгр.`}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {role === "student" && safeIdx === 2 && (
-                    <div className="w-full flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
-                      <span className="inline-flex items-center gap-1.5 font-semibold text-sys-text-secondary truncate">
-                        {isLinked ? (
-                          <>
-                            <CheckIcon className="h-3.5 w-3.5 text-sys-status-okText shrink-0" />
-                            <span className="truncate">Доступ відкрито: {linkedEmail}</span>
-                          </>
-                        ) : (
-                          <span>Потрібна пошта @kre.dp.ua для доступу до посилань</span>
-                        )}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onClose();
-                          setTimeout(() => window.dispatchEvent(new CustomEvent("trigger-classroom-sync")), 120);
-                        }}
-                        className="shrink-0 rounded-lg bg-sys-accentSolid px-3 py-1.5 text-[11px] font-bold text-sys-onAccent hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
-                      >
-                        {isLinked ? "Оновити" : "Прив'язати →"}
-                      </button>
-                    </div>
-                  )}
-
-                  {role === "student" && safeIdx === 3 && (
-                    <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
-                      Працює і в режимі Дня, і в режимі Тижня без втрати обраної дати.
-                    </div>
-                  )}
-
-                  {role === "student" && safeIdx === 4 && (
-                    <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
-                      Через <kbd className="font-mono font-bold text-sys-text-primary">Ctrl+K</kbd> або{" "}
-                      <kbd className="font-mono font-bold text-sys-text-primary">/</kbd> зручно шукати й групи, і викладачів.
-                    </div>
-                  )}
-
-                  {role === "teacher" && safeIdx === 0 && isTeacherUnlocked && (
-                    <div className="w-full inline-flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-semibold text-sys-status-okText">
-                      <CheckIcon className="h-3.5 w-3.5 shrink-0" />
-                      <span>Посилання Meet/Zoom на цьому пристрої відкрито</span>
-                    </div>
-                  )}
-
-                  {role === "teacher" && safeIdx === 0 && !isTeacherUnlocked && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        if (pathname?.startsWith("/settings")) {
-                          router.replace("/settings?mode=teacher");
-                        } else {
-                          router.push("/settings?mode=teacher");
-                        }
-                      }}
-                      className="w-full rounded-xl bg-sys-accentSolid py-2 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-[0.99] transition-opacity cursor-pointer"
-                    >
-                      Ввести PIN-код викладача для посилань →
-                    </button>
-                  )}
-
-                  {role === "teacher" && safeIdx === 1 && (
-                    <div className="w-full flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onClose();
-                          router.push("/statistics?mode=teacher");
-                        }}
-                        className="flex-1 rounded-xl bg-sys-accentSolid py-2 px-3 text-xs font-bold text-sys-onAccent hover:opacity-95 active:scale-[0.99] transition-opacity cursor-pointer"
-                      >
-                        Статистика →
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onClose();
-                          router.push("/educational-process");
-                        }}
-                        className="flex-1 rounded-xl border border-sys-border bg-sys-bg py-2 px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.99] transition-colors cursor-pointer"
-                      >
-                        Графік процесу →
-                      </button>
-                    </div>
-                  )}
-
-                  {role === "teacher" && safeIdx === 2 && (
-                    <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
-                      Натисніть на назву будь-якої дисципліни в розкладі, щоб відкрити її хаб.
-                    </div>
-                  )}
-
-                  {role === "teacher" && safeIdx === 3 && (
-                    <div className="w-full rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-medium text-sys-text-secondary">
-                      Через <kbd className="font-mono font-bold text-sys-text-primary">Ctrl+K</kbd> або{" "}
-                      <kbd className="font-mono font-bold text-sys-text-primary">/</kbd> зручно перемикатися між своїм розкладом і групами.
-                    </div>
-                  )}
-                </div>
-              </div>
-          </div>
+        <div className="relative flex-1 overflow-y-auto overflow-x-clip lg:[scrollbar-gutter:stable] custom-scrollbar p-4">
+          {desktopMotion ? (
+            <AnimatePresence mode="popLayout" initial={false} custom={slideDir}>
+              <m.div
+                key={`${role}-${activeStep.id}`}
+                id={`guide-panel-${activeStep.id}`}
+                role="tabpanel"
+                aria-labelledby={`guide-tab-${activeStep.id}`}
+                custom={slideDir}
+                initial={hasStepped ? { opacity: 0, x: slideDir >= 0 ? 34 : -34, scale: 0.98 } : false}
+                animate={{
+                  opacity: 1,
+                  x: 0,
+                  scale: 1,
+                  transition: {
+                    x: { type: "spring", stiffness: 370, damping: 28 },
+                    scale: { type: "spring", stiffness: 370, damping: 28 },
+                    opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+                  },
+                }}
+                exit={{
+                  opacity: 0,
+                  x: slideDir >= 0 ? -28 : 28,
+                  scale: 0.98,
+                  pointerEvents: "none",
+                  transition: { duration: 0.14, ease: [0.32, 0, 0.24, 1] },
+                }}
+                className="space-y-3.5"
+              >
+                {guidePanelInner}
+              </m.div>
+            </AnimatePresence>
+          ) : (
+            <div
+              key={`${role}-${activeStep.id}`}
+              id={`guide-panel-${activeStep.id}`}
+              role="tabpanel"
+              aria-labelledby={`guide-tab-${activeStep.id}`}
+              data-slide-dir={hasStepped ? (slideDir >= 0 ? "next" : "prev") : undefined}
+              className="guide-step-slide space-y-3.5"
+            >
+              {guidePanelInner}
+            </div>
+          )}
         </div>
 
         {/* 4. НИЖНЯ НАВІГАЦІЯ */}

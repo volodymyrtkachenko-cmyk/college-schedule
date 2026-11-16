@@ -1,7 +1,9 @@
 "use client";
 
 import React, { memo, useState } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
+import { useDesktopMotionEnabled } from "../lib/useViewportTier";
 import {
   formatBriefChipLabel,
   formatTaskWeightBadge,
@@ -42,6 +44,7 @@ export const TaskCardItem = memo(function TaskCardItem({
   isLinked = false,
 }: TaskCardItemProps) {
   const [briefOpen, setBriefOpen] = useState(false);
+  const desktopMotion = useDesktopMotionEnabled();
 
   const isGenericTitle = !t.title || t.title === "Домашнє завдання" || t.title === "Завдання";
   const titleLine = isGenericTitle ? t.subject : t.title;
@@ -184,7 +187,9 @@ export const TaskCardItem = memo(function TaskCardItem({
 
   return (
     <div
-      className="min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated shadow-xs text-left overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
+      className={`min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated shadow-xs text-left overflow-hidden ${
+        briefOpen ? "" : "[content-visibility:auto] [contain-intrinsic-size:78px]"
+      }`}
       style={{
         boxShadow: borderAccentStyle,
       }}
@@ -225,26 +230,80 @@ export const TaskCardItem = memo(function TaskCardItem({
           type="button"
           aria-expanded={briefOpen}
           onClick={() => setBriefOpen((prev) => !prev)}
-          className={`inline-flex items-center gap-1.5 min-h-[26px] rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 min-h-[26px] rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer active:scale-95 ${
             briefOpen
               ? "border-sys-accent/45 bg-sys-hover text-sys-text-primary"
               : "border-sys-border/70 bg-sys-bg/80 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-hover"
           }`}
         >
           <span>{chipLabel || "Міні-бриф"}</span>
-          <span aria-hidden="true" className="text-[10px]">
-            {briefOpen ? "▴" : "▾"}
-          </span>
+          <svg
+            aria-hidden="true"
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`transition-transform duration-200 shrink-0 ${briefOpen ? "rotate-180" : ""}`}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
         </button>
       </div>
 
-      {briefOpen && (
-        <TaskChecklistSection
-          taskKey={taskKey}
-          brief={brief}
-          maxPoints={t.maxPoints}
-          compact
-        />
+      {desktopMotion ? (
+        <AnimatePresence initial={false}>
+          {briefOpen && (
+            <m.div
+              initial={{ opacity: 0, height: 0, y: -6 }}
+              animate={{
+                opacity: 1,
+                height: "auto",
+                y: 0,
+                transition: {
+                  height: { type: "spring", stiffness: 380, damping: 30 },
+                  y: { type: "spring", stiffness: 380, damping: 30 },
+                  opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+                },
+              }}
+              exit={{
+                opacity: 0,
+                height: 0,
+                y: -4,
+                transition: {
+                  height: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
+                  y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
+                  opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
+                },
+              }}
+              className="overflow-hidden"
+            >
+              <TaskChecklistSection
+                taskKey={taskKey}
+                brief={brief}
+                maxPoints={t.maxPoints}
+                compact
+              />
+            </m.div>
+          )}
+        </AnimatePresence>
+      ) : (
+        <div
+          data-open={briefOpen ? "true" : undefined}
+          className="grid-accordion"
+        >
+          <div className="grid-accordion-inner">
+            <TaskChecklistSection
+              taskKey={taskKey}
+              brief={brief}
+              maxPoints={t.maxPoints}
+              compact
+            />
+          </div>
+        </div>
       )}
     </div>
   );

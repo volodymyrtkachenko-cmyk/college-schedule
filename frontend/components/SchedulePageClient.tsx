@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 import dynamic from "next/dynamic";
-import { useReducedMotion } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { canAccessAdmin, useAuth } from "../lib/auth";
 import { type ReferenceRecord, type ScheduleResponse } from "../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../lib/hooks";
@@ -14,7 +14,7 @@ import { useMobileNav } from "../lib/useMobileNav";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useTheme } from "../lib/useTheme";
 import { useUserSettings } from "../lib/useUserSettings";
-import { useViewportTier } from "../lib/useViewportTier";
+import { useDesktopMotionEnabled, useViewportTier } from "../lib/useViewportTier";
 import { DayPager } from "./DayPager";
 import { MobileWeekDaysStrip } from "./MobileWeekDaysStrip";
 import { OfflineIndicator } from "./OfflineIndicator";
@@ -69,6 +69,7 @@ export function SchedulePageClient({
 }: SchedulePageClientProps) {
   const { resolvedTheme, toggleTheme } = useTheme();
   const { isMounted, isDesktop } = useViewportTier();
+  const desktopMotion = useDesktopMotionEnabled();
   const { updateSetting } = useUserSettings();
   const shouldReduceMotion = Boolean(useReducedMotion());
   const { user } = useAuth();
@@ -533,128 +534,186 @@ export function SchedulePageClient({
                   onRetry={() => invalidateScheduleCache()}
                   onReturnBack={sel.handleReturnBack}
                 />
-              ) : (
-                <div key={sel.view} className="w-full">
-                    {sel.view === "today" ? (
-                      <div className="w-full min-w-0 flex items-start justify-center overflow-x-clip">
-                        <div
-                          className={`w-full ${mode === "teacher" ? "max-w-[880px]" : "max-w-[760px]"} min-w-0`}
-                        >
-                          <DesktopFocusDaySwitcher
-                            visible={sel.isFocusEffective}
-                            shouldReduceMotion={shouldReduceMotion}
-                            mode={mode}
-                            currentWeekNumber={sel.currentWeekNumber}
-                            weekType={sel.weekType}
-                            weekRange={sel.weekRange}
-                            learningModeBadge={sel.headerLearningModeData}
-                            weekDaysMini={sel.weekDaysMini}
-                            selectedDayIndex={sel.selectedDayIndex}
-                            todayActualIso={sel.todayActualIso}
-                            onToggleFocusMode={sel.toggleFocusMode}
-                            onSelectDayIndex={sel.handleSelectDayIndex}
-                          />
+              ) : (() => {
+                const weekHeaderNode = (
+                  <DesktopWeekHeaderBar
+                    week={week}
+                    mode={mode}
+                    groupId={groupId}
+                    teacherId={teacherId}
+                    groups={groups}
+                    teachers={teachers}
+                    weekRange={sel.weekRange}
+                    currentWeekNumber={sel.currentWeekNumber}
+                    weekType={sel.weekType}
+                    learningModeBadge={sel.headerLearningModeData}
+                    activeWeekPeriodMeta={sel.activeWeekPeriodMeta}
+                    resolvedTheme={resolvedTheme}
+                    setToast={setToast}
+                  />
+                );
 
-                          {sel.isAutoSelectedWeekendDay && (
-                            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-sys-border bg-sys-card px-5 py-4 text-[15px] shadow-sm">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-500 dark:text-amber-300">
-                                  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                                  <polyline points="9 22 9 12 15 12 15 22" />
-                                </svg>
-                                <div className="flex flex-col min-w-0">
-                                  <span className="font-semibold text-sys-text-primary text-base">Сьогодні вихідний</span>
-                                  <span className="text-sys-text-secondary text-xs sm:text-[13px]">Показано найближчий навчальний день</span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3 shrink-0">
-                                <WeekTypeBadge weekType={sel.selectedDaySchedule?.week_type ?? sel.weekType ?? today?.week_type ?? "both"} />
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="relative w-full">
-                              <ScheduleDay
-                                schedule={sel.selectedDaySchedule ?? today!}
-                                isToday={sel.selectedDaySchedule?.date === sel.todayActualIso && !sel.isWeekend}
-                                scheduleMode={mode}
-                                onQuickJump={sel.handleQuickJump}
-                                onOpenSubjectHub={handleOpenSubjectHub}
-                                hideHeaderOnMobile={false}
-                                weekNumber={sel.currentWeekNumber}
-                                hideDayTitle={sel.isFocusEffective}
-                                currentGroupName={mode === "student" ? (sel.currentName ?? null) : null}
-                                currentTeacherId={mode === "teacher" ? teacherId : null}
-                                currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
-                                daySlideDir={sel.daySlideDir}
-                                shouldReduceMotion={shouldReduceMotion}
-                                animateOnMount={sel.hasMotionInteracted}
-                                learningModeBadge={sel.headerLearningModeData}
-                              />
-                          </div>
-                        </div>
-
-                        <DesktopScheduleSidebar
-                          visible={!sel.isFocusEffective}
+                const desktopViewContent =
+                  sel.view === "today" ? (
+                    <div className="w-full min-w-0 flex items-start justify-center overflow-x-clip">
+                      <div
+                        className={`w-full ${mode === "teacher" ? "max-w-[880px]" : "max-w-[760px]"} min-w-0`}
+                      >
+                        <DesktopFocusDaySwitcher
+                          visible={sel.isFocusEffective}
                           shouldReduceMotion={shouldReduceMotion}
                           mode={mode}
-                          groupId={groupId}
-                          weekStartStr={weekStartStr}
-                          onClassroomSynced={handleToolbarClassroomSynced}
                           currentWeekNumber={sel.currentWeekNumber}
                           weekType={sel.weekType}
                           weekRange={sel.weekRange}
+                          learningModeBadge={sel.headerLearningModeData}
                           weekDaysMini={sel.weekDaysMini}
                           selectedDayIndex={sel.selectedDayIndex}
                           todayActualIso={sel.todayActualIso}
-                          desktopSidebarTab={desktopSidebarTab}
-                          hasGroupTaskAccess={hasGroupTaskAccess}
-                          isLinked={isLinked}
-                          sidebarTaskGroups={sidebarTaskGroups}
-                          formattedSyncTime={formattedSyncTime}
-                          allTasks={allTasks}
-                          week={week}
                           onToggleFocusMode={sel.toggleFocusMode}
                           onSelectDayIndex={sel.handleSelectDayIndex}
-                          onChangeSidebarTab={setDesktopSidebarTab}
-                          onOpenSubjectHub={handleOpenSubjectHub}
                         />
+
+                        {sel.isAutoSelectedWeekendDay && (
+                          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-sys-border bg-sys-card px-5 py-4 text-[15px] shadow-sm">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-500 dark:text-amber-300">
+                                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                <polyline points="9 22 9 12 15 12 15 22" />
+                              </svg>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-semibold text-sys-text-primary text-base">Сьогодні вихідний</span>
+                                <span className="text-sys-text-secondary text-xs sm:text-[13px]">Показано найближчий навчальний день</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <WeekTypeBadge weekType={sel.selectedDaySchedule?.week_type ?? sel.weekType ?? today?.week_type ?? "both"} />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="relative w-full">
+                          <ScheduleDay
+                            schedule={sel.selectedDaySchedule ?? today!}
+                            isToday={sel.selectedDaySchedule?.date === sel.todayActualIso && !sel.isWeekend}
+                            scheduleMode={mode}
+                            onQuickJump={sel.handleQuickJump}
+                            onOpenSubjectHub={handleOpenSubjectHub}
+                            hideHeaderOnMobile={false}
+                            weekNumber={sel.currentWeekNumber}
+                            hideDayTitle={sel.isFocusEffective}
+                            currentGroupName={mode === "student" ? (sel.currentName ?? null) : null}
+                            currentTeacherId={mode === "teacher" ? teacherId : null}
+                            currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
+                            daySlideDir={sel.daySlideDir}
+                            shouldReduceMotion={shouldReduceMotion}
+                            animateOnMount={sel.hasMotionInteracted}
+                            learningModeBadge={sel.headerLearningModeData}
+                          />
+                        </div>
                       </div>
-                    ) : (
-                      <div className="w-full min-w-0">
-                        <DesktopWeekHeaderBar
-                          week={week}
-                          mode={mode}
-                          groupId={groupId}
-                          teacherId={teacherId}
-                          groups={groups}
-                          teachers={teachers}
-                          weekRange={sel.weekRange}
-                          currentWeekNumber={sel.currentWeekNumber}
-                          weekType={sel.weekType}
-                          learningModeBadge={sel.headerLearningModeData}
-                          activeWeekPeriodMeta={sel.activeWeekPeriodMeta}
-                          resolvedTheme={resolvedTheme}
-                          setToast={setToast}
-                        />
-                        <ScheduleWeekGrid
-                          week={week}
-                          todayDate={sel.todayActualIso}
-                          scheduleMode={mode}
-                          canEdit={false}
-                          onQuickJump={sel.handleQuickJump}
-                          onOpenSubjectHub={handleOpenSubjectHub}
-                          weekNumber={sel.currentWeekNumber}
-                          currentTeacherId={mode === "teacher" ? teacherId : null}
-                          currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
-                          onSelectDay={sel.handleSelectDayFromWeek}
-                          weekSlideDir={sel.weekSlideDir}
-                          animateOnMount={sel.hasMotionInteracted}
-                        />
-                      </div>
-                    )}
-                </div>
-              )}
+
+                      <DesktopScheduleSidebar
+                        visible={!sel.isFocusEffective}
+                        shouldReduceMotion={shouldReduceMotion}
+                        mode={mode}
+                        groupId={groupId}
+                        weekStartStr={weekStartStr}
+                        onClassroomSynced={handleToolbarClassroomSynced}
+                        currentWeekNumber={sel.currentWeekNumber}
+                        weekType={sel.weekType}
+                        weekRange={sel.weekRange}
+                        weekDaysMini={sel.weekDaysMini}
+                        selectedDayIndex={sel.selectedDayIndex}
+                        todayActualIso={sel.todayActualIso}
+                        desktopSidebarTab={desktopSidebarTab}
+                        hasGroupTaskAccess={hasGroupTaskAccess}
+                        isLinked={isLinked}
+                        sidebarTaskGroups={sidebarTaskGroups}
+                        formattedSyncTime={formattedSyncTime}
+                        allTasks={allTasks}
+                        week={week}
+                        onToggleFocusMode={sel.toggleFocusMode}
+                        onSelectDayIndex={sel.handleSelectDayIndex}
+                        onChangeSidebarTab={setDesktopSidebarTab}
+                        onOpenSubjectHub={handleOpenSubjectHub}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full min-w-0">
+                      {desktopMotion ? (
+                        <m.div
+                          initial={sel.hasMotionInteracted ? { opacity: 0, y: -12 } : false}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            y: { type: "spring", stiffness: 360, damping: 28 },
+                            opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+                          }}
+                        >
+                          {weekHeaderNode}
+                        </m.div>
+                      ) : (
+                        weekHeaderNode
+                      )}
+                      <ScheduleWeekGrid
+                        week={week}
+                        todayDate={sel.todayActualIso}
+                        scheduleMode={mode}
+                        canEdit={false}
+                        onQuickJump={sel.handleQuickJump}
+                        onOpenSubjectHub={handleOpenSubjectHub}
+                        weekNumber={sel.currentWeekNumber}
+                        currentTeacherId={mode === "teacher" ? teacherId : null}
+                        currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
+                        onSelectDay={sel.handleSelectDayFromWeek}
+                        weekSlideDir={sel.weekSlideDir}
+                        animateOnMount={sel.hasMotionInteracted}
+                      />
+                    </div>
+                  );
+
+                if (desktopMotion) {
+                  return (
+                    <div className="relative w-full">
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        <m.div
+                          key={sel.view}
+                          initial={
+                            sel.hasMotionInteracted
+                              ? { opacity: 0, y: sel.view === "week" ? 12 : 8, scale: sel.view === "week" ? 0.985 : 1 }
+                              : false
+                          }
+                          animate={{
+                            opacity: 1,
+                            y: 0,
+                            scale: 1,
+                            transition: {
+                              opacity: { duration: 0.2, ease: [0.22, 1, 0.36, 1] },
+                              y: { type: "spring", stiffness: 360, damping: 28 },
+                              scale: { type: "spring", stiffness: 360, damping: 28 },
+                            },
+                          }}
+                          exit={{
+                            opacity: 0,
+                            scale: 0.97,
+                            pointerEvents: "none",
+                            transition: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
+                          }}
+                          className="w-full"
+                        >
+                          {desktopViewContent}
+                        </m.div>
+                      </AnimatePresence>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={sel.view} className="w-full">
+                    {desktopViewContent}
+                  </div>
+                );
+              })()}
             </div>
           )}
           </main>

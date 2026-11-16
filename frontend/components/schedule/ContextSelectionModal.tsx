@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import type { ReferenceRecord } from "../../lib/api";
+import { useDesktopMotionEnabled } from "../../lib/useViewportTier";
 import { getGroupCourse } from "../../lib/groupInfo";
 import { filterAndRankEntities, getGroupSearchBadge } from "../../lib/quickJump";
 import { RecentSelectionsChips } from "../RecentSelectionsChips";
@@ -41,6 +43,7 @@ export function ContextSelectionModal({
   const [modalCourseFilter, setModalCourseFilter] = useState<number | null>(null);
   const [modalHighlightedIndex, setModalHighlightedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const desktopMotion = useDesktopMotionEnabled();
 
   useEffect(() => {
     if (isOpen) {
@@ -112,14 +115,16 @@ export function ContextSelectionModal({
                 aria-label="Режим пошуку"
                 className="relative grid grid-cols-2 rounded-xl border border-sys-border bg-sys-bg p-1 flex-1 isolate select-none"
               >
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
-                  style={{
-                    width: "calc((100% - 8px) / 2)",
-                    transform: `translate3d(${modalTab === "teacher" ? "100%" : "0%"}, 0, 0)`,
-                  }}
-                />
+                {!desktopMotion && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                    style={{
+                      width: "calc((100% - 8px) / 2)",
+                      transform: `translate3d(${modalTab === "teacher" ? "100%" : "0%"}, 0, 0)`,
+                    }}
+                  />
+                )}
                 <button
                   type="button"
                   role="tab"
@@ -129,7 +134,15 @@ export function ContextSelectionModal({
                     modalTab === "student" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  Групи ({groups.length})
+                  {desktopMotion && modalTab === "student" && (
+                    <m.div
+                      layoutId="context-modal-tab-pill"
+                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs"
+                    />
+                  )}
+                  <span className="relative z-10">Групи ({groups.length})</span>
                 </button>
                 <button
                   type="button"
@@ -140,7 +153,15 @@ export function ContextSelectionModal({
                     modalTab === "teacher" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  Викладачі ({teachers.length})
+                  {desktopMotion && modalTab === "teacher" && (
+                    <m.div
+                      layoutId="context-modal-tab-pill"
+                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs"
+                    />
+                  )}
+                  <span className="relative z-10">Викладачі ({teachers.length})</span>
                 </button>
               </div>
               <button
@@ -243,76 +264,117 @@ export function ContextSelectionModal({
             <div className="relative mt-2.5 flex-1 min-h-0 flex flex-col">
               <div
                 role="listbox"
-                className="flex-1 min-h-0 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain custom-scrollbar pr-1.5 pb-6"
+                className="relative flex-1 min-h-0 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain custom-scrollbar pr-1.5 pb-6"
               >
-                <div
-                  key={modalTab}
-                  data-slide-dir={tabSlideDir ?? undefined}
-                  className={`guide-step-slide ${
-                    modalTab === "student" ? "grid grid-cols-2 sm:grid-cols-3 gap-2 content-start" : "space-y-1"
-                  }`}
-                >
-              {filteredModalOptions.map((opt, idx) => {
-                const isSelected = modalTab === "student" ? opt.id === groupId : opt.id === teacherId;
-                const isHighlighted = idx === modalHighlightedIndex;
-                const groupBadge = modalTab === "student" ? getGroupSearchBadge(opt) : null;
-                return (
-                  <button
-                    key={`${modalTab}-${opt.id}`}
-                    id={`context-modal-opt-${modalTab}-${opt.id}`}
-                    type="button"
-                    role="option"
-                    aria-selected={isSelected}
-                    onMouseEnter={() => setModalHighlightedIndex(idx)}
-                    onClick={() => handleSelectOption(modalTab, opt.id)}
-                    className={
-                      modalTab === "student"
-                        ? `w-full text-left px-3 py-2.5 rounded-xl text-xs transition-colors flex flex-col justify-between border ${
-                            isSelected
-                              ? "bg-sys-accent/15 text-sys-accent font-semibold border-sys-accent/50 shadow-xs"
-                              : isHighlighted
-                                ? "bg-sys-accent/10 text-sys-text-primary border-sys-accent/40"
-                                : "bg-sys-bg/60 text-sys-text-primary border-sys-border/70 hover:bg-sys-bg hover:border-sys-accent/30"
-                          }`
-                        : `w-full text-left px-3.5 py-2.5 rounded-xl text-sm transition-colors flex items-center justify-between border ${
-                            isSelected
-                              ? "bg-sys-accent/15 text-sys-accent font-semibold border-sys-accent/30"
-                              : isHighlighted
-                                ? "bg-sys-accent/10 text-sys-text-primary border-sys-accent/30"
-                                : "border-transparent text-sys-text-primary hover:bg-sys-bg"
-                          }`
-                    }
-                  >
-                    <div className="flex items-center justify-between gap-1.5 w-full min-w-0">
-                      <span
-                        className={`font-bold text-sm leading-snug ${
-                          modalTab === "teacher" ? "break-words text-left min-w-0" : "truncate"
-                        }`}
-                      >
-                        {opt.name}
-                      </span>
-                      {isSelected && <CheckIcon className="h-3.5 w-3.5 shrink-0 text-sys-accent" />}
+                {(() => {
+                  const listItems = (
+                    <>
+                      {filteredModalOptions.map((opt, idx) => {
+                        const isSelected = modalTab === "student" ? opt.id === groupId : opt.id === teacherId;
+                        const isHighlighted = idx === modalHighlightedIndex;
+                        const groupBadge = modalTab === "student" ? getGroupSearchBadge(opt) : null;
+                        return (
+                          <button
+                            key={`${modalTab}-${opt.id}`}
+                            id={`context-modal-opt-${modalTab}-${opt.id}`}
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            onMouseEnter={() => setModalHighlightedIndex(idx)}
+                            onClick={() => handleSelectOption(modalTab, opt.id)}
+                            className={
+                              modalTab === "student"
+                                ? `w-full text-left px-3 py-2.5 rounded-xl text-xs transition-colors flex flex-col justify-between border ${
+                                    isSelected
+                                      ? "bg-sys-accent/15 text-sys-accent font-semibold border-sys-accent/50 shadow-xs"
+                                      : isHighlighted
+                                        ? "bg-sys-accent/10 text-sys-text-primary border-sys-accent/40"
+                                        : "bg-sys-bg/60 text-sys-text-primary border-sys-border/70 hover:bg-sys-bg hover:border-sys-accent/30"
+                                  }`
+                                : `w-full text-left px-3.5 py-2.5 rounded-xl text-sm transition-colors flex items-center justify-between border ${
+                                    isSelected
+                                      ? "bg-sys-accent/15 text-sys-accent font-semibold border-sys-accent/30"
+                                      : isHighlighted
+                                        ? "bg-sys-accent/10 text-sys-text-primary border-sys-accent/30"
+                                        : "border-transparent text-sys-text-primary hover:bg-sys-bg"
+                                  }`
+                            }
+                          >
+                            <div className="flex items-center justify-between gap-1.5 w-full min-w-0">
+                              <span
+                                className={`font-bold text-sm leading-snug ${
+                                  modalTab === "teacher" ? "break-words text-left min-w-0" : "truncate"
+                                }`}
+                              >
+                                {opt.name}
+                              </span>
+                              {isSelected && <CheckIcon className="h-3.5 w-3.5 shrink-0 text-sys-accent" />}
+                            </div>
+                            {groupBadge && groupBadge !== opt.name && (
+                              <span className="mt-0.5 text-[10px] text-sys-text-muted line-clamp-2 leading-tight break-words block">
+                                {groupBadge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                      {filteredModalOptions.length === 0 && (
+                        <p className="col-span-full text-center py-6 text-xs text-sys-text-muted" role="status">
+                          Нічого не знайдено
+                        </p>
+                      )}
+                    </>
+                  );
+
+                  const listGridClass =
+                    modalTab === "student" ? "grid grid-cols-2 sm:grid-cols-3 gap-2 content-start" : "space-y-1";
+
+                  if (desktopMotion) {
+                    const motionDir = tabSlideDir === "prev" ? -1 : 1;
+                    return (
+                      <AnimatePresence mode="popLayout" initial={false} custom={motionDir}>
+                        <m.div
+                          key={modalTab}
+                          custom={motionDir}
+                          initial={tabSlideDir ? { opacity: 0, x: motionDir * 28 } : false}
+                          animate={{
+                            opacity: 1,
+                            x: 0,
+                            transition: {
+                              x: { type: "spring", stiffness: 390, damping: 29 },
+                              opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+                            },
+                          }}
+                          exit={{
+                            opacity: 0,
+                            x: motionDir * -24,
+                            pointerEvents: "none",
+                            transition: { duration: 0.14, ease: [0.32, 0, 0.24, 1] },
+                          }}
+                          className={listGridClass}
+                        >
+                          {listItems}
+                        </m.div>
+                      </AnimatePresence>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={modalTab}
+                      data-slide-dir={tabSlideDir ?? undefined}
+                      className={`guide-step-slide ${listGridClass}`}
+                    >
+                      {listItems}
                     </div>
-                    {groupBadge && groupBadge !== opt.name && (
-                      <span className="mt-0.5 text-[10px] text-sys-text-muted line-clamp-2 leading-tight break-words block">
-                        {groupBadge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-              {filteredModalOptions.length === 0 && (
-                <p className="col-span-full text-center py-6 text-xs text-sys-text-muted" role="status">
-                  Нічого не знайдено
-                </p>
-              )}
+                  );
+                })()}
               </div>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-sys-card to-transparent"
+              />
             </div>
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-sys-card to-transparent"
-            />
-          </div>
       </div>
     </AppDialog>
   );

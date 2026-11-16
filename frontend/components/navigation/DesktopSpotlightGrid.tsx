@@ -35,7 +35,17 @@ export function DesktopSpotlightGrid({
     if (!el) return;
     el.style.removeProperty("--tilt-x");
     el.style.removeProperty("--tilt-y");
+    delete el.dataset.tilting;
   }, []);
+
+  useEffect(() => {
+    rectCacheRef.current = new WeakMap();
+    if (typeof window === "undefined") return;
+    const timer = window.setTimeout(() => {
+      rectCacheRef.current = new WeakMap();
+    }, 380);
+    return () => window.clearTimeout(timer);
+  }, [children]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -134,8 +144,9 @@ export function DesktopSpotlightGrid({
           if (rect.width > 0 && rect.height > 0) {
             const nx = Math.max(-1, Math.min(1, ((job.clientX - rect.left) / rect.width) * 2 - 1));
             const ny = Math.max(-1, Math.min(1, ((job.clientY - rect.top) / rect.height) * 2 - 1));
-            const tiltX = (-ny * 1.6).toFixed(2);
-            const tiltY = (nx * 1.6).toFixed(2);
+            const tiltX = (-ny * 1.85).toFixed(2);
+            const tiltY = (nx * 1.85).toFixed(2);
+            nextTiltEl.dataset.tilting = "true";
             nextTiltEl.style.setProperty("--tilt-x", `${tiltX}deg`);
             nextTiltEl.style.setProperty("--tilt-y", `${tiltY}deg`);
             activeTiltElRef.current = nextTiltEl;

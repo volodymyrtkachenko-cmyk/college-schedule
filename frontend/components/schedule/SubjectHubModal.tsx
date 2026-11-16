@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import {
   api,
   type AcademicEvent,
@@ -44,6 +45,7 @@ import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { formatTaskGradeDisplay, useGradesSummary, type GradeItem } from "../../lib/useGradesSummary";
 import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useUserSettings } from "../../lib/useUserSettings";
+import { useDesktopMotionEnabled } from "../../lib/useViewportTier";
 import { LockedMeetingBadge, MeetingActionBadge } from "../lesson-card/LessonCardMeetingControls";
 import { getEventBadge } from "../lesson-card/LessonCardStatusBadges";
 import type { FullTaskItem } from "../TaskCardItem";
@@ -166,6 +168,7 @@ export function SubjectHubModal({
   const titleId = useId();
   const toast = useOptionalToast();
   const { settings } = useUserSettings();
+  const desktopMotion = useDesktopMotionEnabled();
   const [expandedTaskKeys, setExpandedTaskKeys] = useState<Record<string, boolean>>({});
   const { isTeacherUnlocked } = useTeacherAccess();
   const {
@@ -1033,16 +1036,27 @@ export function SubjectHubModal({
                         type="button"
                         aria-expanded={isExpanded}
                         onClick={() => toggleHubTaskExpand(taskKey)}
-                        className={`shrink-0 inline-flex items-center gap-1 min-h-[26px] rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                        className={`shrink-0 inline-flex items-center gap-1 min-h-[26px] rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer active:scale-95 ${
                           isExpanded
                             ? "border-sys-accent/45 bg-sys-hover text-sys-text-primary"
                             : "border-sys-border/70 bg-sys-bg/80 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-hover"
                         }`}
                       >
                         <span>{briefChip || "Міні-бриф"}</span>
-                        <span aria-hidden="true" className="text-[10px]">
-                          {isExpanded ? "▴" : "▾"}
-                        </span>
+                        <svg
+                          aria-hidden="true"
+                          width="11"
+                          height="11"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.4"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-180" : ""}`}
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
                       </button>
                     ) : weightBadge ? (
                       <span className="shrink-0 text-[11px] font-medium text-sys-text-muted pt-0.5">
@@ -1051,13 +1065,56 @@ export function SubjectHubModal({
                     ) : null}
                   </div>
 
-                  {isExpanded && (
-                    <TaskChecklistSection
-                      taskKey={taskKey}
-                      brief={brief}
-                      maxPoints={task.maxPoints}
-                      compact
-                    />
+                  {desktopMotion ? (
+                    <AnimatePresence initial={false}>
+                      {isExpanded && (
+                        <m.div
+                          initial={{ opacity: 0, height: 0, y: -6 }}
+                          animate={{
+                            opacity: 1,
+                            height: "auto",
+                            y: 0,
+                            transition: {
+                              height: { type: "spring", stiffness: 380, damping: 30 },
+                              y: { type: "spring", stiffness: 380, damping: 30 },
+                              opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+                            },
+                          }}
+                          exit={{
+                            opacity: 0,
+                            height: 0,
+                            y: -4,
+                            transition: {
+                              height: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
+                              y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
+                              opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
+                            },
+                          }}
+                          className="overflow-hidden"
+                        >
+                          <TaskChecklistSection
+                            taskKey={taskKey}
+                            brief={brief}
+                            maxPoints={task.maxPoints}
+                            compact
+                          />
+                        </m.div>
+                      )}
+                    </AnimatePresence>
+                  ) : (
+                    <div
+                      data-open={isExpanded ? "true" : undefined}
+                      className="grid-accordion"
+                    >
+                      <div className="grid-accordion-inner">
+                        <TaskChecklistSection
+                          taskKey={taskKey}
+                          brief={brief}
+                          maxPoints={task.maxPoints}
+                          compact
+                        />
+                      </div>
+                    </div>
                   )}
                 </li>
               );
@@ -1120,14 +1177,16 @@ export function SubjectHubModal({
                         aria-label="Категорії завдань предмета"
                         className={`relative grid ${isLinked ? "grid-cols-3" : "grid-cols-2"} rounded-xl border border-sys-border/70 bg-sys-bg p-1 text-[11px] font-semibold isolate`}
                       >
-                        <div
-                          aria-hidden="true"
-                          className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-card border border-sys-border shadow-2xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
-                          style={{
-                            width: `calc((100% - 8px) / ${tabOrder.length})`,
-                            transform: `translate3d(calc(${activeTaskIdx} * 100%), 0, 0)`,
-                          }}
-                        />
+                        {!desktopMotion && (
+                          <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-card border border-sys-border shadow-2xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                            style={{
+                              width: `calc((100% - 8px) / ${tabOrder.length})`,
+                              transform: `translate3d(calc(${activeTaskIdx} * 100%), 0, 0)`,
+                            }}
+                          />
+                        )}
 
                         <button
                           type="button"
@@ -1140,8 +1199,16 @@ export function SubjectHubModal({
                               : "text-sys-text-secondary hover:text-sys-text-primary"
                           }`}
                         >
-                          <span className="whitespace-nowrap">До здачі</span>
-                          <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold text-sys-text-secondary">
+                          {desktopMotion && effectiveTaskTab === "pending" && (
+                            <m.div
+                              layoutId="subject-hub-task-pill"
+                              transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                              aria-hidden="true"
+                              className="pointer-events-none absolute inset-0 rounded-lg bg-sys-card border border-sys-border shadow-2xs"
+                            />
+                          )}
+                          <span className="relative z-10 whitespace-nowrap">До здачі</span>
+                          <span className="relative z-10 shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold text-sys-text-secondary">
                             {subjectTasks.active.length}
                           </span>
                         </button>
@@ -1159,8 +1226,16 @@ export function SubjectHubModal({
                                 : "text-sys-text-secondary hover:text-sys-text-primary"
                           }`}
                         >
-                          <span className="whitespace-nowrap">{isLinked ? "Борги" : "Минув час"}</span>
-                          <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold">
+                          {desktopMotion && effectiveTaskTab === "overdue" && (
+                            <m.div
+                              layoutId="subject-hub-task-pill"
+                              transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                              aria-hidden="true"
+                              className="pointer-events-none absolute inset-0 rounded-lg bg-sys-card border border-sys-border shadow-2xs"
+                            />
+                          )}
+                          <span className="relative z-10 whitespace-nowrap">{isLinked ? "Борги" : "Минув час"}</span>
+                          <span className="relative z-10 shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold">
                             {subjectTasks.overdue.length}
                           </span>
                         </button>
@@ -1177,8 +1252,16 @@ export function SubjectHubModal({
                                 : "text-sys-text-secondary hover:text-sys-text-primary"
                             }`}
                           >
-                            <span className="whitespace-nowrap">Здано</span>
-                            <span className="shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold">
+                            {desktopMotion && effectiveTaskTab === "done" && (
+                              <m.div
+                                layoutId="subject-hub-task-pill"
+                                transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                                aria-hidden="true"
+                                className="pointer-events-none absolute inset-0 rounded-lg bg-sys-card border border-sys-border shadow-2xs"
+                              />
+                            )}
+                            <span className="relative z-10 whitespace-nowrap">Здано</span>
+                            <span className="relative z-10 shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold">
                               {subjectTasks.completed.length}
                             </span>
                           </button>

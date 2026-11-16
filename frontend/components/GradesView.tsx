@@ -418,9 +418,22 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
                         )}
                       </div>
 
-                      <span className="text-xs text-sys-text-muted pl-0.5">
-                        {isExpanded ? "▴" : "▾"}
-                      </span>
+                      <svg
+                        aria-hidden="true"
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className={`text-sys-text-muted ml-0.5 shrink-0 transition-transform duration-200 ${
+                          isExpanded ? "rotate-180" : ""
+                        }`}
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
                     </div>
                   </div>
 
@@ -454,12 +467,18 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
                   style={{
                     display: "grid",
                     gridTemplateRows: isExpanded ? "1fr" : "0fr",
-                    transition: "grid-template-rows 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s ease",
+                    transition: "grid-template-rows 0.28s var(--ease-spring), opacity 0.20s ease",
                     opacity: isExpanded ? 1 : 0,
                   }}
                   className="overflow-hidden"
                 >
-                  <div className="min-h-0">
+                  <div
+                    className="min-h-0"
+                    style={{
+                      transform: isExpanded ? "translate3d(0, 0, 0)" : "translate3d(0, -6px, 0)",
+                      transition: "transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)",
+                    }}
+                  >
                     <div className="px-3 sm:px-4 pb-3.5 pt-1 border-t border-sys-border/50 bg-sys-bg/40 space-y-2">
                       <div className="flex items-center justify-between gap-2 pt-2 pb-0.5">
                         <div className="text-[11px] font-semibold uppercase tracking-wider text-sys-text-muted">

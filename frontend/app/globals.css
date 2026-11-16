@@ -1371,17 +1371,17 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   dialog.app-dialog {
-    transform: translate3d(0, 12px, 0) scale(0.96);
+    transform: translate3d(0, 16px, 0) scale(0.95);
     transition-property: opacity, transform, overlay, display;
-    transition-duration: 160ms, 160ms, 180ms, 180ms;
-    transition-timing-function: var(--ease-exit), var(--ease-exit), ease-out, ease-out;
+    transition-duration: 185ms, 185ms, 200ms, 200ms;
+    transition-timing-function: var(--ease-exit), cubic-bezier(0.32, 0, 0.24, 1), ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
 
   dialog.app-dialog[open]:where(:not([data-closing="true"])) {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
-    transition-duration: 190ms, 340ms, 340ms, 340ms;
+    transition-duration: 190ms, 380ms, 380ms, 380ms;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy), ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
@@ -1391,26 +1391,26 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
   }
 
   dialog.app-dialog::backdrop {
-    background: radial-gradient(circle at 50% 42%, rgb(2 6 23 / 0.48), rgb(2 6 23 / 0.8));
+    background: radial-gradient(circle at 50% 42%, rgb(2 6 23 / 0.46), rgb(2 6 23 / 0.82));
     backdrop-filter: blur(0px) saturate(1);
     -webkit-backdrop-filter: blur(0px) saturate(1);
     transition-property: opacity, backdrop-filter, overlay, display;
-    transition-duration: 160ms, 160ms, 180ms, 180ms;
+    transition-duration: 185ms, 185ms, 200ms, 200ms;
     transition-timing-function: var(--ease-out), ease-out, ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
 
   dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
     opacity: 1;
-    backdrop-filter: blur(10px) saturate(1.12);
-    -webkit-backdrop-filter: blur(10px) saturate(1.12);
-    transition-duration: 210ms, 240ms, 340ms, 340ms;
+    backdrop-filter: blur(12px) saturate(1.15);
+    -webkit-backdrop-filter: blur(12px) saturate(1.15);
+    transition-duration: 220ms, 260ms, 380ms, 380ms;
   }
 
   @starting-style {
     dialog.app-dialog[open]:where(:not([data-closing="true"])) {
       opacity: 0;
-      transform: translate3d(0, 18px, 0) scale(0.94);
+      transform: translate3d(0, 28px, 0) scale(0.91);
     }
 
     dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
@@ -1467,9 +1467,9 @@ html[data-surface="glass"] #desktop-sections-menu {
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .interactive-surface {
-    transition-property: transform, border-color, background-color;
-    transition-duration: 220ms, 160ms, 160ms;
-    transition-timing-function: var(--ease-spring-gentle), ease-out, ease-out;
+    transition-property: transform, border-color, background-color, box-shadow;
+    transition-duration: 360ms, 160ms, 160ms, 240ms;
+    transition-timing-function: var(--ease-spring-gentle), ease-out, ease-out, ease-out;
   }
 
   .interactive-surface::before {
@@ -1508,7 +1508,7 @@ html[data-surface="glass"] #desktop-sections-menu {
       rgb(var(--sys-accent) / 0.16),
       transparent 70%
     );
-    transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .interactive-surface:hover:not([data-open="true"]) {
@@ -1516,32 +1516,55 @@ html[data-surface="glass"] #desktop-sections-menu {
     transform: translate3d(0, -3px, 0);
   }
 
+  /* Identity transform in rest state guarantees stable stacking & zero partial-clip during 3D hover */
+  .desktop-tilt-card {
+    position: relative;
+    z-index: 1;
+    transform: perspective(1200px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg);
+    transform-style: flat;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .desktop-tilt-card::after {
+    background:
+      radial-gradient(
+        340px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+        rgb(255 255 255 / 0.12),
+        transparent 62%
+      ),
+      radial-gradient(
+        300px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+        rgb(var(--sys-accent) / 0.18),
+        transparent 72%
+      );
+  }
+
   .desktop-tilt-card:hover:not([data-open="true"]) {
+    z-index: 25;
     will-change: transform;
     transform:
-      perspective(900px)
+      perspective(1200px)
+      translate3d(0, -4px, 16px)
       rotateX(var(--tilt-x, 0deg))
-      rotateY(var(--tilt-y, 0deg))
-      translate3d(0, -3px, 0);
-    box-shadow: 0 14px 32px -12px rgb(0 0 0 / 0.22);
+      rotateY(var(--tilt-y, 0deg));
+    box-shadow: 0 18px 40px -14px rgb(0 0 0 / 0.28);
+  }
+
+  .desktop-tilt-card[data-tilting="true"]:hover:not([data-open="true"]) {
+    transition-duration: 75ms, 160ms, 160ms, 220ms;
+    transition-timing-function: linear, ease-out, ease-out, ease-out;
   }
 
   .desktop-week-slot {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 260px auto 120px;
+    contain: layout;
     padding-block: 4px;
     margin-block: -4px;
   }
 
-  @supports not (content-visibility: auto) {
-    .desktop-week-slot {
-      contain: layout style paint;
-    }
-  }
-
-  .desktop-week-slot:has([data-open]) {
-    content-visibility: visible;
+  .desktop-week-slot:has(:is([data-open], .desktop-tilt-card:hover)) {
     contain: none;
+    z-index: 25;
   }
 
   .interactive-surface:hover::after {
@@ -1588,23 +1611,6 @@ html[data-surface="glass"] #desktop-sections-menu {
       )
       scale(1.045);
     transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .desktop-spring-popup {
-    transition-duration: 160ms, 320ms;
-    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
-  }
-
-  .desktop-spring-popup[data-closing="true"] {
-    transition-duration: 140ms, 160ms;
-    transition-timing-function: var(--ease-exit), var(--ease-exit);
-  }
-
-  @starting-style {
-    .desktop-spring-popup {
-      opacity: 0;
-      transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.92);
-    }
   }
 
   @supports (animation-timeline: scroll()) {
@@ -1656,15 +1662,16 @@ html[data-surface="glass"] #desktop-sections-menu {
 
 .discrete-popup {
   opacity: 1;
+  transform-origin: var(--popup-origin, top center);
   transition-property: opacity, transform;
-  transition-duration: 150ms, 200ms;
+  transition-duration: 160ms, 220ms;
   transition-timing-function: var(--ease-out), var(--ease-spring-gentle);
 }
 
 .discrete-popup[data-closing="true"] {
   opacity: 0;
   pointer-events: none;
-  transition-duration: 140ms, 160ms;
+  transition-duration: 150ms, 170ms;
   transition-timing-function: var(--ease-exit), var(--ease-exit);
 }
 
@@ -1684,17 +1691,40 @@ html[data-surface="glass"] #desktop-sections-menu {
   }
 
   .discrete-popup[data-closing="true"] {
-    transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.96);
+    transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.95);
   }
 
   @starting-style {
     .discrete-popup {
       opacity: 0;
-      transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.96);
+      transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.95);
     }
 
     .discrete-popup-backdrop {
       opacity: 0;
+    }
+  }
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .discrete-popup.desktop-spring-popup {
+    transition-duration: 180ms, 340ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
+  }
+
+  .discrete-popup.desktop-spring-popup[data-closing="true"] {
+    transition-duration: 150ms, 170ms;
+    transition-timing-function: var(--ease-exit), var(--ease-exit);
+  }
+
+  .discrete-popup.desktop-spring-popup[data-closing="true"] {
+    transform: translate3d(0, var(--popup-y, -8px), 0) scale(0.92);
+  }
+
+  @starting-style {
+    .discrete-popup.desktop-spring-popup {
+      opacity: 0;
+      transform: translate3d(0, var(--popup-y, -8px), 0) scale(0.9);
     }
   }
 }
@@ -1752,8 +1782,8 @@ html[data-surface="glass"] #desktop-sections-menu {
   grid-template-rows: 0fr;
   opacity: 0;
   transition:
-    grid-template-rows 240ms var(--ease-spring),
-    opacity 180ms var(--ease-out);
+    grid-template-rows 280ms var(--ease-spring),
+    opacity 190ms var(--ease-out);
 }
 
 .grid-accordion[data-open="true"] {
@@ -1765,16 +1795,25 @@ html[data-surface="glass"] #desktop-sections-menu {
   min-height: 0;
   overflow: hidden;
   visibility: hidden;
-  transition: visibility 240ms linear;
+  transform: translate3d(0, -6px, 0);
+  transition:
+    visibility 280ms linear,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .grid-accordion[data-open="true"] > .grid-accordion-inner {
   visibility: visible;
+  transform: translate3d(0, 0, 0);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .grid-accordion {
     transition: opacity 90ms ease-out !important;
+  }
+
+  .grid-accordion-inner {
+    transform: none !important;
+    transition: visibility 90ms linear !important;
   }
 }
 
@@ -1912,7 +1951,7 @@ html[data-density="relaxed"] {
   padding: var(--lesson-day-pad-y) var(--lesson-day-pad-x);
 }
 
-.lesson-card-day:not([data-open="true"]) {
+.lesson-card-day:not([data-open="true"]):not(:hover) {
   contain: layout style;
 }
 

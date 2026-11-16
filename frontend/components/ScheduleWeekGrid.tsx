@@ -42,28 +42,28 @@ interface WeekCellMotionCustom {
 
 const DESKTOP_WEEK_STAGE_VARIANTS: Variants = {
   enter: (dir: number) => ({
-    x: dir !== 0 ? (dir > 0 ? 28 : -28) : 0,
-    y: dir === 0 ? 8 : 0,
+    x: dir !== 0 ? (dir > 0 ? 46 : -46) : 0,
+    y: dir === 0 ? 14 : 0,
   }),
   center: {
     x: 0,
     y: 0,
     transition: {
-      x: { type: "spring", stiffness: 410, damping: 32, mass: 0.78 },
-      y: { type: "spring", stiffness: 410, damping: 32, mass: 0.78 },
+      x: { type: "spring", stiffness: 350, damping: 27, mass: 0.85 },
+      y: { type: "spring", stiffness: 350, damping: 27, mass: 0.85 },
     },
   },
   exit: (dir: number) => ({
     opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? -36 : 36) : 0,
-    y: dir === 0 ? -8 : 0,
-    scale: 0.988,
+    x: dir !== 0 ? (dir > 0 ? -96 : 96) : 0,
+    y: dir === 0 ? -12 : 0,
+    scale: 0.96,
     pointerEvents: "none",
     transition: {
-      x: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-      y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-      scale: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-      opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
+      x: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
+      y: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
+      scale: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
+      opacity: { duration: 0.14, ease: [0.22, 1, 0.36, 1] },
     },
   }),
 };
@@ -71,23 +71,23 @@ const DESKTOP_WEEK_STAGE_VARIANTS: Variants = {
 const DESKTOP_WEEK_HEADER_VARIANTS: Variants = {
   enter: ({ col, dir }: WeekCellMotionCustom) => ({
     opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? 14 + col * 4 : -(14 + (4 - col) * 4)) : 0,
-    y: -8,
-    scale: 0.975,
+    x: dir !== 0 ? (dir > 0 ? 38 + col * 10 : -(38 + (4 - col) * 10)) : (col - 2) * 14,
+    y: -14,
+    scale: 0.94,
   }),
   center: ({ col, dir }: WeekCellMotionCustom) => {
     const colStep = dir < 0 ? 4 - col : col;
-    const delay = colStep * 0.022;
+    const delay = colStep * 0.032;
     return {
       opacity: 1,
       x: 0,
       y: 0,
       scale: 1,
       transition: {
-        x: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
-        y: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
-        scale: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
-        opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1], delay },
+        x: { type: "spring", stiffness: 360, damping: 27, mass: 0.82, delay },
+        y: { type: "spring", stiffness: 360, damping: 27, mass: 0.82, delay },
+        scale: { type: "spring", stiffness: 360, damping: 27, mass: 0.82, delay },
+        opacity: { duration: 0.17, ease: [0.22, 1, 0.36, 1], delay },
       },
     };
   },
@@ -96,23 +96,23 @@ const DESKTOP_WEEK_HEADER_VARIANTS: Variants = {
 const DESKTOP_WEEK_ITEM_VARIANTS: Variants = {
   enter: ({ col, dir }: WeekCellMotionCustom) => ({
     opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? 18 + col * 5 : -(18 + (4 - col) * 5)) : 0,
-    y: dir === 0 ? 16 : 6,
-    scale: 0.965,
+    x: dir !== 0 ? (dir > 0 ? 46 + col * 12 : -(46 + (4 - col) * 12)) : (col - 2) * 12,
+    y: dir === 0 ? 22 : 10,
+    scale: 0.945,
   }),
   center: ({ col, row, dir }: WeekCellMotionCustom) => {
     const colStep = dir < 0 ? 4 - col : col;
-    const delay = colStep * 0.022 + Math.min(row, 6) * 0.016;
+    const delay = colStep * 0.032 + Math.min(row, 6) * 0.02;
     return {
       opacity: 1,
       x: 0,
       y: 0,
       scale: 1,
       transition: {
-        x: { type: "spring", stiffness: 420, damping: 31, mass: 0.78, delay },
-        y: { type: "spring", stiffness: 420, damping: 31, mass: 0.78, delay },
-        scale: { type: "spring", stiffness: 420, damping: 31, mass: 0.78, delay },
-        opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1], delay },
+        x: { type: "spring", stiffness: 350, damping: 27, mass: 0.84, delay },
+        y: { type: "spring", stiffness: 350, damping: 27, mass: 0.84, delay },
+        scale: { type: "spring", stiffness: 350, damping: 27, mass: 0.84, delay },
+        opacity: { duration: 0.17, ease: [0.22, 1, 0.36, 1], delay },
       },
     };
   },
@@ -348,7 +348,7 @@ export function ScheduleWeekGrid({
       {weekDaysMeta.map(({ day, periodMeta }, dIdx) => {
         const isToday = day.date === kyivTodayIso;
         const isPast = day.date < kyivTodayIso;
-        const headerCardClassName = `flex flex-col justify-center min-h-[64px] h-full px-3.5 py-2.5 rounded-2xl border transition-[border-color,background-color] duration-fast ease-smooth ${
+        const headerCardClassName = `relative flex flex-col justify-center min-h-[64px] h-full px-3.5 py-2.5 rounded-2xl border transition-[border-color,background-color] duration-fast ease-smooth ${
           onSelectDay ? "cursor-pointer hover:border-sys-accent/60" : ""
         } ${
           isToday
@@ -359,6 +359,15 @@ export function ScheduleWeekGrid({
         }`;
         const headerCardInner = (
           <>
+            {desktopMotion && animateOnMount && isToday && (
+              <m.span
+                aria-hidden="true"
+                initial={{ opacity: 0.75, scale: 0.96 }}
+                animate={{ opacity: 0, scale: 1.05 }}
+                transition={{ duration: 0.65, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                className="pointer-events-none absolute -inset-px rounded-2xl border-2 border-sys-accent"
+              />
+            )}
             <div className="flex min-h-[26px] items-center justify-between gap-1.5">
               <span
                 data-morph-day={day.date}
@@ -573,7 +582,7 @@ export function ScheduleWeekGrid({
   );
 
   return (
-    <DesktopSpotlightGrid className="relative w-full pb-4 overflow-x-clip">
+    <DesktopSpotlightGrid className="relative w-full pb-4 overflow-x-clip -mx-3 px-3">
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
       {renderDesktop && (
         desktopMotion ? (

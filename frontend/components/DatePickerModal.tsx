@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useId, useMemo, useCallback } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import { formatKyivDateIso, getSyncedNow } from "../lib/date";
+import { useDesktopMotionEnabled } from "../lib/useViewportTier";
 import {
   buildCalendarMonthGrid,
   canNavigateCalendarNextMonth,
@@ -58,12 +60,15 @@ export function DatePickerModal({
 
   const [{ year: viewYear, monthIndex0: viewMonth }, setViewMonthAnchor] = useState(initialAnchor);
   const [hoveredDateIso, setHoveredDateIso] = useState<string | null>(null);
+  const [monthSlideDir, setMonthSlideDir] = useState<-1 | 0 | 1>(0);
+  const desktopMotion = useDesktopMotionEnabled();
 
   // Reset view to selected date when modal opens
   useEffect(() => {
     if (isOpen) {
       setViewMonthAnchor(initialAnchor);
       setHoveredDateIso(null);
+      setMonthSlideDir(0);
     }
   }, [isOpen, initialAnchor]);
 
@@ -79,6 +84,7 @@ export function DatePickerModal({
 
   const goToPrevMonth = useCallback(() => {
     if (!canGoPrevMonth) return;
+    setMonthSlideDir(-1);
     setViewMonthAnchor((prev) =>
       prev.monthIndex0 === 0
         ? { year: prev.year - 1, monthIndex0: 11 }
@@ -88,6 +94,7 @@ export function DatePickerModal({
 
   const goToNextMonth = useCallback(() => {
     if (!canGoNextMonth) return;
+    setMonthSlideDir(1);
     setViewMonthAnchor((prev) =>
       prev.monthIndex0 === 11
         ? { year: prev.year + 1, monthIndex0: 0 }
@@ -200,53 +207,131 @@ export function DatePickerModal({
         </div>
 
         {/* Days Grid */}
-        <div
-          className="grid grid-cols-7 gap-1"
-          onMouseLeave={() => setHoveredDateIso(null)}
-        >
-          {calendarGrid.map((item, idx) => {
-            const isSelected = item.dateIso === selectedDateIso;
-            const isToday = item.dateIso === todayDateIso;
-            const isWeekend = item.isWeekend;
-            const isOutOfBounds = Boolean(
-              (effectiveMinIso && item.dateIso < effectiveMinIso) ||
-              (effectiveMaxIso && item.dateIso > effectiveMaxIso)
-            );
-
-            return (
-              <button
-                key={`${item.dateIso}-${idx}`}
-                type="button"
-                disabled={isOutOfBounds}
-                onMouseEnter={() => {
-                  if (!isOutOfBounds) setHoveredDateIso(item.dateIso);
+        {desktopMotion ? (
+          <div className="relative overflow-hidden">
+            <AnimatePresence mode="popLayout" initial={false} custom={monthSlideDir}>
+              <m.div
+                key={`${viewYear}-${viewMonth}`}
+                custom={monthSlideDir}
+                initial={
+                  monthSlideDir === 0
+                    ? false
+                    : { opacity: 0, x: monthSlideDir > 0 ? 34 : -34, scale: 0.98 }
+                }
+                animate={{
+                  opacity: 1,
+                  x: 0,
+                  scale: 1,
+                  transition: {
+                    x: { type: "spring", stiffness: 380, damping: 28 },
+                    scale: { type: "spring", stiffness: 380, damping: 28 },
+                    opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+                  },
                 }}
-                onFocus={() => {
-                  if (!isOutOfBounds) setHoveredDateIso(item.dateIso);
+                exit={{
+                  opacity: 0,
+                  x: monthSlideDir > 0 ? -28 : 28,
+                  scale: 0.98,
+                  pointerEvents: "none",
+                  transition: { duration: 0.14, ease: [0.32, 0, 0.24, 1] },
                 }}
-                onClick={() => handleSelect(item.dateIso)}
-                className={`relative flex h-10 w-full items-center justify-center rounded-xl text-xs sm:text-[13px] transition-[color,background-color,transform] duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent active:scale-95 disabled:opacity-25 disabled:pointer-events-none disabled:cursor-not-allowed ${
-                  isSelected
-                    ? "bg-sys-accentSolid text-sys-onAccent font-black shadow-sm"
-                    : isToday
-                    ? "ring-1.5 ring-sys-accent font-bold text-sys-accent bg-sys-accent/10 hover:bg-sys-accent/20"
-                    : item.isCurrentMonth
-                    ? isWeekend
-                      ? "text-sys-text-muted hover:bg-sys-bg hover:text-sys-text-primary"
-                      : "text-sys-text-primary font-medium hover:bg-sys-bg hover:text-sys-accent"
-                    : "text-sys-text-muted/30 hover:bg-sys-bg/50"
-                }`}
+                className="grid grid-cols-7 gap-1"
+                onMouseLeave={() => setHoveredDateIso(null)}
               >
-                <span>{item.dayNum}</span>
+                {calendarGrid.map((item, idx) => {
+                  const isSelected = item.dateIso === selectedDateIso;
+                  const isToday = item.dateIso === todayDateIso;
+                  const isWeekend = item.isWeekend;
+                  const isOutOfBounds = Boolean(
+                    (effectiveMinIso && item.dateIso < effectiveMinIso) ||
+                    (effectiveMaxIso && item.dateIso > effectiveMaxIso)
+                  );
 
-                {/* Dot for today if not active */}
-                {isToday && !isSelected && (
-                  <span className="absolute bottom-1 h-1 w-1 rounded-full bg-sys-accent" />
-                )}
-              </button>
-            );
-          })}
-        </div>
+                  return (
+                    <button
+                      key={`${item.dateIso}-${idx}`}
+                      type="button"
+                      disabled={isOutOfBounds}
+                      onMouseEnter={() => {
+                        if (!isOutOfBounds) setHoveredDateIso(item.dateIso);
+                      }}
+                      onFocus={() => {
+                        if (!isOutOfBounds) setHoveredDateIso(item.dateIso);
+                      }}
+                      onClick={() => handleSelect(item.dateIso)}
+                      className={`relative flex h-10 w-full items-center justify-center rounded-xl text-xs sm:text-[13px] transition-[color,background-color,transform] duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent active:scale-95 disabled:opacity-25 disabled:pointer-events-none disabled:cursor-not-allowed ${
+                        isSelected
+                          ? "bg-sys-accentSolid text-sys-onAccent font-black shadow-sm"
+                          : isToday
+                          ? "ring-1.5 ring-sys-accent font-bold text-sys-accent bg-sys-accent/10 hover:bg-sys-accent/20"
+                          : item.isCurrentMonth
+                          ? isWeekend
+                            ? "text-sys-text-muted hover:bg-sys-bg hover:text-sys-text-primary"
+                            : "text-sys-text-primary font-medium hover:bg-sys-bg hover:text-sys-accent"
+                          : "text-sys-text-muted/30 hover:bg-sys-bg/50"
+                      }`}
+                    >
+                      <span>{item.dayNum}</span>
+
+                      {/* Dot for today if not active */}
+                      {isToday && !isSelected && (
+                        <span className="absolute bottom-1 h-1 w-1 rounded-full bg-sys-accent" />
+                      )}
+                    </button>
+                  );
+                })}
+              </m.div>
+            </AnimatePresence>
+          </div>
+        ) : (
+          <div
+            className="grid grid-cols-7 gap-1"
+            onMouseLeave={() => setHoveredDateIso(null)}
+          >
+            {calendarGrid.map((item, idx) => {
+              const isSelected = item.dateIso === selectedDateIso;
+              const isToday = item.dateIso === todayDateIso;
+              const isWeekend = item.isWeekend;
+              const isOutOfBounds = Boolean(
+                (effectiveMinIso && item.dateIso < effectiveMinIso) ||
+                (effectiveMaxIso && item.dateIso > effectiveMaxIso)
+              );
+
+              return (
+                <button
+                  key={`${item.dateIso}-${idx}`}
+                  type="button"
+                  disabled={isOutOfBounds}
+                  onMouseEnter={() => {
+                    if (!isOutOfBounds) setHoveredDateIso(item.dateIso);
+                  }}
+                  onFocus={() => {
+                    if (!isOutOfBounds) setHoveredDateIso(item.dateIso);
+                  }}
+                  onClick={() => handleSelect(item.dateIso)}
+                  className={`relative flex h-10 w-full items-center justify-center rounded-xl text-xs sm:text-[13px] transition-[color,background-color,transform] duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent active:scale-95 disabled:opacity-25 disabled:pointer-events-none disabled:cursor-not-allowed ${
+                    isSelected
+                      ? "bg-sys-accentSolid text-sys-onAccent font-black shadow-sm"
+                      : isToday
+                      ? "ring-1.5 ring-sys-accent font-bold text-sys-accent bg-sys-accent/10 hover:bg-sys-accent/20"
+                      : item.isCurrentMonth
+                      ? isWeekend
+                        ? "text-sys-text-muted hover:bg-sys-bg hover:text-sys-text-primary"
+                        : "text-sys-text-primary font-medium hover:bg-sys-bg hover:text-sys-accent"
+                      : "text-sys-text-muted/30 hover:bg-sys-bg/50"
+                  }`}
+                >
+                  <span>{item.dayNum}</span>
+
+                  {/* Dot for today if not active */}
+                  {isToday && !isSelected && (
+                    <span className="absolute bottom-1 h-1 w-1 rounded-full bg-sys-accent" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Footer actions: Jump to today + Current preview info */}
         <div className="mt-3.5 pt-2.5 border-t border-sys-border/60 flex items-center justify-between gap-2">

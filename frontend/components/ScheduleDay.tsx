@@ -33,28 +33,31 @@ function parseMin(t?: string): number | null {
 
 const DESKTOP_DAY_STAGE_VARIANTS: Variants = {
   enter: (dir: number) => ({
-    x: dir !== 0 ? (dir > 0 ? 30 : -30) : 0,
-    y: dir === 0 ? 10 : 0,
+    x: dir !== 0 ? (dir > 0 ? 52 : -52) : 0,
+    y: dir === 0 ? 14 : 0,
   }),
   center: {
     x: 0,
     y: 0,
     transition: {
-      x: { type: "spring", stiffness: 430, damping: 32, mass: 0.78 },
-      y: { type: "spring", stiffness: 430, damping: 32, mass: 0.78 },
+      x: { type: "spring", stiffness: 340, damping: 27, mass: 0.85 },
+      y: { type: "spring", stiffness: 340, damping: 27, mass: 0.85 },
     },
   },
   exit: (dir: number) => ({
     opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? -34 : 34) : 0,
-    y: dir === 0 ? -8 : 0,
-    scale: 0.985,
+    x: dir !== 0 ? (dir > 0 ? -96 : 96) : 0,
+    y: dir === 0 ? -12 : 0,
+    scale: 0.94,
+    rotateY: dir !== 0 ? (dir > 0 ? -3.5 : 3.5) : 0,
+    transformPerspective: 1400,
     pointerEvents: "none",
     transition: {
-      x: { duration: 0.17, ease: [0.32, 0, 0.24, 1] },
-      y: { duration: 0.17, ease: [0.32, 0, 0.24, 1] },
-      scale: { duration: 0.17, ease: [0.32, 0, 0.24, 1] },
-      opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
+      x: { duration: 0.19, ease: [0.32, 0, 0.24, 1] },
+      y: { duration: 0.19, ease: [0.32, 0, 0.24, 1] },
+      scale: { duration: 0.19, ease: [0.32, 0, 0.24, 1] },
+      rotateY: { duration: 0.19, ease: [0.32, 0, 0.24, 1] },
+      opacity: { duration: 0.15, ease: [0.22, 1, 0.36, 1] },
     },
   }),
 };
@@ -67,22 +70,26 @@ interface DayItemMotionCustom {
 const DESKTOP_DAY_ITEM_VARIANTS: Variants = {
   enter: ({ idx, dir }: DayItemMotionCustom) => ({
     opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? 14 + Math.min(idx, 5) * 6 : -(14 + Math.min(idx, 5) * 6)) : 0,
-    y: dir === 0 ? 12 + Math.min(idx, 5) * 4 : 4,
-    scale: 0.975,
+    x: dir !== 0 ? (dir > 0 ? 74 + Math.min(idx, 5) * 24 : -(74 + Math.min(idx, 5) * 24)) : 0,
+    y: dir === 0 ? 16 + Math.min(idx, 5) * 6 : 10,
+    scale: 0.95,
+    rotateY: dir !== 0 ? (dir > 0 ? 4.5 : -4.5) : 0,
+    transformPerspective: 1400,
   }),
   center: ({ idx }: DayItemMotionCustom) => {
-    const delay = Math.min(idx, 7) * 0.028;
+    const delay = Math.min(idx, 7) * 0.036;
     return {
       opacity: 1,
       x: 0,
       y: 0,
       scale: 1,
+      rotateY: 0,
       transition: {
-        x: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
-        y: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
-        scale: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
-        opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1], delay },
+        x: { type: "spring", stiffness: 340, damping: 26, mass: 0.85, delay },
+        y: { type: "spring", stiffness: 340, damping: 26, mass: 0.85, delay },
+        scale: { type: "spring", stiffness: 340, damping: 26, mass: 0.85, delay },
+        rotateY: { type: "spring", stiffness: 340, damping: 26, mass: 0.85, delay },
+        opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1], delay },
       },
     };
   },
@@ -484,7 +491,7 @@ export function ScheduleDay({
   );
 
   return (
-    <section className={mode === "day" ? "relative min-w-0 overflow-x-clip" : "min-w-0"}>
+    <section className={mode === "day" ? "relative min-w-0 overflow-x-clip -mx-3 px-3" : "min-w-0"}>
       {desktopMotion ? (
         <AnimatePresence mode="popLayout" initial={animateOnMount} custom={daySlideDir}>
           <m.div

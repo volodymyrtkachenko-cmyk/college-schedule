@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
+import { useDesktopMotionEnabled } from "@/lib/useViewportTier";
 import {
   BarChartIcon,
   BellIcon,
@@ -89,6 +91,7 @@ export function DesktopToolbar({
 
   const { shouldRender: shouldRenderNavMenu, isClosing: isNavMenuClosing } =
     useAnimatedDisclosure(navMenuOpen, 170);
+  const desktopMotion = useDesktopMotionEnabled();
 
   const getMenuItems = () => {
     if (!navListRef.current) return [];
@@ -274,42 +277,60 @@ export function DesktopToolbar({
             </button>
           </div>
 
-          {/* Segmented Switcher: [ День | Тиждень ] with GPU translate3d */}
+          {/* Segmented Switcher: [ День | Тиждень ] with Framer layoutId or CSS translate3d fallback */}
           <div
             role="group"
             aria-label="Режим відображення"
             className="relative grid h-9 grid-cols-2 items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs isolate"
           >
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute top-0.5 bottom-0.5 transition-transform duration-base ease-spring transform-gpu z-0"
-              style={{
-                left: "2px",
-                width: "calc((100% - 4px) / 2)",
-                transform: `translate3d(${view === "week" ? "100%" : "0%"}, 0, 0)`,
-              }}
-            >
-              <div className="h-full w-full rounded-lg bg-sys-accentSolid shadow-xs" />
-            </div>
+            {!desktopMotion && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute top-0.5 bottom-0.5 transition-transform duration-base ease-spring transform-gpu z-0"
+                style={{
+                  left: "2px",
+                  width: "calc((100% - 4px) / 2)",
+                  transform: `translate3d(${view === "week" ? "100%" : "0%"}, 0, 0)`,
+                }}
+              >
+                <div className="h-full w-full rounded-lg bg-sys-accentSolid shadow-xs" />
+              </div>
+            )}
             <button
               type="button"
               aria-pressed={view === "today"}
               onClick={() => onViewChange("today")}
-              className={`relative z-10 flex h-8 items-center justify-center px-3 xl:px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer ${
+              className={`relative z-10 flex h-8 items-center justify-center px-3 xl:px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer active:scale-[0.97] ${
                 view === "today" ? "text-sys-onAccent" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
-              День
+              {desktopMotion && view === "today" && (
+                <m.div
+                  layoutId="desktop-toolbar-view-pill"
+                  transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs"
+                />
+              )}
+              <span className="relative z-10">День</span>
             </button>
             <button
               type="button"
               aria-pressed={view === "week"}
               onClick={() => onViewChange("week")}
-              className={`relative z-10 flex h-8 items-center justify-center px-3 xl:px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer ${
+              className={`relative z-10 flex h-8 items-center justify-center px-3 xl:px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer active:scale-[0.97] ${
                 view === "week" ? "text-sys-onAccent" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
-              Тиждень
+              {desktopMotion && view === "week" && (
+                <m.div
+                  layoutId="desktop-toolbar-view-pill"
+                  transition={{ type: "spring", stiffness: 460, damping: 32 }}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs"
+                />
+              )}
+              <span className="relative z-10">Тиждень</span>
             </button>
           </div>
         </div>
@@ -407,7 +428,108 @@ export function DesktopToolbar({
               />
             </button>
 
-            {shouldRenderNavMenu && (
+            {desktopMotion ? (
+              <AnimatePresence>
+                {navMenuOpen && (
+                  <m.div
+                    ref={navListRef}
+                    id="desktop-sections-menu"
+                    role="menu"
+                    aria-labelledby="desktop-sections-trigger"
+                    onKeyDown={handleMenuKeyDown}
+                    initial={{ opacity: 0, scale: 0.9, y: -8 }}
+                    animate={{
+                      opacity: 1,
+                      scale: 1,
+                      y: 0,
+                      transition: {
+                        scale: { type: "spring", stiffness: 450, damping: 30 },
+                        y: { type: "spring", stiffness: 450, damping: 30 },
+                        opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+                      },
+                    }}
+                    exit={{
+                      opacity: 0,
+                      scale: 0.92,
+                      y: -6,
+                      pointerEvents: "none",
+                      transition: { duration: 0.14, ease: [0.32, 0, 0.24, 1] },
+                    }}
+                    style={{ transformOrigin: "top right" }}
+                    className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-sys-border bg-sys-card backdrop-blur-2xl p-1.5 shadow-[0_20px_50px_-12px_rgb(0_0_0/0.42)] z-50"
+                  >
+                    {SECTION_LINKS.map((item, idx) => {
+                      const Icon = item.icon;
+                      return (
+                        <m.div
+                          key={item.href}
+                          initial={{ opacity: 0, x: 8 }}
+                          animate={{
+                            opacity: 1,
+                            x: 0,
+                            transition: { delay: idx * 0.025, duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+                          }}
+                        >
+                          <TransitionLink
+                            href={item.href}
+                            role="menuitem"
+                            tabIndex={-1}
+                            onClick={() => setNavMenuOpen(false)}
+                            className="flex items-start gap-2.5 rounded-xl px-3 py-2 text-left transition-colors hover:bg-sys-bg focus:bg-sys-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sys-accent group"
+                          >
+                            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-accent group-hover:border-sys-accent/40">
+                              <Icon className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-xs font-semibold text-sys-text-primary leading-snug">
+                                {item.label}
+                              </span>
+                              <span className="block text-[11px] text-sys-text-muted leading-snug">
+                                {item.description}
+                              </span>
+                            </span>
+                          </TransitionLink>
+                        </m.div>
+                      );
+                    })}
+
+                    <hr className="my-1.5 border-sys-border/70" />
+
+                    <m.div
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{
+                        opacity: 1,
+                        x: 0,
+                        transition: { delay: SECTION_LINKS.length * 0.025, duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+                      }}
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        tabIndex={-1}
+                        onClick={() => {
+                          setNavMenuOpen(false);
+                          onOpenGuideHub();
+                        }}
+                        className="flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-left transition-colors hover:bg-sys-bg focus:bg-sys-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sys-accent cursor-pointer group"
+                      >
+                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-sys-accent/25 bg-sys-accent/10 text-sys-accent group-hover:border-sys-accent/50">
+                          <LightbulbIcon className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-xs font-semibold text-sys-text-primary leading-snug">
+                            Гід та довідник
+                          </span>
+                          <span className="block text-[11px] text-sys-text-muted leading-snug">
+                            Огляд можливостей і підказки
+                          </span>
+                        </span>
+                      </button>
+                    </m.div>
+                  </m.div>
+                )}
+              </AnimatePresence>
+            ) : shouldRenderNavMenu ? (
               <div
                 ref={navListRef}
                 id="desktop-sections-menu"
@@ -415,7 +537,7 @@ export function DesktopToolbar({
                 aria-labelledby="desktop-sections-trigger"
                 onKeyDown={handleMenuKeyDown}
                 data-closing={isNavMenuClosing ? "true" : undefined}
-                style={{ "--popup-y": "-6px", transformOrigin: "top right" } as React.CSSProperties}
+                style={{ "--popup-y": "-6px", "--popup-origin": "top right" } as React.CSSProperties}
                 className="discrete-popup desktop-spring-popup absolute right-0 top-full mt-2 w-64 rounded-2xl border border-sys-border bg-sys-card backdrop-blur-2xl p-1.5 shadow-[0_20px_50px_-12px_rgb(0_0_0/0.42)] z-50"
               >
                 {SECTION_LINKS.map((item) => {
@@ -469,7 +591,7 @@ export function DesktopToolbar({
                   </span>
                 </button>
               </div>
-            )}
+            ) : null}
           </div>
 
           <span role="separator" aria-orientation="vertical" className="mx-0.5 h-4 w-px bg-sys-border/80 shrink-0" />
