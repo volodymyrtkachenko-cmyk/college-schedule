@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, m, type Variants } from "framer-motion";
 import { Lesson, ScheduleResponse } from "../lib/api";
@@ -34,88 +34,32 @@ function shortDateUk(dateStr: string): string {
   }
 }
 
-interface WeekCellMotionCustom {
-  col: number;
-  row: number;
-  dir: number;
-}
-
 const DESKTOP_WEEK_STAGE_VARIANTS: Variants = {
   enter: (dir: number) => ({
-    x: dir !== 0 ? (dir > 0 ? 46 : -46) : 0,
-    y: dir === 0 ? 14 : 0,
+    x: dir !== 0 ? (dir > 0 ? 36 : -36) : 0,
+    y: dir === 0 ? 10 : 0,
   }),
   center: {
     x: 0,
     y: 0,
     transition: {
-      x: { type: "spring", stiffness: 350, damping: 27, mass: 0.85 },
-      y: { type: "spring", stiffness: 350, damping: 27, mass: 0.85 },
+      x: { type: "spring", stiffness: 360, damping: 28, mass: 0.84 },
+      y: { type: "spring", stiffness: 360, damping: 28, mass: 0.84 },
     },
   },
   exit: (dir: number) => ({
     opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? -96 : 96) : 0,
-    y: dir === 0 ? -12 : 0,
+    x: dir !== 0 ? (dir > 0 ? -84 : 84) : 0,
+    y: dir === 0 ? -10 : 0,
     scale: 0.96,
     pointerEvents: "none",
     transition: {
-      x: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
-      y: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
-      scale: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
-      opacity: { duration: 0.14, ease: [0.22, 1, 0.36, 1] },
+      x: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
+      y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
+      scale: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
+      opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
     },
   }),
-};
-
-const DESKTOP_WEEK_HEADER_VARIANTS: Variants = {
-  enter: ({ col, dir }: WeekCellMotionCustom) => ({
-    opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? 38 + col * 10 : -(38 + (4 - col) * 10)) : (col - 2) * 14,
-    y: -14,
-    scale: 0.94,
-  }),
-  center: ({ col, dir }: WeekCellMotionCustom) => {
-    const colStep = dir < 0 ? 4 - col : col;
-    const delay = colStep * 0.032;
-    return {
-      opacity: 1,
-      x: 0,
-      y: 0,
-      scale: 1,
-      transition: {
-        x: { type: "spring", stiffness: 360, damping: 27, mass: 0.82, delay },
-        y: { type: "spring", stiffness: 360, damping: 27, mass: 0.82, delay },
-        scale: { type: "spring", stiffness: 360, damping: 27, mass: 0.82, delay },
-        opacity: { duration: 0.17, ease: [0.22, 1, 0.36, 1], delay },
-      },
-    };
-  },
-};
-
-const DESKTOP_WEEK_ITEM_VARIANTS: Variants = {
-  enter: ({ col, dir }: WeekCellMotionCustom) => ({
-    opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? 46 + col * 12 : -(46 + (4 - col) * 12)) : (col - 2) * 12,
-    y: dir === 0 ? 22 : 10,
-    scale: 0.945,
-  }),
-  center: ({ col, row, dir }: WeekCellMotionCustom) => {
-    const colStep = dir < 0 ? 4 - col : col;
-    const delay = colStep * 0.032 + Math.min(row, 6) * 0.02;
-    return {
-      opacity: 1,
-      x: 0,
-      y: 0,
-      scale: 1,
-      transition: {
-        x: { type: "spring", stiffness: 350, damping: 27, mass: 0.84, delay },
-        y: { type: "spring", stiffness: 350, damping: 27, mass: 0.84, delay },
-        scale: { type: "spring", stiffness: 350, damping: 27, mass: 0.84, delay },
-        opacity: { duration: 0.17, ease: [0.22, 1, 0.36, 1], delay },
-      },
-    };
-  },
 };
 
 export function ScheduleWeekGrid({
@@ -340,7 +284,36 @@ export function ScheduleWeekGrid({
   const renderMobile = !isMounted || isMobile;
 
   const weekSlideAttr = weekSlideDir ? (weekSlideDir > 0 ? "next" : "prev") : undefined;
-  const [hoveredDayCol, setHoveredDayCol] = useState<number | null>(null);
+  const weekGridRef = useRef<HTMLDivElement | null>(null);
+  const setFocusDayCol = (col: number | null) => {
+    const el = weekGridRef.current;
+    if (!el) return;
+    if (col === null) {
+      if ("focusDay" in el.dataset) delete el.dataset.focusDay;
+    } else {
+      const next = String(col);
+      if (el.dataset.focusDay !== next) el.dataset.focusDay = next;
+    }
+  };
+
+  const shouldCascadeCells = desktopMotion && animateOnMount;
+  const getCellMotionStyle = (col: number, row: number, isHeader = false): React.CSSProperties => {
+    if (!shouldCascadeCells) return {};
+    const colStep = weekSlideDir < 0 ? 4 - col : col;
+    const offsetX =
+      weekSlideDir !== 0
+        ? weekSlideDir > 0
+          ? 28 + col * 8
+          : -(28 + (4 - col) * 8)
+        : (col - 2) * 10;
+    const offsetY = isHeader ? -10 : weekSlideDir === 0 ? 18 : 8;
+    return {
+      "--col-step": colStep,
+      "--row-step": Math.min(row, 6),
+      "--cell-x": `${offsetX}px`,
+      "--cell-y": `${offsetY}px`,
+    } as React.CSSProperties;
+  };
 
   const desktopGridBody = (
     <>
@@ -349,6 +322,8 @@ export function ScheduleWeekGrid({
         const isToday = day.date === kyivTodayIso;
         const isPast = day.date < kyivTodayIso;
         const headerCardClassName = `relative flex flex-col justify-center min-h-[64px] h-full px-3.5 py-2.5 rounded-2xl border transition-[border-color,background-color] duration-fast ease-smooth ${
+          shouldCascadeCells ? "desktop-week-cell-enter" : ""
+        } ${
           onSelectDay ? "cursor-pointer hover:border-sys-accent/60" : ""
         } ${
           isToday
@@ -359,15 +334,6 @@ export function ScheduleWeekGrid({
         }`;
         const headerCardInner = (
           <>
-            {desktopMotion && animateOnMount && isToday && (
-              <m.span
-                aria-hidden="true"
-                initial={{ opacity: 0.75, scale: 0.96 }}
-                animate={{ opacity: 0, scale: 1.05 }}
-                transition={{ duration: 0.65, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                className="pointer-events-none absolute -inset-px rounded-2xl border-2 border-sys-accent"
-              />
-            )}
             <div className="flex min-h-[26px] items-center justify-between gap-1.5">
               <span
                 data-morph-day={day.date}
@@ -377,7 +343,7 @@ export function ScheduleWeekGrid({
               </span>
               {isToday ? (
                 <span className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-bold text-sys-accent tracking-wide shadow-xs">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sys-accent animate-pulse" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-sys-accent live-dot-settle" />
                   Сьогодні
                 </span>
               ) : periodMeta ? (
@@ -405,44 +371,32 @@ export function ScheduleWeekGrid({
             </div>
           </>
         );
-        const headerCardProps = {
-          role: onSelectDay ? "button" : undefined,
-          tabIndex: onSelectDay ? 0 : undefined,
-          onClick: () => onSelectDay?.(day.date, dIdx),
-          onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onSelectDay?.(day.date, dIdx);
-            }
-          },
-          className: headerCardClassName,
-        };
         return (
           <div
             key={`desktop-header-${day.date}`}
             data-day-col={dIdx}
-            onMouseEnter={() => setHoveredDayCol(dIdx)}
-            onFocusCapture={() => setHoveredDayCol(dIdx)}
+            onMouseEnter={() => setFocusDayCol(dIdx)}
+            onFocusCapture={() => setFocusDayCol(dIdx)}
             style={{ gridColumn: dIdx + 1 }}
             className={`flex flex-col transition-opacity duration-fast ease-smooth ${
               isPast && !isToday ? "opacity-75 hover:opacity-100" : ""
             }`}
           >
-            {desktopMotion ? (
-              <m.div
-                custom={{ col: dIdx, row: 0, dir: weekSlideDir }}
-                variants={DESKTOP_WEEK_HEADER_VARIANTS}
-                initial={animateOnMount ? "enter" : false}
-                animate="center"
-                {...headerCardProps}
-              >
-                {headerCardInner}
-              </m.div>
-            ) : (
-              <div {...headerCardProps}>
-                {headerCardInner}
-              </div>
-            )}
+            <div
+              role={onSelectDay ? "button" : undefined}
+              tabIndex={onSelectDay ? 0 : undefined}
+              onClick={() => onSelectDay?.(day.date, dIdx)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectDay?.(day.date, dIdx);
+                }
+              }}
+              style={getCellMotionStyle(dIdx, 0, true)}
+              className={headerCardClassName}
+            >
+              {headerCardInner}
+            </div>
           </div>
         );
       })}
@@ -461,8 +415,8 @@ export function ScheduleWeekGrid({
                 <div
                   key={`desktop-slot-${num}-${day.date}`}
                   data-day-col={dIdx}
-                  onMouseEnter={() => setHoveredDayCol(dIdx)}
-                  onFocusCapture={() => setHoveredDayCol(dIdx)}
+                  onMouseEnter={() => setFocusDayCol(dIdx)}
+                  onFocusCapture={() => setFocusDayCol(dIdx)}
                   style={{
                     gridColumn: dIdx + 1,
                     gridRow: `2 / span ${allLessonNumbers.length}`,
@@ -471,25 +425,15 @@ export function ScheduleWeekGrid({
                     isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
                   }`}
                 >
-                  {desktopMotion ? (
-                    <m.div
-                      custom={{ col: dIdx, row: 1, dir: weekSlideDir }}
-                      variants={DESKTOP_WEEK_ITEM_VARIANTS}
-                      initial={animateOnMount ? "enter" : false}
-                      animate="center"
-                      className="flex flex-col h-full"
-                    >
-                      <CompactSchedulePeriodCard
-                        period={day.period_info}
-                        onClick={onSelectDay ? () => onSelectDay(day.date, dIdx) : undefined}
-                      />
-                    </m.div>
-                  ) : (
+                  <div
+                    style={getCellMotionStyle(dIdx, 1)}
+                    className={`flex flex-col h-full ${shouldCascadeCells ? "desktop-week-cell-enter" : ""}`}
+                  >
                     <CompactSchedulePeriodCard
                       period={day.period_info}
                       onClick={onSelectDay ? () => onSelectDay(day.date, dIdx) : undefined}
                     />
-                  )}
+                  </div>
                 </div>
               );
             }
@@ -529,23 +473,20 @@ export function ScheduleWeekGrid({
             <div
               key={`desktop-slot-${num}-${day.date}`}
               data-day-col={dIdx}
-              onMouseEnter={() => setHoveredDayCol(dIdx)}
-              onFocusCapture={() => setHoveredDayCol(dIdx)}
+              onMouseEnter={() => setFocusDayCol(dIdx)}
+              onFocusCapture={() => setFocusDayCol(dIdx)}
               style={{ gridColumn: dIdx + 1 }}
               className={`desktop-week-slot flex flex-col min-h-[92px] transition-opacity relative has-[[data-open]]:z-50 has-[[data-open]]:opacity-100 ${
                 isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
               }`}
             >
-              {desktopMotion && (lessonsForSlot.length > 0 || isWindow) ? (
-                <m.div
-                  custom={{ col: dIdx, row: numIdx + 1, dir: weekSlideDir }}
-                  variants={DESKTOP_WEEK_ITEM_VARIANTS}
-                  initial={animateOnMount ? "enter" : false}
-                  animate="center"
-                  className="flex flex-col h-full"
+              {shouldCascadeCells && (lessonsForSlot.length > 0 || isWindow) ? (
+                <div
+                  style={getCellMotionStyle(dIdx, numIdx + 1)}
+                  className="desktop-week-cell-enter flex flex-col h-full"
                 >
                   {slotInner}
-                </m.div>
+                </div>
               ) : (
                 slotInner
               )}
@@ -559,46 +500,39 @@ export function ScheduleWeekGrid({
         <div
           key={`desktop-footer-${day.date}`}
           data-day-col={dIdx}
-          onMouseEnter={() => setHoveredDayCol(dIdx)}
+          onMouseEnter={() => setFocusDayCol(dIdx)}
           style={{ gridColumn: dIdx + 1 }}
           className="py-2 px-3 text-center text-xs font-medium transition-opacity border-t border-sys-border/40 mt-1 text-sys-text-secondary"
         >
-          {desktopMotion ? (
-            <m.span
-              className="inline-block"
-              custom={{ col: dIdx, row: allLessonNumbers.length + 1, dir: weekSlideDir }}
-              variants={DESKTOP_WEEK_ITEM_VARIANTS}
-              initial={animateOnMount ? "enter" : false}
-              animate="center"
-            >
-              {summaryText}
-            </m.span>
-          ) : (
-            <span>{summaryText}</span>
-          )}
+          <span
+            style={getCellMotionStyle(dIdx, allLessonNumbers.length + 1)}
+            className={`inline-block ${shouldCascadeCells ? "desktop-week-cell-enter" : ""}`}
+          >
+            {summaryText}
+          </span>
         </div>
       ))}
     </>
   );
 
   return (
-    <DesktopSpotlightGrid className="relative w-full pb-4 overflow-x-clip -mx-3 px-3">
+    <DesktopSpotlightGrid spotlightHoverOnly className="relative w-full pb-4 overflow-x-clip -mx-3 px-3">
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
       {renderDesktop && (
         desktopMotion ? (
           <AnimatePresence mode="popLayout" initial={animateOnMount} custom={weekSlideDir}>
             <m.div
+              ref={weekGridRef}
               key={`desktop-week-${week[0]?.date ?? "week"}`}
               custom={weekSlideDir}
               variants={DESKTOP_WEEK_STAGE_VARIANTS}
               initial={animateOnMount ? "enter" : false}
               animate="center"
               exit="exit"
-              data-focus-day={hoveredDayCol !== null ? hoveredDayCol : undefined}
-              onMouseLeave={() => setHoveredDayCol(null)}
+              onMouseLeave={() => setFocusDayCol(null)}
               onBlurCapture={(e) => {
                 if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                  setHoveredDayCol(null);
+                  setFocusDayCol(null);
                 }
               }}
               className="desktop-week-grid hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4"
@@ -608,12 +542,12 @@ export function ScheduleWeekGrid({
           </AnimatePresence>
         ) : (
           <div
+            ref={weekGridRef}
             key={`desktop-week-${week[0]?.date ?? "week"}`}
-            data-focus-day={hoveredDayCol !== null ? hoveredDayCol : undefined}
-            onMouseLeave={() => setHoveredDayCol(null)}
+            onMouseLeave={() => setFocusDayCol(null)}
             onBlurCapture={(e) => {
               if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                setHoveredDayCol(null);
+                setFocusDayCol(null);
               }
             }}
             className="desktop-week-grid hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4"

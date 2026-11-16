@@ -971,6 +971,24 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 }
 
+@keyframes desktop-week-cell-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes desktop-week-cell-spring {
+  from {
+    transform: translate3d(var(--cell-x, 0px), var(--cell-y, 18px), 0) scale(0.95);
+  }
+  to {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 @keyframes popup-panel-enter {
   from {
     opacity: 0;
@@ -1579,12 +1597,25 @@ html[data-surface="glass"] #desktop-sections-menu {
     animation-delay: calc(min(var(--stagger-index, 0), 8) * 18ms);
   }
 
-  .desktop-week-grid[data-focus-day="0"] [data-day-col]:not([data-day-col="0"]):not(:has([data-open])),
-  .desktop-week-grid[data-focus-day="1"] [data-day-col]:not([data-day-col="1"]):not(:has([data-open])),
-  .desktop-week-grid[data-focus-day="2"] [data-day-col]:not([data-day-col="2"]):not(:has([data-open])),
-  .desktop-week-grid[data-focus-day="3"] [data-day-col]:not([data-day-col="3"]):not(:has([data-open])),
-  .desktop-week-grid[data-focus-day="4"] [data-day-col]:not([data-day-col="4"]):not(:has([data-open])) {
-    opacity: 0.68;
+  /* Pure compositor-thread cascade for 5-column desktop week grid (60/120fps, 0 JS spring solvers) */
+  .desktop-week-cell-enter {
+    animation:
+      desktop-week-cell-fade 165ms cubic-bezier(0.22, 1, 0.36, 1) backwards,
+      desktop-week-cell-spring 360ms var(--ease-spring-snappy) backwards;
+    animation-delay: calc(var(--col-step, 0) * 26ms + var(--row-step, 0) * 16ms);
+  }
+
+  /* In dense 5x5 Week grid, only evaluate mask-composite border glow for the hovered card */
+  .desktop-week-grid .interactive-surface:not(:hover)::before {
+    opacity: 0 !important;
+  }
+
+  .desktop-week-grid[data-focus-day="0"]:not(:has([data-open])) [data-day-col]:not([data-day-col="0"]),
+  .desktop-week-grid[data-focus-day="1"]:not(:has([data-open])) [data-day-col]:not([data-day-col="1"]),
+  .desktop-week-grid[data-focus-day="2"]:not(:has([data-open])) [data-day-col]:not([data-day-col="2"]),
+  .desktop-week-grid[data-focus-day="3"]:not(:has([data-open])) [data-day-col]:not([data-day-col="3"]),
+  .desktop-week-grid[data-focus-day="4"]:not(:has([data-open])) [data-day-col]:not([data-day-col="4"]) {
+    opacity: 0.72;
   }
 
   .desktop-view-enter {
@@ -2096,13 +2127,19 @@ html[data-surface="glass"]
 }
 
 /* Desktop hardware backdrop blur (>= 768px) for top-level cards,
-   excluding dense Week grid (.lesson-card-week) and nested surfaces */
+   excluding dense Week grid (.lesson-card-week & .desktop-week-grid) and nested surfaces */
 @media (min-width: 768px) {
   html[data-surface="glass"]
     :is(.bg-sys-card, .bg-sys-surface, .surface-panel):not([class*="bg-sys-card/"]):not(.lesson-card-week):not(header):not(nav):not(.vt-bottom-nav):not(dialog *):not([role="dialog"] *) {
     background-color: rgb(var(--sys-card) / var(--glass-alpha)) !important;
     backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+  }
+
+  html[data-surface="glass"] .desktop-week-grid :is(.bg-sys-card, .bg-sys-surface, .surface-panel) {
+    background-color: rgb(var(--sys-card) / var(--glass-card-fast-alpha)) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 }
 

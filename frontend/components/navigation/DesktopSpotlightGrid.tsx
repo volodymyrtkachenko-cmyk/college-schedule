@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useRef } from "react";
 
 interface DesktopSpotlightGridProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
+  /** In dense multi-column grids (like Week view), limit radial spotlight updates to the directly hovered card for steady 60/120fps. */
+  spotlightHoverOnly?: boolean;
 }
 
 /**
@@ -14,6 +16,7 @@ interface DesktopSpotlightGridProps extends React.HTMLAttributes<HTMLDivElement>
  */
 export function DesktopSpotlightGrid({
   children,
+  spotlightHoverOnly = false,
   className = "",
   onPointerMove,
   onPointerLeave,
@@ -21,6 +24,7 @@ export function DesktopSpotlightGrid({
 }: DesktopSpotlightGridProps) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
+  const surfacesRef = useRef<HTMLElement[]>([]);
   const rectCacheRef = useRef<WeakMap<HTMLElement, DOMRect>>(new WeakMap());
   const lastCoordsRef = useRef<WeakMap<HTMLElement, { x: number; y: number }>>(new WeakMap());
   const activeTiltElRef = useRef<HTMLElement | null>(null);
@@ -40,12 +44,22 @@ export function DesktopSpotlightGrid({
 
   useEffect(() => {
     rectCacheRef.current = new WeakMap();
+    const container = gridRef.current;
+    surfacesRef.current =
+      !spotlightHoverOnly && container
+        ? Array.from(container.querySelectorAll<HTMLElement>(".interactive-surface"))
+        : [];
     if (typeof window === "undefined") return;
     const timer = window.setTimeout(() => {
       rectCacheRef.current = new WeakMap();
+      if (!spotlightHoverOnly && gridRef.current) {
+        surfacesRef.current = Array.from(
+          gridRef.current.querySelectorAll<HTMLElement>(".interactive-surface"),
+        );
+      }
     }, 380);
     return () => window.clearTimeout(timer);
-  }, [children]);
+  }, [children, spotlightHoverOnly]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -100,21 +114,22 @@ export function DesktopSpotlightGrid({
         const container = gridRef.current;
         if (!job || !container) return;
 
-        const surfaces = container.querySelectorAll<HTMLElement>(".interactive-surface");
-        surfaces.forEach((surface) => {
+        const updateSurfaceCoords = (surface: HTMLElement) => {
           let rect = rectCacheRef.current.get(surface);
           if (!rect) {
             rect = surface.getBoundingClientRect();
             rectCacheRef.current.set(surface, rect);
           }
-          // Skip surfaces far outside the pointer proximity radius (260px) to avoid dead writes
-          if (
-            job.clientX < rect.left - 260 ||
-            job.clientX > rect.right + 260 ||
-            job.clientY < rect.top - 260 ||
-            job.clientY > rect.bottom + 260
-          ) {
-            return;
+          if (!spotlightHoverOnly) {
+            // Skip surfaces far outside the pointer proximity radius (260px) to avoid dead writes
+            if (
+              job.clientX < rect.left - 260 ||
+              job.clientX > rect.right + 260 ||
+              job.clientY < rect.top - 260 ||
+              job.clientY > rect.bottom + 260
+            ) {
+              return;
+            }
           }
           const relX = Math.round(job.clientX - rect.left);
           const relY = Math.round(job.clientY - rect.top);
@@ -127,7 +142,21 @@ export function DesktopSpotlightGrid({
           lastCoordsRef.current.set(surface, { x: relX, y: relY });
           surface.style.setProperty("--spot-x", `${relX}px`);
           surface.style.setProperty("--spot-y", `${relY}px`);
-        });
+        };
+
+        if (spotlightHoverOnly) {
+          const hoveredSurface = job.target.closest(".interactive-surface");
+          if (hoveredSurface instanceof HTMLElement) {
+            updateSurfaceCoords(hoveredSurface);
+          }
+        } else {
+          if (surfacesRef.current.length === 0) {
+            surfacesRef.current = Array.from(
+              container.querySelectorAll<HTMLElement>(".interactive-surface"),
+            );
+          }
+          surfacesRef.current.forEach(updateSurfaceCoords);
+        }
 
         const hoveredTilt = job.target.closest(".desktop-tilt-card");
         const nextTiltEl = hoveredTilt instanceof HTMLElement ? hoveredTilt : null;

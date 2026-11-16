@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 import dynamic from "next/dynamic";
-import { AnimatePresence, m, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { canAccessAdmin, useAuth } from "../lib/auth";
 import { type ReferenceRecord, type ScheduleResponse } from "../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../lib/hooks";
@@ -674,37 +674,25 @@ export function SchedulePageClient({
 
                 if (desktopMotion) {
                   return (
-                    <div className="relative w-full">
-                      <AnimatePresence mode="popLayout" initial={false}>
-                        <m.div
-                          key={sel.view}
-                          initial={
-                            sel.hasMotionInteracted
-                              ? { opacity: 0, y: sel.view === "week" ? 12 : 8, scale: sel.view === "week" ? 0.985 : 1 }
-                              : false
-                          }
-                          animate={{
-                            opacity: 1,
-                            y: 0,
-                            scale: 1,
-                            transition: {
-                              opacity: { duration: 0.2, ease: [0.22, 1, 0.36, 1] },
-                              y: { type: "spring", stiffness: 360, damping: 28 },
-                              scale: { type: "spring", stiffness: 360, damping: 28 },
-                            },
-                          }}
-                          exit={{
-                            opacity: 0,
-                            scale: 0.97,
-                            pointerEvents: "none",
-                            transition: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-                          }}
-                          className="w-full"
-                        >
-                          {desktopViewContent}
-                        </m.div>
-                      </AnimatePresence>
-                    </div>
+                    <m.div
+                      key={sel.view}
+                      initial={
+                        sel.hasMotionInteracted
+                          ? { opacity: 0, y: sel.view === "week" ? 10 : 8 }
+                          : false
+                      }
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                        transition: {
+                          opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+                          y: { type: "spring", stiffness: 370, damping: 28 },
+                        },
+                      }}
+                      className="w-full"
+                    >
+                      {desktopViewContent}
+                    </m.div>
                   );
                 }
 
