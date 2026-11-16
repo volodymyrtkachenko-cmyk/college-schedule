@@ -251,7 +251,11 @@ async def _extract_brief_via_gemini(
     if not api_key or len((description or "").strip()) < 20:
         return None
 
-    model_name = (settings.gemini_model or "gemini-3.8-flash").strip()
+    primary_model = (settings.gemini_model or "gemini-3.5-flash-lite").strip()
+    candidate_models = [primary_model]
+    if primary_model != "gemini-3.5-flash-lite":
+        candidate_models.append("gemini-3.5-flash-lite")
+
     pts_line = f"\nМаксимум балів: {max_points}" if max_points is not None else ""
     prompt = (
         "Ти допомагаєш студенту українського коледжу швидко зрозуміти завдання з Google Classroom.\n"
@@ -266,43 +270,57 @@ async def _extract_brief_via_gemini(
         f"Опис:\n{description.strip()[:2500]}"
     )
 
-    body = {
-        "model": model_name,
-        "input": prompt,
-        "response_format": {
-            "type": "text",
-            "mime_type": "application/json",
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "summary": {"type": "string"},
-                    "steps": {"type": "array", "items": {"type": "string"}},
-                    "estimated_minutes": {"type": "integer"},
-                    "work_format": {"type": "string", "enum": ["phone", "pc", "theory"]},
-                },
-                "required": ["summary", "steps", "estimated_minutes", "work_format"],
-            },
+    schema = {
+        "type": "object",
+        "properties": {
+            "summary": {"type": "string"},
+            "steps": {"type": "array", "items": {"type": "string"}},
+            "estimated_minutes": {"type": "integer"},
+            "work_format": {"type": "string", "enum": ["phone", "pc", "theory"]},
         },
+        "required": ["summary", "steps", "estimated_minutes", "work_format"],
     }
 
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.post(
-                GEMINI_INTERACTIONS_URL,
-                headers={
-                    "x-goog-api-key": api_key,
-                    "Content-Type": "application/json",
-                    "Api-Revision": GEMINI_API_REVISION,
-                },
-                json=body,
-            )
-        if resp.status_code != 200:
-            logger.warning("Gemini task brief API returned status %s", resp.status_code)
-            return None
-        parsed = _extract_json_from_gemini_response(resp.json())
-        if not parsed:
-            return None
-        return _sanitize_brief_payload(parsed, source="gemini")
+            for model_name in candidate_models:
+                try:
+                    resp = await client.post(
+                        GEMINI_INTERACTIONS_URL,
+                        headers={
+                            "x-goog-api-key": api_key,
+                            "Content-Type": "application/json",
+                            "Api-Revision": GEMINI_API_REVISION,
+                        },
+                        json={
+                            "model": model_name,
+                            "input": prompt,
+                            "response_format": {
+                                "type": "text",
+                                "mime_type": "application/json",
+                                "schema": schema,
+                            },
+                        },
+                    )
+                except httpx.TimeoutException:
+                    logger.warning("Gemini model %s timed out, trying fallback", model_name)
+                    continue
+
+                if resp.status_code in (404, 429, 503):
+                    logger.warning(
+                        "Gemini model %s returned status %s, trying fallback",
+                        model_name,
+                        resp.status_code,
+                    )
+                    continue
+                if resp.status_code != 200:
+                    logger.warning("Gemini task brief API returned status %s", resp.status_code)
+                    return None
+                parsed = _extract_json_from_gemini_response(resp.json())
+                if not parsed:
+                    return None
+                return _sanitize_brief_payload(parsed, source="gemini")
+        return None
     except Exception as exc:
         logger.debug("Gemini task brief fallback triggered: %s", exc)
         return None
