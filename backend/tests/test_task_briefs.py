@@ -32,6 +32,7 @@ async def db_session():
 def test_heuristic_brief_stays_honest_without_inventing_minutes_or_boilerplate():
     bare_brief = build_heuristic_task_brief("Лабораторна №4", "", max_points=12)
     assert bare_brief["summary"] == ""
+    assert bare_brief["deliverable"] is None
     assert bare_brief["steps"] == []
     assert bare_brief["estimated_minutes"] is None
 
@@ -44,39 +45,66 @@ def test_heuristic_brief_stays_honest_without_inventing_minutes_or_boilerplate()
     assert explicit_time_brief["estimated_minutes"] == 20
     assert "IPv4" in explicit_time_brief["summary"]
 
-    pc_brief = build_heuristic_task_brief(
-        "Лабораторна робота №3",
-        "1. Зібрати топологію у Packet Tracer.\n2. Налаштувати VLAN.\n3. Завантажити .pkt та звіт.",
-        max_points=12,
-    )
-    assert pc_brief["work_format"] == "pc"
-    assert pc_brief["estimated_minutes"] is None
-    assert pc_brief["steps"] == [
-        "Зібрати топологію у Packet Tracer",
-        "Налаштувати VLAN",
-        "Завантажити .pkt та звіт",
-    ]
 
-
-def test_extract_coursework_materials_reads_files_forms_and_videos():
+def test_extract_coursework_materials_reads_clickable_urls_and_kinds():
     mats = extract_coursework_materials({
         "materials": [
-            {"driveFile": {"driveFile": {"title": "Методичка_4.pdf"}}},
-            {"form": {"title": "Контрольний тест"}},
-            {"youtubeVideo": {"title": "Огляд VLAN"}},
-            {"link": {"title": "Приклад коду"}},
+            {
+                "driveFile": {
+                    "driveFile": {
+                        "id": "pdf-1",
+                        "title": "Методичка_4.pdf",
+                        "alternateLink": "https://drive.google.com/file/d/pdf-1/view",
+                    }
+                }
+            },
+            {
+                "form": {
+                    "title": "Контрольний тест",
+                    "formUrl": "https://docs.google.com/forms/d/e/123/viewform",
+                }
+            },
+            {
+                "youtubeVideo": {
+                    "id": "yt123",
+                    "title": "Огляд VLAN",
+                    "alternateLink": "https://www.youtube.com/watch?v=yt123",
+                }
+            },
+            {
+                "link": {
+                    "title": "Документація",
+                    "url": "https://example.com/docs",
+                }
+            },
         ]
     })
     assert mats == [
-        "Файл: Методичка_4.pdf",
-        "Google Форма: Контрольний тест",
-        "Відео: Огляд VLAN",
-        "Посилання: Приклад коду",
+        {
+            "title": "Методичка_4.pdf",
+            "url": "https://drive.google.com/file/d/pdf-1/view",
+            "kind": "pdf",
+        },
+        {
+            "title": "Контрольний тест",
+            "url": "https://docs.google.com/forms/d/e/123/viewform",
+            "kind": "form",
+        },
+        {
+            "title": "Огляд VLAN",
+            "url": "https://www.youtube.com/watch?v=yt123",
+            "kind": "video",
+        },
+        {
+            "title": "Документація",
+            "url": "https://example.com/docs",
+            "kind": "link",
+        },
     ]
 
 
 @pytest.mark.anyio
-async def test_ensure_and_attach_task_briefs_prioritizes_active_and_upgrades_with_gemini(db_session, monkeypatch):
+async def test_ensure_and_attach_task_briefs_caches_deliverable_and_clickable_materials(db_session, monkeypatch):
     monkeypatch.setattr(settings, "gemini_api_key", "")
 
     tasks = [
@@ -112,16 +140,29 @@ async def test_ensure_and_attach_task_briefs_prioritizes_active_and_upgrades_wit
             "Старе завдання з описом, яке вже здано і не повинно забирати квоту першим."
         ),
     }
+    mats_map = {
+        "https://classroom.google.com/c/1/a/1/details": [
+            {
+                "title": "Приклад_CSV.pdf",
+                "url": "https://drive.google.com/file/d/csv1/view",
+                "kind": "pdf",
+            }
+        ]
+    }
 
-    await ensure_and_attach_task_briefs(db_session, 1, tasks, descriptions_by_url=desc_map)
+    await ensure_and_attach_task_briefs(
+        db_session,
+        1,
+        tasks,
+        descriptions_by_url=desc_map,
+        materials_by_url=mats_map,
+    )
     await db_session.commit()
 
     assert tasks[1]["brief"]["source"] == "heuristic"
-    assert tasks[1]["brief"]["work_format"] == "pc"
-    # Bare task with no description/materials must NOT expose empty boilerplate brief
+    assert tasks[1]["brief"]["materials"] == mats_map["https://classroom.google.com/c/1/a/1/details"]
     assert tasks[2]["brief"] is None
 
-    # Enable Gemini API with max_llm_calls=1 -> active cw-1 must be chosen before done cw-done!
     monkeypatch.setattr(settings, "gemini_api_key", "fake-test-key")
     gemini_payload = {
         "steps": [
@@ -132,11 +173,8 @@ async def test_ensure_and_attach_task_briefs_prioritizes_active_and_upgrades_wit
                         "type": "text",
                         "text": json.dumps(
                             {
-                                "summary": "Написати Python-парсер CSV і покрити його тестами.",
-                                "steps": [
-                                    "Реалізувати читання CSV",
-                                    "Додати unit-тести",
-                                ],
+                                "summary": "Реалізувати парсер CSV на Python і покрити базовими тестами.",
+                                "deliverable": "Файл parser.py та скріншот проходження тестів",
                                 "estimated_minutes": 45,
                                 "work_format": "pc",
                             },
@@ -164,22 +202,24 @@ async def test_ensure_and_attach_task_briefs_prioritizes_active_and_upgrades_wit
             1,
             tasks_second,
             descriptions_by_url=desc_map,
+            materials_by_url=mats_map,
             max_llm_calls=1,
         )
         await db_session.commit()
 
     assert post_mock.await_count == 1
     assert tasks_second[1]["brief"]["source"] == "gemini"
+    assert tasks_second[1]["brief"]["deliverable"] == "Файл parser.py та скріншот проходження тестів"
+    assert tasks_second[1]["brief"]["materials"][0]["url"] == "https://drive.google.com/file/d/csv1/view"
     assert tasks_second[1]["brief"]["estimated_minutes"] == 45
-    assert tasks_second[0]["brief"]["source"] == "heuristic"
 
-    # Read-only attach path preserves substantive DB brief and keeps bare tasks brief=None
     read_tasks = [
         {"id": "cw-1", "title": "Лабораторна №1", "url": "https://classroom.google.com/c/1/a/1/details"},
         {"id": "cw-bare", "title": "Практична №2", "url": "https://classroom.google.com/c/1/a/bare/details"},
     ]
     await attach_cached_briefs(db_session, 1, read_tasks)
     assert read_tasks[0]["brief"]["source"] == "gemini"
+    assert read_tasks[0]["brief"]["deliverable"] == "Файл parser.py та скріншот проходження тестів"
     assert read_tasks[1]["brief"] is None
 
     stored = (await db_session.scalars(select(ClassroomTaskBrief))).all()

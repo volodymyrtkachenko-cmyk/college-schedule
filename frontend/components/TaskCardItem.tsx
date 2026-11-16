@@ -11,7 +11,6 @@ import {
   type TaskBrief,
 } from "../lib/schedule/priorityNavigator";
 import { formatTaskGradeDisplay } from "../lib/useGradesSummary";
-import { useTaskChecklist } from "../lib/useTaskChecklist";
 import { TaskChecklistSection } from "./TaskChecklistSection";
 
 export interface FullTaskItem {
@@ -43,7 +42,6 @@ export const TaskCardItem = memo(function TaskCardItem({
   isLinked = false,
 }: TaskCardItemProps) {
   const [briefOpen, setBriefOpen] = useState(false);
-  const { checklistMap, toggleStep } = useTaskChecklist();
 
   const isGenericTitle = !t.title || t.title === "Домашнє завдання" || t.title === "Завдання";
   const titleLine = isGenericTitle ? t.subject : t.title;
@@ -134,8 +132,6 @@ export const TaskCardItem = memo(function TaskCardItem({
   const taskKey = getNavigatorTaskKey(t);
   const brief = resolveEffectiveTaskBrief(t);
   const canExpandBrief = hasExpandableBrief(brief);
-  const checkedSteps = checklistMap[taskKey] || [];
-  const totalSteps = brief.steps.length;
   const chipLabel = formatBriefChipLabel(brief);
   const weightBadge = formatTaskWeightBadge(t.maxPoints ?? null);
 
@@ -229,12 +225,13 @@ export const TaskCardItem = memo(function TaskCardItem({
           type="button"
           aria-expanded={briefOpen}
           onClick={() => setBriefOpen((prev) => !prev)}
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-sys-text-muted hover:text-sys-text-secondary hover:bg-sys-bg/70 transition-colors cursor-pointer"
+          className={`inline-flex items-center gap-1.5 min-h-[26px] rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+            briefOpen
+              ? "border-sys-accent/45 bg-sys-hover text-sys-text-primary"
+              : "border-sys-border/70 bg-sys-bg/80 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-hover"
+          }`}
         >
-          <span>
-            {chipLabel || "Розбір"}
-            {totalSteps > 0 ? ` (${checkedSteps.length}/${totalSteps})` : ""}
-          </span>
+          <span>{chipLabel || "Міні-бриф"}</span>
           <span aria-hidden="true" className="text-[10px]">
             {briefOpen ? "▴" : "▾"}
           </span>
@@ -246,8 +243,6 @@ export const TaskCardItem = memo(function TaskCardItem({
           taskKey={taskKey}
           brief={brief}
           maxPoints={t.maxPoints}
-          checkedIndices={checkedSteps}
-          onToggleStep={toggleStep}
           compact
         />
       )}

@@ -12,10 +12,17 @@ import type {
   ClassroomWorkerHeartbeat,
 } from "./types";
 
+export interface RawTaskMaterial {
+  title: string;
+  url?: string | null;
+  kind?: string;
+}
+
 export interface RawTaskBrief {
   summary: string;
+  deliverable?: string | null;
   steps?: string[];
-  materials?: string[];
+  materials?: Array<string | RawTaskMaterial>;
   estimated_minutes?: number | null;
   work_format?: "phone" | "pc" | "theory" | string;
   source?: "gemini" | "heuristic" | string;

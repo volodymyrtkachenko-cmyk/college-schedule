@@ -42,7 +42,6 @@ import {
 } from "../../lib/schedule";
 import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { formatTaskGradeDisplay, useGradesSummary, type GradeItem } from "../../lib/useGradesSummary";
-import { useTaskChecklist } from "../../lib/useTaskChecklist";
 import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useUserSettings } from "../../lib/useUserSettings";
 import { LockedMeetingBadge, MeetingActionBadge } from "../lesson-card/LessonCardMeetingControls";
@@ -167,7 +166,6 @@ export function SubjectHubModal({
   const titleId = useId();
   const toast = useOptionalToast();
   const { settings } = useUserSettings();
-  const { checklistMap, toggleStep } = useTaskChecklist();
   const [expandedTaskKeys, setExpandedTaskKeys] = useState<Record<string, boolean>>({});
   const { isTeacherUnlocked } = useTeacherAccess();
   const {
@@ -999,7 +997,6 @@ export function SubjectHubModal({
               const brief = resolveEffectiveTaskBrief(task);
               const canExpandBrief = hasExpandableBrief(brief);
               const isExpanded = canExpandBrief && Boolean(expandedTaskKeys[taskKey]);
-              const checkedIndices = checklistMap[taskKey] || [];
               const briefChip = formatBriefChipLabel(brief);
               const weightBadge = formatTaskWeightBadge(task.maxPoints ?? null);
 
@@ -1033,9 +1030,16 @@ export function SubjectHubModal({
                         type="button"
                         aria-expanded={isExpanded}
                         onClick={() => toggleHubTaskExpand(taskKey)}
-                        className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-sys-text-muted hover:text-sys-text-secondary hover:bg-sys-card transition-colors cursor-pointer"
+                        className={`shrink-0 inline-flex items-center gap-1 min-h-[26px] rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                          isExpanded
+                            ? "border-sys-accent/45 bg-sys-hover text-sys-text-primary"
+                            : "border-sys-border/70 bg-sys-bg/80 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-hover"
+                        }`}
                       >
-                        {briefChip || "Розбір"} {isExpanded ? "▴" : "▾"}
+                        <span>{briefChip || "Міні-бриф"}</span>
+                        <span aria-hidden="true" className="text-[10px]">
+                          {isExpanded ? "▴" : "▾"}
+                        </span>
                       </button>
                     ) : weightBadge ? (
                       <span className="shrink-0 text-[11px] font-medium text-sys-text-muted pt-0.5">
@@ -1049,8 +1053,6 @@ export function SubjectHubModal({
                       taskKey={taskKey}
                       brief={brief}
                       maxPoints={task.maxPoints}
-                      checkedIndices={checkedIndices}
-                      onToggleStep={toggleStep}
                       compact
                     />
                   )}
