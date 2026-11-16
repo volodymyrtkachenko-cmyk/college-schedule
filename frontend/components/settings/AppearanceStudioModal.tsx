@@ -570,7 +570,7 @@ export function AppearanceStudioModal({
                       key={`preview-mode-${m.id}`}
                       type="button"
                       aria-pressed={theme === m.id}
-                      onClick={() => setTheme(m.id)}
+                      onClick={(e) => setTheme(m.id, e)}
                       className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer ${
                         theme === m.id
                           ? "bg-sys-accentSolid text-sys-onAccent"
@@ -676,7 +676,7 @@ export function AppearanceStudioModal({
                           key={preset.id}
                           type="button"
                           aria-pressed={active}
-                          onClick={() => applyCuratedPreset(preset)}
+                          onClick={(e) => applyCuratedPreset(preset, e)}
                           className={`flex flex-col justify-between gap-2.5 rounded-xl border p-3.5 text-left transition-colors cursor-pointer ${
                             active
                               ? "border-sys-accent bg-sys-accent/12 text-sys-text-primary shadow-xs ring-1 ring-sys-accent/40"
@@ -746,7 +746,7 @@ export function AppearanceStudioModal({
                             key={m.id}
                             type="button"
                             aria-pressed={active}
-                            onClick={() => setTheme(m.id)}
+                            onClick={(e) => setTheme(m.id, e)}
                             className={`relative z-10 min-h-[38px] rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors duration-fast cursor-pointer active:scale-[0.98] ${
                               active
                                 ? "text-white font-bold"
@@ -773,7 +773,7 @@ export function AppearanceStudioModal({
                             key={opt.id}
                             type="button"
                             aria-pressed={active}
-                            onClick={() => setAccent(opt.id as AccentColor)}
+                            onClick={(e) => setAccent(opt.id as AccentColor, e)}
                             className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors cursor-pointer min-w-0 ${
                               active
                                 ? "border-sys-accent bg-sys-accent/12 text-sys-text-primary ring-1 ring-sys-accent/35"
@@ -797,7 +797,7 @@ export function AppearanceStudioModal({
                       <button
                         type="button"
                         aria-pressed={accent === "custom"}
-                        onClick={() => setAccent("custom")}
+                        onClick={(e) => setAccent("custom", e)}
                         className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-colors cursor-pointer min-w-0 ${
                           accent === "custom"
                             ? "border-sys-accent bg-sys-accent/12 text-sys-text-primary ring-1 ring-sys-accent/35"

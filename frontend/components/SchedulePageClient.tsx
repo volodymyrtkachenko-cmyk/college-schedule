@@ -338,6 +338,7 @@ export function SchedulePageClient({
               mobileTab={sel.mobileTab}
               currentName={sel.currentName}
               isTeacherUnlocked={isTeacherUnlocked}
+              resolvedTheme={resolvedTheme}
               canNavigatePrevWeek={sel.canNavigatePrevWeek}
               canNavigateNextWeek={sel.canNavigateNextWeek}
               compactWeekRange={sel.compactWeekRange}
@@ -350,6 +351,7 @@ export function SchedulePageClient({
               onShiftWeekPreservingDay={sel.shiftWeekPreservingDay}
               onOpenDatePicker={() => setDatePickerOpen(true)}
               onOpenWeekTypeSheet={() => setWeekTypeSheetOpen(true)}
+              onToggleTheme={toggleTheme}
               onOpenGuideHub={() => setGuideHubOpen(true)}
             />
           )}

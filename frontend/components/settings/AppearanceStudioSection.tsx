@@ -135,7 +135,7 @@ export function AppearanceStudioSection() {
                     key={mode.id}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => setTheme(mode.id)}
+                    onClick={(e) => setTheme(mode.id, e)}
                     className={`relative z-10 flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
                       active
                         ? "text-white font-bold"
@@ -165,7 +165,7 @@ export function AppearanceStudioSection() {
                   key={opt.id}
                   type="button"
                   aria-pressed={active}
-                  onClick={() => setAccent(opt.id as AccentColor)}
+                  onClick={(e) => setAccent(opt.id as AccentColor, e)}
                   className={`inline-flex min-h-[36px] items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer active:scale-[0.98] ${
                     active
                       ? "border-sys-accent bg-sys-accent/15 text-sys-text-primary ring-1 ring-sys-accent/35"

@@ -98,17 +98,74 @@ export const ACCENT_OPTIONS: AccentOption[] = [
   },
 ];
 
+export type ThemeTransitionOrigin =
+  | { clientX?: number; clientY?: number; currentTarget?: EventTarget | null }
+  | { x: number; y: number };
+
+function setThemeRadialOrigin(origin?: ThemeTransitionOrigin): () => void {
+  if (typeof document === "undefined" || typeof window === "undefined" || !origin) {
+    return () => {};
+  }
+  let x: number | null = null;
+  let y: number | null = null;
+
+  if ("x" in origin && "y" in origin && typeof origin.x === "number" && typeof origin.y === "number") {
+    x = origin.x;
+    y = origin.y;
+  } else if ("clientX" in origin || "clientY" in origin || "currentTarget" in origin) {
+    const cx = typeof origin.clientX === "number" ? origin.clientX : 0;
+    const cy = typeof origin.clientY === "number" ? origin.clientY : 0;
+    if (cx !== 0 || cy !== 0) {
+      x = cx;
+      y = cy;
+    } else if (
+      origin.currentTarget &&
+      typeof (origin.currentTarget as Element).getBoundingClientRect === "function"
+    ) {
+      const rect = (origin.currentTarget as Element).getBoundingClientRect();
+      if (rect.width > 0 || rect.height > 0) {
+        x = rect.left + rect.width / 2;
+        y = rect.top + rect.height / 2;
+      }
+    }
+  }
+
+  if (x === null || y === null || !Number.isFinite(x) || !Number.isFinite(y)) {
+    return () => {};
+  }
+
+  const root = document.documentElement;
+  const endRadius = Math.ceil(
+    Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
+  );
+  root.style.setProperty("--vt-theme-x", `${Math.round(x)}px`);
+  root.style.setProperty("--vt-theme-y", `${Math.round(y)}px`);
+  root.style.setProperty("--vt-theme-r", `${endRadius}px`);
+  root.dataset.vtRadial = "1";
+
+  return () => {
+    delete root.dataset.vtRadial;
+    root.style.removeProperty("--vt-theme-x");
+    root.style.removeProperty("--vt-theme-y");
+    root.style.removeProperty("--vt-theme-r");
+  };
+}
+
 interface ThemeContextType {
   theme: Theme;
   resolvedTheme: ResolvedTheme;
-  setTheme: (theme: Theme) => void;
-  toggleTheme: () => void;
+  setTheme: (theme: Theme, origin?: ThemeTransitionOrigin) => void;
+  toggleTheme: (origin?: ThemeTransitionOrigin) => void;
   accent: AccentColor;
-  setAccent: (accent: AccentColor) => void;
+  setAccent: (accent: AccentColor, origin?: ThemeTransitionOrigin) => void;
   visualConfig: VisualStudioConfig;
   setVisualConfig: (patch: Partial<VisualStudioConfig>) => void;
-  applyCuratedPreset: (preset: CuratedStylePreset) => void;
-  applyThemeBundle: (nextAccent: AccentColor, patch: Partial<VisualStudioConfig>) => void;
+  applyCuratedPreset: (preset: CuratedStylePreset, origin?: ThemeTransitionOrigin) => void;
+  applyThemeBundle: (
+    nextAccent: AccentColor,
+    patch: Partial<VisualStudioConfig>,
+    origin?: ThemeTransitionOrigin
+  ) => void;
   resetVisualStudio: () => void;
   wallpaperVersion: number;
   bumpWallpaperVersion: () => void;
@@ -378,6 +435,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       options?: {
         suppressTransitions?: boolean;
         viewTransition?: boolean;
+        transitionOrigin?: ThemeTransitionOrigin;
         deferStorage?: boolean;
       }
     ) => {
@@ -406,6 +464,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         cancelPendingPersist();
         let removeBlocker: (() => void) | null = null;
         let failsafeTimer: number | null = null;
+        let finishFailsafeTimer: number | null = null;
+        const clearRadial = setThemeRadialOrigin(options.transitionOrigin);
         const releaseBlocker = () => {
           if (failsafeTimer !== null) {
             window.clearTimeout(failsafeTimer);
@@ -414,6 +474,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           removeBlocker?.();
           removeBlocker = null;
         };
+        const cleanupAll = () => {
+          releaseBlocker();
+          if (finishFailsafeTimer !== null) {
+            window.clearTimeout(finishFailsafeTimer);
+            finishFailsafeTimer = null;
+          }
+          clearRadial();
+        };
+        finishFailsafeTimer = window.setTimeout(cleanupAll, 700);
 
         startTypedViewTransition(
           ["theme-change"],
@@ -434,7 +503,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           {
             kind: "theme",
             onReady: releaseBlocker,
-            onFinish: releaseBlocker,
+            onFinish: cleanupAll,
           }
         );
         return;
@@ -497,7 +566,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [commitState, resolveSystemTheme]);
 
   const setTheme = useCallback(
-    (newTheme: Theme) => {
+    (newTheme: Theme, origin?: ThemeTransitionOrigin) => {
       try {
         localStorage.setItem(STORAGE_KEY, newTheme);
       } catch {}
@@ -507,23 +576,30 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       commitState(newTheme, effective, curr.accent, curr.visualConfig, {
         viewTransition: visualThemeChanged,
         suppressTransitions: visualThemeChanged,
+        transitionOrigin: origin,
       });
     },
     [commitState, resolveSystemTheme]
   );
 
-  const toggleTheme = useCallback(() => {
-    setTheme(stateRef.current.resolvedTheme === "dark" ? "light" : "dark");
-  }, [setTheme]);
+  const toggleTheme = useCallback(
+    (origin?: ThemeTransitionOrigin) => {
+      setTheme(stateRef.current.resolvedTheme === "dark" ? "light" : "dark", origin);
+    },
+    [setTheme]
+  );
 
   const setAccent = useCallback(
-    (newAccent: AccentColor) => {
+    (newAccent: AccentColor, origin?: ThemeTransitionOrigin) => {
       try {
         localStorage.setItem(ACCENT_STORAGE_KEY, newAccent);
       } catch {}
       const curr = stateRef.current;
+      const changed = newAccent !== curr.accent;
       commitState(curr.theme, curr.resolvedTheme, newAccent, curr.visualConfig, {
+        viewTransition: Boolean(origin && changed),
         suppressTransitions: true,
+        transitionOrigin: origin,
       });
     },
     [commitState]
@@ -543,7 +619,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 
   const applyThemeBundle = useCallback(
-    (nextAccent: AccentColor, patch: Partial<VisualStudioConfig>) => {
+    (nextAccent: AccentColor, patch: Partial<VisualStudioConfig>, origin?: ThemeTransitionOrigin) => {
       const curr = stateRef.current;
       const merged = sanitizeVisualConfig({ ...curr.visualConfig, ...patch });
       try {
@@ -551,15 +627,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(VISUAL_STUDIO_STORAGE_KEY, JSON.stringify(merged));
       } catch {}
       commitState(curr.theme, curr.resolvedTheme, nextAccent, merged, {
+        viewTransition: Boolean(origin),
         suppressTransitions: true,
+        transitionOrigin: origin,
       });
     },
     [commitState]
   );
 
   const applyCuratedPreset = useCallback(
-    (preset: CuratedStylePreset) => {
-      applyThemeBundle(preset.accent, preset.config);
+    (preset: CuratedStylePreset, origin?: ThemeTransitionOrigin) => {
+      applyThemeBundle(preset.accent, preset.config, origin);
     },
     [applyThemeBundle]
   );

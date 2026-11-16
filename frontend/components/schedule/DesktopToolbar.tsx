@@ -11,6 +11,7 @@ import {
   LightbulbIcon,
 } from "@/components/ui/Icons";
 import { useAnimatedDisclosure } from "@/lib/useAnimatedDisclosure";
+import { ThemeMorphButton } from "@/components/ui/ThemeMorphButton";
 
 const SECTION_LINKS = [
   { href: "/bells", label: "Дзвінки", description: "Розклад пар та перерв", icon: BellIcon },
@@ -53,7 +54,7 @@ interface DesktopToolbarProps {
   onOpenDatePicker: () => void;
   onViewChange: (nextView: "today" | "week") => void;
   onOpenTeacherPinModal: () => void;
-  onToggleTheme: () => void;
+  onToggleTheme: (e?: React.MouseEvent<HTMLButtonElement>) => void;
   onOpenGuideHub: () => void;
 }
 
@@ -469,55 +470,10 @@ export function DesktopToolbar({
 
           <span role="separator" aria-orientation="vertical" className="mx-0.5 h-4 w-px bg-sys-border/80 shrink-0" />
 
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            aria-label={
-              resolvedTheme === "dark"
-                ? "Поточна тема: Темна (натисніть, щоб змінити)"
-                : "Поточна тема: Світла (натисніть, щоб змінити)"
-            }
-            title={resolvedTheme === "dark" ? "Поточна тема: Темна" : "Поточна тема: Світла"}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary active:scale-95 transition-colors duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent cursor-pointer shrink-0"
-          >
-            {resolvedTheme === "dark" ? (
-              <svg
-                aria-hidden="true"
-                width="17"
-                height="17"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-              </svg>
-            ) : (
-              <svg
-                aria-hidden="true"
-                width="17"
-                height="17"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2" />
-                <path d="M12 20v2" />
-                <path d="m4.93 4.93 1.41 1.41" />
-                <path d="m17.66 17.66 1.41 1.41" />
-                <path d="M2 12h2" />
-                <path d="M20 12h2" />
-                <path d="m6.34 17.66-1.41 1.41" />
-                <path d="m19.07 4.93-1.41 1.41" />
-              </svg>
-            )}
-          </button>
+          <ThemeMorphButton
+            resolvedTheme={resolvedTheme}
+            onToggleTheme={onToggleTheme}
+          />
 
           <TransitionLink
             href={`/settings?mode=${mode}`}

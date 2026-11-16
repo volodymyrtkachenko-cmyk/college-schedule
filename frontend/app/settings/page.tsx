@@ -336,17 +336,17 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
-              <div className="h-px bg-sys-border/40" />
+              <div className="hidden lg:block h-px bg-sys-border/40" />
             </>
           )}
 
-          {/* 1.2 Setting: Початковий вигляд */}
-          <div className="space-y-2 py-1">
+          {/* 1.2 Setting: Початковий вигляд (лише на комп'ютері >= 1024px) */}
+          <div className="hidden lg:block space-y-2 py-1">
             <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
               Початковий вигляд
             </span>
             <p className="text-xs text-sys-text-secondary leading-relaxed">
-              Який режим відкривати на комп&apos;ютері. На телефоні завжди відкривається розклад на день.
+              Який режим відкривати при запуску: день або повну сітку тижня.
             </p>
             <div
               role="group"
@@ -388,7 +388,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="h-px bg-sys-border/40" />
+          <div className="hidden lg:block h-px bg-sys-border/40" />
 
           {/* 1.3 Toggle: Завдання (ДЗ) на картках пар */}
           <div className="flex items-start justify-between gap-4 py-1">
@@ -608,8 +608,8 @@ export default function SettingsPage() {
           </section>
         )}
 
-        {/* Section 5: Корисні посилання */}
-        <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
+        {/* Section 5: Корисні посилання (на мобільному, бо на десктопі всі розділи вже є у верхньому меню «Розділи») */}
+        <section className="lg:hidden rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
             <LinkIcon className="h-4 w-4 text-sys-text-muted" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
@@ -693,16 +693,59 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Section 6: Адміністрування */}
-        <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
-          <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
-            <ShieldIcon className="h-4 w-4 text-sys-text-muted" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
-              Адміністрування
-            </h2>
+        {/* Desktop-only Keyboard Shortcuts & Guide */}
+        <section className="hidden lg:block rounded-2xl border border-sys-border bg-sys-card p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between gap-2 pb-2 border-b border-sys-border/60">
+            <div className="flex items-center gap-2">
+              <LightbulbIcon className="h-4 w-4 text-sys-text-muted" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
+                Керування з клавіатури
+              </h2>
+            </div>
+            <button
+              type="button"
+              onPointerEnter={preloadGuideHubModal}
+              onFocus={preloadGuideHubModal}
+              onClick={() => {
+                preloadGuideHubModal();
+                setShowGuideMounted(true);
+                setShowGuideModal(true);
+              }}
+              className="text-xs font-semibold text-sys-accent hover:underline cursor-pointer"
+            >
+              Гід можливостей →
+            </button>
           </div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2">
+              <span className="text-sys-text-secondary">День / тиждень вперед-назад</span>
+              <kbd className="rounded-md border border-sys-border bg-sys-card px-1.5 py-0.5 font-mono text-[11px] font-semibold text-sys-text-primary">← / →</kbd>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2">
+              <span className="text-sys-text-secondary">Вибір групи або викладача</span>
+              <kbd className="rounded-md border border-sys-border bg-sys-card px-1.5 py-0.5 font-mono text-[11px] font-semibold text-sys-text-primary">Ctrl+K / /</kbd>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2">
+              <span className="text-sys-text-secondary">Вигляд День / Тиждень / Сьогодні</span>
+              <kbd className="rounded-md border border-sys-border bg-sys-card px-1.5 py-0.5 font-mono text-[11px] font-semibold text-sys-text-primary">D / W / T</kbd>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2">
+              <span className="text-sys-text-secondary">Перемкнути підгрупу (1 / 2 / всі)</span>
+              <kbd className="rounded-md border border-sys-border bg-sys-card px-1.5 py-0.5 font-mono text-[11px] font-semibold text-sys-text-primary">1 / 2 / 0</kbd>
+            </div>
+          </div>
+        </section>
 
-          {auth?.user ? (
+        {/* Section 6: Адміністрування */}
+        {auth?.user ? (
+          <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
+            <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
+              <ShieldIcon className="h-4 w-4 text-sys-text-muted" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
+                Адміністрування
+              </h2>
+            </div>
+
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
                 <div>
@@ -725,16 +768,21 @@ export default function SettingsPage() {
                 <span>→</span>
               </TransitionLink>
             </div>
-          ) : (
+          </section>
+        ) : (
+          <div className="pt-1">
             <TransitionLink
               href="/login"
-              className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 text-xs hover:border-sys-accent/40 hover:bg-sys-accent/5 transition-colors duration-fast ease-smooth group"
+              className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-card/70 px-4 py-2.5 text-xs text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-text-primary transition-colors duration-fast ease-smooth group"
             >
-              <span className="font-semibold text-sys-text-primary">Увійти до панелі керування</span>
-              <span className="text-sys-accent font-bold group-hover:translate-x-0.5 transition-transform">→</span>
+              <span className="flex items-center gap-2 font-medium">
+                <ShieldIcon className="h-3.5 w-3.5 text-sys-text-muted" />
+                <span>Вхід для адміністратора та редакторів</span>
+              </span>
+              <span className="text-sys-accent font-semibold group-hover:translate-x-0.5 transition-transform">→</span>
             </TransitionLink>
-          )}
-        </section>
+          </div>
+        )}
 
         {showGuideMounted && (
           <GuideHubModal

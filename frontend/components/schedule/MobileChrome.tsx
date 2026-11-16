@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDownIcon, LightbulbIcon } from "@/components/ui/Icons";
+import { ThemeMorphButton } from "@/components/ui/ThemeMorphButton";
 import type { HeaderLearningModeData } from "../../lib/schedule";
 import type { MobileTab } from "../../lib/useMobileNav";
 import { PeriodIcon, type getPeriodMeta } from "../SchedulePeriodCard";
@@ -12,6 +13,7 @@ interface MobileChromeProps {
   mobileTab: MobileTab;
   currentName?: string;
   isTeacherUnlocked: boolean;
+  resolvedTheme?: "light" | "dark";
   canNavigatePrevWeek: boolean;
   canNavigateNextWeek: boolean;
   compactWeekRange: string;
@@ -24,6 +26,7 @@ interface MobileChromeProps {
   onShiftWeekPreservingDay: (offset: number) => void;
   onOpenDatePicker: () => void;
   onOpenWeekTypeSheet: () => void;
+  onToggleTheme?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
   onOpenGuideHub: () => void;
 }
 
@@ -32,6 +35,7 @@ export function MobileChrome({
   mobileTab,
   currentName,
   isTeacherUnlocked,
+  resolvedTheme = "dark",
   canNavigatePrevWeek,
   canNavigateNextWeek,
   compactWeekRange,
@@ -44,6 +48,7 @@ export function MobileChrome({
   onShiftWeekPreservingDay,
   onOpenDatePicker,
   onOpenWeekTypeSheet,
+  onToggleTheme,
   onOpenGuideHub,
 }: MobileChromeProps) {
   return (
@@ -187,14 +192,22 @@ export function MobileChrome({
           </div>
         )}
 
-        {/* Right: Guide 💡 */}
+        {/* Right: Theme + Guide 💡 */}
         <div className="flex items-center gap-1 shrink-0">
+          {onToggleTheme && (
+            <ThemeMorphButton
+              resolvedTheme={resolvedTheme}
+              onToggleTheme={onToggleTheme}
+              iconSize={16}
+              className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer shrink-0"
+            />
+          )}
           <button
             type="button"
             onClick={onOpenGuideHub}
             aria-label="Гід та довідник можливостей"
             title="Гід та довідник"
-            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-accent hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-accent hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer shrink-0"
           >
             <LightbulbIcon className="h-[18px] w-[18px]" />
           </button>

@@ -347,7 +347,7 @@ export function StudentOnboardingModal({
                       <button
                         type="button"
                         aria-pressed={resolvedTheme === "dark"}
-                        onClick={() => setTheme("dark")}
+                        onClick={(e) => setTheme("dark", e)}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold border transition-colors cursor-pointer ${
                           resolvedTheme === "dark"
                             ? "bg-sys-accentSolid text-sys-onAccent border-sys-accentSolid"
@@ -360,7 +360,7 @@ export function StudentOnboardingModal({
                       <button
                         type="button"
                         aria-pressed={resolvedTheme === "light"}
-                        onClick={() => setTheme("light")}
+                        onClick={(e) => setTheme("light", e)}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold border transition-colors cursor-pointer ${
                           resolvedTheme === "light"
                             ? "bg-sys-accentSolid text-sys-onAccent border-sys-accentSolid"
@@ -380,7 +380,7 @@ export function StudentOnboardingModal({
                             key={opt.id}
                             type="button"
                             aria-pressed={isSelected}
-                            onClick={() => setAccent(opt.id as AccentColor)}
+                            onClick={(e) => setAccent(opt.id as AccentColor, e)}
                             className={`flex flex-col items-center gap-1 rounded-xl p-2 border transition-colors cursor-pointer ${
                               isSelected
                                 ? "border-sys-accent bg-sys-accent/15"
