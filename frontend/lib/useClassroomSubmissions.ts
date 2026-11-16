@@ -196,6 +196,17 @@ export function saveClassroomSyncData(
     const prevGroupId = localStorage.getItem(LINKED_GROUP_ID_KEY);
     const prevUid = localStorage.getItem(GOOGLE_USER_ID_KEY);
 
+    if (
+      userEmail &&
+      prevEmail &&
+      prevEmail !== "підключено" &&
+      prevEmail.toLowerCase() !== userEmail.toLowerCase()
+    ) {
+      localStorage.removeItem(PERSONAL_TEACHERS_KEY);
+      localStorage.removeItem(PERSONAL_SUBGROUP_KEY);
+      localStorage.removeItem("schedule:classroom_tasks");
+    }
+
     if (userEmail) {
       localStorage.setItem(LINKED_EMAIL_KEY, userEmail);
     } else if (!localStorage.getItem(LINKED_EMAIL_KEY)) {
@@ -436,7 +447,20 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
     if (res?.connected && res?.tasks) {
       setClassroomNeedsRelink(false);
       const personalTeachers = getPersonalTeachers();
+      const serverTeachers = [
+        ...(Array.isArray(res.synced_teacher_names) ? res.synced_teacher_names : []),
+        ...(Array.isArray(res.synced_teacher_tokens) ? res.synced_teacher_tokens : []),
+      ];
+      const resolvedTeachers = serverTeachers.length > 0 ? serverTeachers : personalTeachers;
+
       const personalSubgroup = getPersonalSubgroup();
+      const serverSubgroups =
+        Array.isArray(res.synced_subgroups) && res.synced_subgroups.length > 0
+          ? res.synced_subgroups
+          : personalSubgroup
+            ? [personalSubgroup]
+            : null;
+
       const existingLinkedGid = getLinkedGroupId();
       const resolvedGroupId = res.group_id ?? existingLinkedGid ?? gId;
       saveClassroomSyncData(
@@ -446,23 +470,25 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
         null,
         res.google_user_id || googleUserId,
         resolvedGroupId,
-        personalTeachers,
-        personalSubgroup ? [personalSubgroup] : null
+        resolvedTeachers,
+        serverSubgroups
       );
 
-      if (Array.isArray(res.tasks) && res.tasks.length > 0) {
+      if (Array.isArray(res.tasks)) {
         const targetGid = res.group_id || resolvedGroupId || gId || getLinkedGroupId();
         try {
           localStorage.setItem("schedule:classroom_tasks", JSON.stringify(res.tasks));
-          if (targetGid) {
-            localStorage.setItem(
-              `schedule:classroom_group_tasks:${targetGid}`,
-              JSON.stringify(res.tasks)
-            );
+          if (targetGid && res.last_synced_at) {
+            localStorage.setItem(`schedule:last_synced_at:${targetGid}`, String(res.last_synced_at));
           }
           window.dispatchEvent(
             new CustomEvent("classroom-tasks-synced", {
-              detail: { groupId: targetGid, tasks: res.tasks },
+              detail: {
+                groupId: targetGid,
+                tasks: res.tasks,
+                replace: true,
+                lastSyncedAt: res.last_synced_at ?? null,
+              },
             })
           );
         } catch {}

@@ -331,3 +331,33 @@ async def test_ensure_and_attach_task_briefs_prioritizes_upcoming_and_skips_empt
 
     stored = (await db_session.scalars(select(ClassroomTaskBrief))).all()
     assert len(stored) == 6
+
+    # Re-calling with different subject normalization / missing topics (e.g. /user-submissions or 2nd device)
+    # MUST keep the exact cached Gemini brief without regenerating or changing text.
+    captured_prompts.clear()
+    tasks_reload = [
+        {
+            "id": "cw-upcoming",
+            "title": "Лабораторна №1",
+            "subject": "Мережі (Іванов І.І.)",
+            "url": "https://classroom.google.com/c/1/a/upcoming/details",
+            "state": "NEW",
+            "due_date": "2026-11-18",
+            "creation_time": "2026-11-12T10:00:00+02:00",
+            "max_points": 12,
+        }
+    ]
+    with patch("app.services.classroom.task_briefs.httpx.AsyncClient.post", _fake_post):
+        await ensure_and_attach_task_briefs(
+            db_session,
+            1,
+            tasks_reload,
+            descriptions_by_url=desc_map,
+            materials_by_url=mats_map,
+            topics_by_url={},
+            max_llm_calls=12,
+            today=date(2026, 11, 16),
+        )
+    assert len(captured_prompts) == 0
+    assert tasks_reload[0]["brief"]["summary"] == by_id["cw-upcoming"]["brief"]["summary"]
+    assert tasks_reload[0]["brief"]["deliverable"] == by_id["cw-upcoming"]["brief"]["deliverable"]

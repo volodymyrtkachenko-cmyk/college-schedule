@@ -186,16 +186,26 @@ export const classroomApi = {
         course_name?: string;
         title: string;
         subject?: string;
+        teacher?: string | null;
         url: string;
         alternate_link: string;
         state: string;
         grade?: number | null;
+        assigned_grade?: number | null;
         max_points?: number | null;
         due_date?: string | null;
+        creation_time?: string | null;
+        created_at?: string | null;
         brief?: RawTaskBrief | null;
       }>;
+      synced_teacher_names?: string[];
+      synced_teacher_tokens?: string[];
+      synced_subgroups?: number[];
+      last_synced_at?: string | null;
       access_token?: string | null;
       updated_at?: string;
+      needs_relink?: boolean;
+      reason_code?: string;
     }>("/api/classroom/user-submissions", {
       method: "POST",
       body: JSON.stringify(body),

@@ -184,7 +184,12 @@ export function ClassroomSyncButton({
           if (res?.last_synced_at) {
             setLastSyncedAt(res.last_synced_at);
           }
-          onSynced(res.group_id ?? currentGroupId, res.tasks, res.last_synced_at, false);
+          onSynced(
+            res.group_id ?? currentGroupId,
+            res.personal_tasks ?? res.tasks,
+            res.last_synced_at,
+            false
+          );
 
           const parts = [`підтягнуто ${res.synced_links ?? 0} онлайн-пар`];
           if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);

@@ -138,3 +138,49 @@ test("schedule/tasksAggregation merges lists, maps submission grades, and counts
     personalTeachers: [],
   }).length, 0);
 });
+
+test("mergeTasksLists preserves richer brief and metadata when note-reconstructed fallback arrives", () => {
+  const agg = loadTsModule("lib/schedule/tasksAggregation.ts");
+
+  const merged = JSON.parse(JSON.stringify(
+    agg.mergeTasksLists(
+      [
+        {
+          id: "cw-1",
+          title: "Лабораторна №1",
+          subject: "Комп'ютерні мережі",
+          teacher: "Викладач А. Б.",
+          url: "https://classroom.google.com/c/10/a/20/details",
+          max_points: 12,
+          creation_time: "2026-11-10T10:00:00Z",
+          brief: {
+            summary: "Зібрати схему у Packet Tracer.",
+            deliverable: "Файл .pkt",
+            materials: [{ title: "Методичка.pdf", url: "https://drive.google.com/file/d/x/view", kind: "pdf" }],
+            source: "gemini",
+          },
+        },
+      ],
+      [
+        {
+          id: "https://classroom.google.com/c/10/a/20/details",
+          title: "Лабораторна №1",
+          subject: "Інша назва",
+          teacher: null,
+          alternate_link: "https://classroom.google.com/c/10/a/20/details",
+          max_points: null,
+          creation_time: null,
+          brief: null,
+          is_reconstructed: true,
+        },
+      ],
+    ),
+  ));
+
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].subject, "Комп'ютерні мережі");
+  assert.equal(merged[0].teacher, "Викладач А. Б.");
+  assert.equal(merged[0].max_points, 12);
+  assert.equal(merged[0].creation_time, "2026-11-10T10:00:00Z");
+  assert.equal(merged[0].brief.summary, "Зібрати схему у Packet Tracer.");
+});

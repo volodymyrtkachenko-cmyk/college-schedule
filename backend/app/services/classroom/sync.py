@@ -2331,15 +2331,43 @@ async def _fetch_user_submissions(
                     relevant_courses.append(c)
 
             if not relevant_courses:
-                relevant_courses = all_courses[:25]
+                relevant_courses = all_courses[:30]
             else:
-                relevant_courses = relevant_courses[:25]
+                relevant_courses = relevant_courses[:30]
 
             sem = asyncio.Semaphore(5)
+            now_mono = _time.monotonic()
 
             async def fetch_bundle(course: dict):
                 c_id = course["id"]
                 async with sem:
+                    async def _get_teachers():
+                        if c_id in _course_teachers_cache:
+                            ts, resp = _course_teachers_cache[c_id]
+                            if now_mono - ts < CACHE_TTL_TEACHERS_TOPICS:
+                                return resp
+                        resp = await client.get(
+                            f"https://classroom.googleapis.com/v1/courses/{c_id}/teachers",
+                            headers=headers,
+                        )
+                        if getattr(resp, "status_code", 0) == 200:
+                            _course_teachers_cache[c_id] = (now_mono, resp)
+                        return resp
+
+                    async def _get_topics():
+                        if c_id in _course_topics_cache:
+                            ts, resp = _course_topics_cache[c_id]
+                            if now_mono - ts < CACHE_TTL_TEACHERS_TOPICS:
+                                return resp
+                        resp = await client.get(
+                            f"https://classroom.googleapis.com/v1/courses/{c_id}/topics",
+                            params={"pageSize": 50},
+                            headers=headers,
+                        )
+                        if getattr(resp, "status_code", 0) == 200:
+                            _course_topics_cache[c_id] = (now_mono, resp)
+                        return resp
+
                     cw_task = client.get(
                         f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork",
                         params={"courseWorkStates": "PUBLISHED", "pageSize": 100},
@@ -2350,7 +2378,9 @@ async def _fetch_user_submissions(
                         params={"userId": "me", "pageSize": 100},
                         headers=headers,
                     )
-                    return course, await asyncio.gather(cw_task, sub_task, return_exceptions=True)
+                    return course, await asyncio.gather(
+                        cw_task, sub_task, _get_teachers(), _get_topics(), return_exceptions=True
+                    )
 
             results = await asyncio.gather(*(fetch_bundle(c) for c in relevant_courses))
 
@@ -2359,13 +2389,33 @@ async def _fetch_user_submissions(
             sub_descriptions_by_url: dict[str, str] = {}
             sub_materials_by_url: dict[str, list[dict[str, Optional[str]]]] = {}
             sub_work_types_by_url: dict[str, str] = {}
+            sub_topics_by_url: dict[str, str] = {}
+            synced_teacher_names: set[str] = set()
+            synced_teacher_tokens: set[str] = set()
+            synced_subgroups: set[int] = set()
             eff_gid = detected_group_id or group_id
             mapped_by_url: dict[str, dict] = {
                 str(gt.get("url") or gt.get("alternate_link")): gt
                 for gt in (_latest_group_tasks.get(eff_gid) or [])
                 if eff_gid and (gt.get("url") or gt.get("alternate_link"))
             }
+            db_teachers = (await db.scalars(select(Teacher))).all()
+            group_schedule_lessons: list = []
             if eff_gid:
+                try:
+                    now_kyiv_sub = datetime.now(KYIV_TZ).date()
+                    cur_mon_sub = now_kyiv_sub - timedelta(days=now_kyiv_sub.weekday())
+                    for wk_offset in (0, 7):
+                        _, w_by_day = await build_week_projection(
+                            db, cur_mon_sub + timedelta(days=wk_offset), group_id=eff_gid
+                        )
+                        for weekday_lessons in w_by_day.values():
+                            for l_obj in weekday_lessons:
+                                if getattr(l_obj, "subject_id", None) and not getattr(l_obj, "is_cancelled", False):
+                                    group_schedule_lessons.append(l_obj)
+                except Exception:
+                    group_schedule_lessons = []
+
                 db_notes = (
                     await db.scalars(
                         select(LessonOccurrenceNote).where(
@@ -2392,15 +2442,73 @@ async def _fetch_user_submissions(
             for course, bundle_items in results:
                 if not isinstance(bundle_items, (list, tuple)) or len(bundle_items) < 2:
                     continue
-                cw_resp, sub_resp = bundle_items[:2]
+                cw_resp = bundle_items[0]
+                sub_resp = bundle_items[1]
+                t_resp = bundle_items[2] if len(bundle_items) > 2 else None
+                top_resp = bundle_items[3] if len(bundle_items) > 3 else None
+
                 c_id = course["id"]
                 c_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
+                c_low = c_title.lower()
+                c_fold = _fold(f"{c_title} {course.get('descriptionHeading', '')}")
+                if re.search(r"\b1\s*[-–—]?\s*(?:ша\s*)?підгр", c_low) or any(
+                    k in c_fold for k in ("1підгр", "1group", "1підгрупа", "підгрупа1")
+                ):
+                    synced_subgroups.add(1)
+                if re.search(r"\b2\s*[-–—]?\s*(?:га\s*)?підгр", c_low) or any(
+                    k in c_fold for k in ("2підгр", "2group", "2підгрупа", "підгрупа2")
+                ):
+                    synced_subgroups.add(2)
+
+                c_title_norm = _norm(c_title)
                 c_clean = re.sub(
                     r"\s*[\(\[]\s*(?:гр(?:упа|\.)?\s*)?\d{1,3}[\s\-_–—]?(?:[А-Яа-яA-Za-z]+)?\s*[\)\]]",
                     "",
                     c_title,
                     flags=re.IGNORECASE,
                 ).strip() or c_title
+
+                topics_by_id: dict[str, str] = {}
+                if top_resp is not None and not isinstance(top_resp, Exception) and getattr(top_resp, "status_code", 0) == 200:
+                    for top in top_resp.json().get("topic", []):
+                        tid, tname = top.get("topicId"), top.get("name")
+                        if tid and tname:
+                            topics_by_id[tid] = tname
+
+                teacher_tokens_by_uid: dict[str, list[str]] = {}
+                teacher_name_by_uid: dict[str, str] = {}
+                course_teacher_toks: list[str] = []
+                raw_teachers: list[dict] = []
+                if t_resp is not None and not isinstance(t_resp, Exception) and getattr(t_resp, "status_code", 0) == 200:
+                    raw_teachers = t_resp.json().get("teachers", [])
+                    is_single_t = len(raw_teachers) <= 1
+                    for t_item in raw_teachers:
+                        uid = t_item.get("userId")
+                        prof = t_item.get("profile", {})
+                        fn = prof.get("name", {}).get("fullName", "").strip()
+                        if not fn:
+                            continue
+                        t_toks = [w for w in _norm(fn).split() if len(w) >= 3]
+                        matched_db_t = None
+                        for part in [p for p in fn.split() if len(p) > 2]:
+                            p_low = part.lower()
+                            matched_db_t = next((dbt for dbt in db_teachers if p_low in dbt.name.lower()), None)
+                            if matched_db_t:
+                                break
+                        if matched_db_t:
+                            db_first = _norm(matched_db_t.name.split()[0])
+                            if db_first and db_first not in t_toks:
+                                t_toks.append(db_first)
+                            t_display = matched_db_t.name
+                        else:
+                            t_display = fn
+                        if uid:
+                            teacher_tokens_by_uid[uid] = t_toks
+                            teacher_name_by_uid[uid] = t_display
+                        course_teacher_toks.extend(t_toks)
+                        if is_single_t:
+                            synced_teacher_names.add(t_display)
+                            synced_teacher_tokens.update(t_toks)
 
                 subs_by_cw: dict[str, dict] = {}
                 if not isinstance(sub_resp, Exception) and getattr(sub_resp, "status_code", 0) == 200:
@@ -2417,6 +2525,7 @@ async def _fetch_user_submissions(
                             }
 
                 if not isinstance(cw_resp, Exception) and getattr(cw_resp, "status_code", 0) == 200:
+                    is_single_t = len(raw_teachers) <= 1
                     for cw in cw_resp.json().get("courseWork", []):
                         cw_id = cw.get("id")
                         alt_link = cw.get("alternateLink")
@@ -2436,6 +2545,12 @@ async def _fetch_user_submissions(
                                 due_iso = None
 
                         title = re.sub(r"\s+", " ", (cw.get("title") or "").replace("|", "/")).strip() or "Без назви"
+                        title_norm = _norm(title)
+                        topic_name = topics_by_id.get(cw.get("topicId"), "")
+                        if topic_name:
+                            sub_topics_by_url[alt_link] = topic_name
+                        topic_norm = _norm(topic_name)
+
                         cw_desc = (cw.get("description") or "").strip()
                         if cw_desc:
                             sub_descriptions_by_url[alt_link] = cw_desc
@@ -2446,9 +2561,39 @@ async def _fetch_user_submissions(
                         if cw_wt:
                             sub_work_types_by_url[alt_link] = cw_wt
 
+                        creator_id = cw.get("creatorUserId", "")
+                        author_toks = list(teacher_tokens_by_uid.get(creator_id, []))
+                        if not author_toks and is_single_t:
+                            author_toks.extend(course_teacher_toks)
+                        cw_teacher = teacher_name_by_uid.get(creator_id)
+                        if not cw_teacher and is_single_t and teacher_name_by_uid:
+                            cw_teacher = next(iter(teacher_name_by_uid.values()), None)
+                        if cw_teacher and len(raw_teachers) > 1:
+                            synced_teacher_names.add(cw_teacher)
+                            synced_teacher_tokens.update(author_toks)
+
                         mapped_gt = mapped_by_url.get(alt_link) or {}
-                        resolved_subj = mapped_gt.get("subject") or mapped_gt.get("course_name") or c_clean
-                        resolved_teacher = mapped_gt.get("teacher")
+                        resolved_subj = mapped_gt.get("subject") or mapped_gt.get("course_name")
+                        resolved_teacher = mapped_gt.get("teacher") or cw_teacher
+
+                        if not resolved_subj and group_schedule_lessons:
+                            combined_txt = f"{topic_norm} {title_norm} {c_title_norm}".strip()
+                            matched_l = next(
+                                (
+                                    l_obj for l_obj in group_schedule_lessons
+                                    if getattr(l_obj, "subject_name", None)
+                                    and _matches_lesson(l_obj, combined_txt, "", author_toks)
+                                ),
+                                None,
+                            )
+                            if matched_l:
+                                resolved_subj = matched_l.subject_name
+                                if not resolved_teacher and getattr(matched_l, "teacher_name", None):
+                                    resolved_teacher = _resolve_matched_teacher_surname(
+                                        matched_l, author_toks, combined_txt, db_teachers
+                                    ) or matched_l.teacher_name
+
+                        resolved_subj = resolved_subj or c_clean
 
                         task_obj = {
                             "id": cw_id,
@@ -2489,6 +2634,7 @@ async def _fetch_user_submissions(
                             descriptions_by_url=sub_descriptions_by_url,
                             materials_by_url=sub_materials_by_url,
                             work_types_by_url=sub_work_types_by_url,
+                            topics_by_url=sub_topics_by_url,
                             max_llm_calls=12,
                         )
                         briefs_dirty = True
@@ -2509,6 +2655,14 @@ async def _fetch_user_submissions(
                         )
                         t_obj["brief"] = h_brief if classroom_briefs._brief_has_substance(h_brief) else None
 
+            if not synced_subgroups and cred is not None and getattr(cred, "subgroup", None) in (1, 2):
+                synced_subgroups.add(int(cred.subgroup))
+            if not synced_subgroups and synced_teacher_tokens:
+                if any("токар" in tok for tok in synced_teacher_tokens) and not any("хочин" in tok for tok in synced_teacher_tokens):
+                    synced_subgroups.add(1)
+                elif any("хочин" in tok for tok in synced_teacher_tokens) and not any("токар" in tok for tok in synced_teacher_tokens):
+                    synced_subgroups.add(2)
+
             resp_payload = {
                 "connected": True,
                 "group_id": detected_group_id,
@@ -2516,6 +2670,10 @@ async def _fetch_user_submissions(
                 "google_user_id": cred.google_user_id if cred else eff_user_id,
                 "submissions": submissions_map,
                 "tasks": tasks_list,
+                "synced_teacher_names": sorted(list(synced_teacher_names)),
+                "synced_teacher_tokens": sorted(list(synced_teacher_tokens)),
+                "synced_subgroups": sorted(list(synced_subgroups)),
+                "last_synced_at": cred.last_synced_at.isoformat() if (cred and cred.last_synced_at) else None,
                 "access_token": refreshed_access_token or token,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
                 "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
@@ -2772,6 +2930,7 @@ async def reconstruct_tasks_from_notes(
                 "state": "NEW",
                 "grade": None,
                 "max_points": max_points_val,
+                "is_reconstructed": True,
             })
     try:
         await classroom_briefs.attach_cached_briefs(db, group_id, reconstructed)

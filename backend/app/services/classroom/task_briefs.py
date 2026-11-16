@@ -191,10 +191,11 @@ def compute_task_content_hash(
     subject: str = "",
     topic: str = "",
 ) -> str:
+    # Keep hash strictly anchored to immutable Classroom courseWork content fields so
+    # group sync, personal /user-submissions, and background workers always agree on cache hits.
+    del subject, topic
     norm_title = re.sub(r"\s+", " ", (title or "").strip()).lower()
     norm_desc = re.sub(r"\s+", " ", (description or "").strip()).lower()
-    norm_subj = re.sub(r"\s+", " ", (subject or "").strip()).lower()
-    norm_topic = re.sub(r"\s+", " ", (topic or "").strip()).lower()
     norm_mats = "|".join(
         f"{(m.get('kind') or '').lower()}:{(m.get('title') or '').strip().lower()}:{(m.get('url') or '').strip()}:{(m.get('share_mode') or '').lower()}"
         for m in (materials or [])
@@ -202,7 +203,7 @@ def compute_task_content_hash(
     )
     pts = "" if max_points is None else str(max_points)
     payload = (
-        f"v4\n{norm_title}\n{norm_subj}\n{norm_topic}\n{norm_desc}\n{norm_mats}\n{work_type.lower()}\n{pts}"
+        f"v5\n{norm_title}\n{norm_desc}\n{norm_mats}\n{work_type.lower()}\n{pts}"
     ).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 

@@ -93,10 +93,15 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
         ...(res.synced_teacher_tokens || []),
       ];
       const targetGroupId = res.group_id ?? options.groupId ?? null;
+      const personalTasks = Array.isArray(res.personal_tasks)
+        ? res.personal_tasks
+        : Array.isArray(res.tasks)
+          ? res.tasks
+          : undefined;
 
       saveClassroomSyncData(
         res.user_email,
-        res.personal_tasks ?? res.tasks,
+        personalTasks,
         res.access_token ?? fallbackAccessToken ?? null,
         res.refresh_token ?? null,
         res.google_user_id ?? null,
@@ -105,12 +110,23 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
         res.synced_subgroups ?? null
       );
 
-      if (targetGroupId && typeof window !== "undefined") {
+      if (typeof window !== "undefined") {
         try {
-          localStorage.setItem("schedule:groupId", String(targetGroupId));
-          localStorage.setItem("schedule:classroom_linked_group_id", String(targetGroupId));
-          if (res.last_synced_at) {
-            localStorage.setItem(`schedule:last_synced_at:${targetGroupId}`, String(res.last_synced_at));
+          if (personalTasks) {
+            localStorage.setItem("schedule:classroom_tasks", JSON.stringify(personalTasks));
+          }
+          if (targetGroupId) {
+            localStorage.setItem("schedule:groupId", String(targetGroupId));
+            localStorage.setItem("schedule:classroom_linked_group_id", String(targetGroupId));
+            if (Array.isArray(res.tasks)) {
+              localStorage.setItem(
+                `schedule:classroom_group_tasks:${targetGroupId}`,
+                JSON.stringify(res.tasks)
+              );
+            }
+            if (res.last_synced_at) {
+              localStorage.setItem(`schedule:last_synced_at:${targetGroupId}`, String(res.last_synced_at));
+            }
           }
         } catch {}
       }
@@ -118,6 +134,18 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
       invalidateScheduleCache();
       setClassroomNeedsRelink(false);
       window.dispatchEvent(new CustomEvent("classroom-synced", { detail: res }));
+      if (personalTasks) {
+        window.dispatchEvent(
+          new CustomEvent("classroom-tasks-synced", {
+            detail: {
+              groupId: targetGroupId,
+              tasks: personalTasks,
+              replace: true,
+              lastSyncedAt: res.last_synced_at ?? null,
+            },
+          })
+        );
+      }
       options.onSuccess?.(res, usedCode);
       resolve(res);
     };

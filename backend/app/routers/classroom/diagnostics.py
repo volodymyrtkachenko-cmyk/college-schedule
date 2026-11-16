@@ -139,7 +139,8 @@ async def get_classroom_group_status(
             except RuntimeError:
                 pass
 
-    if has_access and tasks and any("brief" not in t for t in tasks):
+    if has_access and tasks:
+        tasks = [dict(t) for t in tasks]
         await classroom_briefs.attach_cached_briefs(db, group_id, tasks)
 
     last_synced = (

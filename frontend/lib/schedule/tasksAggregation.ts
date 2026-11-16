@@ -17,21 +17,50 @@ import {
 import { normalizeTaskBrief } from "./priorityNavigator";
 
 /**
- * Merges incoming Classroom tasks onto existing cached items without dropping older metadata.
+ * Merges incoming Classroom tasks onto existing cached items without clobbering richer metadata/briefs
+ * when an endpoint only supplies lightweight note-reconstructed fallback entries.
  */
 export function mergeTasksLists(existing: any[], incoming: any[]): any[] {
   if (!Array.isArray(incoming) || incoming.length === 0) return existing;
   if (!Array.isArray(existing) || existing.length === 0) return incoming;
   const map = new Map<string, any>();
+  const resolveKey = (item: any): string | null => {
+    const rawUrl = item?.alternate_link || item?.url;
+    const taskKey = extractClassroomTaskKey(rawUrl);
+    if (taskKey) return taskKey;
+    const fallback = rawUrl || item?.id;
+    return fallback ? String(fallback) : null;
+  };
   for (const item of existing) {
-    const key = item?.url || item?.alternate_link || item?.id;
-    if (key) map.set(String(key), item);
+    const key = resolveKey(item);
+    if (key) map.set(key, item);
   }
   for (const item of incoming) {
-    const key = item?.url || item?.alternate_link || item?.id;
-    if (key) {
-      const prev = map.get(String(key));
-      map.set(String(key), prev ? { ...prev, ...item } : item);
+    const key = resolveKey(item);
+    if (!key) continue;
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, item);
+      continue;
+    }
+    if (item?.is_reconstructed) {
+      map.set(key, {
+        ...prev,
+        ...item,
+        subject: prev.subject || item.subject,
+        course_name: prev.course_name || item.course_name,
+        teacher: item.teacher || prev.teacher,
+        max_points: item.max_points ?? prev.max_points,
+        creation_time: prev.creation_time ?? item.creation_time,
+        created_at: prev.created_at ?? item.created_at,
+        brief: item.brief ?? prev.brief ?? null,
+      });
+    } else {
+      map.set(key, {
+        ...prev,
+        ...item,
+        brief: item.brief !== undefined ? item.brief : prev.brief,
+      });
     }
   }
   return Array.from(map.values());
