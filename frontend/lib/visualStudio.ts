@@ -8,6 +8,7 @@ export type BackdropPreset = "none" | "aurora" | "dots" | "blueprint" | "silk" |
 export type FontPreset = "sans" | "tech" | "soft";
 export type RadiusPreset = "sharp" | "default" | "soft";
 export type DensityPreset = "compact" | "default" | "relaxed";
+export type ThemeTransitionStyle = "slant" | "curtain" | "diamond" | "split";
 
 export interface VisualStudioConfig {
   surface: SurfaceMaterial;
@@ -15,6 +16,7 @@ export interface VisualStudioConfig {
   fontPreset: FontPreset;
   radius: RadiusPreset;
   density: DensityPreset;
+  themeTransition: ThemeTransitionStyle;
   customHue: number;
   customSaturation: number;
   wallpaperBlur: number;
@@ -48,12 +50,24 @@ export const DEFAULT_VISUAL_CONFIG: VisualStudioConfig = {
   fontPreset: "sans",
   radius: "default",
   density: "default",
+  themeTransition: "slant",
   customHue: 217,
   customSaturation: 82,
   wallpaperBlur: 10,
   wallpaperDim: 48,
   wallpaperTint: null,
 };
+
+export const THEME_TRANSITION_OPTIONS: Array<{
+  id: ThemeTransitionStyle;
+  label: string;
+  hint: string;
+}> = [
+  { id: "slant", label: "Діагональ", hint: "Косий зріз від натискання" },
+  { id: "curtain", label: "Ніч / Світанок", hint: "Темна падає, світла сходить" },
+  { id: "diamond", label: "Кристал", hint: "Ромб розкривається з кнопки" },
+  { id: "split", label: "Затвор", hint: "Кінорозкриття від центру" },
+];
 
 export const SURFACE_OPTIONS: Array<{
   id: SurfaceMaterial;
@@ -198,6 +212,7 @@ const BACKDROPS = new Set<BackdropPreset>(["none", "aurora", "dots", "blueprint"
 const FONTS = new Set<FontPreset>(["sans", "tech", "soft"]);
 const RADII = new Set<RadiusPreset>(["sharp", "default", "soft"]);
 const DENSITIES = new Set<DensityPreset>(["compact", "default", "relaxed"]);
+const THEME_TRANSITIONS = new Set<ThemeTransitionStyle>(["slant", "curtain", "diamond", "split"]);
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
   const num = Number(value);
@@ -233,6 +248,9 @@ export function sanitizeVisualConfig(raw: unknown): VisualStudioConfig {
     density: DENSITIES.has(src.density as DensityPreset)
       ? (src.density as DensityPreset)
       : DEFAULT_VISUAL_CONFIG.density,
+    themeTransition: THEME_TRANSITIONS.has(src.themeTransition as ThemeTransitionStyle)
+      ? (src.themeTransition as ThemeTransitionStyle)
+      : DEFAULT_VISUAL_CONFIG.themeTransition,
     customHue: normalizeHue(src.customHue, DEFAULT_VISUAL_CONFIG.customHue),
     customSaturation: clampNumber(src.customSaturation, 35, 100, DEFAULT_VISUAL_CONFIG.customSaturation),
     wallpaperBlur: clampNumber(src.wallpaperBlur, 0, 24, DEFAULT_VISUAL_CONFIG.wallpaperBlur),

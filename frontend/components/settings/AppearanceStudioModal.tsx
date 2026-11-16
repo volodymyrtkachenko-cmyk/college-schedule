@@ -12,6 +12,7 @@ import {
   QUICK_CUSTOM_HUES,
   RADIUS_OPTIONS,
   SURFACE_OPTIONS,
+  THEME_TRANSITION_OPTIONS,
   buildCustomAccentVars,
   contrastRatio,
   decodeThemeShareCode,
@@ -20,6 +21,7 @@ import {
   matchesCuratedPreset,
   rgbToHex,
   type RGBColor,
+  type ThemeTransitionStyle,
 } from "@/lib/visualStudio";
 import {
   deleteCustomWallpaper,
@@ -48,6 +50,41 @@ const STUDIO_TABS: Array<{ id: StudioTab; label: string }> = [
 const HUE_SPECTRUM_TRACK =
   "linear-gradient(to right, hsl(0 82% 54%), hsl(60 82% 50%), hsl(120 75% 44%), hsl(180 80% 45%), hsl(240 82% 58%), hsl(300 80% 54%), hsl(359 82% 54%))";
 
+function renderTransitionGlyph(style: ThemeTransitionStyle) {
+  switch (style) {
+    case "slant":
+      return (
+        <svg width="24" height="16" viewBox="0 0 24 16" fill="none" aria-hidden="true" className="shrink-0 text-sys-accent">
+          <rect x="1" y="1" width="22" height="14" rx="3" stroke="currentColor" strokeOpacity="0.4" strokeWidth="1.25" />
+          <path d="M13 1H21C22.1 1 23 1.9 23 3V13C23 14.1 22.1 15 21 15H9L13 1Z" fill="currentColor" fillOpacity="0.28" />
+          <line x1="13" y1="1" x2="9" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      );
+    case "curtain":
+      return (
+        <svg width="24" height="16" viewBox="0 0 24 16" fill="none" aria-hidden="true" className="shrink-0 text-sys-accent">
+          <rect x="1" y="1" width="22" height="14" rx="3" stroke="currentColor" strokeOpacity="0.4" strokeWidth="1.25" />
+          <path d="M1 3C1 1.9 1.9 1 3 1H21C22.1 1 23 1.9 23 3V7.5C23 9.2 21.6 10.5 19.8 10.5H4.2C2.4 10.5 1 9.2 1 7.5V3Z" fill="currentColor" fillOpacity="0.28" />
+          <path d="M9 10.5H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      );
+    case "diamond":
+      return (
+        <svg width="24" height="16" viewBox="0 0 24 16" fill="none" aria-hidden="true" className="shrink-0 text-sys-accent">
+          <rect x="1" y="1" width="22" height="14" rx="3" stroke="currentColor" strokeOpacity="0.4" strokeWidth="1.25" />
+          <path d="M12 2.5L17.5 8L12 13.5L6.5 8L12 2.5Z" fill="currentColor" fillOpacity="0.28" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" />
+        </svg>
+      );
+    case "split":
+      return (
+        <svg width="24" height="16" viewBox="0 0 24 16" fill="none" aria-hidden="true" className="shrink-0 text-sys-accent">
+          <rect x="1" y="1" width="22" height="14" rx="3" stroke="currentColor" strokeOpacity="0.4" strokeWidth="1.25" />
+          <rect x="8.5" y="2.5" width="7" height="11" rx="2.5" fill="currentColor" fillOpacity="0.28" stroke="currentColor" strokeWidth="1.25" />
+        </svg>
+      );
+  }
+}
+
 export interface AppearanceStudioModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -63,6 +100,7 @@ export function AppearanceStudioModal({
     theme,
     resolvedTheme,
     setTheme,
+    toggleTheme,
     accent,
     setAccent,
     visualConfig,
@@ -754,6 +792,56 @@ export function AppearanceStudioModal({
                             }`}
                           >
                             {m.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Theme View Transition Style Picker */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="block text-xs font-semibold text-sys-text-secondary">
+                        Анімація зміни теми
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => toggleTheme(e)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-[11px] font-semibold text-sys-accent hover:border-sys-accent/60 transition-colors cursor-pointer active:scale-[0.97]"
+                      >
+                        <span>Спробувати</span>
+                        <span aria-hidden="true">↻</span>
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {THEME_TRANSITION_OPTIONS.map((opt) => {
+                        const active = visualConfig.themeTransition === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => setVisualConfig({ themeTransition: opt.id })}
+                            className={`flex flex-col gap-1.5 rounded-xl border p-2.5 text-left transition-colors cursor-pointer min-w-0 ${
+                              active
+                                ? "border-sys-accent bg-sys-accent/12 text-sys-text-primary ring-1 ring-sys-accent/35"
+                                : "border-sys-border bg-sys-bg text-sys-text-secondary hover:border-sys-elevated-border hover:text-sys-text-primary"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1.5">
+                              {renderTransitionGlyph(opt.id)}
+                              {active && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-sys-text-primary leading-tight">
+                                {opt.label}
+                              </div>
+                              <div className="text-[10px] text-sys-text-secondary leading-tight mt-0.5">
+                                {opt.hint}
+                              </div>
+                            </div>
                           </button>
                         );
                       })}

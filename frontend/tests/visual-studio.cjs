@@ -154,6 +154,11 @@ test("sanitizeVisualConfig normalizes bounds/invalid fields and presets match th
   assert.equal(clamped.fontPreset, "sans");
   assert.equal(clamped.radius, "default");
   assert.equal(clamped.density, "default");
+  assert.equal(clamped.themeTransition, "slant");
+  assert.equal(
+    vs.sanitizeVisualConfig({ themeTransition: "curtain" }).themeTransition,
+    "curtain"
+  );
   assert.equal(clamped.customHue, 330);
   assert.equal(clamped.customSaturation, 100);
   assert.equal(clamped.wallpaperBlur, 24);

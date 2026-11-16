@@ -493,7 +493,7 @@ export const LessonCard = memo(function LessonCard({
       : lesson.is_cancelled
         ? "border-rose-500/40 border-dashed bg-rose-500/[0.04] opacity-80"
         : isLive
-          ? "border-sys-accent/60 ring-1 ring-sys-accent/50 bg-gradient-to-r from-sys-accent/[0.12] via-sys-card to-sys-card shadow-[0_0_22px_rgb(var(--sys-accent)/0.18)]"
+          ? "border-sys-accent/80 ring-2 ring-sys-accent/25 shadow-[0_10px_30px_-8px_rgb(var(--sys-accent)/0.3)]"
           : eventBadge
             ? eventBadge.cardClass
             : lesson.is_replacement
@@ -577,6 +577,16 @@ export const LessonCard = memo(function LessonCard({
         canMove ? "cursor-grab active:cursor-grabbing" : ""
       }`}
     >
+      {isLive && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-[inherit] overflow-hidden"
+        >
+          <div className="live-card-ambient absolute inset-0" />
+          <span className="absolute left-0 top-2.5 bottom-2.5 w-[3.5px] sm:w-1 rounded-r-full bg-sys-accent shadow-[0_0_12px_rgb(var(--sys-accent)/0.65)]" />
+        </div>
+      )}
+
       {/* Desktop/Tablet 3-Zone Horizontal Layout (for Day mode on screens >= sm) */}
       {isDay && showSmPlus && (
         <div className="hidden sm:flex sm:items-stretch gap-4 w-full flex-1">
@@ -592,9 +602,14 @@ export const LessonCard = memo(function LessonCard({
                 </span>
               </div>
               {isLive && (
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-xs font-bold text-sys-accent whitespace-nowrap">
-                  <span className="live-dot-settle h-2 w-2 rounded-full bg-sys-accent shrink-0" />
-                  <span>ще {remainingMin} хв</span>
+                <div className="mt-2 flex flex-col items-start gap-1">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-sys-accentSolid px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-white shadow-xs whitespace-nowrap">
+                    <span className="live-dot-settle h-1.5 w-1.5 rounded-full bg-white shrink-0" />
+                    <span>Зараз</span>
+                  </span>
+                  <span className="ui-mono-slot text-[11px] font-bold text-sys-accent whitespace-nowrap">
+                    ще {remainingMin} хв · {progressPercent}%
+                  </span>
                 </div>
               )}
             </div>
@@ -701,9 +716,9 @@ export const LessonCard = memo(function LessonCard({
               {canEdit ? (
                 <LessonCardActions variant="mobile-day" {...sharedActionProps} />
               ) : isLive ? (
-                <div className="ui-mono-slot shrink-0 flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-xs font-bold text-sys-accent whitespace-nowrap ml-auto">
-                  <span className="live-dot-settle h-2 w-2 rounded-full bg-sys-accent shrink-0" />
-                  <span>ще {remainingMin} хв</span>
+                <div className="ui-mono-slot shrink-0 flex items-center gap-1.5 rounded-full bg-sys-accentSolid px-2.5 py-0.5 text-[11px] font-bold text-white shadow-xs whitespace-nowrap ml-auto">
+                  <span className="live-dot-settle h-1.5 w-1.5 rounded-full bg-white shrink-0" />
+                  <span>Зараз · {remainingMin} хв</span>
                 </div>
               ) : !hasBothRoomAndMeet && (!isDualTeachers || isSingleSubgroupShown) ? (
                 <div className="shrink-0 flex items-center gap-2 ml-auto">
@@ -813,10 +828,15 @@ export const LessonCard = memo(function LessonCard({
                 {startT}
               </span>
               {isLive && (
-                <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-sys-accent whitespace-nowrap">
-                  <span className="live-dot-settle h-1.5 w-1.5 shrink-0 rounded-full bg-sys-accent" />
-                  <span>{remainingMin}хв</span>
-                </span>
+                <div className="mt-1.5 flex flex-col items-start gap-0.5">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-sys-accentSolid px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-xs whitespace-nowrap">
+                    <span className="live-dot-settle h-1 w-1 rounded-full bg-white shrink-0" />
+                    <span>Зараз</span>
+                  </span>
+                  <span className="text-[11px] font-bold text-sys-accent whitespace-nowrap">
+                    {remainingMin} хв
+                  </span>
+                </div>
               )}
             </div>
           )}
@@ -918,11 +938,19 @@ export const LessonCard = memo(function LessonCard({
       )}
 
       {isLive && (
-        <div className="absolute left-4 right-4 bottom-2.5 h-[3px] rounded-full overflow-hidden bg-blue-500/20">
+        <div
+          aria-hidden="true"
+          title={`Триває пара · ${progressPercent}% (ще ${remainingMin} хв)`}
+          className={`absolute h-1 rounded-full bg-sys-accent/20 ${
+            isDay ? "left-4 right-4 bottom-2.5" : "left-2.5 right-2.5 bottom-2"
+          }`}
+        >
           <div
-            className="h-full rounded-full bg-sys-accent transition-[width] duration-300 ease-out"
+            className="relative h-full rounded-full bg-sys-accent transition-[width] duration-300 ease-out"
             style={{ width: `${progressPercent}%` }}
-          />
+          >
+            <span className="live-dot-settle absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 translate-x-1/2 rounded-full bg-sys-accent ring-2 ring-sys-card shadow-[0_0_8px_rgb(var(--sys-accent)/0.85)]" />
+          </div>
         </div>
       )}
     </article>

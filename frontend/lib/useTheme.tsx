@@ -102,10 +102,8 @@ export type ThemeTransitionOrigin =
   | { clientX?: number; clientY?: number; currentTarget?: EventTarget | null }
   | { x: number; y: number };
 
-function setThemeRadialOrigin(origin?: ThemeTransitionOrigin): () => void {
-  if (typeof document === "undefined" || typeof window === "undefined" || !origin) {
-    return () => {};
-  }
+function resolveOriginCoordinates(origin?: ThemeTransitionOrigin): { x: number; y: number } | null {
+  if (typeof window === "undefined" || !origin) return null;
   let x: number | null = null;
   let y: number | null = null;
 
@@ -131,23 +129,50 @@ function setThemeRadialOrigin(origin?: ThemeTransitionOrigin): () => void {
   }
 
   if (x === null || y === null || !Number.isFinite(x) || !Number.isFinite(y)) {
+    return null;
+  }
+  return { x, y };
+}
+
+/**
+ * Sets root attributes and pointer-origin geometry CSS variables before
+ * starting a theme View Transition and returns a cleanup callback.
+ */
+function prepareThemeTransitionAttrs(
+  transitionStyle: VisualStudioConfig["themeTransition"],
+  nextResolved: ResolvedTheme,
+  origin?: ThemeTransitionOrigin
+): () => void {
+  if (typeof document === "undefined" || typeof window === "undefined") {
     return () => {};
   }
 
   const root = document.documentElement;
-  const endRadius = Math.ceil(
-    Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
-  );
-  root.style.setProperty("--vt-theme-x", `${Math.round(x)}px`);
-  root.style.setProperty("--vt-theme-y", `${Math.round(y)}px`);
-  root.style.setProperty("--vt-theme-r", `${endRadius}px`);
-  root.dataset.vtRadial = "1";
+  root.dataset.vtThemeStyle = transitionStyle;
+  root.dataset.vtThemeDir = nextResolved === "dark" ? "to-dark" : "to-light";
+
+  const coords = resolveOriginCoordinates(origin);
+  if (coords) {
+    const endDiamond =
+      Math.ceil(
+        Math.max(coords.x, window.innerWidth - coords.x) +
+          Math.max(coords.y, window.innerHeight - coords.y)
+      ) + 12;
+    root.dataset.vtSide = coords.x < window.innerWidth * 0.5 ? "left" : "right";
+    root.style.setProperty("--vt-theme-x", `${Math.round(coords.x)}px`);
+    root.style.setProperty("--vt-theme-y", `${Math.round(coords.y)}px`);
+    root.style.setProperty("--vt-theme-d", `${endDiamond}px`);
+  } else {
+    root.dataset.vtSide = "right";
+  }
 
   return () => {
-    delete root.dataset.vtRadial;
+    delete root.dataset.vtThemeStyle;
+    delete root.dataset.vtThemeDir;
+    delete root.dataset.vtSide;
     root.style.removeProperty("--vt-theme-x");
     root.style.removeProperty("--vt-theme-y");
-    root.style.removeProperty("--vt-theme-r");
+    root.style.removeProperty("--vt-theme-d");
   };
 }
 
@@ -465,7 +490,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         let removeBlocker: (() => void) | null = null;
         let failsafeTimer: number | null = null;
         let finishFailsafeTimer: number | null = null;
-        const clearRadial = setThemeRadialOrigin(options.transitionOrigin);
+        const clearThemeVt = prepareThemeTransitionAttrs(
+          nextConfig.themeTransition,
+          nextResolved,
+          options.transitionOrigin
+        );
         const releaseBlocker = () => {
           if (failsafeTimer !== null) {
             window.clearTimeout(failsafeTimer);
@@ -480,7 +509,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             window.clearTimeout(finishFailsafeTimer);
             finishFailsafeTimer = null;
           }
-          clearRadial();
+          clearThemeVt();
         };
         finishFailsafeTimer = window.setTimeout(cleanupAll, 700);
 
