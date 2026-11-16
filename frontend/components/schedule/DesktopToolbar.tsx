@@ -158,7 +158,11 @@ export function DesktopToolbar({
     (view === "week" && isCurrentWeek);
 
   return (
-    <header className="vt-desktop-header sticky top-0 z-40 hidden lg:block min-h-[3.5rem] border-b border-sys-border bg-sys-card">
+    <header className="vt-desktop-header desktop-toolbar-scroll sticky top-0 z-40 hidden lg:block min-h-[3.5rem] border-b border-sys-border bg-sys-card">
+      <div
+        aria-hidden="true"
+        className="desktop-scroll-progress pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-sys-accent/85"
+      />
       <div className="mx-auto grid min-h-[3.5rem] max-w-[1800px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 lg:px-4 xl:px-6 py-1.5">
         {/* Left Zone: Brand + Context Selector */}
         <div className="flex items-center gap-2.5 min-w-0">
@@ -411,8 +415,8 @@ export function DesktopToolbar({
                 aria-labelledby="desktop-sections-trigger"
                 onKeyDown={handleMenuKeyDown}
                 data-closing={isNavMenuClosing ? "true" : undefined}
-                style={{ "--popup-y": "-6px" } as React.CSSProperties}
-                className="discrete-popup absolute right-0 top-full mt-2 w-64 rounded-2xl border border-sys-border bg-sys-card p-1.5 shadow-xl z-50"
+                style={{ "--popup-y": "-6px", transformOrigin: "top right" } as React.CSSProperties}
+                className="discrete-popup desktop-spring-popup absolute right-0 top-full mt-2 w-64 rounded-2xl border border-sys-border bg-sys-card p-1.5 shadow-xl z-50"
               >
                 {SECTION_LINKS.map((item) => {
                   const Icon = item.icon;

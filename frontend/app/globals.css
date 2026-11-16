@@ -833,6 +833,24 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 }
 
+@keyframes desktop-card-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes desktop-card-spring {
+  from {
+    transform: translate3d(0, 14px, 0) scale(0.985);
+  }
+  to {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 @keyframes desktop-view-enter {
   from {
     opacity: 0;
@@ -841,6 +859,27 @@ html[data-theme="light"][data-accent="cyan"] {
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes desktop-scroll-progress-scale {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes desktop-toolbar-scroll-shadow {
+  0%,
+  4% {
+    box-shadow: none;
+  }
+  100% {
+    box-shadow:
+      0 10px 26px -12px rgb(0 0 0 / 0.24),
+      0 1px 0 rgb(var(--sys-border) / 0.85);
   }
 }
 
@@ -1051,7 +1090,7 @@ html[data-theme="light"][data-accent="cyan"] {
    - на desktop (>= 1024px) анімується виключно main-content без конфліктів з модалками при зміні теми
    - на mobile (< 1024px) під час навігації нижня панель фіксується на своєму місці */
 @media (min-width: 1024px) {
-  html:not([data-vt-kind="theme"]) .vt-main-content {
+  html:not([data-vt-kind="theme"]):not([data-vt-kind="morph"]) .vt-main-content {
     view-transition-name: main-content;
   }
 
@@ -1072,6 +1111,41 @@ html[data-theme="light"][data-accent="cyan"] {
 
 html[data-vt-kind="theme"] :is(.vt-desktop-header, .vt-main-content, .vt-bottom-nav) {
   view-transition-name: none !important;
+}
+
+html[data-vt-kind="morph"] .vt-main-content {
+  view-transition-name: none !important;
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  html[data-vt-kind="morph"] .vt-schedule-day-hero {
+    view-transition-name: schedule-day-hero;
+  }
+
+  html[data-vt-kind="morph"] :is(.desktop-view-enter, .desktop-stagger-card, .week-grid-enter),
+  [data-vt-revealed="1"] {
+    animation: none !important;
+  }
+
+  ::view-transition-group(schedule-day-hero) {
+    animation-duration: 320ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    animation-timing-function: var(--ease-spring-snappy);
+    z-index: 40;
+  }
+
+  ::view-transition-old(schedule-day-hero),
+  ::view-transition-new(schedule-day-hero) {
+    animation-duration: 240ms;
+    mix-blend-mode: normal;
+  }
+
+  html[data-vt-kind="morph"]::view-transition-old(root),
+  html[data-vt-kind="morph"]::view-transition-new(root) {
+    animation-duration: 220ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    mix-blend-mode: normal;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1404,11 +1478,41 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
   position: relative;
 }
 
+.desktop-scroll-progress {
+  opacity: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .interactive-surface {
     transition-property: transform, border-color, background-color;
     transition-duration: 220ms, 160ms, 160ms;
     transition-timing-function: var(--ease-spring-gentle), ease-out, ease-out;
+  }
+
+  .interactive-surface::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(
+      240px circle at var(--spot-x, -999px) var(--spot-y, -999px),
+      rgb(var(--sys-accent) / 0.56),
+      transparent 75%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    transition: opacity 180ms ease-out;
+  }
+
+  .desktop-spotlight-active[data-spot-active="true"] .interactive-surface::before {
+    opacity: 1;
   }
 
   .interactive-surface::after {
@@ -1431,17 +1535,91 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
     transform: translate3d(0, -2px, 0);
   }
 
+  .desktop-tilt-card:hover:not([data-open="true"]) {
+    will-change: transform;
+    transform:
+      perspective(900px)
+      rotateX(var(--tilt-x, 0deg))
+      rotateY(var(--tilt-y, 0deg))
+      translate3d(0, -3px, 0);
+  }
+
   .interactive-surface:hover::after {
     opacity: 1;
   }
 
   .desktop-stagger-card {
-    animation: desktop-card-rise 210ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-    animation-delay: calc(min(var(--stagger-index, 0), 3) * 12ms);
+    animation:
+      desktop-card-fade 210ms cubic-bezier(0.22, 1, 0.36, 1) backwards,
+      desktop-card-spring 360ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
+    animation-delay: calc(min(var(--stagger-index, 0), 8) * 16ms);
+  }
+
+  .desktop-week-grid[data-focus-day="0"] [data-day-col]:not([data-day-col="0"]):not(:has([data-open])),
+  .desktop-week-grid[data-focus-day="1"] [data-day-col]:not([data-day-col="1"]):not(:has([data-open])),
+  .desktop-week-grid[data-focus-day="2"] [data-day-col]:not([data-day-col="2"]):not(:has([data-open])),
+  .desktop-week-grid[data-focus-day="3"] [data-day-col]:not([data-day-col="3"]):not(:has([data-open])),
+  .desktop-week-grid[data-focus-day="4"] [data-day-col]:not([data-day-col="4"]):not(:has([data-open])) {
+    opacity: 0.68;
   }
 
   .desktop-view-enter {
     animation: desktop-view-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  .app-backdrop[data-parallax="1"] .app-parallax-back {
+    will-change: transform;
+    transform: translate3d(
+        calc(var(--bg-px, 0) * -10px),
+        calc(var(--bg-py, 0) * -8px),
+        0
+      )
+      scale(1.03);
+    transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .app-backdrop[data-parallax="1"] .app-parallax-front {
+    will-change: transform;
+    transform: translate3d(
+        calc(var(--bg-px, 0) * 18px),
+        calc(var(--bg-py, 0) * 14px),
+        0
+      )
+      scale(1.045);
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .desktop-spring-popup {
+    transition-duration: 160ms, 320ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
+  }
+
+  .desktop-spring-popup[data-closing="true"] {
+    transition-duration: 140ms, 160ms;
+    transition-timing-function: var(--ease-exit), var(--ease-exit);
+  }
+
+  @starting-style {
+    .desktop-spring-popup {
+      opacity: 0;
+      transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.92);
+    }
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .desktop-scroll-progress {
+      opacity: 1;
+      animation: desktop-scroll-progress-scale linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0% 100%;
+    }
+
+    .desktop-toolbar-scroll {
+      animation: desktop-toolbar-scroll-shadow linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0px 120px;
+    }
   }
 
   @supports ((animation-timeline: view()) and (animation-range: entry)) {

@@ -395,7 +395,7 @@ export function StatisticsClient() {
               <DesktopSpotlightGrid className="grid gap-4 grid-cols-2 mt-4">
                 <div
                   style={{ "--stagger-index": 0 } as React.CSSProperties}
-                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                  className="interactive-surface desktop-tilt-card desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
                 >
                   <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                     Вивчено
@@ -410,7 +410,7 @@ export function StatisticsClient() {
                 {hasGlobalPlan ? (
                   <div
                     style={{ "--stagger-index": 1 } as React.CSSProperties}
-                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                    className="interactive-surface desktop-tilt-card desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
                   >
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                       Всього за планом
@@ -428,7 +428,7 @@ export function StatisticsClient() {
                 ) : (
                   <div
                     style={{ "--stagger-index": 1 } as React.CSSProperties}
-                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                    className="interactive-surface desktop-tilt-card desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
                   >
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                       Дисциплін
@@ -444,7 +444,7 @@ export function StatisticsClient() {
               <DesktopSpotlightGrid className="grid gap-4 grid-cols-2 mt-4">
                 <div
                   style={{ "--stagger-index": 0 } as React.CSSProperties}
-                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                  className="interactive-surface desktop-tilt-card desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
                 >
                   <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                     Проведено
@@ -459,7 +459,7 @@ export function StatisticsClient() {
                 {hasGlobalPlan ? (
                   <div
                     style={{ "--stagger-index": 1 } as React.CSSProperties}
-                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                    className="interactive-surface desktop-tilt-card desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
                   >
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                       Семестровий план
@@ -476,7 +476,7 @@ export function StatisticsClient() {
                 ) : stats.weekly_hours ? (
                   <div
                     style={{ "--stagger-index": 1 } as React.CSSProperties}
-                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                    className="interactive-surface desktop-stagger-card desktop-tilt-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
                   >
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                       Тижневе навантаження
@@ -491,7 +491,7 @@ export function StatisticsClient() {
                 ) : (
                   <div
                     style={{ "--stagger-index": 1 } as React.CSSProperties}
-                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
+                    className="interactive-surface desktop-stagger-card desktop-tilt-card rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center"
                   >
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                       Активних груп

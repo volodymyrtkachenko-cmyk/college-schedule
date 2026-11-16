@@ -252,6 +252,7 @@ export function ScheduleWeekGrid({
   const renderMobile = !isMounted || isMobile;
 
   const weekSlideAttr = weekSlideDir ? (weekSlideDir > 0 ? "next" : "prev") : undefined;
+  const [hoveredDayCol, setHoveredDayCol] = useState<number | null>(null);
 
   return (
     <DesktopSpotlightGrid className="w-full pb-4 overflow-x-clip">
@@ -260,7 +261,14 @@ export function ScheduleWeekGrid({
         <div
           key={`desktop-week-${week[0]?.date ?? "week"}`}
           data-slide-dir={weekSlideAttr}
-          className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4 week-grid-enter"
+          data-focus-day={hoveredDayCol !== null ? hoveredDayCol : undefined}
+          onMouseLeave={() => setHoveredDayCol(null)}
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+              setHoveredDayCol(null);
+            }
+          }}
+          className="desktop-week-grid hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4 week-grid-enter"
         >
         {/* Row 0: Column Headers */}
         {weekDaysMeta.map(({ day, periodMeta }, dIdx) => {
@@ -269,6 +277,9 @@ export function ScheduleWeekGrid({
           return (
             <div
               key={`desktop-header-${day.date}`}
+              data-day-col={dIdx}
+              onMouseEnter={() => setHoveredDayCol(dIdx)}
+              onFocusCapture={() => setHoveredDayCol(dIdx)}
               role={onSelectDay ? "button" : undefined}
               tabIndex={onSelectDay ? 0 : undefined}
               onClick={() => onSelectDay?.(day.date, dIdx)}
@@ -290,7 +301,10 @@ export function ScheduleWeekGrid({
               }`}
             >
               <div className="flex items-center justify-between gap-1.5">
-                <span className="text-[17px] xl:text-[18px] font-bold capitalize tracking-tight truncate text-sys-text-primary">
+                <span
+                  data-morph-day={day.date}
+                  className="w-fit max-w-full text-[17px] xl:text-[18px] font-bold capitalize tracking-tight truncate text-sys-text-primary"
+                >
                   {longWeekday(day.date)}
                 </span>
                 {isToday ? (
@@ -338,6 +352,9 @@ export function ScheduleWeekGrid({
                 return (
                   <div
                     key={`desktop-slot-${num}-${day.date}`}
+                    data-day-col={dIdx}
+                    onMouseEnter={() => setHoveredDayCol(dIdx)}
+                    onFocusCapture={() => setHoveredDayCol(dIdx)}
                     style={{
                       gridColumn: dIdx + 1,
                       gridRow: `2 / span ${allLessonNumbers.length}`,
@@ -359,9 +376,12 @@ export function ScheduleWeekGrid({
             return (
               <div
                 key={`desktop-slot-${num}-${day.date}`}
+                data-day-col={dIdx}
+                onMouseEnter={() => setHoveredDayCol(dIdx)}
+                onFocusCapture={() => setHoveredDayCol(dIdx)}
                 style={{
                   gridColumn: dIdx + 1,
-                  "--stagger-index": dIdx + Math.min(num, 3),
+                  "--stagger-index": Number((dIdx * 1.1 + numIdx * 0.7).toFixed(1)),
                 } as React.CSSProperties}
                 className={`desktop-stagger-card flex flex-col min-h-[92px] transition-opacity relative has-[[data-open]]:z-50 has-[[data-open]]:opacity-100 ${
                   isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
@@ -404,8 +424,10 @@ export function ScheduleWeekGrid({
         {weekDaysMeta.map(({ day, summaryText }, dIdx) => (
           <div
             key={`desktop-footer-${day.date}`}
+            data-day-col={dIdx}
+            onMouseEnter={() => setHoveredDayCol(dIdx)}
             style={{ gridColumn: dIdx + 1 }}
-            className="py-2 px-3 text-center text-xs font-medium border-t border-sys-border/40 mt-1 text-sys-text-secondary"
+            className="py-2 px-3 text-center text-xs font-medium transition-opacity border-t border-sys-border/40 mt-1 text-sys-text-secondary"
           >
             <span>{summaryText}</span>
           </div>

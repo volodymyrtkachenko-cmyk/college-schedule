@@ -568,6 +568,8 @@ export const LessonCard = memo(function LessonCard({
         }
       }}
       className={`interactive-surface group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-[transform,border-color,background-color] duration-150 ease-out hover:border-sys-border/90 active:scale-[0.99] ${
+        isLive ? "desktop-tilt-card" : ""
+      } ${
         isHwOpen || moreOpen ? "z-40 !translate-y-0" : ""
       } ${
         isDay

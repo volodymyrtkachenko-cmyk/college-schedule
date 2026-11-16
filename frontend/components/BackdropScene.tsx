@@ -26,7 +26,7 @@ export function BackdropScene({
   switch (backdrop) {
     case "aurora":
       return (
-        <div className="app-backdrop-aurora absolute inset-0">
+        <div className={`app-backdrop-aurora absolute inset-0 ${!compact ? "app-parallax-back" : ""}`}>
           <div className="app-aurora-orb app-aurora-orb-1" />
           <div className="app-aurora-orb app-aurora-orb-2" />
           <div className="app-aurora-orb app-aurora-orb-3" />
@@ -36,9 +36,9 @@ export function BackdropScene({
     case "silk":
       return (
         <div className="app-backdrop-silk absolute inset-0">
-          <div className="app-backdrop-silk-gradient absolute inset-0" />
+          <div className={`app-backdrop-silk-gradient absolute inset-0 ${!compact ? "app-parallax-back" : ""}`} />
           <svg
-            className="app-backdrop-silk-waves absolute inset-0 h-full w-full"
+            className={`app-backdrop-silk-waves absolute inset-0 h-full w-full ${!compact ? "app-parallax-front" : ""}`}
             viewBox="0 0 1200 900"
             preserveAspectRatio="xMidYMid slice"
             fill="none"
@@ -78,7 +78,7 @@ export function BackdropScene({
       return (
         <div className="app-backdrop-topo absolute inset-0">
           <svg
-            className="app-topo-lines absolute inset-0 h-full w-full"
+            className={`app-topo-lines absolute inset-0 h-full w-full ${!compact ? "app-parallax-front" : ""}`}
             viewBox="0 0 1200 900"
             preserveAspectRatio="xMidYMid slice"
             fill="none"
@@ -159,7 +159,7 @@ export function BackdropScene({
       return (
         <div className="app-backdrop-constellation absolute inset-0">
           <svg
-            className="app-constellation-svg absolute inset-0 h-full w-full"
+            className={`app-constellation-svg absolute inset-0 h-full w-full ${!compact ? "app-parallax-back" : ""}`}
             viewBox="0 0 1200 900"
             preserveAspectRatio="xMidYMid slice"
             fill="none"
@@ -174,6 +174,13 @@ export function BackdropScene({
               strokeOpacity="0.2"
               vectorEffect="non-scaling-stroke"
             />
+          </svg>
+          <svg
+            className={`app-constellation-svg absolute inset-0 h-full w-full ${!compact ? "app-parallax-front" : ""}`}
+            viewBox="0 0 1200 900"
+            preserveAspectRatio="xMidYMid slice"
+            fill="none"
+          >
             <g stroke="currentColor" strokeWidth="1.1" strokeOpacity="0.28" vectorEffect="non-scaling-stroke">
               <path d="M 140 210 L 310 140 L 455 245 L 365 380 L 140 210" />
               <path d="M 310 140 L 530 95" strokeOpacity="0.18" />
@@ -217,9 +224,9 @@ export function BackdropScene({
     case "prism":
       return (
         <div className="app-backdrop-prism absolute inset-0">
-          <div className="app-prism-beams absolute inset-0" />
+          <div className={`app-prism-beams absolute inset-0 ${!compact ? "app-parallax-back" : ""}`} />
           <svg
-            className="app-prism-facets absolute inset-0 h-full w-full"
+            className={`app-prism-facets absolute inset-0 h-full w-full ${!compact ? "app-parallax-front" : ""}`}
             viewBox="0 0 1200 900"
             preserveAspectRatio="xMidYMid slice"
             fill="none"
@@ -252,9 +259,9 @@ export function BackdropScene({
 
     case "blueprint":
       return (
-        <div className="app-backdrop-blueprint absolute inset-0">
+        <div className={`app-backdrop-blueprint absolute inset-0 ${!compact ? "app-parallax-back" : ""}`}>
           <svg
-            className="app-blueprint-arcs absolute inset-0 h-full w-full"
+            className={`app-blueprint-arcs absolute inset-0 h-full w-full ${!compact ? "app-parallax-front" : ""}`}
             viewBox="0 0 1200 900"
             preserveAspectRatio="xMidYMid slice"
             fill="none"
@@ -311,7 +318,7 @@ export function BackdropScene({
       );
 
     case "dots":
-      return <div className="app-backdrop-dots absolute inset-0" />;
+      return <div className={`app-backdrop-dots absolute inset-0 ${!compact ? "app-parallax-back" : ""}`} />;
 
     default:
       return null;

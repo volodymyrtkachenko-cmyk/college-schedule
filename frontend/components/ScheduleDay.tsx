@@ -187,7 +187,7 @@ export function ScheduleDay({
             mode === "day" ? (
               <div className="flex flex-wrap items-center gap-2.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
+                  <h2 className="vt-schedule-day-hero w-fit text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
                     {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}<span className="font-normal text-sys-text-secondary">,</span>
                   </h2>
                   <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">

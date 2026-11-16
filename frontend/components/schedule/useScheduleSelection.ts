@@ -1,7 +1,9 @@
 "use client";
 
 import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { ReferenceRecord, ScheduleResponse } from "../../lib/api";
+import { startTypedViewTransition } from "../../lib/viewTransition";
 import {
   KYIV_DATE_FMT,
   formatKyivDateIso,
@@ -41,6 +43,88 @@ import { useRecentSelections } from "../../lib/useRecentSelections";
 import { getPeriodMeta } from "../SchedulePeriodCard";
 
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+const DESKTOP_MORPH_MQ =
+  "(min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)";
+
+function canUseDesktopMorphTransition(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof document !== "undefined" &&
+    "startViewTransition" in document &&
+    window.matchMedia(DESKTOP_MORPH_MQ).matches
+  );
+}
+
+function clearMorphHeroMarkers() {
+  if (typeof document === "undefined") return;
+  document.querySelectorAll("[data-morph-day].vt-schedule-day-hero").forEach((el) => {
+    el.classList.remove("vt-schedule-day-hero");
+  });
+}
+
+function markVtRevealedNodes() {
+  if (typeof document === "undefined") return;
+  document
+    .querySelectorAll(".vt-main-content :is(.desktop-view-enter, .desktop-stagger-card, .week-grid-enter)")
+    .forEach((el) => {
+      (el as HTMLElement).dataset.vtRevealed = "1";
+    });
+}
+
+function runScheduleDayMorph(
+  targetDate: string,
+  direction: "to-day" | "to-week",
+  commitUpdate: () => void,
+) {
+  if (!canUseDesktopMorphTransition()) {
+    startTransition(commitUpdate);
+    return;
+  }
+
+  clearMorphHeroMarkers();
+
+  let cleanupTimer: number | null = null;
+  const finishCleanup = () => {
+    if (cleanupTimer !== null) {
+      window.clearTimeout(cleanupTimer);
+      cleanupTimer = null;
+    }
+    clearMorphHeroMarkers();
+  };
+
+  if (direction === "to-day" && targetDate) {
+    const sourceEl = document.querySelector(`[data-morph-day="${CSS.escape(targetDate)}"]`);
+    sourceEl?.classList.add("vt-schedule-day-hero");
+  }
+
+  cleanupTimer = window.setTimeout(finishCleanup, 500);
+
+  startTypedViewTransition(
+    ["schedule-morph"],
+    async () => {
+      if (direction === "to-week") {
+        await import("../ScheduleWeekGrid");
+      }
+      flushSync(commitUpdate);
+      if (direction === "to-week" && targetDate) {
+        let destEl = document.querySelector(`[data-morph-day="${CSS.escape(targetDate)}"]`);
+        if (!destEl) {
+          await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          });
+          destEl = document.querySelector(`[data-morph-day="${CSS.escape(targetDate)}"]`);
+        }
+        destEl?.classList.add("vt-schedule-day-hero");
+      }
+      markVtRevealedNodes();
+    },
+    {
+      kind: "morph",
+      onFinish: finishCleanup,
+    },
+  );
+}
 
 function resolveClockDate(ssrNowIso?: string): Date {
   if (ssrNowIso) {
@@ -770,29 +854,34 @@ export function useScheduleSelection({
 
   const handleViewChange = useCallback(
     (nextView: "today" | "week") => {
-      startTransition(() => {
-        setView(nextView);
-      });
       try {
         sessionStorage.setItem("schedule:view", nextView);
         localStorage.setItem("schedule:view", nextView);
       } catch {}
+      if (nextView === view) return;
+      runScheduleDayMorph(
+        activeDayDate,
+        nextView === "today" ? "to-day" : "to-week",
+        () => {
+          setView(nextView);
+        },
+      );
       resetScroll();
     },
-    [resetScroll]
+    [view, activeDayDate, resetScroll]
   );
 
   const handleSelectDayFromWeek = useCallback(
-    (_targetDate: string, dayIdx: number) => {
-      setDaySlideDir(0);
-      startTransition(() => {
-        setSelectedDayIndex(dayIdx);
-        setView("today");
-      });
+    (targetDate: string, dayIdx: number) => {
       try {
         sessionStorage.setItem("schedule:view", "today");
         localStorage.setItem("schedule:view", "today");
       } catch {}
+      runScheduleDayMorph(targetDate, "to-day", () => {
+        setDaySlideDir(0);
+        setSelectedDayIndex(dayIdx);
+        setView("today");
+      });
       resetScroll();
     },
     [resetScroll]
