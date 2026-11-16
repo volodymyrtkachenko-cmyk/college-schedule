@@ -902,12 +902,10 @@ html[data-theme="light"][data-accent="cyan"] {
 @keyframes desktop-toolbar-scroll-shadow {
   0%,
   4% {
-    box-shadow: none;
+    opacity: 0;
   }
   100% {
-    box-shadow:
-      0 10px 26px -12px rgb(0 0 0 / 0.24),
-      0 1px 0 rgb(var(--sys-border) / 0.85);
+    opacity: 1;
   }
 }
 
@@ -1713,10 +1711,22 @@ html[data-surface="glass"] #desktop-sections-menu {
       animation-range: 0% 100%;
     }
 
-    .desktop-toolbar-scroll {
+    .desktop-toolbar-scroll::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      box-shadow:
+        0 10px 26px -12px rgb(0 0 0 / 0.24),
+        0 1px 0 rgb(var(--sys-border) / 0.85);
+      opacity: 0;
       animation: desktop-toolbar-scroll-shadow linear both;
       animation-timeline: scroll(root block);
       animation-range: 0px 120px;
+    }
+
+    html[data-surface="outline"] .desktop-toolbar-scroll::after {
+      display: none;
     }
   }
 

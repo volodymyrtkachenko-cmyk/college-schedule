@@ -228,8 +228,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <link rel="preconnect" href={BACKEND_API_URL} crossOrigin="use-credentials" />
         <link rel="dns-prefetch" href={BACKEND_API_URL} />
-        <link rel="preconnect" href="https://accounts.google.com" />
-        <link rel="dns-prefetch" href="https://accounts.google.com" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <script

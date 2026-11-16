@@ -1,11 +1,14 @@
 "use client";
 
 import React from "react";
-import { LazyMotion, MotionConfig, domMax } from "framer-motion";
+import { LazyMotion, MotionConfig } from "framer-motion";
+
+const loadMotionFeatures = () =>
+  import("../lib/motionFeatures").then((mod) => mod.default);
 
 export function MotionConfigProvider({ children }: { children: React.ReactNode }) {
   return (
-    <LazyMotion features={domMax} strict>
+    <LazyMotion features={loadMotionFeatures} strict>
       <MotionConfig reducedMotion="user">{children}</MotionConfig>
     </LazyMotion>
   );
