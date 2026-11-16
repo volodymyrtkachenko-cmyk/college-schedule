@@ -19,6 +19,7 @@ import { DayPager } from "./DayPager";
 import { MobileWeekDaysStrip } from "./MobileWeekDaysStrip";
 import { OfflineIndicator } from "./OfflineIndicator";
 import { ScheduleDay } from "./ScheduleDay";
+import { ScheduleWeekGrid } from "./ScheduleWeekGrid";
 import { SplashScreen } from "./SplashScreen";
 import { useToast } from "./ToastProvider";
 import { WeekTypeBadge } from "./WeekTypeBadge";
@@ -38,7 +39,6 @@ const WelcomeScreen = dynamic(() => import("./WelcomeScreen").then((m) => m.Welc
 const DatePickerModal = dynamic(() => import("./DatePickerModal").then((m) => m.DatePickerModal), { ssr: false });
 const TeacherPinModal = dynamic(() => import("./TeacherPinModal").then((m) => m.TeacherPinModal), { ssr: false });
 const MobileTasksView = dynamic(() => import("./MobileTasksView").then((m) => m.MobileTasksView), { ssr: false });
-const ScheduleWeekGrid = dynamic(() => import("./ScheduleWeekGrid").then((m) => m.ScheduleWeekGrid), { ssr: false });
 const GuideHubModal = dynamic(() => import("./GuideHubModal").then((m) => m.GuideHubModal), { ssr: false });
 const SubjectHubModal = dynamic(() => import("./schedule/SubjectHubModal").then((m) => m.SubjectHubModal), { ssr: false });
 const InstallPrompt = dynamic(() => import("./InstallPrompt").then((m) => m.InstallPrompt), { ssr: false });

@@ -383,7 +383,7 @@ export function ScheduleWeekGrid({
                   gridColumn: dIdx + 1,
                   "--stagger-index": Number((dIdx * 1.1 + numIdx * 0.7).toFixed(1)),
                 } as React.CSSProperties}
-                className={`desktop-stagger-card flex flex-col min-h-[92px] transition-opacity relative has-[[data-open]]:z-50 has-[[data-open]]:opacity-100 ${
+                className={`desktop-week-slot desktop-stagger-card flex flex-col min-h-[92px] transition-opacity relative has-[[data-open]]:z-50 has-[[data-open]]:opacity-100 ${
                   isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
                 }`}
               >

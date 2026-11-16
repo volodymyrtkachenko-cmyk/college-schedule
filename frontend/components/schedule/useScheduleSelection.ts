@@ -61,6 +61,29 @@ function clearMorphHeroMarkers() {
   document.querySelectorAll("[data-morph-day].vt-schedule-day-hero").forEach((el) => {
     el.classList.remove("vt-schedule-day-hero");
   });
+  document.querySelectorAll<HTMLElement>("[data-morph-card].vt-morph-card").forEach((el) => {
+    el.classList.remove("vt-morph-card");
+    el.style.removeProperty("view-transition-name");
+  });
+}
+
+function collectMorphCardMap(targetDate: string): Map<string, HTMLElement[]> {
+  const scope = document.querySelector(".vt-main-content") ?? document;
+  const cards = Array.from(
+    scope.querySelectorAll<HTMLElement>(`[data-morph-card^="${CSS.escape(targetDate)}:"]`),
+  ).slice(0, 6);
+  const grouped = new Map<string, HTMLElement[]>();
+  for (const card of cards) {
+    const baseKey = card.dataset.morphCard;
+    if (!baseKey) continue;
+    const list = grouped.get(baseKey);
+    if (list) {
+      list.push(card);
+    } else {
+      grouped.set(baseKey, [card]);
+    }
+  }
+  return grouped;
 }
 
 function markVtRevealedNodes() {
@@ -110,6 +133,8 @@ function runDesktopDayTransition(
   );
 }
 
+let morphTransitionSeq = 0;
+
 function runScheduleDayMorph(
   targetDate: string,
   direction: "to-day" | "to-week",
@@ -122,39 +147,63 @@ function runScheduleDayMorph(
 
   clearMorphHeroMarkers();
 
+  const seq = ++morphTransitionSeq;
   let cleanupTimer: number | null = null;
   const finishCleanup = () => {
     if (cleanupTimer !== null) {
       window.clearTimeout(cleanupTimer);
       cleanupTimer = null;
     }
-    clearMorphHeroMarkers();
+    if (morphTransitionSeq === seq) {
+      clearMorphHeroMarkers();
+    }
   };
+
+  // Pre-assign shared transition names to up to 6 active day cards synchronously (zero async stall).
+  const sourceGrouped = targetDate ? collectMorphCardMap(targetDate) : new Map<string, HTMLElement[]>();
+  const assignedNames = new Map<string, string>();
+  let nameCounter = 0;
+  sourceGrouped.forEach((els, baseKey) => {
+    els.forEach((el, occurrenceIdx) => {
+      const uniqueKey = `${baseKey}#${occurrenceIdx}`;
+      const vtName = `morph-card-${nameCounter++}`;
+      assignedNames.set(uniqueKey, vtName);
+      el.style.viewTransitionName = vtName;
+      el.classList.add("vt-morph-card");
+    });
+  });
 
   if (direction === "to-day" && targetDate) {
     const sourceEl = document.querySelector(`[data-morph-day="${CSS.escape(targetDate)}"]`);
     sourceEl?.classList.add("vt-schedule-day-hero");
   }
 
-  cleanupTimer = window.setTimeout(finishCleanup, 500);
+  cleanupTimer = window.setTimeout(finishCleanup, 650);
 
   startTypedViewTransition(
     ["schedule-morph"],
-    async () => {
-      if (direction === "to-week") {
-        await import("../ScheduleWeekGrid");
-      }
+    () => {
       flushSync(commitUpdate);
-      if (direction === "to-week" && targetDate) {
-        let destEl = document.querySelector(`[data-morph-day="${CSS.escape(targetDate)}"]`);
-        if (!destEl) {
-          await new Promise<void>((resolve) => {
-            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-          });
-          destEl = document.querySelector(`[data-morph-day="${CSS.escape(targetDate)}"]`);
+
+      if (targetDate) {
+        if (direction === "to-week") {
+          const destEl = document.querySelector(`[data-morph-day="${CSS.escape(targetDate)}"]`);
+          destEl?.classList.add("vt-schedule-day-hero");
         }
-        destEl?.classList.add("vt-schedule-day-hero");
+
+        const destGrouped = collectMorphCardMap(targetDate);
+        destGrouped.forEach((els, baseKey) => {
+          els.forEach((el, occurrenceIdx) => {
+            const uniqueKey = `${baseKey}#${occurrenceIdx}`;
+            const vtName = assignedNames.get(uniqueKey);
+            if (vtName) {
+              el.style.viewTransitionName = vtName;
+              el.classList.add("vt-morph-card");
+            }
+          });
+        });
       }
+
       markVtRevealedNodes();
     },
     {

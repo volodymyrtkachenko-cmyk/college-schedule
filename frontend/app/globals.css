@@ -882,37 +882,37 @@ html[data-theme="light"][data-accent="cyan"] {
 
 @keyframes vt-day-slide-out-left {
   from {
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: perspective(1200px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
   }
   to {
-    transform: translate3d(-44px, 0, 0) scale(0.972);
+    transform: perspective(1200px) translate3d(-115px, 0, -50px) rotateY(-8deg) scale(0.92);
   }
 }
 
 @keyframes vt-day-slide-in-right {
   from {
-    transform: translate3d(48px, 0, 0) scale(0.985);
+    transform: perspective(1200px) translate3d(125px, 0, 0) rotateY(7deg) scale(0.95);
   }
   to {
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: perspective(1200px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
   }
 }
 
 @keyframes vt-day-slide-out-right {
   from {
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: perspective(1200px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
   }
   to {
-    transform: translate3d(44px, 0, 0) scale(0.972);
+    transform: perspective(1200px) translate3d(115px, 0, -50px) rotateY(8deg) scale(0.92);
   }
 }
 
 @keyframes vt-day-slide-in-left {
   from {
-    transform: translate3d(-48px, 0, 0) scale(0.985);
+    transform: perspective(1200px) translate3d(-125px, 0, 0) rotateY(-7deg) scale(0.95);
   }
   to {
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: perspective(1200px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
   }
 }
 
@@ -1176,6 +1176,10 @@ html:is([data-vt-kind="morph"], [data-vt-kind="day-slide"]) .vt-main-content {
     view-transition-name: schedule-day-hero;
   }
 
+  html[data-vt-kind="morph"] .vt-morph-card {
+    view-transition-class: morph-lesson-card;
+  }
+
   html[data-vt-kind="day-slide"] .vt-schedule-day-stage {
     view-transition-name: schedule-day-stage;
   }
@@ -1187,10 +1191,23 @@ html:is([data-vt-kind="morph"], [data-vt-kind="day-slide"]) .vt-main-content {
   }
 
   ::view-transition-group(schedule-day-hero) {
-    animation-duration: 320ms;
+    animation-duration: 420ms;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
     animation-timing-function: var(--ease-spring-snappy);
-    z-index: 40;
+    z-index: 45;
+  }
+
+  ::view-transition-group(.morph-lesson-card) {
+    animation-duration: 440ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    animation-timing-function: var(--ease-spring-snappy);
+    z-index: 35;
+  }
+
+  ::view-transition-old(.morph-lesson-card),
+  ::view-transition-new(.morph-lesson-card) {
+    height: 100%;
+    mix-blend-mode: normal;
   }
 
   ::view-transition-old(schedule-day-hero),
@@ -1199,16 +1216,21 @@ html:is([data-vt-kind="morph"], [data-vt-kind="day-slide"]) .vt-main-content {
     mix-blend-mode: normal;
   }
 
-  html[data-vt-kind="morph"]::view-transition-old(root),
+  html[data-vt-kind="morph"]::view-transition-old(root) {
+    animation-duration: 180ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+    mix-blend-mode: normal;
+  }
+
   html[data-vt-kind="morph"]::view-transition-new(root) {
-    animation-duration: 220ms;
+    animation-duration: 320ms;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
     mix-blend-mode: normal;
   }
 
   ::view-transition-group(schedule-day-stage) {
-    overflow: clip;
-    animation-duration: 340ms;
+    overflow: visible;
+    animation-duration: 420ms;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -1221,16 +1243,16 @@ html:is([data-vt-kind="morph"], [data-vt-kind="day-slide"]) .vt-main-content {
   html[data-vt-kind="day-slide"][data-vt-day-dir="next"]::view-transition-old(schedule-day-stage),
   :active-view-transition-type(day-next)::view-transition-old(schedule-day-stage) {
     animation:
-      vt-day-fade-out 220ms cubic-bezier(0.4, 0, 1, 1) both,
-      vt-day-slide-out-left 250ms cubic-bezier(0.32, 0, 0.2, 1) both;
+      vt-day-fade-out 240ms cubic-bezier(0.4, 0, 1, 1) both,
+      vt-day-slide-out-left 290ms cubic-bezier(0.32, 0, 0.2, 1) both;
     mix-blend-mode: normal;
   }
 
   html[data-vt-kind="day-slide"][data-vt-day-dir="next"]::view-transition-new(schedule-day-stage),
   :active-view-transition-type(day-next)::view-transition-new(schedule-day-stage) {
     animation:
-      vt-day-fade-in 210ms cubic-bezier(0.22, 1, 0.36, 1) both,
-      vt-day-slide-in-right 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      vt-day-fade-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both,
+      vt-day-slide-in-right 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
     mix-blend-mode: normal;
   }
@@ -1238,16 +1260,16 @@ html:is([data-vt-kind="morph"], [data-vt-kind="day-slide"]) .vt-main-content {
   html[data-vt-kind="day-slide"][data-vt-day-dir="prev"]::view-transition-old(schedule-day-stage),
   :active-view-transition-type(day-prev)::view-transition-old(schedule-day-stage) {
     animation:
-      vt-day-fade-out 220ms cubic-bezier(0.4, 0, 1, 1) both,
-      vt-day-slide-out-right 250ms cubic-bezier(0.32, 0, 0.2, 1) both;
+      vt-day-fade-out 240ms cubic-bezier(0.4, 0, 1, 1) both,
+      vt-day-slide-out-right 290ms cubic-bezier(0.32, 0, 0.2, 1) both;
     mix-blend-mode: normal;
   }
 
   html[data-vt-kind="day-slide"][data-vt-day-dir="prev"]::view-transition-new(schedule-day-stage),
   :active-view-transition-type(day-prev)::view-transition-new(schedule-day-stage) {
     animation:
-      vt-day-fade-in 210ms cubic-bezier(0.22, 1, 0.36, 1) both,
-      vt-day-slide-in-left 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      vt-day-fade-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both,
+      vt-day-slide-in-left 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
     mix-blend-mode: normal;
   }
@@ -1552,52 +1574,52 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   dialog.app-dialog {
-    transform: perspective(1100px) translate3d(0, 14px, 0) scale(0.955);
+    transform: perspective(1000px) translate3d(0, 22px, -20px) rotateX(-3deg) scale(0.92);
     transition-property: opacity, transform, overlay, display;
-    transition-duration: 170ms, 180ms, 200ms, 200ms;
+    transition-duration: 180ms, 190ms, 200ms, 200ms;
     transition-timing-function: var(--ease-exit), var(--ease-exit), ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
 
   dialog.app-dialog[open]:where(:not([data-closing="true"])) {
     opacity: 1;
-    transform: perspective(1100px) translate3d(0, 0, 0) scale(1);
-    transition-duration: 210ms, 380ms, 380ms, 380ms;
+    transform: perspective(1000px) translate3d(0, 0, 0) rotateX(0deg) scale(1);
+    transition-duration: 220ms, 460ms, 460ms, 460ms;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy), ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
 
   dialog.app-dialog > * {
-    box-shadow: 0 28px 70px -18px rgb(0 0 0 / 0.5);
+    box-shadow: 0 32px 90px -20px rgb(0 0 0 / 0.62);
   }
 
   dialog.app-dialog::backdrop {
-    background: radial-gradient(circle at 50% 42%, rgb(2 6 23 / 0.54), rgb(2 6 23 / 0.78));
-    backdrop-filter: blur(0px) saturate(1);
-    -webkit-backdrop-filter: blur(0px) saturate(1);
+    background: radial-gradient(circle at 50% 42%, rgb(2 6 23 / 0.48), rgb(2 6 23 / 0.82));
+    backdrop-filter: blur(0px) saturate(1) brightness(1);
+    -webkit-backdrop-filter: blur(0px) saturate(1) brightness(1);
     transition-property: opacity, backdrop-filter, overlay, display;
-    transition-duration: 180ms, 180ms, 200ms, 200ms;
+    transition-duration: 180ms, 190ms, 200ms, 200ms;
     transition-timing-function: var(--ease-out), ease-out, ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
 
   dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
     opacity: 1;
-    backdrop-filter: blur(10px) saturate(1.12);
-    -webkit-backdrop-filter: blur(10px) saturate(1.12);
-    transition-duration: 240ms, 280ms, 380ms, 380ms;
+    backdrop-filter: blur(14px) saturate(1.18) brightness(0.92);
+    -webkit-backdrop-filter: blur(14px) saturate(1.18) brightness(0.92);
+    transition-duration: 240ms, 300ms, 460ms, 460ms;
   }
 
   @starting-style {
     dialog.app-dialog[open]:where(:not([data-closing="true"])) {
       opacity: 0;
-      transform: perspective(1100px) translate3d(0, 26px, 0) rotateX(2deg) scale(0.92);
+      transform: perspective(1000px) translate3d(0, 44px, -40px) rotateX(6deg) scale(0.86);
     }
 
     dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
       opacity: 0;
-      backdrop-filter: blur(0px) saturate(1);
-      -webkit-backdrop-filter: blur(0px) saturate(1);
+      backdrop-filter: blur(0px) saturate(1) brightness(1);
+      -webkit-backdrop-filter: blur(0px) saturate(1) brightness(1);
     }
   }
 }
@@ -1657,14 +1679,14 @@ html[data-surface="glass"] #desktop-sections-menu {
     content: "";
     position: absolute;
     inset: 0;
-    padding: 1px;
+    padding: 1.5px;
     border-radius: inherit;
     pointer-events: none;
     opacity: 0;
     background: radial-gradient(
-      240px circle at var(--spot-x, -999px) var(--spot-y, -999px),
-      rgb(var(--sys-accent) / 0.56),
-      transparent 75%
+      260px circle at var(--spot-x, -999px) var(--spot-y, -999px),
+      rgb(var(--sys-accent) / 0.85),
+      transparent 74%
     );
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
@@ -1685,8 +1707,8 @@ html[data-surface="glass"] #desktop-sections-menu {
     pointer-events: none;
     opacity: 0;
     background: radial-gradient(
-      280px circle at var(--spot-x, 50%) var(--spot-y, 50%),
-      rgb(var(--sys-accent) / 0.1),
+      320px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+      rgb(var(--sys-accent) / 0.16),
       transparent 70%
     );
     transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -1694,7 +1716,7 @@ html[data-surface="glass"] #desktop-sections-menu {
 
   .interactive-surface:hover:not([data-open="true"]) {
     will-change: transform;
-    transform: translate3d(0, -2px, 0);
+    transform: translate3d(0, -3px, 0);
   }
 
   .desktop-tilt-card:hover:not([data-open="true"]) {
@@ -1703,7 +1725,27 @@ html[data-surface="glass"] #desktop-sections-menu {
       perspective(900px)
       rotateX(var(--tilt-x, 0deg))
       rotateY(var(--tilt-y, 0deg))
-      translate3d(0, -3px, 0);
+      translate3d(0, -4px, 0)
+      scale(1.008);
+    box-shadow: 0 14px 32px -12px rgb(0 0 0 / 0.22);
+  }
+
+  .desktop-week-slot {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 260px auto 120px;
+    padding-block: 4px;
+    margin-block: -4px;
+  }
+
+  @supports not (content-visibility: auto) {
+    .desktop-week-slot {
+      contain: layout style paint;
+    }
+  }
+
+  .desktop-week-slot:has([data-open]) {
+    content-visibility: visible;
+    contain: none;
   }
 
   .interactive-surface:hover::after {
