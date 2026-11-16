@@ -289,8 +289,11 @@ export function ScheduleWeekGrid({
                   onSelectDay?.(day.date, dIdx);
                 }
               }}
-              style={{ gridColumn: dIdx + 1 }}
-              className={`flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-[border-color,background-color,opacity] duration-fast ease-smooth ${
+              style={{
+                gridColumn: dIdx + 1,
+                "--stagger-index": Number((dIdx * 0.55).toFixed(2)),
+              } as React.CSSProperties}
+              className={`desktop-stagger-card flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-[border-color,background-color,opacity] duration-fast ease-smooth ${
                 onSelectDay ? "cursor-pointer hover:border-sys-accent/60" : ""
               } ${
                 isToday

@@ -56,34 +56,36 @@ function canUseDesktopMorphTransition(): boolean {
   );
 }
 
-function clearMorphHeroMarkers() {
+function clearDayDeckMarkers() {
   if (typeof document === "undefined") return;
-  document.querySelectorAll("[data-morph-day].vt-schedule-day-hero").forEach((el) => {
-    el.classList.remove("vt-schedule-day-hero");
-  });
-  document.querySelectorAll<HTMLElement>("[data-morph-card].vt-morph-card").forEach((el) => {
-    el.classList.remove("vt-morph-card");
+  document.querySelectorAll<HTMLElement>(".vt-day-deck-card, .vt-day-deck-header, .vt-day-fallback-stage").forEach((el) => {
+    el.classList.remove("vt-day-deck-card", "vt-day-deck-header", "vt-day-fallback-stage");
     el.style.removeProperty("view-transition-name");
   });
 }
 
-function collectMorphCardMap(targetDate: string): Map<string, HTMLElement[]> {
-  const scope = document.querySelector(".vt-main-content") ?? document;
-  const cards = Array.from(
-    scope.querySelectorAll<HTMLElement>(`[data-morph-card^="${CSS.escape(targetDate)}:"]`),
-  ).slice(0, 6);
-  const grouped = new Map<string, HTMLElement[]>();
-  for (const card of cards) {
-    const baseKey = card.dataset.morphCard;
-    if (!baseKey) continue;
-    const list = grouped.get(baseKey);
-    if (list) {
-      list.push(card);
-    } else {
-      grouped.set(baseKey, [card]);
-    }
+function tagActiveDayDeck(): number {
+  const stage = document.querySelector<HTMLElement>(".vt-schedule-day-stage");
+  if (!stage) return 0;
+
+  const header = stage.querySelector<HTMLElement>("[data-day-vt-header='1']");
+  if (header) {
+    header.style.viewTransitionName = "day-header";
+    header.classList.add("vt-day-deck-header");
   }
-  return grouped;
+
+  const cards = Array.from(stage.querySelectorAll<HTMLElement>("article")).slice(0, 7);
+  if (cards.length === 0) {
+    stage.style.viewTransitionName = "schedule-day-stage";
+    stage.classList.add("vt-day-fallback-stage");
+    return 0;
+  }
+
+  cards.forEach((card, idx) => {
+    card.style.viewTransitionName = `day-slot-${idx}`;
+    card.classList.add("vt-day-deck-card");
+  });
+  return cards.length;
 }
 
 function markVtRevealedNodes() {
@@ -111,103 +113,34 @@ function runDesktopDayTransition(
     return;
   }
 
+  clearDayDeckMarkers();
   const seq = ++daySlideSeq;
+  let cleanupTimer: number | null = null;
   document.documentElement.dataset.vtDayDir = direction;
 
-  const finishCleanup = () => {
-    if (daySlideSeq === seq) {
-      delete document.documentElement.dataset.vtDayDir;
-    }
-  };
-
-  startTypedViewTransition(
-    [direction === "next" ? "day-next" : "day-prev"],
-    () => {
-      flushSync(commitUpdate);
-      markVtRevealedNodes();
-    },
-    {
-      kind: "day-slide",
-      onFinish: finishCleanup,
-    },
-  );
-}
-
-let morphTransitionSeq = 0;
-
-function runScheduleDayMorph(
-  targetDate: string,
-  direction: "to-day" | "to-week",
-  commitUpdate: () => void,
-) {
-  if (!canUseDesktopMorphTransition()) {
-    startTransition(commitUpdate);
-    return;
-  }
-
-  clearMorphHeroMarkers();
-
-  const seq = ++morphTransitionSeq;
-  let cleanupTimer: number | null = null;
   const finishCleanup = () => {
     if (cleanupTimer !== null) {
       window.clearTimeout(cleanupTimer);
       cleanupTimer = null;
     }
-    if (morphTransitionSeq === seq) {
-      clearMorphHeroMarkers();
+    if (daySlideSeq === seq) {
+      delete document.documentElement.dataset.vtDayDir;
+      clearDayDeckMarkers();
     }
   };
 
-  // Pre-assign shared transition names to up to 6 active day cards synchronously (zero async stall).
-  const sourceGrouped = targetDate ? collectMorphCardMap(targetDate) : new Map<string, HTMLElement[]>();
-  const assignedNames = new Map<string, string>();
-  let nameCounter = 0;
-  sourceGrouped.forEach((els, baseKey) => {
-    els.forEach((el, occurrenceIdx) => {
-      const uniqueKey = `${baseKey}#${occurrenceIdx}`;
-      const vtName = `morph-card-${nameCounter++}`;
-      assignedNames.set(uniqueKey, vtName);
-      el.style.viewTransitionName = vtName;
-      el.classList.add("vt-morph-card");
-    });
-  });
-
-  if (direction === "to-day" && targetDate) {
-    const sourceEl = document.querySelector(`[data-morph-day="${CSS.escape(targetDate)}"]`);
-    sourceEl?.classList.add("vt-schedule-day-hero");
-  }
-
-  cleanupTimer = window.setTimeout(finishCleanup, 650);
+  tagActiveDayDeck();
+  cleanupTimer = window.setTimeout(finishCleanup, 850);
 
   startTypedViewTransition(
-    ["schedule-morph"],
+    [direction === "next" ? "day-next" : "day-prev"],
     () => {
       flushSync(commitUpdate);
-
-      if (targetDate) {
-        if (direction === "to-week") {
-          const destEl = document.querySelector(`[data-morph-day="${CSS.escape(targetDate)}"]`);
-          destEl?.classList.add("vt-schedule-day-hero");
-        }
-
-        const destGrouped = collectMorphCardMap(targetDate);
-        destGrouped.forEach((els, baseKey) => {
-          els.forEach((el, occurrenceIdx) => {
-            const uniqueKey = `${baseKey}#${occurrenceIdx}`;
-            const vtName = assignedNames.get(uniqueKey);
-            if (vtName) {
-              el.style.viewTransitionName = vtName;
-              el.classList.add("vt-morph-card");
-            }
-          });
-        });
-      }
-
+      tagActiveDayDeck();
       markVtRevealedNodes();
     },
     {
-      kind: "morph",
+      kind: "day-slide",
       onFinish: finishCleanup,
     },
   );
@@ -979,25 +912,21 @@ export function useScheduleSelection({
         localStorage.setItem("schedule:view", nextView);
       } catch {}
       if (nextView === view) return;
-      runScheduleDayMorph(
-        activeDayDate,
-        nextView === "today" ? "to-day" : "to-week",
-        () => {
-          setView(nextView);
-        },
-      );
+      startTransition(() => {
+        setView(nextView);
+      });
       resetScroll();
     },
-    [view, activeDayDate, resetScroll]
+    [view, resetScroll]
   );
 
   const handleSelectDayFromWeek = useCallback(
-    (targetDate: string, dayIdx: number) => {
+    (_targetDate: string, dayIdx: number) => {
       try {
         sessionStorage.setItem("schedule:view", "today");
         localStorage.setItem("schedule:view", "today");
       } catch {}
-      runScheduleDayMorph(targetDate, "to-day", () => {
+      startTransition(() => {
         setDaySlideDir(0);
         setSelectedDayIndex(dayIdx);
         setView("today");

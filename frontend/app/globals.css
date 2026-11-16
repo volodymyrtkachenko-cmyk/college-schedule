@@ -844,17 +844,17 @@ html[data-theme="light"][data-accent="cyan"] {
 
 @keyframes desktop-card-spring {
   from {
-    transform: translate3d(0, 14px, 0) scale(0.985);
+    transform: perspective(900px) translate3d(0, 22px, -24px) rotateX(-14deg) scale(0.92);
   }
   to {
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: perspective(900px) translate3d(0, 0, 0) rotateX(0deg) scale(1);
   }
 }
 
 @keyframes desktop-view-enter {
   from {
     opacity: 0;
-    transform: translate3d(0, 8px, 0) scale(0.992);
+    transform: translate3d(0, 10px, 0) scale(0.985);
   }
   to {
     opacity: 1;
@@ -880,39 +880,79 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 }
 
-@keyframes vt-day-slide-out-left {
+@keyframes vt-day-header-out-left {
   from {
-    transform: perspective(1200px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
   }
   to {
-    transform: perspective(1200px) translate3d(-115px, 0, -50px) rotateY(-8deg) scale(0.92);
+    opacity: 0;
+    transform: translate3d(-44px, 0, 0);
+  }
+}
+
+@keyframes vt-day-header-in-right {
+  from {
+    transform: translate3d(52px, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes vt-day-header-out-right {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(44px, 0, 0);
+  }
+}
+
+@keyframes vt-day-header-in-left {
+  from {
+    transform: translate3d(-52px, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes vt-day-slide-out-left {
+  from {
+    transform: perspective(950px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
+  }
+  to {
+    transform: perspective(950px) translate3d(-165px, 0, -140px) rotateY(-30deg) scale(0.84);
   }
 }
 
 @keyframes vt-day-slide-in-right {
   from {
-    transform: perspective(1200px) translate3d(125px, 0, 0) rotateY(7deg) scale(0.95);
+    transform: perspective(950px) translate3d(175px, 0, -90px) rotateY(28deg) scale(0.88);
   }
   to {
-    transform: perspective(1200px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
+    transform: perspective(950px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
   }
 }
 
 @keyframes vt-day-slide-out-right {
   from {
-    transform: perspective(1200px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
+    transform: perspective(950px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
   }
   to {
-    transform: perspective(1200px) translate3d(115px, 0, -50px) rotateY(8deg) scale(0.92);
+    transform: perspective(950px) translate3d(165px, 0, -140px) rotateY(30deg) scale(0.84);
   }
 }
 
 @keyframes vt-day-slide-in-left {
   from {
-    transform: perspective(1200px) translate3d(-125px, 0, 0) rotateY(-7deg) scale(0.95);
+    transform: perspective(950px) translate3d(-175px, 0, -90px) rotateY(-28deg) scale(0.88);
   }
   to {
-    transform: perspective(1200px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
+    transform: perspective(950px) translate3d(0, 0, 0) rotateY(0deg) scale(1);
   }
 }
 
@@ -1144,7 +1184,7 @@ html[data-theme="light"][data-accent="cyan"] {
    - на desktop (>= 1024px) анімується виключно main-content без конфліктів з модалками при зміні теми
    - на mobile (< 1024px) під час навігації нижня панель фіксується на своєму місці */
 @media (min-width: 1024px) {
-  html:not([data-vt-kind="theme"]):not([data-vt-kind="morph"]):not([data-vt-kind="day-slide"]) .vt-main-content {
+  html:not([data-vt-kind="theme"]):not([data-vt-kind="day-slide"]) .vt-main-content {
     view-transition-name: main-content;
   }
 
@@ -1167,111 +1207,156 @@ html[data-vt-kind="theme"] :is(.vt-desktop-header, .vt-main-content, .vt-bottom-
   view-transition-name: none !important;
 }
 
-html:is([data-vt-kind="morph"], [data-vt-kind="day-slide"]) .vt-main-content {
+html[data-vt-kind="day-slide"] .vt-main-content {
   view-transition-name: none !important;
 }
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  html[data-vt-kind="morph"] .vt-schedule-day-hero {
-    view-transition-name: schedule-day-hero;
+  html[data-vt-kind="day-slide"] .vt-day-deck-card {
+    view-transition-class: day-deck-card;
   }
 
-  html[data-vt-kind="morph"] .vt-morph-card {
-    view-transition-class: morph-lesson-card;
-  }
-
-  html[data-vt-kind="day-slide"] .vt-schedule-day-stage {
-    view-transition-name: schedule-day-stage;
-  }
-
-  html:is([data-vt-kind="morph"], [data-vt-kind="day-slide"])
+  html[data-vt-kind="day-slide"]
     :is(.desktop-view-enter, .desktop-day-slide, .desktop-stagger-card, .week-grid-enter),
   [data-vt-revealed="1"] {
     animation: none !important;
   }
 
-  ::view-transition-group(schedule-day-hero) {
-    animation-duration: 420ms;
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-    animation-timing-function: var(--ease-spring-snappy);
-    z-index: 45;
+  html[data-vt-kind="day-slide"]::view-transition-old(root),
+  html[data-vt-kind="day-slide"]::view-transition-new(root) {
+    animation-duration: 180ms;
+    mix-blend-mode: normal;
   }
 
-  ::view-transition-group(.morph-lesson-card) {
-    animation-duration: 440ms;
+  ::view-transition-group(.day-deck-card),
+  ::view-transition-group(schedule-day-stage) {
+    overflow: visible;
+    animation-duration: 400ms;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-    animation-timing-function: var(--ease-spring-snappy);
-    z-index: 35;
   }
 
-  ::view-transition-old(.morph-lesson-card),
-  ::view-transition-new(.morph-lesson-card) {
+  ::view-transition-old(.day-deck-card),
+  ::view-transition-new(.day-deck-card) {
     height: 100%;
     mix-blend-mode: normal;
   }
 
-  ::view-transition-old(schedule-day-hero),
-  ::view-transition-new(schedule-day-hero) {
-    animation-duration: 240ms;
-    mix-blend-mode: normal;
-  }
-
-  html[data-vt-kind="morph"]::view-transition-old(root) {
-    animation-duration: 180ms;
-    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
-    mix-blend-mode: normal;
-  }
-
-  html[data-vt-kind="morph"]::view-transition-new(root) {
-    animation-duration: 320ms;
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-    mix-blend-mode: normal;
-  }
-
-  ::view-transition-group(schedule-day-stage) {
-    overflow: visible;
-    animation-duration: 420ms;
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  html[data-vt-kind="day-slide"]::view-transition-old(root),
-  html[data-vt-kind="day-slide"]::view-transition-new(root) {
-    animation: none;
-    mix-blend-mode: normal;
-  }
-
+  html[data-vt-kind="day-slide"][data-vt-day-dir="next"]::view-transition-old(.day-deck-card),
   html[data-vt-kind="day-slide"][data-vt-day-dir="next"]::view-transition-old(schedule-day-stage),
+  :active-view-transition-type(day-next)::view-transition-old(.day-deck-card),
   :active-view-transition-type(day-next)::view-transition-old(schedule-day-stage) {
+    transform-origin: 20% 50%;
     animation:
-      vt-day-fade-out 240ms cubic-bezier(0.4, 0, 1, 1) both,
-      vt-day-slide-out-left 290ms cubic-bezier(0.32, 0, 0.2, 1) both;
+      vt-day-fade-out 260ms cubic-bezier(0.4, 0, 1, 1) both,
+      vt-day-slide-out-left 300ms cubic-bezier(0.32, 0, 0.2, 1) both;
     mix-blend-mode: normal;
   }
 
+  html[data-vt-kind="day-slide"][data-vt-day-dir="next"]::view-transition-new(.day-deck-card),
   html[data-vt-kind="day-slide"][data-vt-day-dir="next"]::view-transition-new(schedule-day-stage),
+  :active-view-transition-type(day-next)::view-transition-new(.day-deck-card),
   :active-view-transition-type(day-next)::view-transition-new(schedule-day-stage) {
+    transform-origin: 80% 50%;
     animation:
-      vt-day-fade-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both,
+      vt-day-fade-in 210ms cubic-bezier(0.22, 1, 0.36, 1) both,
       vt-day-slide-in-right 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
     mix-blend-mode: normal;
   }
 
+  html[data-vt-kind="day-slide"][data-vt-day-dir="prev"]::view-transition-old(.day-deck-card),
   html[data-vt-kind="day-slide"][data-vt-day-dir="prev"]::view-transition-old(schedule-day-stage),
+  :active-view-transition-type(day-prev)::view-transition-old(.day-deck-card),
   :active-view-transition-type(day-prev)::view-transition-old(schedule-day-stage) {
+    transform-origin: 80% 50%;
     animation:
-      vt-day-fade-out 240ms cubic-bezier(0.4, 0, 1, 1) both,
-      vt-day-slide-out-right 290ms cubic-bezier(0.32, 0, 0.2, 1) both;
+      vt-day-fade-out 260ms cubic-bezier(0.4, 0, 1, 1) both,
+      vt-day-slide-out-right 300ms cubic-bezier(0.32, 0, 0.2, 1) both;
     mix-blend-mode: normal;
   }
 
+  html[data-vt-kind="day-slide"][data-vt-day-dir="prev"]::view-transition-new(.day-deck-card),
   html[data-vt-kind="day-slide"][data-vt-day-dir="prev"]::view-transition-new(schedule-day-stage),
+  :active-view-transition-type(day-prev)::view-transition-new(.day-deck-card),
   :active-view-transition-type(day-prev)::view-transition-new(schedule-day-stage) {
+    transform-origin: 20% 50%;
     animation:
-      vt-day-fade-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both,
+      vt-day-fade-in 210ms cubic-bezier(0.22, 1, 0.36, 1) both,
       vt-day-slide-in-left 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
     mix-blend-mode: normal;
+  }
+
+  ::view-transition-group(day-header) {
+    animation-duration: 280ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  html[data-vt-kind="day-slide"][data-vt-day-dir="next"]::view-transition-old(day-header),
+  :active-view-transition-type(day-next)::view-transition-old(day-header) {
+    animation: vt-day-header-out-left 220ms cubic-bezier(0.4, 0, 1, 1) both;
+    mix-blend-mode: normal;
+  }
+
+  html[data-vt-kind="day-slide"][data-vt-day-dir="next"]::view-transition-new(day-header),
+  :active-view-transition-type(day-next)::view-transition-new(day-header) {
+    animation:
+      vt-day-fade-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both,
+      vt-day-header-in-right 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
+    mix-blend-mode: normal;
+  }
+
+  html[data-vt-kind="day-slide"][data-vt-day-dir="prev"]::view-transition-old(day-header),
+  :active-view-transition-type(day-prev)::view-transition-old(day-header) {
+    animation: vt-day-header-out-right 220ms cubic-bezier(0.4, 0, 1, 1) both;
+    mix-blend-mode: normal;
+  }
+
+  html[data-vt-kind="day-slide"][data-vt-day-dir="prev"]::view-transition-new(day-header),
+  :active-view-transition-type(day-prev)::view-transition-new(day-header) {
+    animation:
+      vt-day-fade-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both,
+      vt-day-header-in-left 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
+    mix-blend-mode: normal;
+  }
+
+  /* 3D Cascade Stagger across Lesson Cards 1..7 on Day transition */
+  ::view-transition-group(day-slot-1),
+  ::view-transition-old(day-slot-1),
+  ::view-transition-new(day-slot-1) {
+    animation-delay: 45ms;
+  }
+
+  ::view-transition-group(day-slot-2),
+  ::view-transition-old(day-slot-2),
+  ::view-transition-new(day-slot-2) {
+    animation-delay: 90ms;
+  }
+
+  ::view-transition-group(day-slot-3),
+  ::view-transition-old(day-slot-3),
+  ::view-transition-new(day-slot-3) {
+    animation-delay: 135ms;
+  }
+
+  ::view-transition-group(day-slot-4),
+  ::view-transition-old(day-slot-4),
+  ::view-transition-new(day-slot-4) {
+    animation-delay: 180ms;
+  }
+
+  ::view-transition-group(day-slot-5),
+  ::view-transition-old(day-slot-5),
+  ::view-transition-new(day-slot-5) {
+    animation-delay: 225ms;
+  }
+
+  ::view-transition-group(day-slot-6),
+  ::view-transition-old(day-slot-6),
+  ::view-transition-new(day-slot-6) {
+    animation-delay: 255ms;
   }
 }
 
@@ -1755,9 +1840,9 @@ html[data-surface="glass"] #desktop-sections-menu {
   .desktop-stagger-card {
     animation:
       desktop-card-fade 210ms cubic-bezier(0.22, 1, 0.36, 1) backwards,
-      desktop-card-spring 360ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+      desktop-card-spring 430ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
-    animation-delay: calc(min(var(--stagger-index, 0), 8) * 16ms);
+    animation-delay: calc(min(var(--stagger-index, 0), 8) * 18ms);
   }
 
   .desktop-week-grid[data-focus-day="0"] [data-day-col]:not([data-day-col="0"]):not(:has([data-open])),

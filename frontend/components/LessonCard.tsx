@@ -553,7 +553,6 @@ export const LessonCard = memo(function LessonCard({
     <article
       data-live={isLive ? "true" : undefined}
       data-open={isHwOpen || moreOpen ? "true" : undefined}
-      data-morph-card={targetDate ? `${targetDate}:${lesson.id}:${lesson.lesson_number}` : undefined}
       draggable={canMove}
       onDragStart={(event) => {
         if (!canMove) {
