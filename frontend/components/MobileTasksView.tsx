@@ -6,9 +6,21 @@ import { AnimatePresence, m } from "framer-motion";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useDesktopMotionEnabled } from "../lib/useViewportTier";
 import type { ScheduleResponse } from "../lib/api";
-import { KYIV_TIME_FMT } from "../lib/date";
+import { formatKyivDateIso, KYIV_TIME_FMT } from "../lib/date";
 import { buildCurrentScheduleHref, resolveScheduleSubtabFromSearch } from "../lib/navigation";
 import type { SubjectHubTarget } from "../lib/schedule";
+import {
+  collectOverdueTaskKeys,
+  formatOverdueBannerMessage,
+  formatOverduePriorityPreview,
+  formatOverdueTasksPhrase,
+  OVERDUE_BANNER_SYNC_EVENT,
+  readOverdueBannerDismissal,
+  resolveOverdueScopeKey,
+  saveOverdueBannerDismissal,
+  shouldShowOverdueBanner,
+  type OverdueBannerDismissal,
+} from "../lib/schedule/overdueBanner";
 import { useMobileNav } from "../lib/useMobileNav";
 import { useAnimatedDisclosure } from "../lib/useAnimatedDisclosure";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
@@ -18,8 +30,9 @@ import {
   TaskFilterState,
   TaskGroupsResult,
 } from "../lib/useTaskGroups";
+import { useOptionalToast } from "./ToastProvider";
 import { FullTaskItem, renderTaskCard, TaskCardItem } from "./TaskCardItem";
-import { BarChartIcon, ClipboardListIcon, CloseIcon } from "./ui/Icons";
+import { BarChartIcon, ClipboardListIcon, ClockIcon, CloseIcon } from "./ui/Icons";
 
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
@@ -45,6 +58,7 @@ const DONE_INITIAL_LIMIT = 15;
 export function TasksTodoBoard({
   tasks,
   isLinked,
+  groupId = null,
   layoutPrefix = "tasks",
 }: {
   tasks: FullTaskItem[];
@@ -54,6 +68,7 @@ export function TasksTodoBoard({
   layoutPrefix?: string;
 }) {
   const desktopMotion = useDesktopMotionEnabled();
+  const optionalToast = useOptionalToast();
   const [activeTab, setActiveTab] = useState<TasksTabMode>("pending");
   const [prevTab, setPrevTab] = useState<TasksTabMode>("pending");
   const [hasSwitchedTab, setHasSwitchedTab] = useState(false);
@@ -116,6 +131,73 @@ export function TasksTodoBoard({
     () => subjects.find((s) => s.name === effectiveSubject) ?? null,
     [subjects, effectiveSubject]
   );
+
+  const scopeKey = useMemo(() => resolveOverdueScopeKey(groupId), [groupId]);
+  const [dismissalHydrated, setDismissalHydrated] = useState(false);
+  const [dismissalState, setDismissalState] = useState<OverdueBannerDismissal | null>(null);
+  const [todayKyivIso, setTodayKyivIso] = useState<string>("");
+
+  useIsomorphicLayoutEffect(() => {
+    setDismissalState(readOverdueBannerDismissal());
+    setTodayKyivIso(formatKyivDateIso());
+    setDismissalHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    const syncFromStorage = () => {
+      setDismissalState(readOverdueBannerDismissal());
+      setTodayKyivIso(formatKyivDateIso());
+    };
+    const handleVisibilityChange = () => {
+      if (!document.hidden) syncFromStorage();
+    };
+    window.addEventListener(OVERDUE_BANNER_SYNC_EVENT, syncFromStorage);
+    window.addEventListener("storage", syncFromStorage);
+    window.addEventListener("focus", syncFromStorage);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener(OVERDUE_BANNER_SYNC_EVENT, syncFromStorage);
+      window.removeEventListener("storage", syncFromStorage);
+      window.removeEventListener("focus", syncFromStorage);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  const overdueTaskKeys = useMemo(() => collectOverdueTaskKeys(overdueTasks), [overdueTasks]);
+  const overdueAlertCount = overdueTasks.length > 0 ? overdueTasks.length : overdueTotalCount;
+  const overdueHeadline = useMemo(
+    () => formatOverdueBannerMessage(overdueAlertCount),
+    [overdueAlertCount]
+  );
+  const overduePreview = useMemo(
+    () => formatOverduePriorityPreview(overdueTasks),
+    [overdueTasks]
+  );
+
+  const isOverdueBannerOpen =
+    dismissalHydrated &&
+    activeTab === "pending" &&
+    !effectiveSubject &&
+    shouldShowOverdueBanner({
+      isLinked,
+      overdueTaskKeys,
+      dismissal: dismissalState,
+      todayKyivIso: todayKyivIso || formatKyivDateIso(),
+      scopeKey,
+    });
+
+  const { shouldRender: shouldRenderOverdueBanner, isClosing: isOverdueBannerClosing } =
+    useAnimatedDisclosure(isOverdueBannerOpen, 280);
+
+  const handleDismissOverdueBanner = () => {
+    const next = saveOverdueBannerDismissal({
+      overdueTaskKeys,
+      todayKyivIso: todayKyivIso || formatKyivDateIso(),
+      scopeKey,
+    });
+    setDismissalState(next);
+    optionalToast?.showToast("Нагадування приховано до завтра", "info");
+  };
 
   const totalStatusTabs = isLinked ? 3 : 2;
   const activeStatusIndex =
@@ -404,23 +486,70 @@ export function TasksTodoBoard({
         </div>
       )}
 
-      {/* Quick Overdue Alert inside "До здачі" tab */}
-      {activeTab === "pending" && isLinked && overdueTotalCount > 0 && !effectiveSubject && (
-        <button
-          type="button"
-          onClick={() => setActiveTab("overdue")}
-          className="w-full flex items-center justify-between gap-2 rounded-xl border border-rose-500/35 bg-rose-500/10 px-3.5 py-2.5 text-xs text-left transition-colors hover:bg-rose-500/15 active:scale-[0.99] cursor-pointer"
+      {/* Dismissible Smart Overdue Alert inside "До здачі" tab */}
+      {shouldRenderOverdueBanner && (
+        <aside
+          aria-label="Нагадування про прострочені завдання"
+          aria-hidden={isOverdueBannerClosing || undefined}
+          data-open={!isOverdueBannerClosing}
+          className="grid-accordion !mt-0"
         >
-          <div className="flex items-start gap-2 min-w-0 flex-1">
-            <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0 mt-1" />
-            <span className="font-semibold text-rose-800 dark:text-rose-300 leading-snug break-words">
-              У вас {overdueTotalCount} прострочених {formatTaskWord(overdueTotalCount)}
-            </span>
+          <div className="grid-accordion-inner pt-3.5">
+            <div className="relative overflow-hidden rounded-xl border border-rose-500/35 bg-rose-500/[0.08] dark:bg-rose-500/[0.11] p-3 shadow-xs">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -top-10 -left-10 h-24 w-24 rounded-full bg-rose-500/15 blur-xl"
+              />
+              <div className="relative flex items-start gap-2.5">
+                <span
+                  aria-hidden="true"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                >
+                  <ClockIcon className="h-3.5 w-3.5" />
+                </span>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold leading-snug text-rose-900 dark:text-rose-200 break-words">
+                    {overdueHeadline}
+                  </p>
+                  {overduePreview && (
+                    <p className="mt-0.5 truncate text-[11px] font-medium leading-snug text-rose-800 dark:text-rose-300">
+                      {overduePreview}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDismissOverdueBanner}
+                  disabled={isOverdueBannerClosing}
+                  tabIndex={isOverdueBannerClosing ? -1 : undefined}
+                  aria-label="Приховати нагадування до завтра"
+                  title="Приховати до завтра"
+                  className="flex h-7 w-7 min-h-[28px] min-w-[28px] shrink-0 items-center justify-center rounded-lg text-rose-700 dark:text-rose-300 hover:bg-rose-500/15 hover:text-rose-950 dark:hover:text-rose-100 active:scale-95 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                >
+                  <CloseIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("overdue")}
+                disabled={isOverdueBannerClosing}
+                tabIndex={isOverdueBannerClosing ? -1 : undefined}
+                className="group/cta relative mt-2.5 flex min-h-[32px] w-full items-center justify-between gap-2 rounded-lg border border-rose-500/25 bg-rose-500/[0.12] hover:bg-rose-500/20 px-2.5 py-1.5 text-[11px] font-bold text-rose-800 dark:text-rose-200 active:scale-[0.985] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+              >
+                <span>Переглянути у вкладці «Борги»</span>
+                <span
+                  aria-hidden="true"
+                  className="inline-flex items-center transition-transform duration-150 group-hover/cta:translate-x-0.5"
+                >
+                  →
+                </span>
+              </button>
+            </div>
           </div>
-          <span className="shrink-0 font-bold text-rose-700 dark:text-rose-300">
-            Переглянути →
-          </span>
-        </button>
+        </aside>
       )}
 
       {/* Tasks List by Selected Tab */}
@@ -441,7 +570,9 @@ export function TasksTodoBoard({
                 </p>
                 <p className="text-xs text-sys-text-muted mt-1">
                   {overdueTotalCount > 0
-                    ? `Але є нездані роботи у вкладці «${isLinked ? "Борги" : "Минув час"}» (${overdueTotalCount})`
+                    ? isLinked
+                      ? `Але є ${formatOverdueTasksPhrase(overdueTotalCount)} у вкладці «Борги»`
+                      : `Але є ${overdueTotalCount} ${formatTaskWord(overdueTotalCount)} у вкладці «Минув час»`
                     : "Усі поточні роботи виконано вчасно"}
                 </p>
                 {effectiveSubject && (
