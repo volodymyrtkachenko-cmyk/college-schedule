@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { m, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import { api, DirectoryItem, Lesson, LessonMutation, ReferenceRecord, ScheduleVersion, TemplateScheduleResponse } from "../../lib/api";
-import { getMondayOf } from "../../lib/date";
+import { formatKyivDateIso, getMondayOf, UKR_DAY_MONTH_SHORT_FMT } from "../../lib/date";
 import { DEFAULT_LESSON_TIMES } from "../../lib/constants/lessons";
 import { useToast } from "../ToastProvider";
 import { SearchableSelect } from "../SearchableSelect";
@@ -114,13 +114,13 @@ export function PermanentScheduleEditor() {
 
   const isSelectedVersionCurrentlyValid = useMemo(() => {
     if (!selectedVersion) return true;
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = formatKyivDateIso();
     return selectedVersion.valid_from <= todayStr && selectedVersion.valid_until >= todayStr;
   }, [selectedVersion]);
 
   const currentMonday = useMemo(() => getMondayOf(new Date()), []);
   const mondayStr = useMemo(() => {
-    return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(currentMonday);
+    return UKR_DAY_MONTH_SHORT_FMT.format(currentMonday);
   }, [currentMonday]);
 
   // Load versions and directories
@@ -810,7 +810,7 @@ export function PermanentScheduleEditor() {
                         <div
                           key={slotNum}
                           id={slotId}
-                          className="rounded-xl border border-sys-border/60 bg-sys-bg/40 p-2 transition-all duration-300"
+                          className="rounded-xl border border-sys-border/60 bg-sys-bg/40 p-2 transition-colors duration-300"
                         >
                           <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-sys-border/20 text-[11px] text-sys-text-muted">
                             <span className="font-semibold">{slotNum}-та пара</span>

@@ -9,8 +9,12 @@ import {
   countOverdueClassroomTasks,
   mergeTasksLists,
 } from "../../lib/schedule";
-import { syncPersonalSubmissions, useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
-import { DEFAULT_TASK_FILTERS, useTaskGroups } from "../../lib/useTaskGroups";
+import {
+  consumePendingClassroomReturn,
+  syncPersonalSubmissions,
+  useClassroomSubmissions,
+} from "../../lib/useClassroomSubmissions";
+import { formatTaskWord, DEFAULT_TASK_FILTERS, useTaskGroups } from "../../lib/useTaskGroups";
 import type { FullTaskItem } from "../TaskCardItem";
 import type { ReturnTarget } from "./useScheduleSelection";
 
@@ -88,6 +92,8 @@ export function useScheduleDataFetch({
     }
   }, [groupId, readCachedGroupTasks]);
 
+  const returnSyncPendingToastRef = useRef(false);
+
   useEffect(() => {
     const handlePersonalTasksSynced = (e: Event) => {
       const detail = (e as CustomEvent)?.detail;
@@ -105,10 +111,20 @@ export function useScheduleDataFetch({
         }
         return next;
       });
+      if (returnSyncPendingToastRef.current) {
+        returnSyncPendingToastRef.current = false;
+        const newlyCompleted = Number(detail.newlyCompletedCount || 0);
+        if (newlyCompleted > 0) {
+          setToast(
+            `Classroom оновлено: ${newlyCompleted} ${formatTaskWord(newlyCompleted)} позначено зданим`,
+            "success"
+          );
+        }
+      }
     };
     window.addEventListener("classroom-tasks-synced", handlePersonalTasksSynced);
     return () => window.removeEventListener("classroom-tasks-synced", handlePersonalTasksSynced);
-  }, [groupId]);
+  }, [groupId, setToast]);
 
   const syncInFlightRef = useRef(false);
   const weekStartStr = useMemo(() => formatKyivDateIso(weekAnchorDate), [weekAnchorDate]);
@@ -271,20 +287,34 @@ export function useScheduleDataFetch({
 
   useEffect(() => {
     let lastClassroomVisibilitySync = 0;
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        const now = Date.now();
-        if (now - lastClassroomVisibilitySync >= 60_000) {
-          lastClassroomVisibilitySync = now;
-          if (groupId) {
-            void fetchClassroomTasks(groupId);
-          }
-        }
+    let lastReturnSyncAt = 0;
+    const handleResumeSync = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (!groupId) return;
+      const now = Date.now();
+      const returnedFromClassroom = isLinked && consumePendingClassroomReturn();
+      if (returnedFromClassroom && now - lastReturnSyncAt >= 4_000) {
+        lastReturnSyncAt = now;
+        lastClassroomVisibilitySync = now;
+        returnSyncPendingToastRef.current = true;
+        void syncPersonalSubmissions(groupId).then((ok) => {
+          if (!ok) returnSyncPendingToastRef.current = false;
+        });
+        return;
+      }
+      const minIntervalMs = isLinked ? 20_000 : 60_000;
+      if (now - lastClassroomVisibilitySync >= minIntervalMs) {
+        lastClassroomVisibilitySync = now;
+        void fetchClassroomTasks(groupId);
       }
     };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [groupId, fetchClassroomTasks]);
+    document.addEventListener("visibilitychange", handleResumeSync);
+    window.addEventListener("focus", handleResumeSync);
+    return () => {
+      document.removeEventListener("visibilitychange", handleResumeSync);
+      window.removeEventListener("focus", handleResumeSync);
+    };
+  }, [groupId, isLinked, fetchClassroomTasks]);
 
   useEffect(() => {
     const handleClassroomSynced = (e: Event) => {

@@ -121,8 +121,14 @@ export function useTaskGroups(
       }
     }
 
-    // Сортуємо вкладку «Здано» та «Без терміну» від найновіших до найстаріших за датою публікації
-    turnedInTasks.sort((a, b) => getTaskPublishedTimestamp(b) - getTaskPublishedTimestamp(a));
+    // Сортуємо вкладку «Здано» від найновіших до найстаріших;
+    // завдання, щойно відмічені вручну (борги), тримаємо зверху, щоб вони не губились під «Показати всі здані».
+    turnedInTasks.sort((a, b) => {
+      const aManual = a.state === "MANUAL_DONE" ? 1 : 0;
+      const bManual = b.state === "MANUAL_DONE" ? 1 : 0;
+      if (aManual !== bManual) return bManual - aManual;
+      return getTaskPublishedTimestamp(b) - getTaskPublishedTimestamp(a);
+    });
     noDateTasks.sort((a, b) => getTaskPublishedTimestamp(b) - getTaskPublishedTimestamp(a));
 
     const activeCount = overdueTasks.length + activeTasks.length + noDateTasks.length;

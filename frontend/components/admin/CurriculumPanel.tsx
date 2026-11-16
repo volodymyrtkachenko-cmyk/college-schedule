@@ -402,7 +402,7 @@ export function CurriculumPanel() {
         <button
           type="button"
           onClick={() => setShowTermModal(true)}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-sys-border/80 bg-sys-bg px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent transition-all active:scale-95 shadow-2xs"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-sys-border/80 bg-sys-bg px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent transition-colors active:scale-95 shadow-2xs"
         >
           <span>📅</span> Графік процесу / Практики
         </button>
@@ -599,7 +599,7 @@ export function CurriculumPanel() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setEditor(item)}
-                      className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 active:scale-95 transition-all"
+                      className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 active:scale-95 transition-colors"
                       title="Редагувати"
                       aria-label={`Редагувати ${item.subject.name}`}
                     >
@@ -610,7 +610,7 @@ export function CurriculumPanel() {
                     </button>
                     <button
                       onClick={() => setItemToDelete(item)}
-                      className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 active:scale-95 transition-all"
+                      className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 active:scale-95 transition-colors"
                       title="Видалити"
                       aria-label={`Видалити ${item.subject.name}`}
                     >

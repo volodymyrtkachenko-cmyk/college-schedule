@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { api, ImportCancellation, ImportSubstitution, ImporterResponse, ImportStatusResponse, ReferenceRecord, ScheduleVersion } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { calendarDateIsoToUtcDate } from "../../lib/calendarDate";
+import { UKR_FULL_DATE_FMT } from "../../lib/date";
 import { SearchableSelect } from "../SearchableSelect";
 import { PublicationHistory } from "./PublicationHistory";
 import { PageHeader } from "./PageHeader";
@@ -328,7 +330,7 @@ export function ImportPanel() {
 
   const formatChangeDate = (value: string) => {
     if (!value) return "Дата не вибрана";
-    return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T00:00:00`));
+    return UKR_FULL_DATE_FMT.format(calendarDateIsoToUtcDate(value));
   };
 
 
@@ -389,7 +391,7 @@ export function ImportPanel() {
                     onChange={(e) => void handleToggleAutoPublish(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-sys-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sys-accent"></div>
+                  <div className="w-9 h-5 bg-sys-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-transform peer-checked:bg-sys-accent"></div>
                 </label>
               </div>
             )}
@@ -482,7 +484,7 @@ export function ImportPanel() {
                <p className="text-sys-text-secondary text-sm mb-6 max-w-lg">
                    Завантажує розклад і заміни з kre.dp.ua для всіх груп. Будь-яку публікацію можна відкотити в історії.
                </p>
-               <button onClick={handleImport} disabled={loading} className="bg-sys-accent text-white font-semibold shadow-xs py-2.5 px-6 rounded-lg disabled:opacity-50 flex items-center gap-2 hover:opacity-95 active:scale-98 transition-all">
+               <button onClick={handleImport} disabled={loading} className="bg-sys-accent text-white font-semibold shadow-xs py-2.5 px-6 rounded-lg disabled:opacity-50 flex items-center gap-2 hover:opacity-95 active:scale-98 transition-[opacity,transform]">
                    {loading ? (
                      <><svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Імпортуємо...</>
                    ) : "Почати імпорт"}
@@ -737,7 +739,7 @@ export function ImportPanel() {
                     type="button"
                     onClick={() => void publishImportMode("substitutions_only")}
                     disabled={loading || !draftId}
-                    className="flex-1 bg-sys-accent text-white font-semibold shadow-xs hover:opacity-95 py-2.5 px-4 rounded-xl disabled:opacity-50 active:scale-98 transition-all flex flex-col items-center justify-center text-xs sm:text-sm"
+                    className="flex-1 bg-sys-accent text-white font-semibold shadow-xs hover:opacity-95 py-2.5 px-4 rounded-xl disabled:opacity-50 active:scale-98 transition-[opacity,transform] flex flex-col items-center justify-center text-xs sm:text-sm"
                   >
                     <span>Опублікувати тільки зміни</span>
                     <span className="text-[10px] font-normal opacity-85">(без скасувань та дублів)</span>
@@ -747,7 +749,7 @@ export function ImportPanel() {
                     type="button"
                     onClick={() => void publishImportMode("explicit_only")}
                     disabled={loading || !draftId}
-                    className="flex-1 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 font-bold py-2.5 px-4 rounded-xl disabled:opacity-50 hover:bg-emerald-500/25 active:scale-98 transition-all flex flex-col items-center justify-center text-xs sm:text-sm"
+                    className="flex-1 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 font-bold py-2.5 px-4 rounded-xl disabled:opacity-50 hover:bg-emerald-500/25 active:scale-98 transition-colors flex flex-col items-center justify-center text-xs sm:text-sm"
                   >
                     <span>Тільки з позначкою заміни</span>
                     <span className="text-[10px] font-normal opacity-85">(із сайту kre.dp.ua)</span>
@@ -757,7 +759,7 @@ export function ImportPanel() {
                     type="button"
                     onClick={() => void publishImportMode("all", true)}
                     disabled={loading || !draftId}
-                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-sys-border bg-slate-100 dark:bg-white/5 text-sys-text-secondary hover:text-sys-text-primary hover:bg-slate-200 dark:hover:bg-white/10 active:scale-98 transition-all text-xs sm:text-sm"
+                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-sys-border bg-slate-100 dark:bg-white/5 text-sys-text-secondary hover:text-sys-text-primary hover:bg-slate-200 dark:hover:bg-white/10 active:scale-98 transition-colors text-xs sm:text-sm"
                   >
                     Опублікувати все (зі скасуваннями)
                   </button>
@@ -766,7 +768,7 @@ export function ImportPanel() {
                     type="button"
                     onClick={() => void cancelImport()}
                     disabled={loading}
-                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-700 dark:text-rose-300 hover:bg-rose-500/10 active:scale-98 transition-all text-xs sm:text-sm"
+                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-700 dark:text-rose-300 hover:bg-rose-500/10 active:scale-98 transition-colors text-xs sm:text-sm"
                   >
                     Скасувати імпорт
                   </button>

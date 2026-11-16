@@ -75,6 +75,55 @@ _HAS_SUBGROUPS_TTL = 300.0
 _HAS_SUBGROUPS_MAX = 256
 
 
+class _MergedClassroomResponse:
+    """Minimal httpx.Response-compatible wrapper for merged paginated Classroom API payloads."""
+
+    def __init__(self, status_code: int, payload: dict[str, Any]):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self) -> dict[str, Any]:
+        return self._payload
+
+
+async def _fetch_paginated_classroom_response(
+    client: httpx.AsyncClient,
+    url: str,
+    item_key: str,
+    headers: dict[str, str],
+    base_params: dict[str, Any],
+    max_pages: int = 5,
+):
+    first_resp = await client.get(url, params=base_params, headers=headers)
+    if getattr(first_resp, "status_code", 0) != 200:
+        return first_resp
+
+    first_data = first_resp.json()
+    next_token = first_data.get("nextPageToken")
+    if not next_token:
+        return first_resp
+
+    merged_items = list(first_data.get(item_key, []))
+    seen_tokens: set[str] = {str(next_token)}
+    pages_fetched = 1
+
+    while next_token and pages_fetched < max_pages:
+        page_params = {**base_params, "pageToken": next_token}
+        page_resp = await client.get(url, params=page_params, headers=headers)
+        if getattr(page_resp, "status_code", 0) != 200:
+            break
+        page_data = page_resp.json()
+        merged_items.extend(page_data.get(item_key, []))
+        pages_fetched += 1
+        candidate = page_data.get("nextPageToken")
+        if not candidate or str(candidate) in seen_tokens:
+            break
+        seen_tokens.add(str(candidate))
+        next_token = candidate
+
+    return _MergedClassroomResponse(200, {item_key: merged_items})
+
+
 async def perform_course_sync(
     db: AsyncSession,
     group: Group,
@@ -389,20 +438,24 @@ async def perform_course_sync(
                     params={"pageSize": 100},
                     headers=headers,
                 )
-                cw_task = client.get(
+                cw_task = _fetch_paginated_classroom_response(
+                    client,
                     f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork",
-                    params={"pageSize": 100},
-                    headers=headers,
+                    "courseWork",
+                    headers,
+                    {"pageSize": 100},
                 )
                 mat_task = client.get(
                     f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWorkMaterials",
                     params={"pageSize": 100},
                     headers=headers,
                 )
-                sub_task = client.get(
+                sub_task = _fetch_paginated_classroom_response(
+                    client,
                     f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork/-/studentSubmissions",
-                    params={"userId": "me", "pageSize": 100},
-                    headers=headers,
+                    "studentSubmissions",
+                    headers,
+                    {"userId": "me", "pageSize": 100},
                 )
                 return course, await asyncio.gather(
                     _get_teachers(), a_task, cw_task, _get_topics(), mat_task, sub_task, return_exceptions=True
@@ -2368,15 +2421,19 @@ async def _fetch_user_submissions(
                             _course_topics_cache[c_id] = (now_mono, resp)
                         return resp
 
-                    cw_task = client.get(
+                    cw_task = _fetch_paginated_classroom_response(
+                        client,
                         f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork",
-                        params={"courseWorkStates": "PUBLISHED", "pageSize": 100},
-                        headers=headers,
+                        "courseWork",
+                        headers,
+                        {"courseWorkStates": "PUBLISHED", "pageSize": 100},
                     )
-                    sub_task = client.get(
+                    sub_task = _fetch_paginated_classroom_response(
+                        client,
                         f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork/-/studentSubmissions",
-                        params={"userId": "me", "pageSize": 100},
-                        headers=headers,
+                        "studentSubmissions",
+                        headers,
+                        {"userId": "me", "pageSize": 100},
                     )
                     return course, await asyncio.gather(
                         cw_task, sub_task, _get_teachers(), _get_topics(), return_exceptions=True

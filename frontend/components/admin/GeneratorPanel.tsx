@@ -1577,7 +1577,7 @@ export function GeneratorPanel() {
                                   setSelectedSlotId(isSelected ? null : slot.id);
                                 }
                               }}
-                              className={`group relative rounded-xl border p-2.5 text-sm shadow-xs transition-all cursor-pointer ${
+                              className={`group relative rounded-xl border p-2.5 text-sm shadow-xs transition-colors cursor-pointer ${
                                 isSelected
                                   ? "border-sys-accent ring-2 ring-sys-accent bg-sys-accent/[0.08]"
                                   : canSwap
@@ -1618,7 +1618,7 @@ export function GeneratorPanel() {
                                     event.stopPropagation();
                                     void handleLock(slot);
                                   }}
-                                  className={`rounded p-0.5 text-xs transition-all ${
+                                  className={`rounded p-0.5 text-xs transition-colors ${
                                     slot.is_locked
                                       ? "text-amber-700 dark:text-amber-400 bg-amber-500/20 hover:bg-amber-500/30"
                                       : "text-sys-text-muted opacity-0 group-hover:opacity-100 hover:text-sys-accent hover:bg-sys-accent/10"
@@ -1654,7 +1654,7 @@ export function GeneratorPanel() {
                                   <span className="hover:underline">Скасувати ✕</span>
                                 </div>
                               ) : canSwap ? (
-                                <div className="mt-2 flex items-center justify-center gap-1 rounded-md border border-sys-accent/60 bg-sys-accent/15 py-1 text-xs font-semibold text-sys-accent group-hover:bg-sys-accent group-hover:text-white transition-all shadow-xs">
+                                <div className="mt-2 flex items-center justify-center gap-1 rounded-md border border-sys-accent/60 bg-sys-accent/15 py-1 text-xs font-semibold text-sys-accent group-hover:bg-sys-accent group-hover:text-white transition-colors shadow-xs">
                                   <span>⇄ Поміняти місцями</span>
                                   {swapEval?.status === "warning" && (
                                     <span className="text-[10px] font-normal" title={swapEval.label}>⚠</span>
@@ -1683,7 +1683,7 @@ export function GeneratorPanel() {
                             if (selectedSlot && !moving) void handleMove(selectedSlot.id, day, lesson, activeWeek);
                           }}
                           disabled={moving}
-                          className={`flex min-h-24 w-full flex-col items-center justify-center rounded-xl border border-dashed p-2 text-xs font-semibold transition-all ${
+                          className={`flex min-h-24 w-full flex-col items-center justify-center rounded-xl border border-dashed p-2 text-xs font-semibold transition-colors ${
                             targetEval.status === "warning"
                               ? "border-amber-400/50 bg-amber-500/10 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20"
                               : "border-emerald-400/50 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/20"
@@ -1808,7 +1808,7 @@ export function GeneratorPanel() {
             <button
               onClick={handleGenerate}
               disabled={isGeneratingActive}
-              className="shrink-0 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
+              className="shrink-0 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-opacity disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
             >
               {isGeneratingActive ? (
                 <>
@@ -1864,7 +1864,7 @@ export function GeneratorPanel() {
           </div>
           <div className="mt-3 relative h-1.5 w-full bg-sys-border/60 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-700 ease-out"
+              className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-[width] duration-700 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-splash-beam" />
@@ -2139,7 +2139,7 @@ export function GeneratorPanel() {
               </div>
               <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-900">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-700 ease-out"
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-[width] duration-700 ease-out"
                   style={{ width: `${progressPercent}%` }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-splash-beam" />
@@ -2272,7 +2272,7 @@ export function GeneratorPanel() {
               <button
                 type="button"
                 onClick={() => setDraftToPublish(null)}
-                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
               >
                 Скасувати
               </button>
@@ -2280,7 +2280,7 @@ export function GeneratorPanel() {
                 type="button"
                 onClick={handleConfirmPublish}
                 disabled={publishingId === draftToPublish.id}
-                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 disabled:opacity-50 transition-all"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 disabled:opacity-50 transition-opacity"
               >
                 {publishingId === draftToPublish.id ? "Публікація..." : "Опублікувати розклад"}
               </button>

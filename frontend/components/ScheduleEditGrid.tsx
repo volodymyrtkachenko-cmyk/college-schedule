@@ -1,39 +1,31 @@
 import { useState, useRef, useEffect } from "react";
 import { Lesson, ScheduleResponse } from "../lib/api";
+import { calendarDateIsoToUtcDate } from "../lib/calendarDate";
 import { DEFAULT_LESSON_TIMES, LESSON_NUMBERS } from "../lib/constants/lessons";
+import { isSlotInPast } from "../lib/admin/slotTime";
+import {
+  UKR_DAY_MONTH_SHORT_FMT,
+  UKR_WEEKDAY_LONG_FMT,
+} from "../lib/date";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
 import { ClipboardListIcon, ClockIcon } from "./ui/Icons";
 
-const longWeekday = (date: string) =>
-  new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(new Date(`${date}T12:00:00`));
-const shortDate = (date: string) =>
-  new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(new Date(`${date}T12:00:00`));
+export { isSlotInPast };
 
-const KYIV_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" });
-const KYIV_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/Kyiv",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
-
-export function isSlotInPast(slotDate: string, lessonNumber: number) {
-  const now = new Date();
-  const todayIso = KYIV_DATE_FMT.format(now);
-  if (slotDate < todayIso) return true;
-  if (slotDate > todayIso) return false;
-  const lessonTimes: Record<number, string> = {
-    1: "10:20",
-    2: "12:00",
-    3: "13:50",
-    4: "15:20",
-    5: "16:50",
-  };
-  const endTime = lessonTimes[lessonNumber];
-  if (!endTime) return false;
-  const nowTime = KYIV_TIME_FMT.format(now);
-  return nowTime >= endTime;
-}
+const longWeekday = (date: string) => {
+  try {
+    return UKR_WEEKDAY_LONG_FMT.format(calendarDateIsoToUtcDate(date));
+  } catch {
+    return "";
+  }
+};
+const shortDate = (date: string) => {
+  try {
+    return UKR_DAY_MONTH_SHORT_FMT.format(calendarDateIsoToUtcDate(date));
+  } catch {
+    return "";
+  }
+};
 
 export interface DayActionOptions {
   onCopyDay?: (date: string) => void;
@@ -294,7 +286,7 @@ export function ScheduleEditGrid({
           ...week.map((day) => {
             const cellLessons = day.lessons.filter((lesson) => lesson.lesson_number === lessonNumber);
             const hasReplacement = cellLessons.some((lesson) => lesson.is_replacement);
-            const isPast = isSlotInPast(day.date, lessonNumber);
+            const isPast = isSlotInPast(day.date, lessonNumber, Boolean(day.is_shortened_day));
             const canChooseTarget = !isPast && !!movingLesson && canMoveTo(movingLesson, day.date, lessonNumber);
             const isSwapMode = !isPast && !!swapSourceLesson;
             const drop = () => {

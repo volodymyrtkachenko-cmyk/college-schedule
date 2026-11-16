@@ -113,7 +113,7 @@ export function TeacherPinAdminCard({ onNotify }: TeacherPinAdminCardProps) {
             type="button"
             onClick={handleStartEdit}
             disabled={loading}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sys-border bg-sys-bg text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 hover:text-sys-accent active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sys-border bg-sys-bg text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 hover:text-sys-accent active:scale-95 transition-colors cursor-pointer disabled:opacity-50"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
@@ -152,7 +152,7 @@ export function TeacherPinAdminCard({ onNotify }: TeacherPinAdminCardProps) {
                   if (editError) setEditError(null);
                 }}
                 placeholder="Введіть новий PIN-код..."
-                className="w-full h-10 px-3.5 pr-10 rounded-xl border border-sys-border bg-sys-bg font-mono text-sm text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:ring-2 focus:ring-sys-accent/20 focus:outline-hidden transition-all"
+                className="w-full h-10 px-3.5 pr-10 rounded-xl border border-sys-border bg-sys-bg font-mono text-sm text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:ring-2 focus:ring-sys-accent/20 focus:outline-hidden transition-colors"
               />
               <button
                 type="button"
@@ -181,14 +181,14 @@ export function TeacherPinAdminCard({ onNotify }: TeacherPinAdminCardProps) {
                 type="button"
                 onClick={handleCancelEdit}
                 disabled={saving}
-                className="min-h-[40px] px-3.5 rounded-xl border border-sys-border bg-sys-bg text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-95 transition-all"
+                className="min-h-[40px] px-3.5 rounded-xl border border-sys-border bg-sys-bg text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-95 transition-colors"
               >
                 Скасувати
               </button>
               <button
                 type="submit"
                 disabled={saving || !newPin.trim()}
-                className="min-h-[40px] px-4 rounded-xl bg-sys-accent text-white text-xs font-semibold shadow-xs hover:bg-sys-accent/90 disabled:opacity-50 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                className="min-h-[40px] px-4 rounded-xl bg-sys-accent text-white text-xs font-semibold shadow-xs hover:bg-sys-accent/90 disabled:opacity-50 active:scale-95 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 {saving ? (
                   <>
@@ -219,7 +219,7 @@ export function TeacherPinAdminCard({ onNotify }: TeacherPinAdminCardProps) {
               <button
                 type="button"
                 onClick={() => setIsRevealed(!isRevealed)}
-                className="p-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-all"
+                className="p-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-colors"
                 title={isRevealed ? "Приховати PIN" : "Показати PIN"}
                 aria-label={isRevealed ? "Приховати PIN" : "Показати PIN"}
               >
@@ -243,7 +243,7 @@ export function TeacherPinAdminCard({ onNotify }: TeacherPinAdminCardProps) {
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-sys-border bg-sys-bg text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-95 transition-all"
+            className="inline-flex items-center gap-1.5 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-sys-border bg-sys-bg text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-95 transition-colors"
             title="Скопіювати PIN-код"
           >
             {copied ? (

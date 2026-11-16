@@ -1,6 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useState } from "react";
 import { ShortenedDayItem, api } from "../../lib/api";
+import { calendarDateIsoToUtcDate } from "../../lib/calendarDate";
 import { PageHeader } from "./PageHeader";
 
 export function SemesterSettingsPanel() {
@@ -298,11 +299,12 @@ export function SemesterSettingsPanel() {
               <div className="divide-y divide-sys-border/50 rounded-xl border border-sys-border/80 bg-sys-bg/40 overflow-hidden">
                 {shortenedDays.map((item) => {
                   const formattedDate = new Intl.DateTimeFormat("uk-UA", {
+                    timeZone: "Europe/Kyiv",
                     weekday: "short",
                     day: "numeric",
                     month: "short",
                     year: "numeric",
-                  }).format(new Date(`${item.date}T12:00:00`));
+                  }).format(calendarDateIsoToUtcDate(item.date));
                   return (
                     <div key={item.date} className="flex items-center justify-between gap-3 p-3 text-xs">
                       <div className="min-w-0">
@@ -372,7 +374,7 @@ export function SemesterSettingsPanel() {
             <button
               type="submit"
               disabled={shortenedActionLoading || !newShortenedDate}
-              className="w-full flex items-center justify-center gap-2 rounded-lg border border-sys-border bg-slate-100 dark:bg-white/5 px-4 py-2 text-xs font-semibold text-sys-text-primary hover:bg-slate-200 dark:hover:bg-white/10 active:scale-[0.99] transition-all disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-sys-border bg-slate-100 dark:bg-white/5 px-4 py-2 text-xs font-semibold text-sys-text-primary hover:bg-slate-200 dark:hover:bg-white/10 active:scale-[0.99] transition-colors disabled:opacity-50"
             >
               + Додати скорочений день
             </button>

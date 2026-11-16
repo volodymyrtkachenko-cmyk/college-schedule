@@ -2973,10 +2973,79 @@ async def test_user_submissions_clears_stale_error_on_recovery(classroom_db):
         assert s3.last_error == "needs_relink: missing_or_corrupt_refresh_token"
 
 
+@pytest.mark.anyio
+async def test_user_submissions_paginates_coursework_and_submissions(classroom_db):
+    client, state = classroom_db
+    gid = state["group_id"]
 
+    def paginated_handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        page_tok = request.url.params.get("pageToken")
+        if "/v1/courses?" in url or url.endswith("/v1/courses"):
+            return httpx.Response(200, json={"courses": [{"id": "c1", "name": "Higher Math"}]})
+        if "/teachers" in url:
+            return httpx.Response(200, json={"teachers": []})
+        if "/topics" in url:
+            return httpx.Response(200, json={"topic": []})
+        if "/studentSubmissions" in url:
+            if page_tok == "sub_p2":
+                return httpx.Response(200, json={
+                    "studentSubmissions": [
+                        {"courseWorkId": "cw2", "state": "TURNED_IN"},
+                    ]
+                })
+            return httpx.Response(200, json={
+                "studentSubmissions": [
+                    {"courseWorkId": "cw1", "state": "NEW"},
+                ],
+                "nextPageToken": "sub_p2",
+            })
+        if "/courseWork" in url:
+            if page_tok == "cw_p2":
+                return httpx.Response(200, json={
+                    "courseWork": [
+                        {
+                            "id": "cw2",
+                            "title": "Page 2 Debt",
+                            "alternateLink": "https://classroom.google.com/c/c1/a/cw2/details",
+                        }
+                    ]
+                })
+            return httpx.Response(200, json={
+                "courseWork": [
+                    {
+                        "id": "cw1",
+                        "title": "Page 1 Task",
+                        "alternateLink": "https://classroom.google.com/c/c1/a/cw1/details",
+                    }
+                ],
+                "nextPageToken": "cw_p2",
+            })
+        return httpx.Response(404, json={})
 
+    transport = httpx.MockTransport(paginated_handler)
+    real_async_client = httpx.AsyncClient
 
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
 
+    with patch("app.services.classroom.sync.httpx.AsyncClient", side_effect=mocked_client):
+        resp = await client.post(
+            "/api/classroom/user-submissions",
+            json={
+                "group_id": gid,
+                "access_token": "ya29.paginated_test_tok",
+                "email": "student@kre.dp.ua",
+            },
+        )
 
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["connected"] is True
+    assert body["submissions"]["c1_cw1"]["state"] == "NEW"
+    assert body["submissions"]["c1_cw2"]["state"] == "TURNED_IN"
+    titles = {t["id"]: t["state"] for t in body["tasks"]}
+    assert titles == {"cw1": "NEW", "cw2": "TURNED_IN"}
 
 

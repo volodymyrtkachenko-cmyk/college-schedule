@@ -8,7 +8,20 @@ import { WeekTypeBadge } from "../WeekTypeBadge";
 const LessonEditor = dynamic(() => import("../LessonEditor").then((m) => m.LessonEditor), { ssr: false });
 import { Lesson, LessonMutation, AcademicEvent, AcademicEventType, api } from "../../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../../lib/hooks";
-import { getMondayOf } from "../../lib/date";
+import { calendarDateIsoToUtcDate } from "../../lib/calendarDate";
+import {
+  UKR_DAY_MONTH_SHORT_FMT,
+  UKR_WEEKDAY_LONG_FMT,
+  formatKyivDateIso,
+  getMondayOf,
+} from "../../lib/date";
+import {
+  AdminUndoAction,
+  isAdminUndoShortcut,
+  popUndoAction,
+  pushUndoAction,
+  reverseBatchMoveItems,
+} from "../../lib/admin/scheduleUndo";
 import { formatFullWeekRange } from "../../lib/format";
 import { SearchableSelect } from "../SearchableSelect";
 import { useToast } from "../ToastProvider";
@@ -245,10 +258,136 @@ export function AdminScheduleEditor() {
   const resetWeek = () => setWeekAnchorDate(getMondayOf(new Date()));
   const LESSON_TIMES: Record<number, string> = { 1: "09:00–10:20", 2: "10:40–12:00", 3: "12:30–13:50", 4: "14:00–15:20" };
 
+  const [undoStack, setUndoStack] = useState<AdminUndoAction[]>([]);
+  const [undoing, setUndoing] = useState(false);
+  const undoStackRef = useRef<AdminUndoAction[]>([]);
+  undoStackRef.current = undoStack;
+  const undoInFlightRef = useRef(false);
+
+  const recordUndo = useCallback((action: AdminUndoAction) => {
+    setUndoStack((prev) => pushUndoAction(prev, action));
+  }, []);
+
+  const refreshCurrentWeek = useCallback(async () => {
+    const refreshed = await (mode === "student" && groupId
+      ? api.week(groupId, undefined, weekAnchorDate, true)
+      : mode === "teacher" && teacherId
+      ? api.week(undefined, teacherId, weekAnchorDate, true)
+      : null);
+    if (refreshed) setWeek(refreshed);
+  }, [mode, groupId, teacherId, weekAnchorDate, setWeek]);
+
+  const handleUndo = useCallback(async () => {
+    if (undoInFlightRef.current) return;
+    const { action, rest } = popUndoAction(undoStackRef.current);
+    if (!action) return;
+
+    undoInFlightRef.current = true;
+    setUndoing(true);
+    try {
+      switch (action.kind) {
+        case "cancel":
+          await api.dated.restore({
+            group_id: action.groupId,
+            date: action.date,
+            lesson_number: action.lessonNumber,
+          });
+          break;
+        case "restore":
+          await api.dated.cancel({
+            group_id: action.groupId,
+            date: action.date,
+            lesson_number: action.lessonNumber,
+          });
+          break;
+        case "move":
+          await api.dated.move({
+            source_group_id: action.targetGroupId,
+            source_date: action.targetDate,
+            source_lesson_number: action.targetLessonNumber,
+            target_group_id: action.sourceGroupId,
+            target_date: action.sourceDate,
+            target_lesson_number: action.sourceLessonNumber,
+          });
+          break;
+        case "move_event":
+          await api.events.update(action.eventId, {
+            event_date: action.prevDate,
+            lesson_number: action.prevLessonNumber,
+            start_time: action.prevStartTime,
+          });
+          break;
+        case "swap":
+          await api.dated.swap({
+            first_group_id: action.firstGroupId,
+            first_date: action.firstDate,
+            first_lesson_number: action.firstLessonNumber,
+            second_group_id: action.secondGroupId,
+            second_date: action.secondDate,
+            second_lesson_number: action.secondLessonNumber,
+          });
+          break;
+        case "remove_replacement":
+          await api.dated.removeReplacement({
+            group_id: action.groupId,
+            date: action.date,
+            lesson_number: action.lessonNumber,
+          });
+          break;
+        case "restore_replacement":
+          await api.dated.replace({
+            group_id: action.groupId,
+            date: action.date,
+            lesson_number: action.lessonNumber,
+            subject_id: action.subjectId,
+            teacher_id: action.teacherId,
+            second_teacher_id: action.secondTeacherId,
+            room: action.room,
+          });
+          break;
+        case "batch_move":
+          await api.dated.batch({
+            action: "move",
+            items: reverseBatchMoveItems(action.items),
+            skip_conflicts: true,
+          });
+          break;
+        case "toggle_shortened_day": {
+          const session = await api.auth.ensureAuthenticated();
+          await api.settings.shortenedDays.toggle(action.date, session.access_token);
+          break;
+        }
+      }
+      setUndoStack(rest);
+      invalidateScheduleCache();
+      await refreshCurrentWeek();
+      setToast(`Скасовано: ${action.label}`, "success");
+    } catch (err: any) {
+      setToast(err?.message || "Не вдалося скасувати останню дію.", "error");
+    } finally {
+      undoInFlightRef.current = false;
+      setUndoing(false);
+    }
+  }, [refreshCurrentWeek, setToast]);
+
+  const hasOpenModal = Boolean(editor || curatorModalOpen || printModalOpen || eventsModalOpen || editingEvent);
+
+  useEffect(() => {
+    const onUndoKeyDown = (e: KeyboardEvent) => {
+      if (hasOpenModal || undoStackRef.current.length === 0) return;
+      if (!isAdminUndoShortcut(e)) return;
+      e.preventDefault();
+      void handleUndo();
+    };
+    window.addEventListener("keydown", onUndoKeyDown);
+    return () => window.removeEventListener("keydown", onUndoKeyDown);
+  }, [hasOpenModal, handleUndo]);
+
   const edit = async (lesson: Lesson, date: string, payload: LessonMutation) => {
     try {
       const gid = payload.group_id ?? lesson.group_id ?? (groupId ?? 0);
       const isPermanentEdit = payload.is_replacement === false;
+      const hadExistingLesson = Boolean(lesson.id && lesson.subject_id);
       if (isPermanentEdit) {
         if (!lesson.is_replacement && lesson.id > 0) {
           await api.template.updateLesson(lesson.id, {
@@ -261,7 +400,7 @@ export function AdminScheduleEditor() {
             room: payload.room || "",
           });
         } else if (activeVersion?.id && gid && payload.subject_id) {
-          const day = new Date(`${date}T12:00:00`).getDay() || 7;
+          const day = calendarDateIsoToUtcDate(date).getUTCDay() || 7;
           await api.template.createLesson({
             version_id: activeVersion.id,
             group_id: gid,
@@ -295,6 +434,15 @@ export function AdminScheduleEditor() {
             second_teacher_id: payload.second_teacher_id ?? null,
             room: payload.room ?? null,
           });
+          if (gid) {
+            recordUndo({
+              kind: "remove_replacement",
+              label: "разова заміна",
+              groupId: gid,
+              date,
+              lessonNumber: payload.lesson_number,
+            });
+          }
         }
       } else {
         await api.dated.replace({
@@ -306,14 +454,32 @@ export function AdminScheduleEditor() {
           second_teacher_id: payload.second_teacher_id ?? null,
           room: payload.room ?? null,
         });
+        if (gid) {
+          if (hadExistingLesson && lesson.is_replacement && payload.lesson_number === lesson.lesson_number) {
+            recordUndo({
+              kind: "restore_replacement",
+              label: `редагування «${lesson.subject_name}»`,
+              groupId: gid,
+              date,
+              lessonNumber: lesson.lesson_number,
+              subjectId: lesson.subject_id ?? null,
+              teacherId: lesson.teacher_id ?? null,
+              secondTeacherId: lesson.second_teacher_id ?? null,
+              room: lesson.room ?? null,
+            });
+          } else {
+            recordUndo({
+              kind: "remove_replacement",
+              label: hadExistingLesson ? `заміна «${lesson.subject_name}»` : "додана разова пара",
+              groupId: gid,
+              date,
+              lessonNumber: payload.lesson_number,
+            });
+          }
+        }
       }
       invalidateScheduleCache();
-      const refreshed = await api.week(
-        mode === "student" ? (groupId ?? undefined) : undefined,
-        mode === "teacher" ? (teacherId ?? undefined) : undefined,
-        weekAnchorDate
-      );
-      setWeek(refreshed);
+      await refreshCurrentWeek();
       setToast(isPermanentEdit ? "Постійний розклад оновлено." : "Разову зміну збережено.", "success");
     } catch (e: any) {
       setToast(e?.message || "Не вдалося зберегти зміну.", "error");
@@ -351,10 +517,16 @@ export function AdminScheduleEditor() {
         date,
         lesson_number: lesson.lesson_number,
       });
+      recordUndo({
+        kind: "cancel",
+        label: `скасування «${lesson.subject_name}»`,
+        groupId: lesson.group_id,
+        date,
+        lessonNumber: lesson.lesson_number,
+      });
       setToast("Заняття на дату скасовано.", "success");
       invalidateScheduleCache();
-      const updatedWeek = await (mode === "student" && groupId ? api.week(groupId, undefined, weekAnchorDate, true) : teacherId ? api.week(undefined, teacherId, weekAnchorDate, true) : null);
-      if (updatedWeek) setWeek(updatedWeek);
+      await refreshCurrentWeek();
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Не вдалося скасувати заняття на дату", "error");
     }
@@ -371,10 +543,16 @@ export function AdminScheduleEditor() {
         date,
         lesson_number: lesson.lesson_number,
       });
+      recordUndo({
+        kind: "restore",
+        label: `відновлення «${lesson.subject_name}»`,
+        groupId: lesson.group_id,
+        date,
+        lessonNumber: lesson.lesson_number,
+      });
       setToast("Заняття відновлено!", "success");
       invalidateScheduleCache();
-      const updatedWeek = await (mode === "student" && groupId ? api.week(groupId, undefined, weekAnchorDate, true) : teacherId ? api.week(undefined, teacherId, weekAnchorDate, true) : null);
-      if (updatedWeek) setWeek(updatedWeek);
+      await refreshCurrentWeek();
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Не вдалося відновити заняття", "error");
     }
@@ -393,8 +571,7 @@ export function AdminScheduleEditor() {
       });
       setToast("Заміну прибрано, розклад відновлено.", "success");
       invalidateScheduleCache();
-      const updatedWeek = await (mode === "student" && groupId ? api.week(groupId, undefined, weekAnchorDate, true) : teacherId ? api.week(undefined, teacherId, weekAnchorDate, true) : null);
-      if (updatedWeek) setWeek(updatedWeek);
+      await refreshCurrentWeek();
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Не вдалося прибрати заміну", "error");
     }
@@ -452,12 +629,13 @@ export function AdminScheduleEditor() {
     if (moving || (lesson.is_replacement && !isEvent)) return;
     const previousToday = today;
     const previousWeek = week;
-    const targetDate = new Date(`${date}T12:00:00`).getDay() || 7;
     setMoving(true);
     try {
       if (isEvent) {
         const evId = lesson.event_id ?? (lesson.id < 0 ? -lesson.id : lesson.id);
         const startTime = DEFAULT_LESSON_TIMES[lessonNumber]?.split(/[-–]/)[0]?.trim() || "09:00";
+        const prevStartTime = lesson.time?.split(/[-–]/)[0]?.trim() || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split(/[-–]/)[0]?.trim() || "09:00";
+        const sourceEventDate = week?.find((d) => d.lessons.some((l) => l.id === lesson.id))?.date || date;
         if (isCopyMode) {
           await api.events.create({
             group_id: lesson.group_id ?? groupId ?? 0,
@@ -473,12 +651,7 @@ export function AdminScheduleEditor() {
             note: lesson.note || null,
           });
           invalidateScheduleCache();
-          const refreshed = await api.week(
-            mode === "student" ? (groupId ?? undefined) : undefined,
-            mode === "teacher" ? (teacherId ?? undefined) : undefined,
-            weekAnchorDate
-          );
-          setWeek(refreshed);
+          await refreshCurrentWeek();
           setToast("Подію сесії скопійовано.", "success");
           return;
         }
@@ -488,35 +661,46 @@ export function AdminScheduleEditor() {
           lesson_number: lessonNumber,
           start_time: startTime,
         });
+        recordUndo({
+          kind: "move_event",
+          label: `перенесення події «${lesson.subject_name}»`,
+          eventId: evId,
+          prevDate: sourceEventDate,
+          prevLessonNumber: lesson.lesson_number,
+          prevStartTime,
+        });
         setBuffer(null);
         invalidateScheduleCache();
-        const refreshed = await api.week(
-          mode === "student" ? (groupId ?? undefined) : undefined,
-          mode === "teacher" ? (teacherId ?? undefined) : undefined,
-          weekAnchorDate
-        );
-        setWeek(refreshed);
+        await refreshCurrentWeek();
         setToast("Подію сесії переміщено.", "success");
         return;
       }
 
       const sourceDate = buffer?.type === "single" ? buffer.sourceDate : (week?.find((d) => d.lessons.some((l) => l.id === lesson.id))?.date || "");
+      const gid = lesson.group_id ?? groupId ?? 0;
       await api.dated.move({
-        source_group_id: lesson.group_id ?? groupId ?? 0,
+        source_group_id: gid,
         source_date: sourceDate,
         source_lesson_number: lesson.lesson_number,
-        target_group_id: lesson.group_id ?? groupId ?? 0,
+        target_group_id: gid,
         target_date: date,
         target_lesson_number: lessonNumber,
       });
+      if (gid && sourceDate) {
+        recordUndo({
+          kind: "move",
+          label: `перенесення «${lesson.subject_name}»`,
+          sourceGroupId: gid,
+          sourceDate,
+          sourceLessonNumber: lesson.lesson_number,
+          targetGroupId: gid,
+          targetDate: date,
+          targetLessonNumber: lessonNumber,
+        });
+      }
       setBuffer(null);
       invalidateScheduleCache();
-      const refreshed = await api.week(
-        mode === "student" ? (groupId ?? undefined) : undefined,
-        mode === "teacher" ? (teacherId ?? undefined) : undefined,
-        weekAnchorDate
-      );
-      setWeek(refreshed);
+      await refreshCurrentWeek();
       setToast("Заняття перенесено (разова зміна).", "success");
     } catch (cause) {
       setWeek(previousWeek);
@@ -526,10 +710,10 @@ export function AdminScheduleEditor() {
       setMoving(false);
     }
   };
-  
+
   const create = async (payload: LessonMutation) => {
     try {
-      const targetDate = payload.date ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
+      const targetDate = payload.date ?? formatKyivDateIso();
       const gid = payload.group_id ?? (groupId ?? 0);
       await api.dated.replace({
         group_id: gid,
@@ -540,13 +724,17 @@ export function AdminScheduleEditor() {
         second_teacher_id: payload.second_teacher_id ?? null,
         room: payload.room ?? null,
       });
+      if (gid) {
+        recordUndo({
+          kind: "remove_replacement",
+          label: "додана разова пара",
+          groupId: gid,
+          date: targetDate,
+          lessonNumber: payload.lesson_number,
+        });
+      }
       invalidateScheduleCache();
-      const refreshed = await api.week(
-        mode === "student" ? (groupId ?? undefined) : undefined,
-        mode === "teacher" ? (teacherId ?? undefined) : undefined,
-        weekAnchorDate
-      );
-      setWeek(refreshed);
+      await refreshCurrentWeek();
       setToast("Разову пару додано.", "success");
     } catch (e: any) {
       setToast(e instanceof Error ? e.message : "Не вдалося додати пару", "error");
@@ -576,23 +764,30 @@ export function AdminScheduleEditor() {
     }
 
     try {
+      const firstGid = swapSource.lesson.group_id ?? groupId ?? 0;
+      const secondGid = targetLesson.group_id ?? groupId ?? 0;
       await api.dated.swap({
-        first_group_id: swapSource.lesson.group_id ?? groupId ?? 0,
+        first_group_id: firstGid,
         first_date: swapSource.date,
         first_lesson_number: swapSource.lesson.lesson_number,
-        second_group_id: targetLesson.group_id ?? groupId ?? 0,
+        second_group_id: secondGid,
         second_date: targetDate,
         second_lesson_number: targetLesson.lesson_number,
+      });
+      recordUndo({
+        kind: "swap",
+        label: `обмін «${swapSource.lesson.subject_name}» і «${targetLesson.subject_name}»`,
+        firstGroupId: firstGid,
+        firstDate: swapSource.date,
+        firstLessonNumber: swapSource.lesson.lesson_number,
+        secondGroupId: secondGid,
+        secondDate: targetDate,
+        secondLessonNumber: targetLesson.lesson_number,
       });
       setToast("Пари успішно обміняно місцями!", "success");
       setSwapSource(null);
       invalidateScheduleCache();
-      const refreshed = await api.week(
-        mode === "student" ? (groupId ?? undefined) : undefined,
-        mode === "teacher" ? (teacherId ?? undefined) : undefined,
-        weekAnchorDate
-      );
-      setWeek(refreshed);
+      await refreshCurrentWeek();
     } catch (err: any) {
       setToast(err?.message || "Не вдалося виконати обмін парами", "error");
     }
@@ -619,15 +814,20 @@ export function AdminScheduleEditor() {
           target_date: targetDate,
           target_lesson_number: lessonNumber,
         });
+        recordUndo({
+          kind: "move",
+          label: `перенесення «${buffer.lesson.subject_name}»`,
+          sourceGroupId: srcGroupId,
+          sourceDate: buffer.sourceDate,
+          sourceLessonNumber: buffer.lesson.lesson_number,
+          targetGroupId: tgtGroupId,
+          targetDate,
+          targetLessonNumber: lessonNumber,
+        });
         setToast("Заняття перенесено (разова зміна).", "success");
         setBuffer(null);
         invalidateScheduleCache();
-        const refreshed = await api.week(
-          mode === "student" ? (groupId ?? undefined) : undefined,
-          mode === "teacher" ? (teacherId ?? undefined) : undefined,
-          weekAnchorDate
-        );
-        setWeek(refreshed);
+        await refreshCurrentWeek();
       } catch (err: any) {
         setToast(err?.message || "Помилка перенесення заняття", "error");
       }
@@ -672,6 +872,13 @@ export function AdminScheduleEditor() {
         items,
         skip_conflicts: true,
       });
+      if (action === "move" && res.succeeded > 0) {
+        recordUndo({
+          kind: "batch_move",
+          label: `перенесення дня (${res.succeeded} пар)`,
+          items,
+        });
+      }
       setToast(
         action === "copy"
           ? `Скопійовано ${res.succeeded} з ${res.total} пар дня.`
@@ -680,12 +887,7 @@ export function AdminScheduleEditor() {
       );
       setBuffer(null);
       invalidateScheduleCache();
-      const refreshed = await api.week(
-        mode === "student" ? (groupId ?? undefined) : undefined,
-        mode === "teacher" ? (teacherId ?? undefined) : undefined,
-        weekAnchorDate
-      );
-      setWeek(refreshed);
+      await refreshCurrentWeek();
     } catch (err: any) {
       setToast(err?.message || (action === "copy" ? "Помилка копіювання дня" : "Помилка перенесення дня"), "error");
     }
@@ -695,13 +897,13 @@ export function AdminScheduleEditor() {
     try {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.settings.shortenedDays.toggle(targetDate, session.access_token);
+      recordUndo({
+        kind: "toggle_shortened_day",
+        label: res.is_shortened ? "скорочений день" : "звичайні пари",
+        date: targetDate,
+      });
       invalidateScheduleCache();
-      const refreshed = await api.week(
-        mode === "student" ? (groupId ?? undefined) : undefined,
-        mode === "teacher" ? (teacherId ?? undefined) : undefined,
-        weekAnchorDate
-      );
-      setWeek(refreshed);
+      await refreshCurrentWeek();
       setToast(
         res.is_shortened
           ? "Встановлено скорочений день (пари по 50 хв, перерви 10 хв)"
@@ -731,13 +933,7 @@ export function AdminScheduleEditor() {
         "success"
       );
       setCuratorModalOpen(false);
-      // Оновлюємо поточний тиждень
-      const refreshed = await api.week(
-        mode === "student" ? (groupId ?? undefined) : undefined,
-        mode === "teacher" ? (teacherId ?? undefined) : undefined,
-        weekAnchorDate
-      );
-      setWeek(refreshed);
+      await refreshCurrentWeek();
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Помилка операції з виховними годинами", "error");
     } finally {
@@ -1030,6 +1226,24 @@ export function AdminScheduleEditor() {
                 </button>
               </div>
 
+              {undoStack.length > 0 && (
+                <button
+                  type="button"
+                  disabled={undoing}
+                  onClick={() => void handleUndo()}
+                  title={`Скасувати (Ctrl+Z): ${undoStack[undoStack.length - 1].label}`}
+                  aria-label={`Скасувати останню дію (Ctrl+Z): ${undoStack[undoStack.length - 1].label}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sys-accent/35 bg-sys-accent/10 px-3 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/20 active:scale-[0.98] transition-colors whitespace-nowrap disabled:opacity-50"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 7v6h6" />
+                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+                  </svg>
+                  <span className="whitespace-nowrap">Скасувати</span>
+                  <span className="hidden xl:inline text-[10px] opacity-75">Ctrl+Z</span>
+                </button>
+              )}
+
               {isAdmin && (
                 <a
                   href={`/admin?resource=permanent-schedule${activeVersion ? `&version_id=${activeVersion.id}` : ""}`}
@@ -1236,11 +1450,8 @@ export function AdminScheduleEditor() {
                     );
                   }
 
-                  const dayLabel = new Intl.DateTimeFormat("uk-UA", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "short",
-                  }).format(new Date(`${currentDay.date}T12:00:00`));
+                  const dateObj = calendarDateIsoToUtcDate(currentDay.date);
+                  const dayLabel = `${UKR_WEEKDAY_LONG_FMT.format(dateObj)}, ${UKR_DAY_MONTH_SHORT_FMT.format(dateObj)}`;
 
                   return (
                     <m.div
@@ -1305,7 +1516,7 @@ export function AdminScheduleEditor() {
                         const hasSlotContent = slotLessons.length > 0;
                         const isBufferActive = Boolean(buffer);
                         const isSwapActive = Boolean(swapSource);
-                        const isPast = isSlotInPast(currentDay.date, slotNum);
+                        const isPast = isSlotInPast(currentDay.date, slotNum, Boolean(currentDay.is_shortened_day));
 
                         return (
                           <div key={slotNum} className="rounded-xl border border-sys-border bg-sys-card/40">
@@ -1512,12 +1723,7 @@ export function AdminScheduleEditor() {
           setToast={setToast}
           onEventsChanged={async () => {
             invalidateScheduleCache();
-            const refreshed = await api.week(
-              mode === "student" ? (groupId ?? undefined) : undefined,
-              mode === "teacher" ? (teacherId ?? undefined) : undefined,
-              weekAnchorDate
-            );
-            setWeek(refreshed);
+            await refreshCurrentWeek();
           }}
         />
       )}
@@ -1532,12 +1738,7 @@ export function AdminScheduleEditor() {
           setToast={setToast}
           onEventsChanged={async () => {
             invalidateScheduleCache();
-            const refreshed = await api.week(
-              mode === "student" ? (groupId ?? undefined) : undefined,
-              mode === "teacher" ? (teacherId ?? undefined) : undefined,
-              weekAnchorDate
-            );
-            setWeek(refreshed);
+            await refreshCurrentWeek();
           }}
         />
       )}
@@ -1580,6 +1781,20 @@ export function AdminScheduleEditor() {
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-2 pt-1">
+                {undoStack.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={undoing}
+                    onClick={() => {
+                      setMobileActionsOpen(false);
+                      void handleUndo();
+                    }}
+                    className="flex items-center gap-3 w-full rounded-xl border border-sys-accent/40 bg-sys-accent/15 p-3 text-left text-sm font-semibold text-sys-accent hover:bg-sys-accent/25 disabled:opacity-50"
+                  >
+                    <span className="text-base">↩</span>
+                    <span className="truncate">Скасувати: {undoStack[undoStack.length - 1].label}</span>
+                  </button>
+                )}
                 {isAdmin && (
                   <a
                     href={`/admin?resource=permanent-schedule${activeVersion ? `&version_id=${activeVersion.id}` : ""}`}

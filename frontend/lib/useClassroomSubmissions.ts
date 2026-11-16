@@ -8,11 +8,15 @@ import {
   MANUAL_DONE_STATE,
   PersonalSubmission,
   applyManualDoneOverlay,
+  consumePendingClassroomReturn,
   extractClassroomTaskKey,
+  filterStaleManualDoneKeys,
   isCompletedTaskState,
   isOwnTask,
+  markPendingClassroomReturn,
   parseManualDoneList,
   resolveManualTaskIdentities,
+  toggleManualDoneInStorage,
 } from "./classroomTaskFilter";
 import {
   CLASSROOM_LINKED_EVENT,
@@ -28,9 +32,11 @@ import {
 export type { PersonalSubmission, ClassroomUnlinkResult };
 export {
   MANUAL_DONE_STATE,
+  consumePendingClassroomReturn,
   extractClassroomTaskKey,
   isCompletedTaskState,
   isOwnTask,
+  markPendingClassroomReturn,
 };
 
 const LINKED_EMAIL_KEY = CLASSROOM_STORAGE_KEYS.LINKED_EMAIL;
@@ -80,27 +86,10 @@ export function setTaskManualDone(
   done: boolean
 ): boolean {
   if (typeof window === "undefined") return false;
-  const identities = resolveManualTaskIdentities(target);
-  if (identities.length === 0) return false;
-  try {
-    const existing = new Set(getManualDoneTaskKeys());
-    if (done) {
-      for (const k of identities) existing.add(k);
-    } else {
-      for (const k of identities) existing.delete(k);
-    }
-    const nextList = Array.from(existing);
-    if (nextList.length > 0) {
-      localStorage.setItem(MANUAL_DONE_TASKS_KEY, JSON.stringify(nextList));
-    } else {
-      localStorage.removeItem(MANUAL_DONE_TASKS_KEY);
-    }
-    notifyClassroomChange();
-    window.dispatchEvent(new Event(EVENT_NAME));
-    return true;
-  } catch {
-    return false;
-  }
+  const changed = toggleManualDoneInStorage(localStorage, target, done, MANUAL_DONE_TASKS_KEY);
+  if (!changed) return false;
+  notifyClassroomChange();
+  return true;
 }
 
 export function getPersonalSubmissions(): Record<string, PersonalSubmission> {
@@ -306,6 +295,17 @@ export function saveClassroomSyncData(
       localStorage.setItem(SUBMITTED_TASKS_KEY, nextTasksJson);
     }
 
+    const prevManualKeys = getManualDoneTaskKeys();
+    const nextManualKeys = filterStaleManualDoneKeys(prevManualKeys, tasks);
+    const manualPruned = nextManualKeys.length !== prevManualKeys.length;
+    if (manualPruned) {
+      if (nextManualKeys.length > 0) {
+        localStorage.setItem(MANUAL_DONE_TASKS_KEY, JSON.stringify(nextManualKeys));
+      } else {
+        localStorage.removeItem(MANUAL_DONE_TASKS_KEY);
+      }
+    }
+
     const teachersList = Array.from(extractedTeachers);
     if (teachersList.length > 0) {
       localStorage.setItem(PERSONAL_TEACHERS_KEY, JSON.stringify(teachersList));
@@ -336,7 +336,7 @@ export function saveClassroomSyncData(
       prevEmail !== nextEmail || prevGroupId !== nextGroupId || prevUid !== nextUid;
 
     // Сповіщаємо картки розкладу ТІЛЬКИ якщо реально змінилися здані роботи або акаунт!
-    if (tasksChanged || identityChanged) {
+    if (tasksChanged || identityChanged || manualPruned) {
       window.dispatchEvent(new Event(EVENT_NAME));
       if (identityChanged) {
         window.dispatchEvent(new Event("classroom-access-changed"));
@@ -470,85 +470,118 @@ export function useClassroomNeedsRelink(): boolean {
   return isLinked && needsRelink;
 }
 
-let _isSyncingPersonalSubmissions = false;
+let _inFlightPersonalSync: Promise<boolean> | null = null;
+
+function countNewlyServerCompletedTasks(
+  prevRawSubs: Record<string, PersonalSubmission>,
+  incomingTasks: ReadonlyArray<any> | undefined
+): number {
+  if (!Array.isArray(incomingTasks) || incomingTasks.length === 0) return 0;
+  let newlyCompleted = 0;
+  for (const t of incomingTasks) {
+    if (t?.state !== "TURNED_IN" && t?.state !== "RETURNED") continue;
+    const url = t.url || t.alternate_link;
+    if (!url) continue;
+    const key = extractClassroomTaskKey(url);
+    const prev = prevRawSubs[url] || (key ? prevRawSubs[key] : null);
+    if (!prev || (prev.state !== "TURNED_IN" && prev.state !== "RETURNED")) {
+      newlyCompleted++;
+    }
+  }
+  return newlyCompleted;
+}
 
 export async function syncPersonalSubmissions(groupId?: number | null): Promise<boolean> {
-  if (typeof window === "undefined" || _isSyncingPersonalSubmissions) return false;
+  if (typeof window === "undefined") return false;
+  if (_inFlightPersonalSync) return _inFlightPersonalSync;
   const email = getLinkedEmail();
   if (!email) return false;
 
   const { accessToken, googleUserId } = getClassroomSilentAuth();
   const gId = groupId ?? getLinkedGroupId();
 
-  _isSyncingPersonalSubmissions = true;
+  let prevRawSubs: Record<string, PersonalSubmission> = {};
   try {
-    const res = await api.classroom.userSubmissions({
-      group_id: gId ?? undefined,
-      google_user_id: googleUserId ?? undefined,
-      email: email !== "підключено" ? email : undefined,
-      access_token: accessToken ?? undefined,
-    });
+    const raw = localStorage.getItem(SUBMITTED_TASKS_KEY);
+    if (raw) prevRawSubs = JSON.parse(raw) as Record<string, PersonalSubmission>;
+  } catch {}
 
-    if ((res as any)?.needs_relink) {
-      setClassroomNeedsRelink(true, (res as any).reason_code || (res as any).error || null);
-    }
+  _inFlightPersonalSync = (async () => {
+    try {
+      const res = await api.classroom.userSubmissions({
+        group_id: gId ?? undefined,
+        google_user_id: googleUserId ?? undefined,
+        email: email !== "підключено" ? email : undefined,
+        access_token: accessToken ?? undefined,
+      });
 
-    if (res?.connected && res?.tasks) {
-      setClassroomNeedsRelink(false);
-      const personalTeachers = getPersonalTeachers();
-      const serverTeachers = [
-        ...(Array.isArray(res.synced_teacher_names) ? res.synced_teacher_names : []),
-        ...(Array.isArray(res.synced_teacher_tokens) ? res.synced_teacher_tokens : []),
-      ];
-      const resolvedTeachers = serverTeachers.length > 0 ? serverTeachers : personalTeachers;
-
-      const personalSubgroup = getPersonalSubgroup();
-      const serverSubgroups =
-        Array.isArray(res.synced_subgroups) && res.synced_subgroups.length > 0
-          ? res.synced_subgroups
-          : personalSubgroup
-            ? [personalSubgroup]
-            : null;
-
-      const existingLinkedGid = getLinkedGroupId();
-      const resolvedGroupId = res.group_id ?? existingLinkedGid ?? gId;
-      saveClassroomSyncData(
-        res.user_email || email,
-        res.tasks,
-        res.access_token ?? accessToken,
-        null,
-        res.google_user_id || googleUserId,
-        resolvedGroupId,
-        resolvedTeachers,
-        serverSubgroups
-      );
-
-      if (Array.isArray(res.tasks)) {
-        const targetGid = res.group_id || resolvedGroupId || gId || getLinkedGroupId();
-        try {
-          localStorage.setItem("schedule:classroom_tasks", JSON.stringify(res.tasks));
-          if (targetGid && res.last_synced_at) {
-            localStorage.setItem(`schedule:last_synced_at:${targetGid}`, String(res.last_synced_at));
-          }
-          window.dispatchEvent(
-            new CustomEvent("classroom-tasks-synced", {
-              detail: {
-                groupId: targetGid,
-                tasks: res.tasks,
-                replace: true,
-                lastSyncedAt: res.last_synced_at ?? null,
-              },
-            })
-          );
-        } catch {}
+      if ((res as any)?.needs_relink) {
+        setClassroomNeedsRelink(true, (res as any).reason_code || (res as any).error || null);
       }
 
-      return true;
+      if (res?.connected && res?.tasks) {
+        setClassroomNeedsRelink(false);
+        const personalTeachers = getPersonalTeachers();
+        const serverTeachers = [
+          ...(Array.isArray(res.synced_teacher_names) ? res.synced_teacher_names : []),
+          ...(Array.isArray(res.synced_teacher_tokens) ? res.synced_teacher_tokens : []),
+        ];
+        const resolvedTeachers = serverTeachers.length > 0 ? serverTeachers : personalTeachers;
+
+        const personalSubgroup = getPersonalSubgroup();
+        const serverSubgroups =
+          Array.isArray(res.synced_subgroups) && res.synced_subgroups.length > 0
+            ? res.synced_subgroups
+            : personalSubgroup
+              ? [personalSubgroup]
+              : null;
+
+        const existingLinkedGid = getLinkedGroupId();
+        const resolvedGroupId = res.group_id ?? existingLinkedGid ?? gId;
+        const newlyCompletedCount = countNewlyServerCompletedTasks(prevRawSubs, res.tasks);
+
+        saveClassroomSyncData(
+          res.user_email || email,
+          res.tasks,
+          res.access_token ?? accessToken,
+          null,
+          res.google_user_id || googleUserId,
+          resolvedGroupId,
+          resolvedTeachers,
+          serverSubgroups
+        );
+
+        if (Array.isArray(res.tasks)) {
+          const targetGid = res.group_id || resolvedGroupId || gId || getLinkedGroupId();
+          const effectiveSyncTime = (res as any).updated_at || res.last_synced_at || null;
+          try {
+            localStorage.setItem("schedule:classroom_tasks", JSON.stringify(res.tasks));
+            if (targetGid && effectiveSyncTime) {
+              localStorage.setItem(`schedule:last_synced_at:${targetGid}`, String(effectiveSyncTime));
+            }
+            window.dispatchEvent(
+              new CustomEvent("classroom-tasks-synced", {
+                detail: {
+                  groupId: targetGid,
+                  tasks: res.tasks,
+                  replace: true,
+                  lastSyncedAt: effectiveSyncTime,
+                  newlyCompletedCount,
+                },
+              })
+            );
+          } catch {}
+        }
+
+        return true;
+      }
+    } catch {
+      // ignore network errors silently
+    } finally {
+      _inFlightPersonalSync = null;
     }
-  } catch {
-    // ignore network errors silently
-  } finally {
-    _isSyncingPersonalSubmissions = false;
-  }
-  return false;
+    return false;
+  })();
+
+  return _inFlightPersonalSync;
 }

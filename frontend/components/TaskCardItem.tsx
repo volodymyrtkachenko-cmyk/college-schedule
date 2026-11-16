@@ -13,7 +13,7 @@ import {
   type TaskBrief,
 } from "../lib/schedule/priorityNavigator";
 import { formatTaskGradeDisplay } from "../lib/useGradesSummary";
-import { setTaskManualDone } from "../lib/useClassroomSubmissions";
+import { markPendingClassroomReturn, setTaskManualDone } from "../lib/useClassroomSubmissions";
 import { TaskChecklistSection } from "./TaskChecklistSection";
 import { useOptionalToast } from "./ToastProvider";
 import { CheckIcon } from "./ui/Icons";
@@ -128,6 +128,7 @@ export const TaskCardItem = memo(function TaskCardItem({
             href={t.url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={markPendingClassroomReturn}
             className="group block cursor-pointer"
           >
             <div className="flex items-start justify-between gap-2">
@@ -171,6 +172,7 @@ export const TaskCardItem = memo(function TaskCardItem({
         href={t.url}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={markPendingClassroomReturn}
         className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
         style={{
           boxShadow: borderAccentStyle,
@@ -214,6 +216,7 @@ export const TaskCardItem = memo(function TaskCardItem({
         href={t.url}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={markPendingClassroomReturn}
         className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
         style={{
           boxShadow: borderAccentStyle,
@@ -268,6 +271,7 @@ export const TaskCardItem = memo(function TaskCardItem({
         href={t.url}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={markPendingClassroomReturn}
         className="group block cursor-pointer"
       >
         <div className="flex items-start justify-between gap-2">

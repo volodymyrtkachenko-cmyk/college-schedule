@@ -10,6 +10,8 @@ import {
   ReferenceRecord,
 } from "../../lib/api";
 import { invalidateScheduleCache } from "../../lib/hooks";
+import { calendarDateIsoToUtcDate } from "../../lib/calendarDate";
+import { UKR_FULL_DATE_FMT } from "../../lib/date";
 import { SearchableSelect } from "../SearchableSelect";
 import { ConfirmModal } from "./ConfirmModal";
 import { useToast } from "../ToastProvider";
@@ -77,8 +79,7 @@ function blankPeriod(): PeriodDraft {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" })
-    .format(new Date(`${value}T12:00:00`));
+  return UKR_FULL_DATE_FMT.format(calendarDateIsoToUtcDate(value));
 }
 
 function periodState(period: SchedulePeriodRecord, today: string) {
@@ -551,14 +552,14 @@ export function SchedulePeriodsPanel() {
             <button
               type="button"
               onClick={() => setDraft(null)}
-              className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-white/5 active:scale-[0.98] transition-all"
+              className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-white/5 active:scale-[0.98] transition-colors"
             >
               Скасувати
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] disabled:opacity-50 transition-all"
+              className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] disabled:opacity-50 transition-[opacity,transform]"
             >
               {saving ? (
                 <>
@@ -672,7 +673,7 @@ export function SchedulePeriodsPanel() {
                   <button
                     type="button"
                     onClick={() => editPeriod(period)}
-                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] rounded-lg border border-sys-border bg-sys-card px-4 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent active:scale-[0.98] transition-all flex items-center justify-center"
+                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] rounded-lg border border-sys-border bg-sys-card px-4 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent active:scale-[0.98] transition-colors flex items-center justify-center"
                   >
                     Відкрити
                   </button>

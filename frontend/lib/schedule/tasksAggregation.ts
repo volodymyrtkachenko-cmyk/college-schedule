@@ -146,6 +146,7 @@ export function aggregateClassroomTasks(params: {
 
             const cleanSubj = normalizeSubjectName(l.subject_name || l.subject || "Дисципліна");
             tasks.push({
+              id: matchedTask?.id,
               title: t.title || "Завдання",
               subject: cleanSubj,
               teacher: t.teacher || l.teacher_name || l.teacher,

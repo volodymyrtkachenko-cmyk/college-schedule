@@ -109,7 +109,7 @@ export function ClassroomSyncButton({
     const now = Date.now();
     try {
       const lastAttempt = sessionStorage.getItem(throttleKey);
-      if (lastAttempt && now - Number(lastAttempt) < 5 * 60 * 1000) {
+      if (lastAttempt && now - Number(lastAttempt) < 45 * 1000) {
         await fetchGroupStatusAndSchedulePoll(currentGroupId, false, false);
         return;
       }

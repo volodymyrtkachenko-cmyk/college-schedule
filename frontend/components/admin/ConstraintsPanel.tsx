@@ -206,7 +206,7 @@ export function ConstraintsPanel() {
             <button
               type="button"
               onClick={clearAllTeacherConstraints}
-              className="h-10 px-3.5 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 active:scale-95 transition-all"
+              className="h-10 px-3.5 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 active:scale-95 transition-colors"
             >
               Очистити все
             </button>
@@ -238,7 +238,7 @@ export function ConstraintsPanel() {
                       type="button"
                       onClick={() => void toggleWholeDay(d.id)}
                       title={`Клікніть, щоб ${dayBlocked ? "розблокувати" : "заблокувати"} весь ${d.name}`}
-                      className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-xs transition-all active:scale-98 ${
+                      className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-xs transition-colors active:scale-98 ${
                         dayBlocked
                           ? "border-rose-500/40 bg-rose-500/15 text-rose-600 dark:text-rose-300 font-bold"
                           : "border-sys-border bg-sys-bg text-sys-text-primary hover:border-sys-accent/50 hover:bg-sys-bg/80"
@@ -275,7 +275,7 @@ export function ConstraintsPanel() {
                           type="button"
                           disabled={isToggling}
                           onClick={() => void toggleCell(d.id, lesson)}
-                          className={`relative flex flex-col items-center justify-center h-16 rounded-xl border p-2 transition-all active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-sys-accent ${
+                          className={`relative flex flex-col items-center justify-center h-16 rounded-xl border p-2 transition-colors active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-sys-accent ${
                             isHard
                               ? "border-rose-500/50 bg-rose-500/10 text-rose-600 dark:text-rose-300 shadow-inner hover:bg-rose-500/20"
                               : isSoft

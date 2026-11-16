@@ -41,7 +41,7 @@ import {
   resolveSubjectLessonDetails,
   type SubjectHubTarget,
 } from "../../lib/schedule";
-import { setTaskManualDone, useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
+import { markPendingClassroomReturn, setTaskManualDone, useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { formatTaskGradeDisplay, useGradesSummary, type GradeItem } from "../../lib/useGradesSummary";
 import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useUserSettings } from "../../lib/useUserSettings";
@@ -1019,6 +1019,7 @@ export function SubjectHubModal({
                       href={task.url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={markPendingClassroomReturn}
                       className="group min-w-0 flex-1 space-y-0.5 hover:opacity-90 transition-opacity"
                     >
                       <div className="flex items-baseline gap-1.5">
@@ -1371,6 +1372,7 @@ export function SubjectHubModal({
                                     href={task.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    onClick={markPendingClassroomReturn}
                                     className="group flex items-center justify-between gap-2.5 min-w-0 flex-1"
                                   >
                                     <span className="font-medium text-sys-text-primary break-words group-hover:text-sys-accent transition-colors min-w-0 flex-1">

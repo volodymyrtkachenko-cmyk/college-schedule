@@ -29,12 +29,105 @@ export function resolveManualTaskIdentities(target: {
 }): string[] {
   const keys = new Set<string>();
   const fromUrl = extractClassroomTaskKey(target.url);
-  if (fromUrl) keys.add(fromUrl);
+  if (fromUrl) {
+    keys.add(fromUrl);
+    const underscoreIdx = fromUrl.indexOf("_");
+    if (underscoreIdx > 0 && underscoreIdx < fromUrl.length - 1) {
+      keys.add(fromUrl.slice(underscoreIdx + 1));
+    }
+  }
   const cleanUrl = typeof target.url === "string" ? target.url.trim() : "";
   if (cleanUrl) keys.add(cleanUrl);
   const cleanId = typeof target.id === "string" ? target.id.trim() : "";
   if (cleanId) keys.add(cleanId);
   return Array.from(keys);
+}
+
+/**
+ * Removes manual-done keys once Google Classroom confirms TURNED_IN or RETURNED,
+ * preventing stale local flags if the user later unsubmits in Classroom.
+ */
+export function filterStaleManualDoneKeys(
+  manualKeys: readonly string[],
+  syncedTasks: ReadonlyArray<{ url?: string | null; alternate_link?: string | null; id?: string | null; state?: string | null }> | undefined
+): string[] {
+  if (!manualKeys || manualKeys.length === 0 || !Array.isArray(syncedTasks) || syncedTasks.length === 0) {
+    return Array.from(manualKeys || []);
+  }
+  const completedIdentities = new Set<string>();
+  for (const t of syncedTasks) {
+    if (t?.state !== "TURNED_IN" && t?.state !== "RETURNED") continue;
+    for (const identity of resolveManualTaskIdentities({ url: t.url || t.alternate_link, id: t.id })) {
+      completedIdentities.add(identity);
+    }
+  }
+  if (completedIdentities.size === 0) return Array.from(manualKeys);
+  return manualKeys.filter((k) => !completedIdentities.has(k));
+}
+
+export const CLASSROOM_RETURN_TS_KEY = "schedule:classroom_return_ts";
+export const MANUAL_DONE_STORAGE_KEY = "schedule:classroom_manual_done_tasks";
+
+export function markPendingClassroomReturn(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(CLASSROOM_RETURN_TS_KEY, String(Date.now()));
+  } catch {}
+}
+
+export function consumePendingClassroomReturn(
+  minElapsedMs = 2000,
+  maxAgeMs = 15 * 60 * 1000
+): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = sessionStorage.getItem(CLASSROOM_RETURN_TS_KEY);
+    if (!raw) return false;
+    const ts = Number(raw);
+    if (!Number.isFinite(ts) || ts <= 0) {
+      sessionStorage.removeItem(CLASSROOM_RETURN_TS_KEY);
+      return false;
+    }
+    const elapsed = Date.now() - ts;
+    if (elapsed > maxAgeMs) {
+      sessionStorage.removeItem(CLASSROOM_RETURN_TS_KEY);
+      return false;
+    }
+    if (elapsed < minElapsedMs) {
+      return false;
+    }
+    sessionStorage.removeItem(CLASSROOM_RETURN_TS_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function toggleManualDoneInStorage(
+  storage: Pick<Storage, "getItem" | "setItem" | "removeItem">,
+  target: { url?: string | null; id?: string | null },
+  done: boolean,
+  storageKey = MANUAL_DONE_STORAGE_KEY
+): boolean {
+  const identities = resolveManualTaskIdentities(target);
+  if (identities.length === 0) return false;
+  try {
+    const existing = new Set(parseManualDoneList(storage.getItem(storageKey)));
+    if (done) {
+      for (const k of identities) existing.add(k);
+    } else {
+      for (const k of identities) existing.delete(k);
+    }
+    const nextList = Array.from(existing);
+    if (nextList.length > 0) {
+      storage.setItem(storageKey, JSON.stringify(nextList));
+    } else {
+      storage.removeItem(storageKey);
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function parseManualDoneList(raw: string | null): string[] {

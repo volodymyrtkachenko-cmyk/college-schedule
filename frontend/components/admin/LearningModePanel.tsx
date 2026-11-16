@@ -321,7 +321,7 @@ export function LearningModePanel() {
                     return (
                       <li
                         key={`${override.start}-${override.end}-${index}`}
-                        className={`flex flex-wrap items-start justify-between gap-3 rounded-xl border p-3 text-sm transition-all ${
+                        className={`flex flex-wrap items-start justify-between gap-3 rounded-xl border p-3 text-sm transition-colors ${
                           isEditing
                             ? "border-sys-accent bg-sys-accent/10 ring-2 ring-sys-accent/40 shadow-xs"
                             : "border-sys-border bg-sys-bg/60 hover:border-sys-border/90"
