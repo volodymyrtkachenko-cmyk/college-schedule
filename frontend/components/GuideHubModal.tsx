@@ -434,25 +434,23 @@ export function GuideHubModal({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <div className="relative inline-grid grid-cols-2 rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs font-semibold isolate">
+              <div
+                style={{ "--seg-cols": 2, "--seg-index": role === "teacher" ? 1 : 0 } as React.CSSProperties}
+                className="ui-seg-lg relative inline-grid grid-cols-2 items-stretch rounded-lg border border-sys-border bg-sys-bg text-xs font-semibold isolate select-none"
+              >
                 {!desktopMotion && (
                   <div
                     aria-hidden="true"
-                    className="absolute top-0.5 bottom-0.5 pointer-events-none transition-transform duration-base ease-spring transform-gpu will-change-transform z-0"
-                    style={{
-                      left: "2px",
-                      width: "calc((100% - 4px) / 2)",
-                      transform: `translate3d(${role === "teacher" ? "100%" : "0%"}, 0, 0)`,
-                    }}
+                    className="ui-seg-slider pointer-events-none transition-transform duration-base ease-spring transform-gpu will-change-transform z-0"
                   >
-                    <div className="h-full w-full rounded-md bg-sys-accentSolid shadow-2xs" />
+                    <div className="ui-seg-pill h-full w-full bg-sys-accentSolid shadow-2xs" />
                   </div>
                 )}
                 <button
                   type="button"
                   aria-pressed={role === "student"}
                   onClick={() => handleRoleChange("student")}
-                  className={`relative z-10 px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 transition-colors cursor-pointer whitespace-nowrap ${
                     role === "student" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
@@ -461,7 +459,7 @@ export function GuideHubModal({
                       layoutId="guide-role-pill"
                       transition={{ type: "spring", stiffness: 460, damping: 32 }}
                       aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 rounded-md bg-sys-accentSolid shadow-2xs"
+                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-2xs"
                     />
                   )}
                   <span className="relative z-10">Студент</span>
@@ -470,7 +468,7 @@ export function GuideHubModal({
                   type="button"
                   aria-pressed={role === "teacher"}
                   onClick={() => handleRoleChange("teacher")}
-                  className={`relative z-10 px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 transition-colors cursor-pointer whitespace-nowrap ${
                     role === "teacher" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
@@ -479,7 +477,7 @@ export function GuideHubModal({
                       layoutId="guide-role-pill"
                       transition={{ type: "spring", stiffness: 460, damping: 32 }}
                       aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 rounded-md bg-sys-accentSolid shadow-2xs"
+                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-2xs"
                     />
                   )}
                   <span className="relative z-10">Викладач</span>
@@ -501,7 +499,7 @@ export function GuideHubModal({
             ref={tabListRef}
             role="tablist"
             aria-label="Розділи гіду"
-            className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-xl border border-sys-border bg-sys-bg p-1 text-[11px] font-semibold"
+            className="ui-seg-xl ui-seg-pad-4 ui-seg-gap-4 flex items-stretch overflow-x-auto no-scrollbar rounded-xl border border-sys-border bg-sys-bg text-[11px] font-semibold"
           >
             {steps.map((s, idx) => {
               const isCurrent = idx === safeIdx;
@@ -518,7 +516,7 @@ export function GuideHubModal({
                   aria-selected={isCurrent}
                   tabIndex={isCurrent ? 0 : -1}
                   onClick={() => goToStep(idx)}
-                  className={`shrink-0 flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg border transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+                  className={`ui-seg-pill shrink-0 flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 border transition-colors duration-200 cursor-pointer whitespace-nowrap ${
                     isCurrent
                       ? "bg-sys-card text-sys-accent font-bold border-sys-border border-b-2 border-b-sys-accent shadow-2xs"
                       : "border-transparent text-sys-text-secondary hover:text-sys-text-primary"

@@ -96,7 +96,7 @@ export function DesktopFocusDaySwitcher({
             </div>
           </div>
 
-          <div className="relative grid grid-cols-5 gap-2 isolate">
+          <div className="relative grid grid-cols-5 items-stretch gap-2 isolate">
             {!desktopMotion && weekDaysMini.length === 5 && (
               <div
                 aria-hidden="true"
@@ -118,8 +118,9 @@ export function DesktopFocusDaySwitcher({
                 <button
                   key={d.iso}
                   type="button"
+                  aria-pressed={isActive}
                   onClick={() => onSelectDayIndex(d.index)}
-                  className={`relative z-10 flex flex-col items-center justify-center h-15 rounded-xl transition-colors duration-150 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card ${
+                  className={`relative z-10 flex min-h-14 sm:min-h-16 flex-col items-center justify-center py-2 rounded-xl transition-colors duration-150 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card ${
                     isActive
                       ? "text-sys-onAccent font-black"
                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"

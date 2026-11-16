@@ -113,16 +113,13 @@ export function ContextSelectionModal({
               <div
                 role="tablist"
                 aria-label="Режим пошуку"
-                className="relative grid grid-cols-2 rounded-xl border border-sys-border bg-sys-bg p-1 flex-1 isolate select-none"
+                style={{ "--seg-cols": 2, "--seg-index": modalTab === "teacher" ? 1 : 0 } as React.CSSProperties}
+                className="ui-seg-xl ui-seg-pad-4 relative grid grid-cols-2 items-stretch rounded-xl border border-sys-border bg-sys-bg flex-1 isolate select-none"
               >
                 {!desktopMotion && (
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
-                    style={{
-                      width: "calc((100% - 8px) / 2)",
-                      transform: `translate3d(${modalTab === "teacher" ? "100%" : "0%"}, 0, 0)`,
-                    }}
+                    className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
                   />
                 )}
                 <button
@@ -130,7 +127,7 @@ export function ContextSelectionModal({
                   role="tab"
                   aria-selected={modalTab === "student"}
                   onClick={() => handleTabSwitch("student")}
-                  className={`relative z-10 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                  className={`ui-seg-pill relative z-10 flex min-h-9 items-center justify-center px-2 text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                     modalTab === "student" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
@@ -139,17 +136,17 @@ export function ContextSelectionModal({
                       layoutId="context-modal-tab-pill"
                       transition={{ type: "spring", stiffness: 460, damping: 32 }}
                       aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs"
+                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
                     />
                   )}
-                  <span className="relative z-10">Групи ({groups.length})</span>
+                  <span className="relative z-10 truncate">Групи ({groups.length})</span>
                 </button>
                 <button
                   type="button"
                   role="tab"
                   aria-selected={modalTab === "teacher"}
                   onClick={() => handleTabSwitch("teacher")}
-                  className={`relative z-10 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                  className={`ui-seg-pill relative z-10 flex min-h-9 items-center justify-center px-2 text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                     modalTab === "teacher" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
@@ -158,10 +155,10 @@ export function ContextSelectionModal({
                       layoutId="context-modal-tab-pill"
                       transition={{ type: "spring", stiffness: 460, damping: 32 }}
                       aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs"
+                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
                     />
                   )}
-                  <span className="relative z-10">Викладачі ({teachers.length})</span>
+                  <span className="relative z-10 truncate">Викладачі ({teachers.length})</span>
                 </button>
               </div>
               <button

@@ -424,7 +424,7 @@ export function EducationalProcessClient() {
       <main
         id="main-content"
         tabIndex={-1}
-        className="vt-main-content focus:outline-none mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-5 pb-bottom-nav-safe lg:pb-8 space-y-5"
+        className="vt-main-content focus:outline-none mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-5 pb-bottom-nav-safe lg:pb-8 space-y-5"
       >
         <section
           aria-label="Вибір курсу та групи"
@@ -435,7 +435,7 @@ export function EducationalProcessClient() {
             <div
               role="tablist"
               aria-label="Курс"
-              className="flex items-center gap-1 bg-sys-bg p-1 rounded-xl border border-sys-border/70 overflow-x-auto"
+              className="ui-seg-xl ui-seg-pad-4 ui-seg-gap-4 flex items-stretch bg-sys-bg rounded-xl border border-sys-border/70 overflow-x-auto"
             >
               {availableCourses.map((courseNum) => {
                 const isActive = activeCourseTab === courseNum;
@@ -446,7 +446,7 @@ export function EducationalProcessClient() {
                     role="tab"
                     aria-selected={isActive}
                     onClick={() => handleSelectCourse(courseNum)}
-                    className={`spring-press px-3 py-1.5 rounded-lg text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
+                    className={`ui-seg-pill spring-press px-3 py-1.5 text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
                       isActive
                         ? "bg-sys-accentSolid text-sys-onAccent shadow-xs"
                         : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
@@ -461,7 +461,7 @@ export function EducationalProcessClient() {
                 role="tab"
                 aria-selected={activeCourseTab === "all"}
                 onClick={() => handleSelectCourse("all")}
-                className={`spring-press px-2.5 py-1.5 rounded-lg text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
+                className={`ui-seg-pill spring-press px-2.5 py-1.5 text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
                   activeCourseTab === "all"
                     ? "bg-sys-accentSolid text-sys-onAccent shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"

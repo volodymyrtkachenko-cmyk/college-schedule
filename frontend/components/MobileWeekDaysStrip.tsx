@@ -56,7 +56,7 @@ export function MobileWeekDaysStrip({
     <div
       role="tablist"
       aria-label="Дні тижня"
-      className="relative z-10 flex h-11 w-full border-b border-sys-border/60 bg-sys-card select-none"
+      className="relative z-10 flex min-h-[44px] w-full items-stretch border-b border-sys-border/60 bg-sys-card select-none"
     >
       {/* Sliding indicator line at bottom */}
       <div
@@ -80,7 +80,7 @@ export function MobileWeekDaysStrip({
             tabIndex={isSelected ? 0 : -1}
             onClick={() => onSelectDay(day.offset)}
             onKeyDown={(e) => handleKeyDown(e, day.offset)}
-            className={`relative flex h-full w-1/5 flex-col items-center justify-center py-1 transition-colors duration-150 active:scale-[0.96] motion-reduce:transition-none focus:outline-none ${
+            className={`relative flex min-h-[44px] w-1/5 flex-col items-center justify-center py-1 transition-colors duration-150 active:scale-[0.96] motion-reduce:transition-none focus:outline-none ${
               isSelected
                 ? "text-sys-text-primary font-bold"
                 : "text-sys-text-secondary hover:text-sys-text-primary"

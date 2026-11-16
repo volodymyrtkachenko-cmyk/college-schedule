@@ -351,21 +351,23 @@ export default function SettingsPage() {
             <div
               role="group"
               aria-label="Початковий вигляд"
-              className="relative grid grid-cols-2 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs isolate select-none"
+              style={
+                {
+                  "--seg-cols": 2,
+                  "--seg-index": settings.defaultViewDesktop === "week" ? 1 : 0,
+                } as React.CSSProperties
+              }
+              className="ui-seg-xl ui-seg-pad-4 relative grid grid-cols-2 items-stretch rounded-xl border border-sys-border bg-sys-bg text-xs isolate select-none"
             >
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu"
-                style={{
-                  width: "calc((100% - 8px) / 2)",
-                  transform: `translate3d(${settings.defaultViewDesktop === "week" ? "100%" : "0%"}, 0, 0)`,
-                }}
+                className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu"
               />
               <button
                 type="button"
                 aria-pressed={settings.defaultViewDesktop === "today"}
                 onClick={() => updateSetting("defaultViewDesktop", "today")}
-                className={`relative z-10 py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+                className={`ui-seg-pill relative z-10 flex min-h-[36px] items-center justify-center py-1.5 px-2 font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
                   settings.defaultViewDesktop === "today"
                     ? "text-white font-bold"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -377,7 +379,7 @@ export default function SettingsPage() {
                 type="button"
                 aria-pressed={settings.defaultViewDesktop === "week"}
                 onClick={() => updateSetting("defaultViewDesktop", "week")}
-                className={`relative z-10 py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+                className={`ui-seg-pill relative z-10 flex min-h-[36px] items-center justify-center py-1.5 px-2 font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
                   settings.defaultViewDesktop === "week"
                     ? "text-white font-bold"
                     : "text-sys-text-secondary hover:text-sys-text-primary"

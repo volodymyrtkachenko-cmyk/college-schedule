@@ -1404,7 +1404,16 @@ export function GeneratorPanel() {
         )}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div role="tablist" aria-label="Тип тижня" className="flex w-full rounded-xl border border-sys-border bg-sys-card p-1 sm:w-fit">
+          <div
+            role="tablist"
+            aria-label="Тип тижня"
+            style={{ "--seg-cols": 2, "--seg-index": activeWeek === "denominator" ? 1 : 0 } as React.CSSProperties}
+            className="ui-seg-xl ui-seg-pad-4 relative grid grid-cols-2 sm:inline-grid items-stretch w-full sm:w-fit rounded-xl border border-sys-border bg-sys-card isolate select-none"
+          >
+            <div
+              aria-hidden="true"
+              className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+            />
             {(["numerator", "denominator"] as const).map((week) => (
               <button
                 key={week}
@@ -1414,15 +1423,24 @@ export function GeneratorPanel() {
                   setActiveWeek(week);
                   setSelectedSlotId(null);
                 }}
-                className={`flex-1 rounded-lg px-5 py-2 text-sm font-semibold transition-colors sm:flex-none ${
-                  activeWeek === week ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                className={`ui-seg-pill relative z-10 flex items-center justify-center px-5 py-2 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                  activeWeek === week ? "text-sys-onAccent" : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
                 {week === "numerator" ? "Чисельник" : "Знаменник"}
               </button>
             ))}
           </div>
-          <div role="tablist" aria-label="Показати розклад" className="flex w-full rounded-xl border border-sys-border bg-sys-card p-1 sm:w-fit">
+          <div
+            role="tablist"
+            aria-label="Показати розклад"
+            style={{ "--seg-cols": 2, "--seg-index": filterMode === "teacher" ? 1 : 0 } as React.CSSProperties}
+            className="ui-seg-xl ui-seg-pad-4 relative grid grid-cols-2 sm:inline-grid items-stretch w-full sm:w-fit rounded-xl border border-sys-border bg-sys-card isolate select-none"
+          >
+            <div
+              aria-hidden="true"
+              className="ui-seg-slider pointer-events-none bg-slate-200 dark:bg-white/10 transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+            />
             {(["group", "teacher"] as const).map((mode) => (
               <button
                 key={mode}
@@ -1432,8 +1450,8 @@ export function GeneratorPanel() {
                   setFilterMode(mode);
                   setSelectedSlotId(null);
                 }}
-                className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
-                  filterMode === mode ? "bg-slate-200 dark:bg-white/10 text-sys-text-primary" : "text-sys-text-secondary hover:text-sys-text-primary"
+                className={`ui-seg-pill relative z-10 flex items-center justify-center px-4 py-2 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                  filterMode === mode ? "text-sys-text-primary" : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
                 {mode === "group" ? "За групами" : "За викладачами"}

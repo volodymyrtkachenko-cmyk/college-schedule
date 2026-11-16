@@ -150,11 +150,11 @@ export function BottomNav() {
             className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
             style={{
               left: "8px",
-              width: `calc((100% - 16px) / ${totalTabs})`,
-              transform: `translate3d(calc(${tabIndex} * 100%), 0, 0)`,
+              width: `calc((100% - 16px - ${(totalTabs - 1) * 4}px) / ${totalTabs})`,
+              transform: `translate3d(calc(${tabIndex} * (100% + 4px)), 0, 0)`,
             }}
           >
-            <div className="mx-1 h-full rounded-xl bg-sys-accent/15 shadow-xs" />
+            <div className="h-full w-full rounded-xl bg-sys-accent/15 shadow-xs" />
           </div>
         )}
 

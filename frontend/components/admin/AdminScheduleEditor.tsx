@@ -904,10 +904,18 @@ export function AdminScheduleEditor() {
         {/* Desktop Filter Panel (>=640px) */}
         <div className="hidden sm:flex flex-row flex-wrap items-center gap-2.5 w-full lg:w-auto">
           {teachers.length > 0 && (
-          <div role="tablist" aria-label="Режим перегляду" className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
-            <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accentSolid rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: mode === 'student' ? '4px' : '50%' }}></div>
-            <button role="tab" aria-selected={mode === 'student'} type="button" onClick={() => startTransition(() => toggleMode('student'))} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${mode === 'student' ? 'text-sys-onAccent font-semibold' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Група</button>
-            <button role="tab" aria-selected={mode === 'teacher'} type="button" onClick={() => startTransition(() => toggleMode('teacher'))} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${mode === 'teacher' ? 'text-sys-onAccent font-semibold' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Викладач</button>
+          <div
+            role="tablist"
+            aria-label="Режим перегляду"
+            style={{ "--seg-cols": 2, "--seg-index": mode === "teacher" ? 1 : 0 } as React.CSSProperties}
+            className="ui-seg-lg ui-seg-pad-4 grid grid-cols-2 items-stretch w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card text-sm relative isolate select-none"
+          >
+            <div
+              aria-hidden="true"
+              className="ui-seg-slider bg-sys-accentSolid shadow-sm transition-transform duration-base ease-spring transform-gpu z-0"
+            />
+            <button role="tab" aria-selected={mode === 'student'} type="button" onClick={() => startTransition(() => toggleMode('student'))} className={`ui-seg-pill relative z-10 flex items-center justify-center sm:min-w-28 text-center px-3 py-2 sm:py-1.5 transition-colors cursor-pointer whitespace-nowrap ${mode === 'student' ? 'text-sys-onAccent font-semibold' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Група</button>
+            <button role="tab" aria-selected={mode === 'teacher'} type="button" onClick={() => startTransition(() => toggleMode('teacher'))} className={`ui-seg-pill relative z-10 flex items-center justify-center sm:min-w-28 text-center px-3 py-2 sm:py-1.5 transition-colors cursor-pointer whitespace-nowrap ${mode === 'teacher' ? 'text-sys-onAccent font-semibold' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Викладач</button>
           </div>
           )}
           {mode === 'student' && groups.length > 0 && (

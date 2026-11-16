@@ -279,24 +279,27 @@ export function StatisticsClient() {
             <div
               role="group"
               aria-label="Режим перегляду статистики"
-              className="inline-flex relative rounded-full bg-sys-elevated p-1 shadow-inner border border-sys-border"
+              style={
+                {
+                  "--seg-cols": teachers.length > 0 ? 2 : 1,
+                  "--seg-index": mode === "teacher" ? 1 : 0,
+                } as React.CSSProperties
+              }
+              className={`ui-seg-full inline-grid items-stretch ${
+                teachers.length > 0 ? "grid-cols-2" : "grid-cols-1"
+              } relative bg-sys-elevated shadow-inner border border-sys-border isolate select-none`}
             >
               {teachers.length > 0 && (
                 <div
-                  className="pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-sys-accentSolid rounded-full transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0 shadow-sm"
-                  style={{
-                    transform:
-                      mode === "student"
-                        ? "translate3d(0, 0, 0)"
-                        : "translate3d(100%, 0, 0)",
-                  }}
+                  aria-hidden="true"
+                  className="ui-seg-slider pointer-events-none bg-sys-accentSolid transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0 shadow-sm"
                 />
               )}
               <button
                 type="button"
                 aria-pressed={mode === "student"}
                 onClick={() => changeMode("student")}
-                className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-colors ${
+                className={`ui-seg-pill relative z-10 flex items-center justify-center min-w-[7rem] sm:min-w-[8rem] px-4 sm:px-6 py-2 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                   mode === "student"
                     ? teachers.length === 0
                       ? "bg-sys-accent text-white"
@@ -311,7 +314,7 @@ export function StatisticsClient() {
                   type="button"
                   aria-pressed={mode === "teacher"}
                   onClick={() => changeMode("teacher")}
-                  className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-colors ${
+                  className={`ui-seg-pill relative z-10 flex items-center justify-center min-w-[7rem] sm:min-w-[8rem] px-4 sm:px-6 py-2 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                     mode === "teacher"
                       ? "text-sys-onAccent"
                       : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -647,14 +650,25 @@ export function StatisticsClient() {
                   <div
                     role="group"
                     aria-label="Групування статистики викладача"
-                    className="inline-flex rounded-xl bg-sys-elevated p-1 border border-sys-border text-xs font-medium self-start sm:self-auto"
+                    style={
+                      {
+                        "--seg-cols": 2,
+                        "--seg-index": teacherView === "groups" ? 1 : 0,
+                      } as React.CSSProperties
+                    }
+                    className="ui-seg-xl ui-seg-pad-4 relative grid grid-cols-2 sm:inline-grid items-stretch rounded-xl bg-sys-elevated border border-sys-border text-xs font-medium self-stretch sm:self-auto isolate select-none"
                   >
+                    <div
+                      aria-hidden="true"
+                      className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-sm transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+                    />
                     <button
                       type="button"
+                      aria-pressed={teacherView === "subjects"}
                       onClick={() => setTeacherView("subjects")}
-                      className={`rounded-lg px-3.5 py-1.5 transition-colors ${
+                      className={`ui-seg-pill relative z-10 flex items-center justify-center px-3 py-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                         teacherView === "subjects"
-                          ? "bg-sys-accentSolid text-sys-onAccent font-semibold shadow-sm"
+                          ? "text-sys-onAccent font-semibold"
                           : "text-sys-text-secondary hover:text-sys-text-primary"
                       }`}
                     >
@@ -662,10 +676,11 @@ export function StatisticsClient() {
                     </button>
                     <button
                       type="button"
+                      aria-pressed={teacherView === "groups"}
                       onClick={() => setTeacherView("groups")}
-                      className={`rounded-lg px-3.5 py-1.5 transition-colors ${
+                      className={`ui-seg-pill relative z-10 flex items-center justify-center px-3 py-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                         teacherView === "groups"
-                          ? "bg-sys-accentSolid text-sys-onAccent font-semibold shadow-sm"
+                          ? "text-sys-onAccent font-semibold"
                           : "text-sys-text-secondary hover:text-sys-text-primary"
                       }`}
                     >

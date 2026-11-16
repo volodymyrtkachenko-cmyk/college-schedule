@@ -1101,7 +1101,14 @@ function AtlasDirectoryBrowserCard({
       </div>
 
       {/* Category Switcher (Groups vs Teachers) */}
-      <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1">
+      <div
+        style={{ "--seg-cols": 2, "--seg-index": activeKind === "teacher" ? 1 : 0 } as React.CSSProperties}
+        className="ui-seg-xl ui-seg-pad-4 ui-seg-gap-6 relative grid grid-cols-2 items-stretch rounded-xl border border-sys-border bg-sys-bg isolate select-none"
+      >
+        <div
+          aria-hidden="true"
+          className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+        />
         <button
           type="button"
           aria-pressed={activeKind === "group"}
@@ -1109,9 +1116,9 @@ function AtlasDirectoryBrowserCard({
             setActiveKind("group");
             setSortBy("course");
           }}
-          className={`min-h-[34px] inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+          className={`ui-seg-pill relative z-10 min-h-[34px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
             activeKind === "group"
-              ? "bg-sys-accent text-white shadow-xs"
+              ? "text-sys-onAccent font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
@@ -1125,9 +1132,9 @@ function AtlasDirectoryBrowserCard({
             setActiveKind("teacher");
             if (sortBy === "course") setSortBy("alpha");
           }}
-          className={`min-h-[34px] inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+          className={`ui-seg-pill relative z-10 min-h-[34px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
             activeKind === "teacher"
-              ? "bg-sys-accent text-white shadow-xs"
+              ? "text-sys-onAccent font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
@@ -1926,7 +1933,7 @@ export function AtlasClient() {
       <main
         id="main-content"
         tabIndex={-1}
-        className="vt-main-content flex-1 w-full max-w-[1600px] mx-auto px-3 sm:px-6 pt-3 sm:pt-4 pb-bottom-nav-safe lg:pb-12 space-y-3 sm:space-y-4 focus:outline-none"
+        className="vt-main-content flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 pt-3 sm:pt-4 pb-bottom-nav-safe lg:pb-12 space-y-3 sm:space-y-4 focus:outline-none"
       >
         <div className="sr-only" aria-live="polite" aria-atomic="true">
           {liveAnnouncement}
@@ -2141,16 +2148,21 @@ export function AtlasClient() {
               <div
                 role="tablist"
                 aria-label="Перемикач між орбітою та списком зв'язків"
-                className="grid grid-cols-2 lg:hidden gap-1 rounded-xl border border-sys-border bg-sys-bg p-1"
+                style={{ "--seg-cols": 2, "--seg-index": mobileTab === "list" ? 1 : 0 } as React.CSSProperties}
+                className="ui-seg-xl ui-seg-pad-4 ui-seg-gap-4 relative grid grid-cols-2 lg:hidden items-stretch rounded-xl border border-sys-border bg-sys-bg isolate select-none"
               >
+                <div
+                  aria-hidden="true"
+                  className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+                />
                 <button
                   type="button"
                   role="tab"
                   aria-selected={mobileTab === "map"}
                   onClick={() => setMobileTab("map")}
-                  className={`spring-press min-h-[36px] inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                  className={`ui-seg-pill spring-press relative z-10 min-h-[36px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                     mobileTab === "map"
-                      ? "bg-sys-accent text-white shadow-xs"
+                      ? "text-sys-onAccent font-bold"
                       : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
@@ -2162,9 +2174,9 @@ export function AtlasClient() {
                   role="tab"
                   aria-selected={mobileTab === "list"}
                   onClick={() => setMobileTab("list")}
-                  className={`spring-press min-h-[36px] inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                  className={`ui-seg-pill spring-press relative z-10 min-h-[36px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                     mobileTab === "list"
-                      ? "bg-sys-accent text-white shadow-xs"
+                      ? "text-sys-onAccent font-bold"
                       : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >

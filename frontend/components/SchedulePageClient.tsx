@@ -507,7 +507,7 @@ export function SchedulePageClient({
 
           {/* Desktop Main Content (>= 1024px) */}
           {showDesktop && (
-            <div className="hidden lg:block mx-auto max-w-[1600px] px-[27px] py-6">
+            <div className="hidden lg:block mx-auto max-w-[1600px] px-4 lg:px-6 py-6">
               <ClassroomRelinkBanner />
               {sel.returnTarget && (
                 <div className="mb-4 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-sm">

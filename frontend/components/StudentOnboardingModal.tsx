@@ -186,7 +186,7 @@ export function StudentOnboardingModal({
           </div>
 
           <div
-            className="grid gap-1 rounded-xl border border-sys-border bg-sys-bg p-1 text-[11px] font-semibold"
+            className="ui-seg-xl ui-seg-pad-4 ui-seg-gap-4 grid items-stretch rounded-xl border border-sys-border bg-sys-bg text-[11px] font-semibold"
             style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
           >
             {steps.map((s, idx) => {
@@ -197,7 +197,7 @@ export function StudentOnboardingModal({
                   key={s.id}
                   type="button"
                   onClick={() => goToStep(idx)}
-                  className={`py-1.5 px-2 rounded-lg transition-colors duration-200 cursor-pointer truncate inline-flex items-center justify-center gap-1 ${
+                  className={`ui-seg-pill py-1.5 px-2 transition-colors duration-200 cursor-pointer truncate inline-flex items-center justify-center gap-1 ${
                     isCurrent
                       ? "bg-sys-card text-sys-accent font-bold border border-sys-border shadow-2xs"
                       : isDone

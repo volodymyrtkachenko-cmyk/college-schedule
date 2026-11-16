@@ -157,21 +157,22 @@ export function TasksTodoBoard({
       <div
         role="tablist"
         aria-label="Категорії завдань"
-        className={`relative grid ${
+        style={
+          {
+            "--seg-cols": totalStatusTabs,
+            "--seg-index": activeStatusIndex,
+          } as React.CSSProperties
+        }
+        className={`ui-seg-xl ui-seg-pad-4 relative grid items-stretch ${
           isLinked ? "grid-cols-3" : "grid-cols-2"
-        } rounded-xl border border-sys-border bg-sys-bg p-1 text-xs font-semibold shadow-2xs select-none isolate`}
+        } rounded-xl border border-sys-border bg-sys-bg text-xs font-semibold shadow-2xs select-none isolate`}
       >
         {!desktopMotion && (
           <div
             aria-hidden="true"
-            className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
-            style={{
-              left: "4px",
-              width: `calc((100% - 8px) / ${totalStatusTabs})`,
-              transform: `translate3d(calc(${activeStatusIndex} * 100%), 0, 0)`,
-            }}
+            className="ui-seg-slider pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
           >
-            <div className={`h-full w-full rounded-lg shadow-xs transition-colors duration-150 ${pillBgColor}`} />
+            <div className={`ui-seg-pill h-full w-full shadow-xs transition-colors duration-150 ${pillBgColor}`} />
           </div>
         )}
 
@@ -180,7 +181,7 @@ export function TasksTodoBoard({
           role="tab"
           aria-selected={activeTab === "pending"}
           onClick={() => setActiveTab("pending")}
-          className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1.5 sm:px-2 text-[11px] sm:text-xs rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
+          className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 sm:px-2 text-[11px] sm:text-xs transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             activeTab === "pending"
               ? "text-white font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -191,10 +192,10 @@ export function TasksTodoBoard({
               layoutId={`${layoutPrefix}-status-pill`}
               transition={{ type: "spring", stiffness: 460, damping: 32 }}
               aria-hidden="true"
-              className={`pointer-events-none absolute inset-0 rounded-lg shadow-xs transition-colors duration-150 ${pillBgColor}`}
+              className={`ui-seg-pill pointer-events-none absolute inset-0 shadow-xs transition-colors duration-150 ${pillBgColor}`}
             />
           )}
-          <span className="relative z-10 whitespace-nowrap">До здачі</span>
+          <span className="relative z-10 truncate">До здачі</span>
           <span
             className={`relative z-10 inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
               activeTab === "pending"
@@ -211,7 +212,7 @@ export function TasksTodoBoard({
           role="tab"
           aria-selected={activeTab === "overdue"}
           onClick={() => setActiveTab("overdue")}
-          className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1.5 sm:px-2 text-[11px] sm:text-xs rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
+          className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 sm:px-2 text-[11px] sm:text-xs transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             activeTab === "overdue"
               ? "text-white font-bold"
               : overdueTotalCount > 0 && isLinked
@@ -224,10 +225,10 @@ export function TasksTodoBoard({
               layoutId={`${layoutPrefix}-status-pill`}
               transition={{ type: "spring", stiffness: 460, damping: 32 }}
               aria-hidden="true"
-              className={`pointer-events-none absolute inset-0 rounded-lg shadow-xs transition-colors duration-150 ${pillBgColor}`}
+              className={`ui-seg-pill pointer-events-none absolute inset-0 shadow-xs transition-colors duration-150 ${pillBgColor}`}
             />
           )}
-          <span className="relative z-10 whitespace-nowrap">{isLinked ? "Борги" : "Минув час"}</span>
+          <span className="relative z-10 truncate">{isLinked ? "Борги" : "Минув час"}</span>
           <span
             className={`relative z-10 inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
               activeTab === "overdue"
@@ -247,7 +248,7 @@ export function TasksTodoBoard({
             role="tab"
             aria-selected={activeTab === "done"}
             onClick={() => setActiveTab("done")}
-            className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1.5 sm:px-2 text-[11px] sm:text-xs rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
+            className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 sm:px-2 text-[11px] sm:text-xs transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
               activeTab === "done"
                 ? "text-white font-bold"
                 : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -258,10 +259,10 @@ export function TasksTodoBoard({
                 layoutId={`${layoutPrefix}-status-pill`}
                 transition={{ type: "spring", stiffness: 460, damping: 32 }}
                 aria-hidden="true"
-                className={`pointer-events-none absolute inset-0 rounded-lg shadow-xs transition-colors duration-150 ${pillBgColor}`}
+                className={`ui-seg-pill pointer-events-none absolute inset-0 shadow-xs transition-colors duration-150 ${pillBgColor}`}
               />
             )}
-            <span className="relative z-10 whitespace-nowrap">Здано</span>
+            <span className="relative z-10 truncate">Здано</span>
             <span
               className={`relative z-10 inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
                 activeTab === "done"
@@ -771,31 +772,32 @@ export function MobileTasksView({
       </div>
 
       {/* Top Switcher: [ 📋 Завдання | 📊 Оцінки ] — Pure GPU translate3d slider */}
-      <div className="relative mb-4 grid grid-cols-2 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs select-none isolate">
+      <div
+        style={
+          {
+            "--seg-cols": 2,
+            "--seg-index": viewMode === "grades" ? 1 : 0,
+          } as React.CSSProperties
+        }
+        className="ui-seg-xl ui-seg-pad-4 relative mb-4 grid grid-cols-2 items-stretch rounded-xl border border-sys-border bg-sys-card text-xs font-semibold shadow-xs select-none isolate"
+      >
         <div
           aria-hidden="true"
-          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
-          style={{
-            left: "4px",
-            width: "calc((100% - 8px) / 2)",
-            transform: `translate3d(${viewMode === "grades" ? "100%" : "0%"}, 0, 0)`,
-          }}
-        >
-          <div className="h-full w-full rounded-lg bg-sys-accentSolid shadow-xs" />
-        </div>
+          className="ui-seg-slider pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0 bg-sys-accentSolid shadow-xs"
+        />
 
         <button
           type="button"
           aria-pressed={viewMode === "tasks"}
           onClick={() => handleSelectSubtab("tasks")}
-          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
+          className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1.5 py-2 px-2 sm:px-3 transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             viewMode === "tasks"
               ? "text-sys-onAccent font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
           <ClipboardListIcon className="h-3.5 w-3.5 shrink-0" />
-          <span>Завдання{hasAccess && badgeCount > 0 ? ` (${badgeCount})` : ""}</span>
+          <span className="truncate">Завдання{hasAccess && badgeCount > 0 ? ` (${badgeCount})` : ""}</span>
         </button>
         <button
           type="button"
@@ -803,14 +805,14 @@ export function MobileTasksView({
           onPointerEnter={preloadGradesChunk}
           onFocus={preloadGradesChunk}
           onClick={() => handleSelectSubtab("grades")}
-          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
+          className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1.5 py-2 px-2 sm:px-3 transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             viewMode === "grades"
               ? "text-sys-onAccent font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
           <BarChartIcon className="h-3.5 w-3.5 shrink-0" />
-          <span>Оцінки</span>
+          <span className="truncate">Оцінки</span>
         </button>
       </div>
 

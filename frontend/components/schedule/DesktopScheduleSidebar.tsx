@@ -138,12 +138,12 @@ export function DesktopScheduleSidebar({
       aria-hidden={!visible}
       className="desktop-sidebar-shell hidden lg:block shrink-0"
     >
-      <div className="w-[360px] flex flex-col gap-6 sticky top-[72px]">
+      <div className="w-full min-w-0 flex flex-col gap-6 sticky top-[72px]">
         {/* Week & Navigator Card */}
         <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
-          <div className="pb-3.5 border-b border-sys-border/50 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-muted">
+          <div className="pb-3.5 border-b border-sys-border/50 flex items-center justify-between gap-2 min-w-0">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-bold uppercase tracking-wider text-sys-text-muted min-w-0">
                 <span>{currentWeekNumber ? `${currentWeekNumber} ТИЖДЕНЬ` : "РОЗКЛАД"}</span>
                 {weekType !== "both" && (
                   <>
@@ -161,7 +161,7 @@ export function DesktopScheduleSidebar({
                   </>
                 )}
               </div>
-              <h2 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-1 leading-snug">
+              <h2 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-1 leading-snug break-words">
                 {weekRange}
               </h2>
             </div>
@@ -183,7 +183,7 @@ export function DesktopScheduleSidebar({
 
           {/* 5-Day Quick Switcher — Framer layoutId pill on desktop or pure GPU translate3d */}
           <div className="mt-4">
-            <div className="relative grid grid-cols-5 gap-2 isolate">
+            <div className="relative grid grid-cols-5 items-stretch gap-2 isolate">
               {!desktopMotion && weekDaysMini.length === 5 && (
                 <div
                   aria-hidden="true"
@@ -208,7 +208,7 @@ export function DesktopScheduleSidebar({
                     type="button"
                     aria-pressed={isActive}
                     onClick={() => onSelectDayIndex(d.index)}
-                    className={`relative z-10 flex flex-col items-center justify-center h-16 rounded-xl transition-colors duration-150 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card ${
+                    className={`relative z-10 flex flex-col items-center justify-center min-h-16 rounded-xl transition-colors duration-150 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card ${
                       isActive
                         ? "text-sys-onAccent font-black"
                         : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
@@ -257,20 +257,22 @@ export function DesktopScheduleSidebar({
               <div
                 role="group"
                 aria-label="Розділ Classroom"
-                className="relative grid grid-cols-2 items-center rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs isolate"
+                style={
+                  {
+                    "--seg-cols": 2,
+                    "--seg-index": desktopSidebarTab === "grades" ? 1 : 0,
+                  } as React.CSSProperties
+                }
+                className="ui-seg-lg relative grid min-h-[30px] grid-cols-2 items-stretch rounded-lg border border-sys-border bg-sys-bg text-xs shadow-xs isolate select-none shrink-0"
               >
                 {!desktopMotion && (
                   <div
                     aria-hidden="true"
-                    className={`pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 z-0 rounded-md bg-sys-accentSolid shadow-xs transform-gpu ${
+                    className={`ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transform-gpu ${
                       shouldReduceMotion
                         ? ""
                         : "transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
                     }`}
-                    style={{
-                      width: "calc((100% - 4px) / 2)",
-                      transform: `translate3d(${desktopSidebarTab === "grades" ? "100%" : "0%"}, 0, 0)`,
-                    }}
                   />
                 )}
                 <button
@@ -279,7 +281,7 @@ export function DesktopScheduleSidebar({
                   onPointerEnter={preloadTasksBoardChunk}
                   onFocus={preloadTasksBoardChunk}
                   onClick={() => onChangeSidebarTab("tasks")}
-                  className={`relative z-10 rounded-md px-2 py-0.5 font-semibold transition-colors duration-150 cursor-pointer text-center ${
+                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 font-semibold transition-colors duration-150 cursor-pointer text-center ${
                     desktopSidebarTab === "tasks"
                       ? "text-white font-bold"
                       : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -290,10 +292,10 @@ export function DesktopScheduleSidebar({
                       layoutId="desktop-sidebar-tab-pill"
                       transition={{ type: "spring", stiffness: 460, damping: 32 }}
                       aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 rounded-md bg-sys-accentSolid shadow-xs"
+                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
                     />
                   )}
-                  <span className="relative z-10">Завдання</span>
+                  <span className="relative z-10 whitespace-nowrap">Завдання</span>
                 </button>
                 <button
                   type="button"
@@ -301,7 +303,7 @@ export function DesktopScheduleSidebar({
                   onPointerEnter={preloadGradesChunk}
                   onFocus={preloadGradesChunk}
                   onClick={() => onChangeSidebarTab("grades")}
-                  className={`relative z-10 rounded-md px-2 py-0.5 font-semibold transition-colors duration-150 cursor-pointer text-center ${
+                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 font-semibold transition-colors duration-150 cursor-pointer text-center ${
                     desktopSidebarTab === "grades"
                       ? "text-white font-bold"
                       : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -312,10 +314,10 @@ export function DesktopScheduleSidebar({
                       layoutId="desktop-sidebar-tab-pill"
                       transition={{ type: "spring", stiffness: 460, damping: 32 }}
                       aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 rounded-md bg-sys-accentSolid shadow-xs"
+                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
                     />
                   )}
-                  <span className="relative z-10">Оцінки</span>
+                  <span className="relative z-10 whitespace-nowrap">Оцінки</span>
                 </button>
               </div>
             </div>

@@ -118,15 +118,12 @@ export function AppearanceStudioSection() {
             <div
               role="group"
               aria-label="Режим теми"
-              className="relative grid grid-cols-3 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs font-semibold isolate select-none"
+              style={{ "--seg-cols": 3, "--seg-index": activeModeIdx } as React.CSSProperties}
+              className="ui-seg-xl ui-seg-pad-4 relative grid grid-cols-3 items-stretch rounded-xl border border-sys-border bg-sys-bg text-xs font-semibold isolate select-none"
             >
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu"
-                style={{
-                  width: "calc((100% - 8px) / 3)",
-                  transform: `translate3d(calc(${activeModeIdx} * 100%), 0, 0)`,
-                }}
+                className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu"
               />
               {modes.map((mode) => {
                 const active = theme === mode.id;
@@ -136,7 +133,7 @@ export function AppearanceStudioSection() {
                     type="button"
                     aria-pressed={active}
                     onClick={(e) => setTheme(mode.id, e)}
-                    className={`relative z-10 flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
+                    className={`ui-seg-pill relative z-10 flex min-h-[38px] items-center justify-center gap-1.5 px-2 py-1.5 transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
                       active
                         ? "text-white font-bold"
                         : "text-sys-text-secondary hover:text-sys-text-primary"

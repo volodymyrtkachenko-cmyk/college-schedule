@@ -166,7 +166,7 @@ export function DesktopToolbar({
         aria-hidden="true"
         className="desktop-scroll-progress pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-sys-accent/85"
       />
-      <div className="mx-auto grid min-h-[3.5rem] max-w-[1800px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 lg:px-4 xl:px-6 py-1.5">
+      <div className="mx-auto grid min-h-[3.5rem] max-w-[1600px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-4 lg:px-6 py-1.5">
         {/* Left Zone: Brand + Context Selector */}
         <div className="flex items-center gap-2.5 min-w-0">
           <a
@@ -205,7 +205,7 @@ export function DesktopToolbar({
           <div
             role="group"
             aria-label="Навігація по датах"
-            className="flex h-9 items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs"
+            className="ui-seg-xl flex min-h-9 items-stretch rounded-xl border border-sys-border bg-sys-bg text-xs"
           >
             <button
               type="button"
@@ -213,7 +213,7 @@ export function DesktopToolbar({
               onClick={onPrevPeriod}
               aria-label="Попередній період"
               title="Попередній період"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-sys-text-primary transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+              className="ui-seg-pill flex min-w-7 w-7 items-center justify-center text-sys-text-secondary hover:bg-sys-card hover:text-sys-text-primary transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
             >
               <svg
                 aria-hidden="true"
@@ -235,7 +235,7 @@ export function DesktopToolbar({
               disabled={isTodayButtonDisabled}
               aria-label="Перейти на сьогодні"
               title="Перейти на сьогодні"
-              className={`px-2.5 xl:px-3 h-8 rounded-lg font-medium transition-colors whitespace-nowrap ${
+              className={`ui-seg-pill flex items-center justify-center px-2.5 xl:px-3 py-1 font-medium transition-colors whitespace-nowrap ${
                 isTodayButtonDisabled
                   ? "text-sys-text-muted cursor-default bg-transparent opacity-50"
                   : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95 cursor-pointer"
@@ -243,13 +243,13 @@ export function DesktopToolbar({
             >
               Сьогодні
             </button>
-            <span role="separator" aria-orientation="vertical" className="mx-0.5 h-4 w-px bg-sys-border/80 shrink-0" />
+            <span role="separator" aria-orientation="vertical" className="mx-0.5 self-center h-4 w-px bg-sys-border/80 shrink-0" />
             <button
               type="button"
               onClick={onOpenDatePicker}
               aria-label="Обрати дату в календарі"
               title="Обрати дату в календарі"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-accent hover:bg-sys-card active:scale-95 transition-colors cursor-pointer"
+              className="ui-seg-pill flex min-w-7 w-7 items-center justify-center text-sys-accent hover:bg-sys-card active:scale-95 transition-colors cursor-pointer"
             >
               <CalendarIcon className="h-4 w-4 shrink-0" />
             </button>
@@ -259,7 +259,7 @@ export function DesktopToolbar({
               onClick={onNextPeriod}
               aria-label="Наступний період"
               title="Наступний період"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-sys-text-primary transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+              className="ui-seg-pill flex min-w-7 w-7 items-center justify-center text-sys-text-secondary hover:bg-sys-card hover:text-sys-text-primary transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
             >
               <svg
                 aria-hidden="true"
@@ -277,30 +277,24 @@ export function DesktopToolbar({
             </button>
           </div>
 
-          {/* Segmented Switcher: [ День | Тиждень ] with Framer layoutId or CSS translate3d fallback */}
+          {/* Segmented Switcher: [ День | Тиждень ] with concentric Framer layoutId or CSS translate3d fallback */}
           <div
             role="group"
             aria-label="Режим відображення"
-            className="relative grid h-9 grid-cols-2 items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs isolate"
+            style={{ "--seg-cols": 2, "--seg-index": view === "week" ? 1 : 0 } as React.CSSProperties}
+            className="ui-seg-xl relative grid min-h-9 grid-cols-2 items-stretch rounded-xl border border-sys-border bg-sys-bg text-xs isolate select-none"
           >
             {!desktopMotion && (
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute top-0.5 bottom-0.5 transition-transform duration-base ease-spring transform-gpu z-0"
-                style={{
-                  left: "2px",
-                  width: "calc((100% - 4px) / 2)",
-                  transform: `translate3d(${view === "week" ? "100%" : "0%"}, 0, 0)`,
-                }}
-              >
-                <div className="h-full w-full rounded-lg bg-sys-accentSolid shadow-xs" />
-              </div>
+                className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transition-transform duration-base ease-spring transform-gpu"
+              />
             )}
             <button
               type="button"
               aria-pressed={view === "today"}
               onClick={() => onViewChange("today")}
-              className={`relative z-10 flex h-8 items-center justify-center px-3 xl:px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer active:scale-[0.97] ${
+              className={`ui-seg-pill relative z-10 flex items-center justify-center px-3 xl:px-3.5 py-1 font-semibold transition-colors duration-150 cursor-pointer active:scale-[0.97] ${
                 view === "today" ? "text-sys-onAccent" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
@@ -309,16 +303,16 @@ export function DesktopToolbar({
                   layoutId="desktop-toolbar-view-pill"
                   transition={{ type: "spring", stiffness: 460, damping: 32 }}
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs"
+                  className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
                 />
               )}
-              <span className="relative z-10">День</span>
+              <span className="relative z-10 whitespace-nowrap">День</span>
             </button>
             <button
               type="button"
               aria-pressed={view === "week"}
               onClick={() => onViewChange("week")}
-              className={`relative z-10 flex h-8 items-center justify-center px-3 xl:px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer active:scale-[0.97] ${
+              className={`ui-seg-pill relative z-10 flex items-center justify-center px-3 xl:px-3.5 py-1 font-semibold transition-colors duration-150 cursor-pointer active:scale-[0.97] ${
                 view === "week" ? "text-sys-onAccent" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
@@ -327,10 +321,10 @@ export function DesktopToolbar({
                   layoutId="desktop-toolbar-view-pill"
                   transition={{ type: "spring", stiffness: 460, damping: 32 }}
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs"
+                  className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
                 />
               )}
-              <span className="relative z-10">Тиждень</span>
+              <span className="relative z-10 whitespace-nowrap">Тиждень</span>
             </button>
           </div>
         </div>

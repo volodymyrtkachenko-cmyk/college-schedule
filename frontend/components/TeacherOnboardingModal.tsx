@@ -114,7 +114,7 @@ export function TeacherOnboardingModal({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-1 rounded-xl border border-sys-border bg-sys-bg p-1 text-[11px] font-semibold">
+          <div className="ui-seg-xl ui-seg-pad-4 ui-seg-gap-4 grid grid-cols-2 items-stretch rounded-xl border border-sys-border bg-sys-bg text-[11px] font-semibold">
             {steps.map((s, idx) => {
               const isCurrent = idx === currentStepIndex;
               const isDone = idx < currentStepIndex;
@@ -123,7 +123,7 @@ export function TeacherOnboardingModal({
                   key={s.id}
                   type="button"
                   onClick={() => goToStep(idx)}
-                  className={`py-1.5 px-2 rounded-lg transition-colors duration-200 cursor-pointer truncate inline-flex items-center justify-center gap-1 ${
+                  className={`ui-seg-pill py-1.5 px-2 transition-colors duration-200 cursor-pointer truncate inline-flex items-center justify-center gap-1 ${
                     isCurrent
                       ? "bg-sys-card text-sys-accent font-bold border border-sys-border shadow-2xs"
                       : isDone

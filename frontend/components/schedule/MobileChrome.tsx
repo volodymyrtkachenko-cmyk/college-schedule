@@ -53,8 +53,8 @@ export function MobileChrome({
 }: MobileChromeProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card pt-[env(safe-area-inset-top)] lg:hidden">
-      {/* Tier 1 (h-14): [ДФКР Група ▾]   ‹ 19–25 жовт. ›   [💡] */}
-      <div className="flex h-14 items-center justify-between px-2.5 sm:px-3 gap-1 sm:gap-1.5 overflow-hidden">
+      {/* Tier 1 (min-h-14): [ДФКР Група ▾]   ‹ 19–25 жовт. ›   [💡] */}
+      <div className="flex min-h-[3.5rem] items-center justify-between px-2.5 sm:px-3 py-1 gap-1 sm:gap-1.5 overflow-x-clip">
         {/* Left: Brand + Context Selector */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <a

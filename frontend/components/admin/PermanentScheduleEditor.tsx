@@ -524,17 +524,22 @@ export function PermanentScheduleEditor() {
           )}
 
           {/* Group / Teacher Toggle */}
-          <div role="tablist" aria-label="Режим перегляду" className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
+          <div
+            role="tablist"
+            aria-label="Режим перегляду"
+            style={{ "--seg-cols": 2, "--seg-index": mode === "teacher" ? 1 : 0 } as React.CSSProperties}
+            className="ui-seg-lg ui-seg-pad-4 grid grid-cols-2 items-stretch w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card text-sm relative isolate select-none"
+          >
             <div
-              className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accentSolid rounded-md shadow-sm transition-all duration-300 ease-out z-0"
-              style={{ left: mode === "student" ? "4px" : "50%" }}
+              aria-hidden="true"
+              className="ui-seg-slider bg-sys-accentSolid shadow-sm transition-transform duration-base ease-spring transform-gpu z-0"
             />
             <button
               role="tab"
               aria-selected={mode === "student"}
               type="button"
               onClick={() => startTransition(() => setMode("student"))}
-              className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${
+              className={`ui-seg-pill relative z-10 flex items-center justify-center sm:min-w-28 text-center px-3 py-2 sm:py-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                 mode === "student" ? "text-sys-onAccent font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
@@ -545,7 +550,7 @@ export function PermanentScheduleEditor() {
               aria-selected={mode === "teacher"}
               type="button"
               onClick={() => startTransition(() => setMode("teacher"))}
-              className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${
+              className={`ui-seg-pill relative z-10 flex items-center justify-center sm:min-w-28 text-center px-3 py-2 sm:py-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                 mode === "teacher" ? "text-sys-onAccent font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
@@ -585,17 +590,25 @@ export function PermanentScheduleEditor() {
         </div>
 
         {/* Segmented Switch: Чисельник | Знаменник */}
-        <div className="relative flex items-center rounded-xl border border-sys-border bg-sys-card p-1 shadow-sm">
+        <div
+          style={
+            {
+              "--seg-cols": 2,
+              "--seg-index": weekType === "denominator" ? 1 : 0,
+            } as React.CSSProperties
+          }
+          className="ui-seg-xl ui-seg-pad-4 relative grid grid-cols-2 items-stretch rounded-xl border border-sys-border bg-sys-card shadow-sm isolate select-none w-full sm:w-auto"
+        >
           <div
-            className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg shadow-sm transition-all duration-200 ease-out z-0 ${
+            aria-hidden="true"
+            className={`ui-seg-slider shadow-sm transition-[transform,background-color] duration-200 ease-out transform-gpu z-0 ${
               weekType === "numerator" ? "bg-indigo-600" : "bg-emerald-600"
             }`}
-            style={{ left: weekType === "numerator" ? "4px" : "50%" }}
           />
           <button
             type="button"
             onClick={() => setWeekType("numerator")}
-            className={`relative z-10 flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
+            className={`ui-seg-pill relative z-10 flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
               weekType === "numerator"
                 ? "text-white"
                 : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -606,7 +619,7 @@ export function PermanentScheduleEditor() {
           <button
             type="button"
             onClick={() => setWeekType("denominator")}
-            className={`relative z-10 flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
+            className={`ui-seg-pill relative z-10 flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
               weekType === "denominator"
                 ? "text-white"
                 : "text-sys-text-secondary hover:text-sys-text-primary"

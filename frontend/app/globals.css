@@ -650,6 +650,67 @@ html[data-theme="light"][data-accent="cyan"] {
   will-change: transform;
 }
 
+/* Concentric, overflow-proof primitives for segmented switchers & tab pills.
+   Placed outside @layer so translate3d(--seg-index) and concentric radii always supersede Tailwind utilities (e.g. transform-gpu). */
+.ui-seg-xl {
+  --seg-pad: 3px;
+  --seg-gap: 0px;
+  --seg-inner-radius: max(2px, calc(var(--radius-xl, 0.75rem) - var(--seg-pad) - 1px));
+  padding: var(--seg-pad);
+}
+
+.ui-seg-lg {
+  --seg-pad: 3px;
+  --seg-gap: 0px;
+  --seg-inner-radius: max(2px, calc(var(--radius-lg, 0.5rem) - var(--seg-pad) - 1px));
+  padding: var(--seg-pad);
+}
+
+.ui-seg-full {
+  --seg-pad: 4px;
+  --seg-gap: 0px;
+  --seg-inner-radius: 9999px;
+  padding: var(--seg-pad);
+  border-radius: 9999px;
+}
+
+.ui-seg-pad-4 {
+  --seg-pad: 4px;
+}
+
+.ui-seg-gap-4 {
+  --seg-gap: 4px;
+  gap: var(--seg-gap);
+}
+
+.ui-seg-gap-6 {
+  --seg-gap: 6px;
+  gap: var(--seg-gap);
+}
+
+.ui-seg-pill {
+  border-radius: var(--seg-inner-radius, 0.5rem);
+}
+
+.ui-seg-slider {
+  position: absolute;
+  top: var(--seg-pad, 3px);
+  bottom: var(--seg-pad, 3px);
+  left: var(--seg-pad, 3px);
+  width: calc(
+    (100% - (2 * var(--seg-pad, 3px)) - ((var(--seg-cols, 2) - 1) * var(--seg-gap, 0px))) /
+      var(--seg-cols, 2)
+  );
+  --tw-translate-x: calc(var(--seg-index, 0) * (100% + var(--seg-gap, 0px)));
+  --tw-translate-y: 0px;
+  transform: translate3d(
+    calc(var(--seg-index, 0) * (100% + var(--seg-gap, 0px))),
+    0,
+    0
+  );
+  border-radius: var(--seg-inner-radius, 0.5rem);
+}
+
 /* Unlayered contrast rules: must reside outside @layer so they supersede @tailwind utilities */
 .bg-sys-accent.text-white,
 .bg-sys-accent.text-sys-onAccent,
@@ -1270,7 +1331,7 @@ dialog.app-dialog {
   color: inherit;
   max-width: none;
   overflow: visible;
-  width: min(calc(100vw - 1.5rem), var(--dialog-max-w, 32rem));
+  width: min(calc(100dvw - 1.5rem), var(--dialog-max-w, 32rem));
   max-height: min(92dvh, var(--dialog-max-h, 760px));
   margin: auto;
   opacity: 0;
@@ -1337,8 +1398,8 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
 
 @media (max-width: 639px) {
   dialog.app-dialog[data-variant="sheet"] {
-    width: 100vw;
-    max-width: 100vw;
+    width: 100dvw;
+    max-width: 100dvw;
     box-sizing: border-box;
     margin: auto auto 0 auto;
   }
@@ -1852,8 +1913,8 @@ html[data-surface="glass"] #desktop-sections-menu {
 @media (min-width: 1024px) {
   .desktop-sidebar-shell {
     overflow-x: clip;
-    width: 360px;
-    margin-left: 2rem;
+    width: clamp(296px, 27vw, 356px);
+    margin-left: clamp(1rem, 2.2vw, 2rem);
     opacity: 1;
     visibility: visible;
     transition:

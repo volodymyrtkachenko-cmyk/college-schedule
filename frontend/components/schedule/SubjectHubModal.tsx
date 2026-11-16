@@ -1175,16 +1175,18 @@ export function SubjectHubModal({
                       <div
                         role="tablist"
                         aria-label="Категорії завдань предмета"
-                        className={`relative grid ${isLinked ? "grid-cols-3" : "grid-cols-2"} rounded-xl border border-sys-border/70 bg-sys-bg p-1 text-[11px] font-semibold isolate`}
+                        style={
+                          {
+                            "--seg-cols": tabOrder.length,
+                            "--seg-index": activeTaskIdx,
+                          } as React.CSSProperties
+                        }
+                        className={`ui-seg-xl ui-seg-pad-4 relative grid items-stretch ${isLinked ? "grid-cols-3" : "grid-cols-2"} rounded-xl border border-sys-border/70 bg-sys-bg text-[11px] font-semibold isolate select-none`}
                       >
                         {!desktopMotion && (
                           <div
                             aria-hidden="true"
-                            className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-card border border-sys-border shadow-2xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
-                            style={{
-                              width: `calc((100% - 8px) / ${tabOrder.length})`,
-                              transform: `translate3d(calc(${activeTaskIdx} * 100%), 0, 0)`,
-                            }}
+                            className="ui-seg-slider pointer-events-none z-0 bg-sys-card border border-sys-border shadow-2xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
                           />
                         )}
 
@@ -1193,7 +1195,7 @@ export function SubjectHubModal({
                           role="tab"
                           aria-selected={effectiveTaskTab === "pending"}
                           onClick={() => selectHubTaskTab("pending")}
-                          className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
+                          className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
                             effectiveTaskTab === "pending"
                               ? "text-sys-text-primary font-bold"
                               : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -1204,10 +1206,10 @@ export function SubjectHubModal({
                               layoutId="subject-hub-task-pill"
                               transition={{ type: "spring", stiffness: 460, damping: 32 }}
                               aria-hidden="true"
-                              className="pointer-events-none absolute inset-0 rounded-lg bg-sys-card border border-sys-border shadow-2xs"
+                              className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-card border border-sys-border shadow-2xs"
                             />
                           )}
-                          <span className="relative z-10 whitespace-nowrap">До здачі</span>
+                          <span className="relative z-10 truncate">До здачі</span>
                           <span className="relative z-10 shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold text-sys-text-secondary">
                             {subjectTasks.active.length}
                           </span>
@@ -1218,7 +1220,7 @@ export function SubjectHubModal({
                           role="tab"
                           aria-selected={effectiveTaskTab === "overdue"}
                           onClick={() => selectHubTaskTab("overdue")}
-                          className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
+                          className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
                             effectiveTaskTab === "overdue"
                               ? "text-rose-700 dark:text-rose-300 font-bold"
                               : subjectTasks.overdue.length > 0 && isLinked
@@ -1231,10 +1233,10 @@ export function SubjectHubModal({
                               layoutId="subject-hub-task-pill"
                               transition={{ type: "spring", stiffness: 460, damping: 32 }}
                               aria-hidden="true"
-                              className="pointer-events-none absolute inset-0 rounded-lg bg-sys-card border border-sys-border shadow-2xs"
+                              className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-card border border-sys-border shadow-2xs"
                             />
                           )}
-                          <span className="relative z-10 whitespace-nowrap">{isLinked ? "Борги" : "Минув час"}</span>
+                          <span className="relative z-10 truncate">{isLinked ? "Борги" : "Минув час"}</span>
                           <span className="relative z-10 shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold">
                             {subjectTasks.overdue.length}
                           </span>
@@ -1246,7 +1248,7 @@ export function SubjectHubModal({
                             role="tab"
                             aria-selected={effectiveTaskTab === "done"}
                             onClick={() => selectHubTaskTab("done")}
-                            className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
+                            className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
                               effectiveTaskTab === "done"
                                 ? "text-emerald-700 dark:text-emerald-300 font-bold"
                                 : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -1257,10 +1259,10 @@ export function SubjectHubModal({
                                 layoutId="subject-hub-task-pill"
                                 transition={{ type: "spring", stiffness: 460, damping: 32 }}
                                 aria-hidden="true"
-                                className="pointer-events-none absolute inset-0 rounded-lg bg-sys-card border border-sys-border shadow-2xs"
+                                className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-card border border-sys-border shadow-2xs"
                               />
                             )}
-                            <span className="relative z-10 whitespace-nowrap">Здано</span>
+                            <span className="relative z-10 truncate">Здано</span>
                             <span className="relative z-10 shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold">
                               {subjectTasks.completed.length}
                             </span>

@@ -602,16 +602,28 @@ export function AppearanceStudioModal({
                 <span className="text-xs font-semibold text-sys-text-secondary">
                   Перевірити у темі
                 </span>
-                <div className="inline-flex rounded-lg border border-sys-border bg-sys-bg p-0.5 gap-0.5">
+                <div
+                  style={
+                    {
+                      "--seg-cols": THEME_MODES.length,
+                      "--seg-index": Math.max(0, THEME_MODES.findIndex((m) => m.id === theme)),
+                    } as React.CSSProperties
+                  }
+                  className="ui-seg-lg relative inline-grid grid-cols-3 items-stretch rounded-lg border border-sys-border bg-sys-bg isolate select-none"
+                >
+                  <div
+                    aria-hidden="true"
+                    className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-2xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                  />
                   {THEME_MODES.map((m) => (
                     <button
                       key={`preview-mode-${m.id}`}
                       type="button"
                       aria-pressed={theme === m.id}
                       onClick={(e) => setTheme(m.id, e)}
-                      className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer ${
+                      className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                         theme === m.id
-                          ? "bg-sys-accentSolid text-sys-onAccent"
+                          ? "text-sys-onAccent font-bold"
                           : "text-sys-text-secondary hover:text-sys-text-primary"
                       }`}
                     >
@@ -802,17 +814,18 @@ export function AppearanceStudioModal({
                     <span className="block text-xs font-semibold text-sys-text-secondary">
                       Режим освітлення
                     </span>
-                    <div className="relative grid grid-cols-3 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 isolate">
+                    <div
+                      style={
+                        {
+                          "--seg-cols": 3,
+                          "--seg-index": Math.max(0, THEME_MODES.findIndex((m) => m.id === theme)),
+                        } as React.CSSProperties
+                      }
+                      className="ui-seg-xl ui-seg-pad-4 ui-seg-gap-6 relative grid grid-cols-3 items-stretch rounded-xl border border-sys-border bg-sys-bg isolate select-none"
+                    >
                       <div
                         aria-hidden="true"
-                        className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded-lg bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
-                        style={{
-                          width: "calc((100% - 8px - 12px) / 3)",
-                          transform: `translate3d(calc(${Math.max(
-                            0,
-                            THEME_MODES.findIndex((m) => m.id === theme)
-                          )} * (100% + 6px)), 0, 0)`,
-                        }}
+                        className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
                       />
                       {THEME_MODES.map((m) => {
                         const active = theme === m.id;
@@ -822,7 +835,7 @@ export function AppearanceStudioModal({
                             type="button"
                             aria-pressed={active}
                             onClick={(e) => setTheme(m.id, e)}
-                            className={`relative z-10 min-h-[38px] rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors duration-fast cursor-pointer active:scale-[0.98] ${
+                            className={`ui-seg-pill relative z-10 flex min-h-[38px] items-center justify-center px-3 py-1.5 text-xs font-semibold transition-colors duration-fast cursor-pointer active:scale-[0.98] ${
                               active
                                 ? "text-white font-bold"
                                 : "text-sys-text-secondary hover:text-sys-text-primary"

@@ -479,23 +479,21 @@ export const GuideDemoStage = React.memo(function GuideDemoStage({
             hidden={cursorHidden}
           />
 
-          <div className="relative grid grid-cols-5 rounded-xl border border-sys-border bg-sys-card p-1 text-[11px] font-semibold isolate">
+          <div
+            style={{ "--seg-cols": 5, "--seg-index": stage >= 3 ? 1 : 0 } as React.CSSProperties}
+            className="ui-seg-xl ui-seg-pad-4 relative grid grid-cols-5 items-stretch rounded-xl border border-sys-border bg-sys-card text-[11px] font-semibold isolate select-none"
+          >
             <div
-              className="absolute top-1 bottom-1 transition-transform duration-base ease-spring transform-gpu z-0"
-              style={{
-                left: "4px",
-                width: "calc((100% - 8px) / 5)",
-                transform: `translate3d(${stage >= 3 ? "100%" : "0%"}, 0, 0)`,
-              }}
+              className="ui-seg-slider transition-transform duration-base ease-spring transform-gpu z-0"
             >
-              <div className="h-full w-full rounded-lg bg-sys-accentSolid shadow-2xs" />
+              <div className="ui-seg-pill h-full w-full bg-sys-accentSolid shadow-2xs" />
             </div>
             {["Пн 16", "Вт 17", "Ср 18", "Чт 19", "Пт 20"].map((label, idx) => {
               const isCurrent = (stage >= 3 ? 1 : 0) === idx;
               return (
                 <div
                   key={label}
-                  className={`relative z-10 py-1.5 text-center transition-colors duration-200 ${
+                  className={`ui-seg-pill relative z-10 flex items-center justify-center py-1.5 text-center transition-colors duration-200 ${
                     isCurrent ? "text-sys-onAccent font-bold" : "text-sys-text-secondary"
                   }`}
                 >

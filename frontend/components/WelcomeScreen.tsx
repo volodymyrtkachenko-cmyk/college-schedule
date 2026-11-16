@@ -133,18 +133,32 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                 </button>
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                   <h2 className="text-xl sm:text-2xl [@media(max-height:520px)]:text-lg font-bold text-sys-text-primary">Оберіть {mode === "student" ? "групу" : "викладача"}</h2>
-                  <div className="inline-flex rounded-lg border border-sys-border bg-sys-card p-0.5 text-xs shrink-0">
+                  <div
+                    style={
+                      {
+                        "--seg-cols": 2,
+                        "--seg-index": mode === "teacher" ? 1 : 0,
+                      } as React.CSSProperties
+                    }
+                    className="ui-seg-lg relative inline-grid grid-cols-2 items-stretch rounded-lg border border-sys-border bg-sys-card text-xs shrink-0 isolate select-none"
+                  >
+                    <div
+                      aria-hidden="true"
+                      className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-2xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+                    />
                     <button
                       type="button"
+                      aria-pressed={mode === "student"}
                       onClick={() => { setMode("student"); setCourseFilter(null); }}
-                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${mode === "student" ? "bg-sys-accentSolid text-sys-onAccent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+                      className={`ui-seg-pill relative z-10 flex items-center justify-center px-3 py-1 font-semibold transition-colors cursor-pointer whitespace-nowrap ${mode === "student" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
                     >
                       Групи
                     </button>
                     <button
                       type="button"
+                      aria-pressed={mode === "teacher"}
                       onClick={() => { setMode("teacher"); setCourseFilter(null); }}
-                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${mode === "teacher" ? "bg-sys-accentSolid text-sys-onAccent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+                      className={`ui-seg-pill relative z-10 flex items-center justify-center px-3 py-1 font-semibold transition-colors cursor-pointer whitespace-nowrap ${mode === "teacher" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
                     >
                       Викладачі
                     </button>
