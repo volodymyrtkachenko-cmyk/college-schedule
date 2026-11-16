@@ -161,7 +161,7 @@ export function useSchedule(
   );
 
   const [isSetupComplete, setIsSetupComplete] = useState<boolean>(
-    Boolean(initialGroupId || initialTeacherId)
+    Boolean(initialGroupId || initialTeacherId || includeCancelled)
   );
   const [mode, setMode] = useState<"student" | "teacher">(initialMode ?? "student");
   const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>(initialGroups);
@@ -316,7 +316,13 @@ export function useSchedule(
           parsedCachedGroups = items;
           setGroups(items);
           hasLocalDirectory = true;
-          setLoading(false);
+          const setupDone =
+            includeCancelled ||
+            Boolean(initialGroupId || initialTeacherId) ||
+            window.localStorage.getItem("schedule:setupComplete") === "1";
+          if (!setupDone || lastRenderedWeekJsonRef.current !== "") {
+            setLoading(false);
+          }
         }
       } catch {
         window.localStorage.removeItem("schedule:groups");
@@ -408,7 +414,15 @@ export function useSchedule(
         })
         .catch(() => {})
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            const setupDone =
+              includeCancelled ||
+              Boolean(initialGroupId || initialTeacherId) ||
+              window.localStorage.getItem("schedule:setupComplete") === "1";
+            if (!setupDone || lastRenderedWeekJsonRef.current !== "") {
+              setLoading(false);
+            }
+          }
         });
     };
 
@@ -432,6 +446,7 @@ export function useSchedule(
 
   useEffect(() => {
     if (
+      !includeCancelled &&
       !isSetupComplete &&
       !initialGroupId &&
       !initialTeacherId &&
@@ -440,13 +455,17 @@ export function useSchedule(
       return;
     }
     if (mode === "student" && !groupId) {
+      lastRenderedWeekJsonRef.current = "";
       setWeek([]);
       setToday(null);
+      if (groups.length > 0) setLoading(false);
       return;
     }
     if (mode === "teacher" && !teacherId) {
+      lastRenderedWeekJsonRef.current = "";
       setWeek([]);
       setToday(null);
+      if (teachers.length > 0) setLoading(false);
       return;
     }
 

@@ -971,11 +971,11 @@ export function AdminScheduleEditor() {
         </div>
       )}
 
-      {loading ? (
+      {loading || (!error && week.length === 0 && ((mode === "student" && Boolean(groupId)) || (mode === "teacher" && Boolean(teacherId)))) ? (
         <div className="rounded-2xl border border-sys-border bg-sys-card/50 p-12 text-center text-sys-text-secondary">Завантаження розкладу…</div>
       ) : error ? (
         <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-8 text-center text-rose-700 dark:text-rose-300">{error}</div>
-      ) : week ? (
+      ) : week && week.length > 0 ? (
         <div className="w-full min-w-0">
 
           {/* Desktop Week Navigation & Actions (>= 640px) */}
