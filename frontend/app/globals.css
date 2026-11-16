@@ -1939,6 +1939,18 @@ html[data-surface="outline"] .shadow-md {
 /* ==========================================================================
    Stock Backdrops (Aurora, Dots, Radio Blueprint, Silk Mesh)
    ========================================================================== */
+:root {
+  --in-oklab: ;
+  --in-oklch: ;
+}
+
+@supports (linear-gradient(in oklab, white, black)) {
+  :root {
+    --in-oklab: in oklab;
+    --in-oklch: in oklch;
+  }
+}
+
 .app-backdrop {
   contain: strict;
   pointer-events: none;
@@ -1967,11 +1979,45 @@ html.light .app-backdrop-aurora {
   filter: none;
 }
 
-/* Прев'ю у Студії оформлення завжди статичне для миттєвого 120fps першого кадру */
-.studio-preview-stage .app-aurora-orb {
+/* Прев'ю у Студії оформлення завжди статичне й пропорційне до мініатюр */
+.studio-preview-stage .app-aurora-orb,
+.studio-thumb .app-aurora-orb {
   filter: none;
   will-change: auto;
   animation: none !important;
+}
+
+.studio-preview-stage .app-aurora-orb-1,
+.studio-thumb .app-aurora-orb-1 {
+  width: 82%;
+  height: 145%;
+  top: -32%;
+  left: -18%;
+}
+
+.studio-preview-stage .app-aurora-orb-2,
+.studio-thumb .app-aurora-orb-2 {
+  width: 74%;
+  height: 135%;
+  top: 8%;
+  right: -18%;
+}
+
+.studio-preview-stage .app-aurora-orb-3,
+.studio-thumb .app-aurora-orb-3 {
+  width: 66%;
+  height: 115%;
+  bottom: -36%;
+  left: 20%;
+}
+
+.studio-thumb .app-backdrop-dots {
+  background-size: 16px 16px, 16px 16px;
+  background-position: 0 0, 8px 8px;
+}
+
+.studio-thumb .app-backdrop-blueprint {
+  background-size: 48px 48px, 48px 48px, 12px 12px, 12px 12px;
 }
 
 html.dark .app-aurora-orb-1 {
@@ -2081,49 +2127,73 @@ html.light .app-aurora-orb-3 {
 }
 
 .app-backdrop-dots {
-  background-image: radial-gradient(rgb(var(--sys-text-muted) / 0.24) 1.15px, transparent 1.15px);
-  background-size: 22px 22px;
-  -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 42%, black 35%, transparent 100%);
-  mask-image: radial-gradient(ellipse 90% 80% at 50% 42%, black 35%, transparent 100%);
+  --dot-primary: radial-gradient(circle, rgb(var(--sys-accent) / 0.34) 1.35px, transparent 1.5px);
+  --dot-secondary: radial-gradient(circle, rgb(var(--sys-text-muted) / 0.22) 1px, transparent 1.15px);
+  background-image: var(--dot-primary), var(--dot-secondary);
+  background-size: 28px 28px, 28px 28px;
+  background-position: 0 0, 14px 14px;
+  -webkit-mask-image: radial-gradient(ellipse 92% 84% at 50% 45%, black 38%, transparent 100%);
+  mask-image: radial-gradient(ellipse 92% 84% at 50% 45%, black 38%, transparent 100%);
 }
 
 html.light .app-backdrop-dots {
-  background-image: radial-gradient(rgb(var(--sys-accent) / 0.22) 1.25px, transparent 1.25px);
+  --dot-primary: radial-gradient(circle, rgb(var(--sys-accent) / 0.28) 1.45px, transparent 1.6px);
+  --dot-secondary: radial-gradient(circle, rgb(var(--sys-text-muted) / 0.24) 1px, transparent 1.15px);
 }
 
 .app-backdrop-blueprint {
   background-image:
-    linear-gradient(to right, rgb(var(--sys-accent) / 0.075) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(var(--sys-accent) / 0.075) 1px, transparent 1px),
-    linear-gradient(to right, rgb(var(--sys-border) / 0.28) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(var(--sys-border) / 0.28) 1px, transparent 1px);
+    linear-gradient(to right, rgb(var(--sys-accent) / 0.085) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--sys-accent) / 0.085) 1px, transparent 1px),
+    linear-gradient(to right, rgb(var(--sys-border) / 0.3) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--sys-border) / 0.3) 1px, transparent 1px);
   background-size: 96px 96px, 96px 96px, 24px 24px, 24px 24px;
 }
 
 html.light .app-backdrop-blueprint {
   background-image:
-    linear-gradient(to right, rgb(var(--sys-accent) / 0.1) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(var(--sys-accent) / 0.1) 1px, transparent 1px),
-    linear-gradient(to right, rgb(var(--sys-border) / 0.42) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(var(--sys-border) / 0.42) 1px, transparent 1px);
+    linear-gradient(to right, rgb(var(--sys-accent) / 0.11) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--sys-accent) / 0.11) 1px, transparent 1px),
+    linear-gradient(to right, rgb(var(--sys-border) / 0.44) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--sys-border) / 0.44) 1px, transparent 1px);
 }
 
 .app-blueprint-arcs {
-  color: rgb(var(--sys-accent) / 0.16);
+  color: rgb(var(--sys-accent) / 0.24);
 }
 
-html.dark .app-backdrop-silk-gradient {
+html.light .app-blueprint-arcs {
+  color: rgb(var(--sys-accent) / 0.3);
+}
+
+.app-backdrop-silk-gradient {
   background:
-    radial-gradient(circle at 12% 18%, rgb(var(--sys-accent) / 0.24), transparent 52%),
-    radial-gradient(circle at 88% 24%, rgb(var(--sys-status-denom-bg) / 0.16), transparent 48%),
-    radial-gradient(circle at 52% 92%, rgb(var(--sys-info) / 0.18), transparent 54%);
+    linear-gradient(
+      128deg var(--in-oklab),
+      rgb(var(--sys-accent) / 0.18) 0%,
+      rgb(var(--sys-status-denom-bg) / 0.1) 28%,
+      transparent 48%,
+      rgb(var(--sys-info) / 0.14) 68%,
+      rgb(var(--sys-accent) / 0.16) 100%
+    ),
+    radial-gradient(ellipse 85% 60% at 80% 18%, rgb(var(--sys-accent) / 0.14), transparent 70%);
 }
 
 html.light .app-backdrop-silk-gradient {
   background:
-    radial-gradient(circle at 14% 18%, rgb(var(--sys-accent) / 0.18), transparent 54%),
-    radial-gradient(circle at 86% 24%, rgb(var(--sys-status-denom-bg) / 0.12), transparent 50%),
-    radial-gradient(circle at 50% 90%, rgb(var(--sys-info) / 0.14), transparent 55%);
+    linear-gradient(
+      128deg var(--in-oklab),
+      rgb(var(--sys-accent) / 0.15) 0%,
+      rgb(var(--sys-status-denom-bg) / 0.08) 28%,
+      transparent 48%,
+      rgb(var(--sys-info) / 0.12) 68%,
+      rgb(var(--sys-accent) / 0.14) 100%
+    ),
+    radial-gradient(ellipse 85% 60% at 80% 18%, rgb(var(--sys-accent) / 0.12), transparent 70%);
+}
+
+.app-backdrop-silk-waves {
+  color: rgb(var(--sys-accent) / 0.85);
 }
 
 .app-backdrop-silk-grain {
@@ -2135,6 +2205,62 @@ html.light .app-backdrop-silk-gradient {
 
 html.light .app-backdrop-silk-grain {
   opacity: 0.025;
+}
+
+.app-backdrop-topo {
+  background: radial-gradient(ellipse 90% 70% at 82% 16%, rgb(var(--sys-accent) / 0.11), transparent 72%);
+}
+
+.app-topo-lines {
+  color: rgb(var(--sys-accent) / 0.62);
+}
+
+html.light .app-topo-lines {
+  color: rgb(var(--sys-accent) / 0.56);
+}
+
+.app-backdrop-constellation {
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 10%, rgb(var(--sys-accent) / 0.12), transparent 72%),
+    radial-gradient(ellipse 60% 50% at 18% 85%, rgb(var(--sys-info) / 0.1), transparent 70%);
+}
+
+.app-constellation-svg {
+  color: rgb(var(--sys-accent) / 0.68);
+}
+
+html.light .app-constellation-svg {
+  color: rgb(var(--sys-accent) / 0.58);
+}
+
+.app-prism-beams {
+  background:
+    linear-gradient(
+      118deg var(--in-oklch),
+      transparent 16%,
+      rgb(var(--sys-accent) / 0.15) 31%,
+      transparent 44%,
+      rgb(var(--sys-info) / 0.12) 60%,
+      transparent 76%,
+      rgb(var(--sys-accent) / 0.14) 94%
+    );
+}
+
+html.light .app-prism-beams {
+  background:
+    linear-gradient(
+      118deg var(--in-oklch),
+      transparent 16%,
+      rgb(var(--sys-accent) / 0.12) 31%,
+      transparent 44%,
+      rgb(var(--sys-info) / 0.1) 60%,
+      transparent 76%,
+      rgb(var(--sys-accent) / 0.11) 94%
+    );
+}
+
+.app-prism-facets {
+  color: rgb(var(--sys-accent) / 0.72);
 }
 
 /* Native accessible range slider (WebKit & Firefox rules kept strictly separate) */

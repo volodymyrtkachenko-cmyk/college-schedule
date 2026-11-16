@@ -122,6 +122,19 @@ test("encodeThemeShareCode and decodeThemeShareCode roundtrip stock, custom hue,
   assert.equal(photoEncoded.droppedCustomWallpaper, true);
   assert.equal(photoEncoded.code, "DFKR1.glass.aurora.sans.default.default.violet");
 
+  const constellationEncoded = vs.encodeThemeShareCode(
+    "violet",
+    vs.sanitizeVisualConfig({
+      surface: "glass",
+      backdrop: "constellation",
+      fontPreset: "sans",
+      radius: "soft",
+      density: "relaxed",
+    })
+  );
+  assert.equal(constellationEncoded.code, "DFKR1.glass.constellation.sans.soft.relaxed.violet");
+  assert.equal(vs.decodeThemeShareCode(constellationEncoded.code).config.backdrop, "constellation");
+
   assert.equal(vs.decodeThemeShareCode(""), null);
   assert.equal(vs.decodeThemeShareCode("DFKR2.matte.none.sans.default.default.blue"), null);
   assert.equal(vs.decodeThemeShareCode("DFKR1.glass.custom.tech.soft.default.blue"), null);
@@ -165,8 +178,12 @@ test("sanitizeVisualConfig normalizes bounds/invalid fields and presets match th
   assert.equal(clamped.wallpaperDim, 10);
   assert.equal(clamped.wallpaperTint, null);
 
-  assert.equal(vs.CURATED_STYLE_PRESETS.length, 5);
+  assert.equal(vs.CURATED_STYLE_PRESETS.length, 6);
+  const seenAccents = new Set();
+  const seenBackdrops = new Set();
   for (const preset of vs.CURATED_STYLE_PRESETS) {
+    seenAccents.add(preset.accent);
+    seenBackdrops.add(preset.config.backdrop ?? "none");
     const merged = vs.sanitizeVisualConfig({
       ...vs.DEFAULT_VISUAL_CONFIG,
       ...preset.config,
@@ -177,4 +194,6 @@ test("sanitizeVisualConfig normalizes bounds/invalid fields and presets match th
       `Preset ${preset.id} should match itself`
     );
   }
+  assert.equal(seenAccents.size, 6, "Each curated preset must showcase a distinct accent");
+  assert.equal(seenBackdrops.size, 6, "Each curated preset must showcase a distinct backdrop");
 });

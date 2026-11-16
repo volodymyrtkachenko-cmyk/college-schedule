@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AppDialog } from "@/components/ui/AppDialog";
+import { BackdropScene } from "@/components/BackdropScene";
 import { CloseIcon } from "@/components/ui/Icons";
 import { ACCENT_OPTIONS, useTheme, type AccentColor, type Theme } from "@/lib/useTheme";
 import {
@@ -40,15 +41,25 @@ const THEME_MODES: Array<{ id: Theme; label: string }> = [
 ];
 
 const STUDIO_TABS: Array<{ id: StudioTab; label: string }> = [
-  { id: "presets", label: "Стилі" },
-  { id: "color", label: "Колір" },
-  { id: "surface", label: "Матеріал" },
-  { id: "backdrop", label: "Фон" },
-  { id: "layout", label: "Шрифт і код" },
+  { id: "presets", label: "Образи" },
+  { id: "color", label: "Кольори й анімація" },
+  { id: "surface", label: "Стиль карток" },
+  { id: "backdrop", label: "Фони і шпалери" },
+  { id: "layout", label: "Шрифт і сітка" },
 ];
 
 const HUE_SPECTRUM_TRACK =
   "linear-gradient(to right, hsl(0 82% 54%), hsl(60 82% 50%), hsl(120 75% 44%), hsl(180 80% 45%), hsl(240 82% 58%), hsl(300 80% 54%), hsl(359 82% 54%))";
+
+function hexToRgbTuple(hex: string): string {
+  const clean = hex.replace("#", "").trim();
+  if (clean.length !== 6) return "59 130 246";
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  if ([r, g, b].some((n) => Number.isNaN(n))) return "59 130 246";
+  return `${r} ${g} ${b}`;
+}
 
 function renderTransitionGlyph(style: ThemeTransitionStyle) {
   switch (style) {
@@ -482,23 +493,12 @@ export function AppearanceStudioModal({
               {/* Mini-Stage Container reflecting live backdrop + surface + font + radius + density */}
               <div className="studio-preview-stage relative overflow-hidden rounded-2xl border border-sys-border bg-sys-bg p-2.5 sm:p-3.5 md:p-4">
                 <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden select-none">
-                  {effectivePreviewBackdrop === "none" && visualConfig.surface === "glass" && (
-                    <div className="app-backdrop-glass-sheen absolute inset-0" />
-                  )}
-                  {effectivePreviewBackdrop === "aurora" && (
-                    <div className="app-backdrop-aurora absolute inset-0">
-                      <div className="app-aurora-orb app-aurora-orb-1" />
-                      <div className="app-aurora-orb app-aurora-orb-2" />
-                    </div>
-                  )}
-                  {effectivePreviewBackdrop === "dots" && (
-                    <div className="app-backdrop-dots absolute inset-0" />
-                  )}
-                  {effectivePreviewBackdrop === "blueprint" && (
-                    <div className="app-backdrop-blueprint absolute inset-0" />
-                  )}
-                  {effectivePreviewBackdrop === "silk" && (
-                    <div className="app-backdrop-silk-gradient absolute inset-0" />
+                  {effectivePreviewBackdrop !== "custom" && (
+                    <BackdropScene
+                      backdrop={effectivePreviewBackdrop}
+                      surface={visualConfig.surface}
+                      compact
+                    />
                   )}
                   {effectivePreviewBackdrop === "custom" && (
                     <>
@@ -623,8 +623,8 @@ export function AppearanceStudioModal({
 
               <div className="flex flex-wrap gap-1.5">
                 {[
-                  activeSurfaceLabel,
-                  activeBackdropLabel,
+                  `Картки: ${activeSurfaceLabel}`,
+                  `Фон: ${activeBackdropLabel}`,
                   `Шрифт: ${activeFontLabel}`,
                   `Кути: ${activeRadiusLabel}`,
                   `Щільність: ${activeDensityLabel}`,
@@ -704,38 +704,76 @@ export function AppearanceStudioModal({
                   role="tabpanel"
                 >
                   <p className="text-xs text-sys-text-secondary leading-relaxed">
-                    Оберіть готовий образ в один клік або доналаштуйте колір, матеріал, фон і шрифт на сусідніх вкладках.
+                    Шість неповторних готових образів — кожен із власним кольором, фоном, фактурою карток і шрифтом.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {CURATED_STYLE_PRESETS.map((preset) => {
                       const active = matchesCuratedPreset(preset, accent, visualConfig);
+                      const presetBackdrop = preset.config.backdrop ?? "none";
+                      const presetSurface = preset.config.surface ?? "matte";
+                      const accentRgb = hexToRgbTuple(preset.previewSwatches[2]);
                       return (
                         <button
                           key={preset.id}
                           type="button"
                           aria-pressed={active}
                           onClick={(e) => applyCuratedPreset(preset, e)}
-                          className={`flex flex-col justify-between gap-2.5 rounded-xl border p-3.5 text-left transition-colors cursor-pointer ${
+                          className={`flex flex-col justify-between gap-2.5 rounded-xl border p-3 text-left transition-colors cursor-pointer ${
                             active
                               ? "border-sys-accent bg-sys-accent/12 text-sys-text-primary shadow-xs ring-1 ring-sys-accent/40"
                               : "border-sys-border bg-sys-bg text-sys-text-secondary hover:border-sys-elevated-border hover:text-sys-text-primary"
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-2 w-full">
-                            <div className="flex items-center gap-1.5">
-                              {preset.previewSwatches.map((hex, i) => (
-                                <span
-                                  key={`${preset.id}-sw-${i}`}
-                                  aria-hidden="true"
-                                  className="h-4 w-4 rounded-full border border-white/15 shrink-0"
-                                  style={{ backgroundColor: hex }}
-                                />
-                              ))}
+                          <div
+                            aria-hidden="true"
+                            className="studio-thumb relative h-11 w-full overflow-hidden rounded-lg border border-white/10 p-2 flex items-center justify-between"
+                            style={
+                              {
+                                backgroundColor: preset.previewSwatches[0],
+                                "--sys-accent": accentRgb,
+                                "--sys-border": "148 163 184",
+                                "--sys-text-muted": accentRgb,
+                              } as React.CSSProperties
+                            }
+                          >
+                            <BackdropScene
+                              backdrop={presetBackdrop}
+                              surface={presetSurface}
+                              compact
+                            />
+                            <div
+                              className="relative z-10 flex items-center gap-1.5 px-2 py-1 border border-white/15 shadow-xs"
+                              style={{
+                                backgroundColor: preset.previewSwatches[1],
+                                borderRadius:
+                                  preset.config.radius === "sharp"
+                                    ? "4px"
+                                    : preset.config.radius === "soft"
+                                      ? "9px"
+                                      : "6px",
+                              }}
+                            >
+                              <span
+                                className="h-2 w-2 rounded-full shrink-0"
+                                style={{ backgroundColor: preset.previewSwatches[2] }}
+                              />
+                              <span className="h-1.5 w-8 rounded-full bg-white/80" />
                             </div>
-                            {active && (
-                              <span className="rounded-full bg-sys-accent/20 px-2 py-0.5 text-[11px] font-bold text-sys-accent">
+
+                            {active ? (
+                              <span className="relative z-10 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold text-white border border-white/15">
                                 Активний
                               </span>
+                            ) : (
+                              <div className="relative z-10 flex items-center gap-1">
+                                {preset.previewSwatches.map((hex, i) => (
+                                  <span
+                                    key={`${preset.id}-sw-${i}`}
+                                    className="h-2.5 w-2.5 rounded-full border border-white/20 shrink-0"
+                                    style={{ backgroundColor: hex }}
+                                  />
+                                ))}
+                              </div>
                             )}
                           </div>
                           <div className="min-w-0">
@@ -1014,7 +1052,7 @@ export function AppearanceStudioModal({
                 </div>
               )}
 
-              {/* Tab 3: Surface Material */}
+              {/* Tab 3: Card Surface Material */}
               {activeTab === "surface" && (
                 <div
                   key="tab-surface"
@@ -1022,6 +1060,9 @@ export function AppearanceStudioModal({
                   className={`${hasSwitchedTab ? "guide-step-slide " : ""}space-y-3`}
                   role="tabpanel"
                 >
+                  <p className="text-xs text-sys-text-secondary leading-relaxed">
+                    Оберіть фактуру та рамки карток розкладу — від суцільної матовості до прозорого скла або контрастних контурів.
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {SURFACE_OPTIONS.map((opt) => {
                       const active = visualConfig.surface === opt.id;
@@ -1067,14 +1108,14 @@ export function AppearanceStudioModal({
                   {visualConfig.surface === "glass" && visualConfig.backdrop === "none" && (
                     <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-bg p-3 text-xs text-sys-text-secondary">
                       <span>
-                        З фоном або власними шпалерами «Матове скло» виглядає ще ефектніше.
+                        З живим фоном або власними шпалерами «Матове скло» виглядає ще глибше.
                       </span>
                       <button
                         type="button"
                         onClick={() => setVisualConfig({ backdrop: "aurora" })}
                         className="shrink-0 rounded-lg bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-1 font-semibold text-sys-accent hover:bg-sys-accent/25 transition-colors cursor-pointer"
                       >
-                        Увімкнути Аврору
+                        Увімкнути сяйво
                       </button>
                     </div>
                   )}
@@ -1089,6 +1130,9 @@ export function AppearanceStudioModal({
                   className={`${hasSwitchedTab ? "guide-step-slide " : ""}space-y-4`}
                   role="tabpanel"
                 >
+                  <p className="text-xs text-sys-text-secondary leading-relaxed">
+                    Унікальні геометричні й атмосферні фони позаду розкладу або власне фото з галереї.
+                  </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                     {BACKDROP_OPTIONS.map((opt) => {
                       const active = visualConfig.backdrop === opt.id;
@@ -1112,25 +1156,10 @@ export function AppearanceStudioModal({
                         >
                           <div
                             aria-hidden="true"
-                            className="relative h-14 w-full overflow-hidden rounded-lg border border-sys-border bg-sys-bg"
+                            className="studio-thumb relative h-14 w-full overflow-hidden rounded-lg border border-sys-border bg-sys-bg"
                           >
-                            {opt.id === "aurora" && (
-                              <div
-                                className="absolute inset-0"
-                                style={{
-                                  background:
-                                    "radial-gradient(circle at 22% 28%, rgb(var(--sys-accent) / 0.45), transparent 60%), radial-gradient(circle at 82% 72%, rgb(var(--sys-info) / 0.35), transparent 58%)",
-                                }}
-                              />
-                            )}
-                            {opt.id === "dots" && (
-                              <div className="app-backdrop-dots absolute inset-0 opacity-90" />
-                            )}
-                            {opt.id === "blueprint" && (
-                              <div className="app-backdrop-blueprint absolute inset-0 opacity-90" />
-                            )}
-                            {opt.id === "silk" && (
-                              <div className="app-backdrop-silk-gradient absolute inset-0" />
+                            {opt.id !== "custom" && (
+                              <BackdropScene backdrop={opt.id} surface="matte" compact />
                             )}
                             {opt.id === "custom" && (previewBlobUrl || wallpaperMeta?.tinyPlaceholder) && (
                               <img

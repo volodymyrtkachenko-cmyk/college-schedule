@@ -4,7 +4,16 @@ export type StockAccentColor = "blue" | "emerald" | "violet" | "amber" | "rose" 
 export type AccentSelection = StockAccentColor | "custom";
 
 export type SurfaceMaterial = "matte" | "oled" | "glass" | "outline";
-export type BackdropPreset = "none" | "aurora" | "dots" | "blueprint" | "silk" | "custom";
+export type BackdropPreset =
+  | "none"
+  | "aurora"
+  | "silk"
+  | "topo"
+  | "constellation"
+  | "prism"
+  | "blueprint"
+  | "dots"
+  | "custom";
 export type FontPreset = "sans" | "tech" | "soft";
 export type RadiusPreset = "sharp" | "default" | "soft";
 export type DensityPreset = "compact" | "default" | "relaxed";
@@ -85,11 +94,14 @@ export const BACKDROP_OPTIONS: Array<{
   label: string;
   hint: string;
 }> = [
-  { id: "none", label: "Чистий", hint: "Спокійне стандартне тло" },
-  { id: "aurora", label: "Північне сяйво", hint: "М'які світлові плями акценту" },
-  { id: "dots", label: "Матриця точок", hint: "Акуратний інженерний ритм" },
-  { id: "blueprint", label: "Радіосхема", hint: "Креслення у стилі ДФКР" },
-  { id: "silk", label: "Шовк", hint: "Глибокий градієнт і мікрозерно" },
+  { id: "none", label: "Чистий", hint: "Спокійне однотонне тло" },
+  { id: "aurora", label: "Північне сяйво", hint: "Живі кольорові хмари" },
+  { id: "silk", label: "Шовкові хвилі", hint: "Діагональні хвилі шовку" },
+  { id: "topo", label: "Топографія", hint: "Рельєфні лінії висот" },
+  { id: "constellation", label: "Зоряна мапа", hint: "Сузір'я та тонкі орбіти" },
+  { id: "prism", label: "Кристальні промені", hint: "Заломлені грані світла" },
+  { id: "blueprint", label: "Радіосхема", hint: "Інженерне креслення ДФКР" },
+  { id: "dots", label: "Радарна матриця", hint: "Концентричний ритм точок" },
   { id: "custom", label: "Своє фото", hint: "Власні шпалери з пристрою" },
 ];
 
@@ -137,7 +149,7 @@ export const CURATED_STYLE_PRESETS: CuratedStylePreset[] = [
   {
     id: "classic",
     name: "Класика ДФКР",
-    subtitle: "Океан · Матовий · Збалансований",
+    subtitle: "Океан · Матові картки · Чисте тло",
     accent: "blue",
     previewSwatches: ["#080d18", "#111a2e", "#3b82f6"],
     config: {
@@ -149,37 +161,23 @@ export const CURATED_STYLE_PRESETS: CuratedStylePreset[] = [
     },
   },
   {
-    id: "amoled",
-    name: "AMOLED Мінімал",
-    subtitle: "Чистий чорний/білий · Компакт",
-    accent: "blue",
-    previewSwatches: ["#000000", "#0b0d13", "#60a5fa"],
-    config: {
-      surface: "oled",
-      backdrop: "none",
-      fontPreset: "sans",
-      radius: "default",
-      density: "compact",
-    },
-  },
-  {
-    id: "aurora-glass",
-    name: "Північне скло",
-    subtitle: "Аврора · Скло · М'які кути",
-    accent: "cyan",
-    previewSwatches: ["#061117", "#0f3142", "#22d3ee"],
+    id: "cosmos-glass",
+    name: "Зоряна ніч",
+    subtitle: "Фіалка · Матове скло · Сузір'я",
+    accent: "violet",
+    previewSwatches: ["#0d0917", "#21183c", "#c084fc"],
     config: {
       surface: "glass",
-      backdrop: "aurora",
-      fontPreset: "soft",
+      backdrop: "constellation",
+      fontPreset: "sans",
       radius: "soft",
-      density: "default",
+      density: "relaxed",
     },
   },
   {
     id: "radio-terminal",
     name: "Радіотехнік",
-    subtitle: "Схема · Контури · Техно-цифри",
+    subtitle: "Смарагд · Контури · Креслення",
     accent: "emerald",
     previewSwatches: ["#06120e", "#102820", "#34d399"],
     config: {
@@ -191,24 +189,62 @@ export const CURATED_STYLE_PRESETS: CuratedStylePreset[] = [
     },
   },
   {
-    id: "silk-lounge",
-    name: "Тихий шовк",
-    subtitle: "Шовк · Скло · Просторий",
-    accent: "violet",
-    previewSwatches: ["#0d0917", "#21183c", "#c084fc"],
+    id: "polar-oled",
+    name: "Полярний кристал",
+    subtitle: "Лагуна · OLED / Чистий · Промені",
+    accent: "cyan",
+    previewSwatches: ["#000000", "#0c202b", "#22d3ee"],
+    config: {
+      surface: "oled",
+      backdrop: "prism",
+      fontPreset: "soft",
+      radius: "default",
+      density: "default",
+    },
+  },
+  {
+    id: "amber-topo",
+    name: "Золотий рельєф",
+    subtitle: "Янтар · Матові картки · Топографія",
+    accent: "amber",
+    previewSwatches: ["#120d06", "#21180b", "#fbbf24"],
+    config: {
+      surface: "matte",
+      backdrop: "topo",
+      fontPreset: "tech",
+      radius: "default",
+      density: "relaxed",
+    },
+  },
+  {
+    id: "sakura-silk",
+    name: "Сакура в шовку",
+    subtitle: "Сакура · Матове скло · Хвилі",
+    accent: "rose",
+    previewSwatches: ["#13080d", "#24101a", "#fb7185"],
     config: {
       surface: "glass",
       backdrop: "silk",
-      fontPreset: "sans",
+      fontPreset: "soft",
       radius: "soft",
-      density: "relaxed",
+      density: "compact",
     },
   },
 ];
 
 const STOCK_ACCENTS = new Set<StockAccentColor>(["blue", "emerald", "violet", "amber", "rose", "cyan"]);
 const SURFACES = new Set<SurfaceMaterial>(["matte", "oled", "glass", "outline"]);
-const BACKDROPS = new Set<BackdropPreset>(["none", "aurora", "dots", "blueprint", "silk", "custom"]);
+const BACKDROPS = new Set<BackdropPreset>([
+  "none",
+  "aurora",
+  "silk",
+  "topo",
+  "constellation",
+  "prism",
+  "blueprint",
+  "dots",
+  "custom",
+]);
 const FONTS = new Set<FontPreset>(["sans", "tech", "soft"]);
 const RADII = new Set<RadiusPreset>(["sharp", "default", "soft"]);
 const DENSITIES = new Set<DensityPreset>(["compact", "default", "relaxed"]);
