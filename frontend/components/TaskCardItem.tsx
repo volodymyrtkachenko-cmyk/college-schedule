@@ -1,9 +1,7 @@
 "use client";
 
-import React, { memo, useState } from "react";
-import { AnimatePresence, m } from "framer-motion";
+import React, { memo, useEffect, useRef, useState } from "react";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
-import { useDesktopMotionEnabled } from "../lib/useViewportTier";
 import {
   formatBriefChipLabel,
   formatTaskWeightBadge,
@@ -47,8 +45,13 @@ export const TaskCardItem = memo(function TaskCardItem({
   isLinked = false,
 }: TaskCardItemProps) {
   const [briefOpen, setBriefOpen] = useState(false);
-  const desktopMotion = useDesktopMotionEnabled();
+  const briefInnerRef = useRef<HTMLDivElement>(null);
   const optionalToast = useOptionalToast();
+
+  useEffect(() => {
+    const el = briefInnerRef.current;
+    if (el) el.inert = !briefOpen;
+  }, [briefOpen]);
 
   const isGenericTitle = !t.title || t.title === "Домашнє завдання" || t.title === "Завдання";
   const titleLine = isGenericTitle ? t.subject : t.title;
@@ -261,7 +264,7 @@ export const TaskCardItem = memo(function TaskCardItem({
   return (
     <div
       className={`min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated shadow-xs text-left overflow-hidden ${
-        briefOpen ? "" : "[content-visibility:auto] [contain-intrinsic-size:78px]"
+        canExpandBrief ? "" : "[content-visibility:auto] [contain-intrinsic-size:78px]"
       }`}
       style={{
         boxShadow: borderAccentStyle,
@@ -350,48 +353,13 @@ export const TaskCardItem = memo(function TaskCardItem({
         </div>
       </div>
 
-      {desktopMotion ? (
-        <AnimatePresence initial={false}>
-          {briefOpen && (
-            <m.div
-              initial={{ opacity: 0, height: 0, y: -6 }}
-              animate={{
-                opacity: 1,
-                height: "auto",
-                y: 0,
-                transition: {
-                  height: { type: "spring", stiffness: 380, damping: 30 },
-                  y: { type: "spring", stiffness: 380, damping: 30 },
-                  opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
-                },
-              }}
-              exit={{
-                opacity: 0,
-                height: 0,
-                y: -4,
-                transition: {
-                  height: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
-                  y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-                  opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
-                },
-              }}
-              className="overflow-hidden"
-            >
-              <TaskChecklistSection
-                taskKey={taskKey}
-                brief={brief}
-                maxPoints={t.maxPoints}
-                compact
-              />
-            </m.div>
-          )}
-        </AnimatePresence>
-      ) : (
+      {canExpandBrief && (
         <div
           data-open={briefOpen ? "true" : undefined}
-          className="grid-accordion"
+          aria-hidden={!briefOpen || undefined}
+          className="grid-accordion task-compact-accordion"
         >
-          <div className="grid-accordion-inner">
+          <div ref={briefInnerRef} className="grid-accordion-inner">
             <TaskChecklistSection
               taskKey={taskKey}
               brief={brief}

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Lesson } from "../../lib/api";
 import {
   ClassroomTaskItem,
@@ -372,6 +372,15 @@ export function DayTasksSection({
   onToggleHw: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
   const optionalToast = useOptionalToast();
+  const hwInnerRef = useRef<HTMLDivElement>(null);
+
+  const hasCollapsibleList = tasks.length > 1;
+
+  useEffect(() => {
+    const el = hwInnerRef.current;
+    if (el && hasCollapsibleList) el.inert = !isHwOpen;
+  }, [isHwOpen, hasCollapsibleList]);
+
   if (tasks.length === 0) return null;
 
   const isMobile = variant === "mobile";
@@ -465,6 +474,8 @@ export function DayTasksSection({
     );
   }
 
+  const hwPanelId = `day-hw-list-${lesson.id}-${lesson.lesson_number}`;
+
   return (
     <div
       className={`w-full rounded-xl bg-sys-bg/60 border border-sys-border transition-[opacity,border-color] duration-fast ease-smooth overflow-hidden shadow-xs ${
@@ -476,8 +487,13 @@ export function DayTasksSection({
         onClick={onToggleHw}
         role="button"
         tabIndex={0}
+        aria-expanded={isHwOpen}
+        aria-controls={hwPanelId}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") onToggleHw(e);
+          if (e.key === "Enter" || e.key === " ") {
+            if (e.key === " ") e.preventDefault();
+            onToggleHw(e);
+          }
         }}
         className={`flex ${
           isMobile ? "min-h-[44px]" : ""
@@ -521,23 +537,12 @@ export function DayTasksSection({
       </div>
 
       <div
-        style={{
-          display: "grid",
-          gridTemplateRows: isHwOpen ? "1fr" : "0fr",
-          transition: isMobile
-            ? "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease"
-            : "grid-template-rows 0.30s var(--ease-spring), opacity 0.22s ease",
-          opacity: isHwOpen ? 1 : 0,
-        }}
-        className="w-full overflow-hidden"
+        id={hwPanelId}
+        data-open={isHwOpen ? "true" : undefined}
+        aria-hidden={!isHwOpen || undefined}
+        className={`w-full grid-accordion ${isMobile ? "" : "task-compact-accordion"}`}
       >
-        <div
-          className="min-h-0 overflow-hidden"
-          style={{
-            transform: isMobile ? undefined : isHwOpen ? "translate3d(0, 0, 0)" : "translate3d(0, -6px, 0)",
-            transition: isMobile ? undefined : "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        >
+        <div ref={hwInnerRef} className="grid-accordion-inner">
           <div className="flex flex-col gap-2 p-3 border-t border-sys-border/60 bg-sys-bg/40">
             <ActiveTasksList groups={groupedTasks} isLinked={isLinked} isMobile={isMobile} />
             <CompletedTasksList
@@ -625,7 +630,7 @@ export function WeekTasksPopover({
   onClose: () => void;
   onToggleHw: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
-  const { shouldRender, isClosing } = useAnimatedDisclosure(show, 190);
+  const { shouldRender, isClosing } = useAnimatedDisclosure(show, 160);
   if (!shouldRender) return null;
 
   return (
@@ -643,10 +648,10 @@ export function WeekTasksPopover({
         data-closing={isClosing ? "true" : undefined}
         onClick={(e) => e.stopPropagation()}
         style={{
-          "--popup-y": lesson.lesson_number >= 3 ? "8px" : "-8px",
+          "--popup-y": lesson.lesson_number >= 3 ? "5px" : "-5px",
           "--popup-origin": lesson.lesson_number >= 3 ? "bottom left" : "top left",
         } as React.CSSProperties}
-        className={`discrete-popup desktop-spring-popup absolute left-0 right-0 ${
+        className={`discrete-popup desktop-compact-popover absolute left-0 right-0 ${
           lesson.lesson_number >= 3 ? "bottom-full mb-1.5" : "top-full mt-1.5"
         } z-50 max-h-64 overflow-y-auto rounded-xl border border-sys-border bg-sys-card p-2.5 shadow-lg sm:shadow-2xl min-w-[220px]`}
       >

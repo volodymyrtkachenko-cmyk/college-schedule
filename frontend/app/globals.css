@@ -1829,6 +1829,25 @@ html[data-surface="glass"] #desktop-sections-menu {
       transform: translate3d(0, var(--popup-y, -8px), 0) scale(0.9);
     }
   }
+
+  /* Компактний поповер ДЗ на десктопі: плавне гальмування без пружинного підстрибування */
+  .discrete-popup.desktop-compact-popover {
+    transition-duration: 180ms, 210ms;
+    transition-timing-function: var(--ease-out), cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .discrete-popup.desktop-compact-popover[data-closing="true"] {
+    transition-duration: 135ms, 155ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 1, 1), cubic-bezier(0.4, 0, 1, 1);
+    transform: translate3d(0, var(--popup-y, -5px), 0) scale(0.97);
+  }
+
+  @starting-style {
+    .discrete-popup.desktop-compact-popover {
+      opacity: 0;
+      transform: translate3d(0, var(--popup-y, -5px), 0) scale(0.97);
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1908,12 +1927,46 @@ html[data-surface="glass"] #desktop-sections-menu {
   transform: translate3d(0, 0, 0);
 }
 
+/* Асиметричне розгортання/згортання компактних блоків завдань на десктопі:
+   м'яке розкриття без bounce-перельоту та зібране швидке згортання */
+.grid-accordion.task-compact-accordion {
+  transition:
+    grid-template-rows 170ms cubic-bezier(0.4, 0, 1, 1),
+    opacity 130ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.grid-accordion.task-compact-accordion[data-open="true"] {
+  transition:
+    grid-template-rows 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.grid-accordion.task-compact-accordion > .grid-accordion-inner {
+  contain: layout style;
+  transform: translate3d(0, -4px, 0);
+  transition:
+    visibility 170ms linear,
+    transform 170ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.grid-accordion.task-compact-accordion[data-open="true"] > .grid-accordion-inner {
+  visibility: visible;
+  transform: translate3d(0, 0, 0);
+  transition:
+    visibility 0ms linear,
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .grid-accordion {
+  .grid-accordion,
+  .grid-accordion.task-compact-accordion,
+  .grid-accordion.task-compact-accordion[data-open="true"] {
     transition: opacity 90ms ease-out !important;
   }
 
-  .grid-accordion-inner {
+  .grid-accordion-inner,
+  .grid-accordion.task-compact-accordion > .grid-accordion-inner,
+  .grid-accordion.task-compact-accordion[data-open="true"] > .grid-accordion-inner {
     transform: none !important;
     transition: visibility 90ms linear !important;
   }
