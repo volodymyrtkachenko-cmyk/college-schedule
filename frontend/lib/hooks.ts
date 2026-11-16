@@ -98,6 +98,69 @@ function pruneOldScheduleCache(targetKey: string, maxWeeksToKeep = 6) {
 }
 
 /**
+ * Обмежує розростання допоміжних групових кешів (завдання груп, підказки підгруп, часи синхронізації)
+ * у межах останніх переглянутих груп, щоб не вичерпати 5 MB ліміт localStorage на Safari iOS.
+ */
+export function pruneGroupAuxiliaryCaches(
+  activeGroupIds: ReadonlyArray<number | null | undefined> = [],
+  maxExtraGroups = 8
+) {
+  if (typeof window === "undefined") return;
+  try {
+    const keepIds = new Set<string>();
+    const savedGid = window.localStorage.getItem("schedule:groupId");
+    const linkedGid = window.localStorage.getItem("schedule:classroom_linked_group_id");
+    if (savedGid) keepIds.add(savedGid);
+    if (linkedGid) keepIds.add(linkedGid);
+    for (const id of activeGroupIds) {
+      if (id != null && Number.isFinite(Number(id)) && Number(id) > 0) {
+        keepIds.add(String(id));
+      }
+    }
+
+    try {
+      const recentRaw = window.localStorage.getItem("schedule:recent_groups");
+      const recent = recentRaw ? JSON.parse(recentRaw) : [];
+      if (Array.isArray(recent)) {
+        for (const rid of recent.slice(0, maxExtraGroups)) {
+          if (rid != null) keepIds.add(String(rid));
+        }
+      }
+    } catch {}
+
+    const auxPrefixes = [
+      "schedule:classroom_group_tasks:",
+      "schedule:has_subgroups:",
+      "schedule:subgroup_hints:",
+      "schedule:last_synced_at:",
+    ];
+    const discoveredIds: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (!key) continue;
+      for (const prefix of auxPrefixes) {
+        if (key.startsWith(prefix)) {
+          const gidStr = key.slice(prefix.length).trim();
+          if (gidStr && !keepIds.has(gidStr) && !discoveredIds.includes(gidStr)) {
+            discoveredIds.push(gidStr);
+          }
+          break;
+        }
+      }
+    }
+
+    const overflow = Math.max(0, discoveredIds.length - maxExtraGroups);
+    if (overflow > 0) {
+      for (const dropId of discoveredIds.slice(0, overflow)) {
+        for (const prefix of auxPrefixes) {
+          window.localStorage.removeItem(`${prefix}${dropId}`);
+        }
+      }
+    }
+  } catch {}
+}
+
+/**
  * За замовчуванням НЕ стираємо localStorage, щоб розклад ніколи не зникав у скелетони
  * і не блимав перед очима користувача під час фонової синхронізації.
  */
@@ -527,6 +590,7 @@ export function useSchedule(
     const getMemKey = (wKey = weekKey) => `${todayKey}|${wKey}|${getAuthSignature()}`;
 
     let isSubscribed = true;
+    let activeAbortController: AbortController | null = null;
 
     const findFallbackScheduleFromStorage = (): {
       today: ScheduleResponse | null;
@@ -674,10 +738,15 @@ export function useSchedule(
       const todayIso = formatKyivDateIso(nowKyiv);
       const isWeekday = getCalendarWeekdayMon0(todayIso) < 5;
 
+      activeAbortController?.abort();
+      const requestController =
+        typeof AbortController !== "undefined" ? new AbortController() : null;
+      activeAbortController = requestController;
+
       api
-        .week(targetGroupId, targetTeacherId, weekAnchorDate, includeCancelled)
+        .week(targetGroupId, targetTeacherId, weekAnchorDate, includeCancelled, requestController?.signal)
         .then((weekResponse) => {
-          if (!isSubscribed) return;
+          if (!isSubscribed || requestController?.signal.aborted) return;
           const matchingDay = isWeekday ? weekResponse.find((d) => d.date === todayIso) : undefined;
           const todayResponse: ScheduleResponse = matchingDay ??
             weekResponse[0] ?? {
@@ -703,6 +772,7 @@ export function useSchedule(
                 `schedule:subgroup_hints:${targetGroupId}`,
                 JSON.stringify(extractSubgroupTeacherHints(allLessons))
               );
+              pruneGroupAuxiliaryCaches([targetGroupId]);
             }
           } catch {}
 
@@ -726,14 +796,14 @@ export function useSchedule(
           setError(null);
         })
         .catch(() => {
-          if (!isSubscribed) return;
+          if (!isSubscribed || requestController?.signal.aborted) return;
           setIsSlowNetwork(false);
           if (!hasCachedSchedule) {
             setError("Слабке з'єднання з інтернетом. Не вдалося завантажити розклад із сервера.");
           }
         })
         .finally(() => {
-          if (isSubscribed) setLoading(false);
+          if (isSubscribed && !requestController?.signal.aborted) setLoading(false);
         });
     };
 
@@ -753,6 +823,7 @@ export function useSchedule(
 
     return () => {
       isSubscribed = false;
+      activeAbortController?.abort();
       window.removeEventListener("schedule:refresh", handleScheduleRefresh);
       window.removeEventListener("teacher-access-changed", handleClassroomAccessChange);
       window.removeEventListener("classroom-access-changed", handleClassroomAccessChange);

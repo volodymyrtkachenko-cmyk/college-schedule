@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScheduleResponse, api } from "../../lib/api";
 import { requestClassroomAuth } from "../../lib/classroomAuth";
+import { pruneGroupAuxiliaryCaches } from "../../lib/hooks";
 import { KYIV_DATE_FMT, KYIV_TIME_FMT, formatKyivDateIso, getKyivInitialWeekAnchor } from "../../lib/date";
 import {
   aggregateClassroomTasks,
@@ -216,6 +217,7 @@ export function useScheduleDataFetch({
           groupFallbackTasks = res.tasks;
           try {
             localStorage.setItem(`schedule:classroom_group_tasks:${gid}`, JSON.stringify(res.tasks));
+            pruneGroupAuxiliaryCaches([gid]);
           } catch {}
         }
         if (res?.last_synced_at) {

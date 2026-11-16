@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { formatKyivDateIso } from "../lib/date";
 import { SITE_URL } from "../lib/site";
 import { toTeacherSlug } from "../lib/slug";
 import { fetchDirectoryForSsr } from "../lib/ssrApi";
@@ -7,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = SITE_URL.replace(/\/+$/, "");
-  const todayIso = new Date().toISOString().split("T")[0];
+  const todayIso = formatKyivDateIso();
 
   const { groups, teachers } = await fetchDirectoryForSsr(0);
 

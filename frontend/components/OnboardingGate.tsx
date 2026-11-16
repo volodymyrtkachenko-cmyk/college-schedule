@@ -33,6 +33,14 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   const [groups, setGroups] = useState<ReferenceRecord[]>([]);
   const [teachers, setTeachers] = useState<ReferenceRecord[]>([]);
   const [isLoadingDirectory, setIsLoadingDirectory] = useState(false);
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
+
+  const handleRetryDirectory = useCallback(() => {
+    directoryRequestedRef.current = false;
+    setDirectoryError(null);
+    setReloadNonce((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     const el = backdropRef.current as (HTMLDivElement & { inert?: boolean }) | null;
@@ -54,6 +62,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     directoryRequestedRef.current = true;
 
     let cancelled = false;
+    setDirectoryError(null);
     if (cachedGroups.length === 0 && cachedTeachers.length === 0) {
       setIsLoadingDirectory(true);
     }
@@ -61,8 +70,10 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     Promise.allSettled([api.directory.groups(), api.directory.teachers()])
       .then(([groupsRes, teachersRes]) => {
         if (cancelled) return;
+        let loadedAny = cachedGroups.length > 0 || cachedTeachers.length > 0;
         if (groupsRes.status === "fulfilled" && Array.isArray(groupsRes.value)) {
           setGroups(groupsRes.value);
+          if (groupsRes.value.length > 0) loadedAny = true;
           try {
             window.localStorage.setItem("schedule:groups", JSON.stringify(groupsRes.value));
           } catch {}
@@ -72,9 +83,17 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
             (t) => t.name && !t.name.includes("!")
           );
           setTeachers(filteredTeachers);
+          if (filteredTeachers.length > 0) loadedAny = true;
           try {
             window.localStorage.setItem("schedule:teachers", JSON.stringify(teachersRes.value));
           } catch {}
+        }
+        if (
+          !loadedAny &&
+          groupsRes.status === "rejected" &&
+          teachersRes.status === "rejected"
+        ) {
+          setDirectoryError("Не вдалося завантажити список груп і викладачів. Перевірте інтернет.");
         }
       })
       .finally(() => {
@@ -84,7 +103,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [needsGlobalGate]);
+  }, [needsGlobalGate, reloadNonce]);
 
   const handleComplete = useCallback(
     (selectedMode: "student" | "teacher", id: number) => {
@@ -134,6 +153,8 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
           teachers={teachers}
           initialMode="student"
           isLoadingDirectory={isLoadingDirectory}
+          directoryError={directoryError}
+          onRetryDirectory={handleRetryDirectory}
           onComplete={handleComplete}
         />
       )}

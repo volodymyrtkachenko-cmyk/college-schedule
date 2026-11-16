@@ -85,6 +85,12 @@ test('taskParser extracts classroom tasks (including split lines) and cleans hid
   assert.equal(tasks[1].deadline.statusText, 'Сьогодні');
 
   assert.equal(lib.getVisibleUserNote(note), 'Принести зошит у клітинку');
+
+  const teacherLinkNote = [
+    'Петренко: https://meet.google.com/aaa-bbbb-ccc',
+    'Зошит: у клітинку',
+  ].join('\n');
+  assert.equal(lib.getVisibleUserNote(teacherLinkNote), 'Зошит: у клітинку');
 });
 
 test('onlineMeetings resolves dual-teacher Zoom/Meet links by teacher surname and subgroup', () => {

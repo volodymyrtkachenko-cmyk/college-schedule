@@ -131,17 +131,22 @@ export function getVisibleUserNote(note?: string | null): string {
       if (trimmed.startsWith("[TASK")) return "";
       if (trimmed.includes("🔒") || trimmed.includes("[🔒")) return "";
       if (/https?:\/\/classroom\.google\.com\//i.test(trimmed)) return "";
-      // ВАЖЛИВО: без \b перед кирилицею, бо в JS \b працює лише для латиниці!
+      const hadMeetingUrl =
+        /https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\//i.test(line);
+      // Прибираємо технічні уламки посилань, але не чіпаємо звичайні текстові нотатки
       const cleaned = line
         .replace(/\[🔒[^\]]*\]/gi, "")
         .replace(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s|]+/gi, "")
         .replace(/(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID|ID)\s*[:\-]?\s*[\d\s\-]+/gi, "")
         .replace(/(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*[A-Za-zА-Яа-яІіЇїЄєҐґ0-9_.\-]+/gi, "")
-        .replace(/^(?:Токарєв[а-яА-ЯіїєґІЇЄҐ.]*|Хочинськ[а-яА-ЯіїєґІЇЄҐ.]*|Токарев[а-яА-Я.]*|Хочинск[а-яА-Я.]*|[1-9]\s*підгрупа|підгрупа\s*[1-9]|викладач)\s*[:\-]?\s*$/gi, "")
+        .replace(/^(?:[1-9]\s*підгрупа|підгрупа\s*[1-9]|викладач)\s*[:\-]?\s*$/gi, "")
         .replace(/^(?:Zoom|Meet|Google Meet|Підключитися|Приєднатися|Конференція)(?:\s+Zoom|\s+Meet)?\s*[:\-]?$/gi, "")
         .replace(/^[-—_|~*=]{1,5}$/g, "")
         .replace(/\|/g, " ")
         .trim();
+      if (hadMeetingUrl && /^[А-ЯІЇЄҐA-Z][а-яіїєґa-z'’-]+(?:\s+[А-ЯІЇЄҐA-Z]\.(?:\s*[А-ЯІЇЄҐA-Z]\.)?)?\s*[:\-]?\s*$/i.test(cleaned)) {
+        return "";
+      }
       if (cleaned.includes("🔒")) return "";
       return cleaned;
     })

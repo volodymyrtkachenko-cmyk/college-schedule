@@ -11,7 +11,7 @@ import {
 } from "../../lib/api";
 import { invalidateScheduleCache } from "../../lib/hooks";
 import { calendarDateIsoToUtcDate } from "../../lib/calendarDate";
-import { UKR_FULL_DATE_FMT } from "../../lib/date";
+import { UKR_FULL_DATE_FMT, formatKyivDateIso } from "../../lib/date";
 import { SearchableSelect } from "../SearchableSelect";
 import { ConfirmModal } from "./ConfirmModal";
 import { useToast } from "../ToastProvider";
@@ -260,7 +260,7 @@ export function SchedulePeriodsPanel() {
     }
   }
 
-  const today = localDate(new Date());
+  const today = formatKyivDateIso();
   const sortedGroups = [...groups];
   const sortedSubjects = [...subjects];
   const sortedTeachers = [...teachers];

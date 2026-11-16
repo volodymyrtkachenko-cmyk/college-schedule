@@ -156,8 +156,8 @@ export function StudentOnboardingModal({
     onComplete(activeGroupId);
   };
 
-  const sub1Teacher = subgroupHints.sub1[0]?.teacher || "Токарєва О.В.";
-  const sub2Teacher = subgroupHints.sub2[0]?.teacher || "Хочинська О.С.";
+  const sub1Teacher = subgroupHints.sub1[0]?.teacher || "Викладач 1 підгрупи";
+  const sub2Teacher = subgroupHints.sub2[0]?.teacher || "Викладач 2 підгрупи";
   const isClassroomReady = isLinked || classroomSuccess;
 
   return (

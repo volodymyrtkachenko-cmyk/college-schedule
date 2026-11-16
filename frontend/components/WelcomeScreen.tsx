@@ -21,6 +21,8 @@ interface WelcomeScreenProps {
   teachers: ReferenceRecord[];
   initialMode: "student" | "teacher";
   isLoadingDirectory?: boolean;
+  directoryError?: string | null;
+  onRetryDirectory?: () => void;
   onComplete: (mode: "student" | "teacher", id: number) => void;
 }
 
@@ -29,6 +31,8 @@ export function WelcomeScreen({
   teachers,
   initialMode,
   isLoadingDirectory = false,
+  directoryError = null,
+  onRetryDirectory,
   onComplete,
 }: WelcomeScreenProps) {
   const [step, setStep] = useState(1);
@@ -291,10 +295,22 @@ export function WelcomeScreen({
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-sys-text-secondary">
-                      {options.length === 0
-                        ? mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."
-                        : "За вашим запитом нічого не знайдено."}
+                    <div className="text-center py-8 text-sys-text-secondary space-y-3">
+                      <p>
+                        {options.length === 0
+                          ? directoryError ||
+                            (mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній.")
+                          : "За вашим запитом нічого не знайдено."}
+                      </p>
+                      {options.length === 0 && directoryError && onRetryDirectory && (
+                        <button
+                          type="button"
+                          onClick={onRetryDirectory}
+                          className="inline-flex items-center justify-center rounded-xl bg-sys-accentSolid px-4 py-2 text-sm font-semibold text-sys-onAccent hover:opacity-90 active:scale-[0.98] transition-opacity cursor-pointer"
+                        >
+                          Спробувати ще раз
+                        </button>
+                      )}
                     </div>
                   )
                 )}

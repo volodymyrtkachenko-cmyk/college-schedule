@@ -83,12 +83,17 @@ export function useWeekAnchor(ssrNowIso?: string) {
         const liveNow = getSyncedNow();
         const todayStr = KYIV_DATE_FMT.format(liveNow);
         if (todayStr !== lastActiveDateRef.current) {
+          const prevAnchorIso = formatKyivDateIso(
+            getKyivInitialWeekAnchor(calendarDateIsoToUtcDate(lastActiveDateRef.current))
+          );
           lastActiveDateRef.current = todayStr;
           setNowRefDate(liveNow);
           setWeekAnchorDate((prev) => {
             const currentAnchor = getKyivInitialWeekAnchor(liveNow);
-            const wasCurrentWeek = Math.abs(prev.getTime() - currentAnchor.getTime()) < 1000 * 60 * 60 * 24 * 7;
-            return wasCurrentWeek ? currentAnchor : prev;
+            const wasPreviousCurrentWeek =
+              formatKyivDateIso(prev) === prevAnchorIso ||
+              Math.abs(prev.getTime() - currentAnchor.getTime()) <= 1000 * 60 * 60 * 24 * 7;
+            return wasPreviousCurrentWeek ? currentAnchor : prev;
           });
         }
       }
@@ -325,16 +330,17 @@ export function useScheduleSelection({
   const syncBrowserUrl = useCallback(
     (targetMode: "student" | "teacher", id: number) => {
       if (typeof window === "undefined") return;
+      const historyState = { scheduleMode: targetMode, scheduleEntityId: id };
       if (targetMode === "student") {
         const g = groups.find((item) => item.id === id);
         if (g) {
-          window.history.pushState(null, "", `/group/${encodeURIComponent(g.name)}`);
+          window.history.pushState(historyState, "", `/group/${encodeURIComponent(g.name)}`);
           document.title = `Розклад групи ${g.name} ДФКР | Розклад ДФКР`;
         }
       } else {
         const t = teachers.find((item) => item.id === id);
         if (t) {
-          window.history.pushState(null, "", `/teacher/${toTeacherSlug(t.name)}`);
+          window.history.pushState(historyState, "", `/teacher/${toTeacherSlug(t.name)}`);
           document.title = `Розклад викладача ${t.name} — ДФКР | Розклад ДФКР`;
         }
       }
@@ -427,10 +433,40 @@ export function useScheduleSelection({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const handlePopState = () => {
+    const handlePopState = (event: PopStateEvent) => {
+      const histState = event.state as { scheduleMode?: string; scheduleEntityId?: unknown } | null;
+      if (
+        histState &&
+        (histState.scheduleMode === "student" || histState.scheduleMode === "teacher") &&
+        typeof histState.scheduleEntityId === "number" &&
+        histState.scheduleEntityId > 0
+      ) {
+        if (histState.scheduleMode === "student") {
+          toggleMode("student");
+          if (histState.scheduleEntityId !== groupId) setGroupId(histState.scheduleEntityId);
+        } else {
+          toggleMode("teacher");
+          if (histState.scheduleEntityId !== teacherId) setTeacherId(histState.scheduleEntityId);
+        }
+        return;
+      }
+
       const path = window.location.pathname;
       if (path === "/") {
         document.title = "Розклад ДФКР";
+        try {
+          if (window.localStorage.getItem("schedule:setupComplete") === "1") {
+            const savedMode = window.localStorage.getItem("schedule:mode") === "teacher" ? "teacher" : "student";
+            const savedGid = Number(window.localStorage.getItem("schedule:groupId")) || null;
+            const savedTid = Number(window.localStorage.getItem("schedule:teacherId")) || null;
+            toggleMode(savedMode);
+            if (savedMode === "student" && savedGid && savedGid !== groupId) {
+              setGroupId(savedGid);
+            } else if (savedMode === "teacher" && savedTid && savedTid !== teacherId) {
+              setTeacherId(savedTid);
+            }
+          }
+        } catch {}
         return;
       }
       const groupMatch = path.match(/^\/group\/([^/]+)/);

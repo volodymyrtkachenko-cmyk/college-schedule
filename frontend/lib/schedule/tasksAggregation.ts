@@ -12,6 +12,8 @@ import {
   extractTeacherFromSubject,
   isValidTeacherName,
   normalizeSubjectName,
+  pickMoreCompleteTeacherName,
+  resolveCanonicalTeacherName,
 } from "../format";
 import {
   TaskDeadline,
@@ -54,7 +56,7 @@ export function mergeTasksLists(existing: any[], incoming: any[]): any[] {
         ...item,
         subject: prev.subject || item.subject,
         course_name: prev.course_name || item.course_name,
-        teacher: item.teacher || prev.teacher,
+        teacher: pickMoreCompleteTeacherName(prev.teacher, item.teacher),
         max_points: item.max_points ?? prev.max_points,
         creation_time: prev.creation_time ?? item.creation_time,
         created_at: prev.created_at ?? item.created_at,
@@ -64,6 +66,7 @@ export function mergeTasksLists(existing: any[], incoming: any[]): any[] {
       map.set(key, {
         ...prev,
         ...item,
+        teacher: pickMoreCompleteTeacherName(prev.teacher, item.teacher),
         brief: item.brief !== undefined ? item.brief : prev.brief,
       });
     }
@@ -88,6 +91,14 @@ export function aggregateClassroomTasks(params: {
   const tasks: FullTaskItem[] = [];
   const seenUrls = new Set<string>();
   const boundUrls = new Set<string>();
+
+  const globalTeacherPool: Array<string | null | undefined> = [
+    ...(personalTeachers || []),
+    ...(classroomTasks || []).flatMap((ct) => [ct?.teacher, ct?.teacher_name]),
+    ...(week || []).flatMap((d) =>
+      (d?.lessons || []).flatMap((l) => [l?.teacher_name, l?.teacher])
+    ),
+  ];
 
   if (week && week.length > 0) {
     for (const d of week) {
@@ -145,11 +156,29 @@ export function aggregateClassroomTasks(params: {
               null;
 
             const cleanSubj = normalizeSubjectName(l.subject_name || l.subject || "Дисципліна");
+            const lessonTeacherParts = [l.teacher_name, l.teacher]
+              .filter(Boolean)
+              .flatMap((v) => String(v).split(/\s*[,/]\s*/).map((s) => s.trim()).filter(Boolean));
+            const rawTaskTeacher =
+              t.teacher ||
+              matchedTask?.teacher ||
+              matchedTask?.teacher_name ||
+              (lessonTeacherParts.length === 1 ? lessonTeacherParts[0] : null);
+            const canonicalTeacher =
+              resolveCanonicalTeacherName(rawTaskTeacher, [
+                matchedTask?.teacher,
+                matchedTask?.teacher_name,
+                ...lessonTeacherParts,
+                ...globalTeacherPool,
+              ]) ||
+              l.teacher_name ||
+              l.teacher;
+
             tasks.push({
               id: matchedTask?.id,
               title: t.title || "Завдання",
               subject: cleanSubj,
-              teacher: t.teacher || l.teacher_name || l.teacher,
+              teacher: canonicalTeacher,
               label: t.label,
               url: t.url,
               deadline,
@@ -225,11 +254,19 @@ export function aggregateClassroomTasks(params: {
       const rawSubj = ct.subject || ct.course_name || "";
       const cleanSubj = normalizeSubjectName(rawSubj) || "Дисципліна";
       const teacherFromRaw = extractTeacherFromSubject(rawSubj);
-      const resolvedTeacher =
+      const rawTeacherCandidate =
         (isValidTeacherName(ct.teacher) ? ct.teacher : null) ||
         (isValidTeacherName(ct.teacher_name) ? ct.teacher_name : null) ||
         teacherFromRaw ||
+        (typeof ct.teacher === "string" && ct.teacher.trim() ? ct.teacher.trim() : null) ||
+        (typeof ct.teacher_name === "string" && ct.teacher_name.trim() ? ct.teacher_name.trim() : null) ||
         null;
+      const resolvedTeacher = resolveCanonicalTeacherName(rawTeacherCandidate, [
+        ct.teacher,
+        ct.teacher_name,
+        teacherFromRaw,
+        ...globalTeacherPool,
+      ]);
 
       const rawCreated = ct.creationTime ?? ct.creation_time ?? ct.created_at ?? null;
 

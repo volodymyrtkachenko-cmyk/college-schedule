@@ -8,7 +8,7 @@ import { WeekTypeBadge } from "../WeekTypeBadge";
 const LessonEditor = dynamic(() => import("../LessonEditor").then((m) => m.LessonEditor), { ssr: false });
 import { Lesson, LessonMutation, AcademicEvent, AcademicEventType, api } from "../../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../../lib/hooks";
-import { calendarDateIsoToUtcDate } from "../../lib/calendarDate";
+import { calendarDateIsoToUtcDate, getCalendarWeekdayMon0 } from "../../lib/calendarDate";
 import {
   UKR_DAY_MONTH_SHORT_FMT,
   UKR_WEEKDAY_LONG_FMT,
@@ -944,8 +944,8 @@ export function AdminScheduleEditor() {
   const shouldReduceMotion = useReducedMotion();
   const [daySlideDir, setDaySlideDir] = useState(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
-    const d = new Date().getDay();
-    return d >= 1 && d <= 5 ? d - 1 : 0;
+    const mon0 = getCalendarWeekdayMon0(formatKyivDateIso());
+    return mon0 >= 0 && mon0 <= 4 ? mon0 : 0;
   });
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
 

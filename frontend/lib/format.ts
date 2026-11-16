@@ -841,5 +841,84 @@ export function extractTeacherFromSubject(rawName?: string | null): string | nul
   return null;
 }
 
+function normalizeSurnameRoot(surname: string): string {
+  return surname
+    .toLowerCase()
+    .replace(/['’ʼ`\-]/g, "")
+    .replace(/є/g, "е")
+    .replace(/[їі]/g, "и")
+    .replace(/ґ/g, "г")
+    .trim();
+}
+
+export function hasTeacherInitialsOrFullName(name?: string | null): boolean {
+  if (!name) return false;
+  const clean = name.trim();
+  if (!clean) return false;
+  if (/[А-ЯІЇЄҐA-Z]\.\s*[А-ЯІЇЄҐA-Z]?\.?/i.test(clean) && clean.includes(".")) {
+    return true;
+  }
+  const words = clean.split(/\s+/).filter(Boolean);
+  return words.length >= 2 && words.every((w) => w.length >= 2);
+}
+
+/**
+ * Обирає повніший варіант ПІБ викладача (з ініціалами замість голого прізвища).
+ */
+export function pickMoreCompleteTeacherName(
+  prev?: string | null,
+  next?: string | null
+): string | null {
+  const cleanPrev = typeof prev === "string" ? prev.trim() : "";
+  const cleanNext = typeof next === "string" ? next.trim() : "";
+  if (!cleanPrev && !cleanNext) return null;
+  if (!cleanPrev) return formatTeacherName(cleanNext);
+  if (!cleanNext) return formatTeacherName(cleanPrev);
+
+  const prevFull = hasTeacherInitialsOrFullName(cleanPrev);
+  const nextFull = hasTeacherInitialsOrFullName(cleanNext);
+  if (prevFull && !nextFull) return formatTeacherName(cleanPrev);
+  if (nextFull && !prevFull) return formatTeacherName(cleanNext);
+  return formatTeacherName(cleanNext);
+}
+
+/**
+ * Приводить ім'я викладача до канонічного формату «Прізвище І.П.» за пулом кандидатів
+ * (виключає розбіжності між [Прізвище] у нотатці тижня та повним ПІБ у Classroom).
+ */
+export function resolveCanonicalTeacherName(
+  rawTeacher?: string | null,
+  candidates: ReadonlyArray<string | null | undefined> = []
+): string | null {
+  const expandedCandidates = candidates
+    .flatMap((c) => (typeof c === "string" ? c.split(/\s*[,/]\s*/) : []))
+    .map((c) => c.trim())
+    .filter(Boolean);
+
+  const cleanRaw = typeof rawTeacher === "string" ? rawTeacher.trim() : "";
+  if (cleanRaw && hasTeacherInitialsOrFullName(cleanRaw)) {
+    return formatTeacherName(cleanRaw);
+  }
+
+  if (cleanRaw) {
+    const rawFirst = cleanRaw.split(/\s+/)[0] || cleanRaw;
+    const rawRoot = normalizeSurnameRoot(rawFirst);
+    if (rawRoot.length >= 3) {
+      const matchedFull = expandedCandidates.find((cand) => {
+        if (!hasTeacherInitialsOrFullName(cand)) return false;
+        const candFirst = cand.split(/\s+/)[0] || cand;
+        const candRoot = normalizeSurnameRoot(candFirst);
+        return candRoot === rawRoot || (candRoot.length >= 4 && rawRoot.length >= 4 && (candRoot.startsWith(rawRoot) || rawRoot.startsWith(candRoot)));
+      });
+      if (matchedFull) {
+        return formatTeacherName(matchedFull);
+      }
+    }
+    return cleanRaw;
+  }
+
+  const fallbackValid = expandedCandidates.find((cand) => isValidTeacherName(cand));
+  return fallbackValid ? formatTeacherName(fallbackValid) : null;
+}
 
 

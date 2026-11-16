@@ -263,3 +263,69 @@ test("buildTelegramShareText and formatWeekShareText include owner, shortened da
   assert.match(weekText, /Технологічна практика/);
   assert.doesNotMatch(weekText, /Фізика/);
 });
+
+test("aggregateClassroomTasks and mergeTasksLists keep canonical teacher initials across bound and unbound weeks", () => {
+  const agg = loadTsModule("lib/schedule/tasksAggregation.ts");
+
+  const weekWithTag = [
+    {
+      date: "2026-11-16",
+      week_type: "denominator",
+      lessons: [
+        {
+          id: 501,
+          lesson_number: 2,
+          time: "10:40-12:00",
+          subject_name: "Іноземна мова (за професійним спрямуванням)",
+          teacher_name: "Токарєва О.В. / Хочинська О.С.",
+          room: "302 / 204",
+          week_type: "both",
+          day_of_week: 0,
+          note: "[TASK] [Хочинська] Заняття 11. GUI vs CLI (до 17.11) | https://classroom.google.com/c/99/a/11",
+        },
+      ],
+    },
+  ];
+
+  const classroomTaskItem = {
+    id: "99_11",
+    title: "Заняття 11. GUI vs CLI",
+    subject: "Іноземна мова (за професійним спрямуванням)",
+    teacher: "Хочинська О.С.",
+    alternate_link: "https://classroom.google.com/c/99/a/11",
+    due_date: "2026-11-17",
+  };
+
+  const boundTasks = Array.from(
+    agg.aggregateClassroomTasks({
+      mode: "student",
+      week: weekWithTag,
+      classroomTasks: [classroomTaskItem],
+      isLinked: false,
+      submissions: {},
+      personalTeachers: ["Хочинська О.С."],
+    })
+  );
+
+  const unboundTasks = Array.from(
+    agg.aggregateClassroomTasks({
+      mode: "student",
+      week: [{ date: "2026-11-13", week_type: "numerator", lessons: [] }],
+      classroomTasks: [classroomTaskItem],
+      isLinked: false,
+      submissions: {},
+      personalTeachers: ["Хочинська О.С."],
+    })
+  );
+
+  assert.equal(boundTasks[0].teacher, "Хочинська О.С.");
+  assert.equal(unboundTasks[0].teacher, "Хочинська О.С.");
+
+  const merged = Array.from(
+    agg.mergeTasksLists(
+      [classroomTaskItem],
+      [{ alternate_link: "https://classroom.google.com/c/99/a/11", teacher: "Хочинська", is_reconstructed: true }]
+    )
+  );
+  assert.equal(merged[0].teacher, "Хочинська О.С.");
+});

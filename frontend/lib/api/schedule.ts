@@ -61,13 +61,22 @@ export function today(groupId?: number, teacherId?: number, includeCancelled?: b
   return request<ScheduleResponse>(`/api/schedule/today?${params.toString()}`);
 }
 
-export function week(groupId?: number, teacherId?: number, date = getSyncedNow(), includeCancelled?: boolean) {
+export function week(
+  groupId?: number,
+  teacherId?: number,
+  date = getSyncedNow(),
+  includeCancelled?: boolean,
+  signal?: AbortSignal
+) {
   const params = new URLSearchParams({ target_date: formatKyivDateIso(date) });
   if (groupId) params.set("group_id", String(groupId));
   if (teacherId) params.set("teacher_id", String(teacherId));
   if (includeCancelled) params.set("include_cancelled", "true");
   attachClassroomQueryParams(params);
-  return request<ScheduleResponse[]>(`/api/schedule/week?${params.toString()}`);
+  return request<ScheduleResponse[]>(
+    `/api/schedule/week?${params.toString()}`,
+    signal ? { signal } : {}
+  );
 }
 
 export function statistics(target: { groupId?: number; teacherId?: number }) {

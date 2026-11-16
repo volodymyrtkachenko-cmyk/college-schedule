@@ -101,7 +101,7 @@ export function PermanentScheduleEditor() {
         const found = versions.find((v) => v.id === selectedVersionId);
         if (found) return found;
       }
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = formatKyivDateIso();
       return (
         versions.find((v) => v.is_active && v.valid_from <= todayStr && v.valid_until >= todayStr) ||
         versions.find((v) => v.is_active) ||
@@ -137,7 +137,7 @@ export function PermanentScheduleEditor() {
         setGroups(gList);
         setTeachers(tList);
         if (!selectedVersionId && vList.length > 0) {
-          const todayStr = new Date().toISOString().slice(0, 10);
+          const todayStr = formatKyivDateIso();
           const currentValidV = vList.find(
             (v) => v.is_active && v.valid_from <= todayStr && v.valid_until >= todayStr
           );
