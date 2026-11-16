@@ -5,9 +5,14 @@ import { api } from "./api";
 import { clearScheduleLocalStorageCache, invalidateScheduleCache } from "./hooks";
 
 import {
+  MANUAL_DONE_STATE,
   PersonalSubmission,
+  applyManualDoneOverlay,
   extractClassroomTaskKey,
+  isCompletedTaskState,
   isOwnTask,
+  parseManualDoneList,
+  resolveManualTaskIdentities,
 } from "./classroomTaskFilter";
 import {
   CLASSROOM_LINKED_EVENT,
@@ -21,12 +26,18 @@ import {
 } from "./classroomUnlink";
 
 export type { PersonalSubmission, ClassroomUnlinkResult };
-export { extractClassroomTaskKey, isOwnTask };
+export {
+  MANUAL_DONE_STATE,
+  extractClassroomTaskKey,
+  isCompletedTaskState,
+  isOwnTask,
+};
 
 const LINKED_EMAIL_KEY = CLASSROOM_STORAGE_KEYS.LINKED_EMAIL;
 const GOOGLE_USER_ID_KEY = CLASSROOM_STORAGE_KEYS.GOOGLE_USER_ID;
 const LINKED_GROUP_ID_KEY = CLASSROOM_STORAGE_KEYS.LINKED_GROUP_ID;
 const SUBMITTED_TASKS_KEY = CLASSROOM_STORAGE_KEYS.SUBMITTED_TASKS;
+const MANUAL_DONE_TASKS_KEY = CLASSROOM_STORAGE_KEYS.MANUAL_DONE_TASKS;
 const PERSONAL_TEACHERS_KEY = CLASSROOM_STORAGE_KEYS.PERSONAL_TEACHERS;
 const PERSONAL_SUBGROUP_KEY = CLASSROOM_STORAGE_KEYS.PERSONAL_SUBGROUP;
 const ACCESS_TOKEN_KEY = CLASSROOM_STORAGE_KEYS.ACCESS_TOKEN;
@@ -55,11 +66,49 @@ export function getLinkedGroupId(): number | null {
   }
 }
 
+export function getManualDoneTaskKeys(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return parseManualDoneList(localStorage.getItem(MANUAL_DONE_TASKS_KEY));
+  } catch {
+    return [];
+  }
+}
+
+export function setTaskManualDone(
+  target: { url?: string | null; id?: string | null },
+  done: boolean
+): boolean {
+  if (typeof window === "undefined") return false;
+  const identities = resolveManualTaskIdentities(target);
+  if (identities.length === 0) return false;
+  try {
+    const existing = new Set(getManualDoneTaskKeys());
+    if (done) {
+      for (const k of identities) existing.add(k);
+    } else {
+      for (const k of identities) existing.delete(k);
+    }
+    const nextList = Array.from(existing);
+    if (nextList.length > 0) {
+      localStorage.setItem(MANUAL_DONE_TASKS_KEY, JSON.stringify(nextList));
+    } else {
+      localStorage.removeItem(MANUAL_DONE_TASKS_KEY);
+    }
+    notifyClassroomChange();
+    window.dispatchEvent(new Event(EVENT_NAME));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getPersonalSubmissions(): Record<string, PersonalSubmission> {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(SUBMITTED_TASKS_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const parsed: Record<string, PersonalSubmission> = raw ? JSON.parse(raw) : {};
+    return applyManualDoneOverlay(parsed, getManualDoneTaskKeys());
   } catch {
     return {};
   }

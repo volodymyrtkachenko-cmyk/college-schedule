@@ -228,8 +228,10 @@ export function sortTasksByDeadline<
   T extends { deadline: TaskDeadline; state?: string } & PublishedTaskLike,
 >(taskList: T[]): T[] {
   return [...taskList].sort((a, b) => {
-    const isDoneA = a.state === "TURNED_IN" || a.state === "RETURNED";
-    const isDoneB = b.state === "TURNED_IN" || b.state === "RETURNED";
+    const isDoneA =
+      a.state === "TURNED_IN" || a.state === "RETURNED" || a.state === "MANUAL_DONE";
+    const isDoneB =
+      b.state === "TURNED_IN" || b.state === "RETURNED" || b.state === "MANUAL_DONE";
     if (isDoneA && !isDoneB) return 1;
     if (!isDoneA && isDoneB) return -1;
 

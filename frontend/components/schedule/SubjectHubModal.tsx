@@ -41,7 +41,7 @@ import {
   resolveSubjectLessonDetails,
   type SubjectHubTarget,
 } from "../../lib/schedule";
-import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
+import { setTaskManualDone, useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { formatTaskGradeDisplay, useGradesSummary, type GradeItem } from "../../lib/useGradesSummary";
 import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useUserSettings } from "../../lib/useUserSettings";
@@ -56,6 +56,7 @@ import {
   BarChartIcon,
   CalendarIcon,
   CheckCircleIcon,
+  CheckIcon,
   ClipboardListIcon,
   ClockIcon,
   CloseIcon,
@@ -995,7 +996,12 @@ export function SubjectHubModal({
             const toggleHubTaskExpand = (taskKey: string) => {
               setExpandedTaskKeys((prev) => ({ ...prev, [taskKey]: !prev[taskKey] }));
             };
-            const renderHubTaskRow = (task: FullTaskItem, rowKey: string, withDot: boolean) => {
+            const renderHubTaskRow = (
+              task: FullTaskItem,
+              rowKey: string,
+              withDot: boolean,
+              allowManualDone = false
+            ) => {
               const statusText = getTaskStatusText(task.deadline, isLinked);
               const dotCls = getTaskDeadlineDotColor(task.deadline.badgeTone, isLinked);
               const statusCls = getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked);
@@ -1031,38 +1037,56 @@ export function SubjectHubModal({
                       )}
                     </a>
 
-                    {canExpandBrief ? (
-                      <button
-                        type="button"
-                        aria-expanded={isExpanded}
-                        onClick={() => toggleHubTaskExpand(taskKey)}
-                        className={`shrink-0 inline-flex items-center gap-1 min-h-[26px] rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer active:scale-95 ${
-                          isExpanded
-                            ? "border-sys-accent/45 bg-sys-hover text-sys-text-primary"
-                            : "border-sys-border/70 bg-sys-bg/80 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-hover"
-                        }`}
-                      >
-                        <span>{briefChip || "Міні-бриф"}</span>
-                        <svg
-                          aria-hidden="true"
-                          width="11"
-                          height="11"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.4"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className={`transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-180" : ""}`}
+                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                      {allowManualDone && isLinked && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTaskManualDone({ url: task.url, id: task.id }, true);
+                            toast?.showToast("Перенесено у «Здано» (відмічено вручну)", "success");
+                          }}
+                          aria-label={`Позначити завдання «${task.title}» як здане`}
+                          title="Прибрати з боргів і перенести у «Здано»"
+                          className="inline-flex items-center gap-1 min-h-[26px] rounded-md border border-emerald-500/35 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                         >
-                          <path d="m6 9 6 6 6-6" />
-                        </svg>
-                      </button>
-                    ) : weightBadge ? (
-                      <span className="shrink-0 text-[11px] font-medium text-sys-text-muted pt-0.5">
-                        {weightBadge.label}
-                      </span>
-                    ) : null}
+                          <CheckIcon className="h-3 w-3 shrink-0" />
+                          <span>Позначити зданим</span>
+                        </button>
+                      )}
+
+                      {canExpandBrief ? (
+                        <button
+                          type="button"
+                          aria-expanded={isExpanded}
+                          onClick={() => toggleHubTaskExpand(taskKey)}
+                          className={`shrink-0 inline-flex items-center gap-1 min-h-[26px] rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer active:scale-95 ${
+                            isExpanded
+                              ? "border-sys-accent/45 bg-sys-hover text-sys-text-primary"
+                              : "border-sys-border/70 bg-sys-bg/80 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-hover"
+                          }`}
+                        >
+                          <span>{briefChip || "Міні-бриф"}</span>
+                          <svg
+                            aria-hidden="true"
+                            width="11"
+                            height="11"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.4"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className={`transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-180" : ""}`}
+                          >
+                            <path d="m6 9 6 6 6-6" />
+                          </svg>
+                        </button>
+                      ) : weightBadge ? (
+                        <span className="shrink-0 text-[11px] font-medium text-sys-text-muted pt-0.5">
+                          {weightBadge.label}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   {desktopMotion ? (
@@ -1319,7 +1343,7 @@ export function SubjectHubModal({
                         subjectTasks.overdue.length > 0 ? (
                           <ul className="rounded-xl border border-sys-border/70 bg-sys-bg divide-y divide-sys-border/60 overflow-hidden">
                             {subjectTasks.overdue.map((task, idx) =>
-                              renderHubTaskRow(task, task.id || task.url || `ovr-${idx}`, true)
+                              renderHubTaskRow(task, task.id || task.url || `ovr-${idx}`, true, true)
                             )}
                           </ul>
                         ) : (
@@ -1337,21 +1361,45 @@ export function SubjectHubModal({
                                 task.state === "RETURNED"
                                   ? formatTaskGradeDisplay(task.assignedGrade, task.maxPoints, task.subject)
                                   : null;
+                              const isManualDone = task.state === "MANUAL_DONE";
                               return (
-                                <li key={task.id || task.url || `done-${idx}`}>
+                                <li
+                                  key={task.id || task.url || `done-${idx}`}
+                                  className="flex items-center justify-between gap-2.5 px-3 py-2.5 text-xs hover:bg-sys-card/70 transition-colors"
+                                >
                                   <a
                                     href={task.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="group flex items-center justify-between gap-2.5 px-3 py-2.5 text-xs hover:bg-sys-card/70 transition-colors"
+                                    className="group flex items-center justify-between gap-2.5 min-w-0 flex-1"
                                   >
                                     <span className="font-medium text-sys-text-primary break-words group-hover:text-sys-accent transition-colors min-w-0 flex-1">
                                       {task.title}
                                     </span>
                                     <span className="shrink-0 font-semibold text-emerald-700 dark:text-emerald-300">
-                                      {gradeInfo ? gradeInfo.text : "Здано"} ↗
+                                      {gradeInfo
+                                        ? gradeInfo.text
+                                        : isManualDone
+                                        ? "Відмічено вручну"
+                                        : "Здано"}{" "}
+                                      ↗
                                     </span>
                                   </a>
+
+                                  {isManualDone && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setTaskManualDone({ url: task.url, id: task.id }, false);
+                                        toast?.showToast("Позначку здачі скасовано", "info");
+                                      }}
+                                      aria-label={`Скасувати ручну позначку здачі для «${task.title}»`}
+                                      title="Повернути завдання у невиконані"
+                                      className="shrink-0 inline-flex items-center gap-1 min-h-[24px] rounded-md border border-sys-border/80 bg-sys-card hover:border-rose-500/40 hover:bg-rose-500/10 px-2 py-0.5 text-[11px] font-medium text-sys-text-secondary hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent"
+                                    >
+                                      <span>Скасувати</span>
+                                    </button>
+                                  )}
                                 </li>
                               );
                             })}

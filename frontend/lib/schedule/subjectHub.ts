@@ -414,7 +414,9 @@ export function partitionSubjectTasks(
   const completedRaw: FullTaskItem[] = [];
 
   for (const t of matched) {
-    const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
+    const isDone =
+      isLinked &&
+      (t.state === "TURNED_IN" || t.state === "RETURNED" || t.state === "MANUAL_DONE");
     if (isDone) {
       completedRaw.push(t);
     } else if (t.deadline?.isOverdue || t.deadline?.badgeTone === "overdue") {

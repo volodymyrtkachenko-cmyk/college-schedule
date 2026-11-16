@@ -1,7 +1,12 @@
 import type { ScheduleResponse } from "../api";
 import type { FullTaskItem } from "../../components/TaskCardItem";
 import type { PersonalSubmission } from "../classroomTaskFilter";
-import { extractClassroomTaskKey, isOwnTask } from "../classroomTaskFilter";
+import {
+  MANUAL_DONE_STATE,
+  extractClassroomTaskKey,
+  isCompletedTaskState,
+  isOwnTask,
+} from "../classroomTaskFilter";
 import { KYIV_DATE_FMT } from "../date";
 import {
   extractTeacherFromSubject,
@@ -102,12 +107,16 @@ export function aggregateClassroomTasks(params: {
             const matchedTask = classroomTasks?.find(
               (ct) => (ct.alternate_link || ct.url) === t.url || (ct.id && key && ct.id === key)
             );
-            const personalSub = isLinked ? (submissions[t.url] || (key ? submissions[key] : null)) : null;
+            const personalSub = isLinked
+              ? submissions[t.url] ||
+                (key ? submissions[key] : null) ||
+                (matchedTask?.id ? submissions[matchedTask.id] : null)
+              : null;
             const effectiveState = personalSub ? personalSub.state : "NEW";
             const effectiveGrade = personalSub ? (personalSub.grade ?? null) : null;
             const effectiveMaxPoints =
               personalSub?.maxPoints ?? matchedTask?.max_points ?? matchedTask?.maxPoints ?? null;
-            const isDone = isLinked && (effectiveState === "TURNED_IN" || effectiveState === "RETURNED");
+            const isDone = isLinked && isCompletedTaskState(effectiveState);
 
             let deadline = t.deadline;
             if (isDone) {
@@ -117,6 +126,8 @@ export function aggregateClassroomTasks(params: {
                 statusText:
                   effectiveState === "RETURNED" && effectiveGrade != null
                     ? `Оцінка: ${effectiveGrade}/${effectiveMaxPoints || 100}`
+                    : effectiveState === MANUAL_DONE_STATE
+                    ? "Відмічено вручну"
                     : "Здано",
                 badgeTone: "normal",
               };
@@ -167,11 +178,13 @@ export function aggregateClassroomTasks(params: {
       seenUrls.add(url);
 
       const key = extractClassroomTaskKey(url);
-      const personalSub = isLinked ? (submissions[url] || (key ? submissions[key] : null)) : null;
+      const personalSub = isLinked
+        ? submissions[url] || (key ? submissions[key] : null) || (ct.id ? submissions[ct.id] : null)
+        : null;
       const effectiveState = personalSub ? personalSub.state : "NEW";
       const effectiveGrade = personalSub ? (personalSub.grade ?? null) : null;
       const effectiveMaxPoints = personalSub?.maxPoints ?? ct.max_points ?? ct.maxPoints ?? null;
-      const isDone = isLinked && (effectiveState === "TURNED_IN" || effectiveState === "RETURNED");
+      const isDone = isLinked && isCompletedTaskState(effectiveState);
 
       let deadline: TaskDeadline;
       if (ct.due_date) {
@@ -182,6 +195,8 @@ export function aggregateClassroomTasks(params: {
           deadline.statusText =
             effectiveState === "RETURNED" && effectiveGrade != null
               ? `Оцінка: ${effectiveGrade}/${effectiveMaxPoints || 100}`
+              : effectiveState === MANUAL_DONE_STATE
+              ? "Відмічено вручну"
               : "Здано";
           deadline.badgeTone = "normal";
         }
@@ -198,6 +213,8 @@ export function aggregateClassroomTasks(params: {
           statusText: isDone
             ? effectiveState === "RETURNED" && effectiveGrade != null
               ? `Оцінка: ${effectiveGrade}/${effectiveMaxPoints || 100}`
+              : effectiveState === MANUAL_DONE_STATE
+              ? "Відмічено вручну"
               : "Здано"
             : "",
           badgeTone: "normal",
@@ -249,7 +266,7 @@ export function countOverdueClassroomTasks(
 ): number {
   let count = 0;
   for (const t of tasks) {
-    const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
+    const isDone = isLinked && isCompletedTaskState(t.state);
     if (isDone) continue;
     const dueIso = t.dueDateIso || (t.deadline.date ? KYIV_DATE_FMT.format(t.deadline.date) : null);
     if (t.deadline.isOverdue || (dueIso && dueIso < actualMondayIso)) {

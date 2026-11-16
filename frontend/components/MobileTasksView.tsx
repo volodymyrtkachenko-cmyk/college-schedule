@@ -844,7 +844,9 @@ export function MobileTasksView({
     }
     let active = 0;
     for (const t of tasks) {
-      const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
+      const isDone =
+        isLinked &&
+        (t.state === "TURNED_IN" || t.state === "RETURNED" || t.state === "MANUAL_DONE");
       if (!isDone) active++;
     }
     return { activeCount: active, totalCount: tasks.length };

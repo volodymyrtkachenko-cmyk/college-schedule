@@ -220,7 +220,7 @@ test("dismissal snoozes until tomorrow, resets on unseen overdue task or group c
   assert.equal(mod.parseOverdueBannerDismissal(JSON.stringify({ dismissedAtIso: "bad", taskIds: [] })), null);
 });
 
-test("performing Classroom unlink clears saved overdue banner dismissal", async () => {
+test("performing Classroom unlink clears saved overdue banner dismissal and manual done tasks", async () => {
   const localStorage = createMemoryStorage({
     "schedule:classroom_linked_email": "student@example.test",
     "schedule:classroom_linked_group_id": "75",
@@ -229,6 +229,7 @@ test("performing Classroom unlink clears saved overdue banner dismissal", async 
       taskIds: ["MTEx_MjIy"],
       scopeKey: "g:75",
     }),
+    "schedule:classroom_manual_done_tasks": JSON.stringify(["MTEx_MjIy"]),
   });
   const unlinkMod = loadTsModule(path.join(__dirname, "../lib/classroomUnlink.ts"), {
     window: {
@@ -245,4 +246,54 @@ test("performing Classroom unlink clears saved overdue banner dismissal", async 
   const res = await unlinkMod.performClassroomUnlink();
   assert.equal(res.ok, true);
   assert.equal(localStorage.getItem("schedule:overdue_banner_dismissal"), null);
+  assert.equal(localStorage.getItem("schedule:classroom_manual_done_tasks"), null);
+});
+
+test("manual done overlay marks overdue tasks as Відмічено вручну, preserves real Classroom grades, and does not break isOwnTask", () => {
+  const filterMod = loadTsModule(path.join(__dirname, "../lib/classroomTaskFilter.ts"));
+  const aggMod = loadTsModule(path.join(__dirname, "../lib/schedule/tasksAggregation.ts"));
+
+  const url1 = "https://classroom.google.com/c/MTEx/a/MjIy/details";
+  const url2 = "https://classroom.google.com/c/MTEx/a/MzMz/details";
+
+  // 1. When base submissions are empty, manual-only overlay does not filter out other tasks in isOwnTask
+  const overlaidEmpty = filterMod.applyManualDoneOverlay({}, ["MTEx_MjIy"]);
+  assert.equal(overlaidEmpty.MTEx_MjIy.state, "MANUAL_DONE");
+  assert.equal(overlaidEmpty.MTEx_MjIy.isManualOnly, true);
+  assert.equal(filterMod.isOwnTask(true, overlaidEmpty, url2), true);
+
+  // 2. When base submissions have NEW and RETURNED, manual overlay updates NEW -> MANUAL_DONE and keeps RETURNED intact
+  const baseSubs = {
+    MTEx_MjIy: { state: "NEW", grade: null, maxPoints: 12 },
+    MTEx_MzMz: { state: "RETURNED", grade: 11, maxPoints: 12 },
+  };
+  const overlaid = filterMod.applyManualDoneOverlay(baseSubs, ["MTEx_MjIy"]);
+  assert.equal(overlaid.MTEx_MjIy.state, "MANUAL_DONE");
+  assert.equal(overlaid.MTEx_MzMz.state, "RETURNED");
+  assert.equal(overlaid.MTEx_MzMz.grade, 11);
+
+  // 3. Aggregated tasks treat MANUAL_DONE as completed ("Відмічено вручну") and remove from overdue count
+  const aggregated = aggMod.aggregateClassroomTasks({
+    mode: "student",
+    week: [],
+    classroomTasks: [
+      {
+        id: "MjIy",
+        title: "Лабораторна №2",
+        subject: "Інформатика",
+        url: url1,
+        due_date: "2020-01-10",
+        max_points: 12,
+      },
+    ],
+    isLinked: true,
+    submissions: overlaid,
+    personalTeachers: [],
+  });
+
+  assert.equal(aggregated.length, 1);
+  assert.equal(aggregated[0].state, "MANUAL_DONE");
+  assert.equal(aggregated[0].deadline.isOverdue, false);
+  assert.equal(aggregated[0].deadline.statusText, "Відмічено вручну");
+  assert.equal(aggMod.countOverdueClassroomTasks(aggregated, true, "2026-11-16"), 0);
 });

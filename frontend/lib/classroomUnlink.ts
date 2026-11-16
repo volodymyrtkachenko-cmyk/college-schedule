@@ -14,6 +14,7 @@ export const CLASSROOM_STORAGE_KEYS = {
   NEEDS_RELINK_REASON: "schedule:classroom_needs_relink_reason",
   SELECTED_SUBGROUP: "schedule_selected_subgroup",
   OVERDUE_BANNER_DISMISSAL: "schedule:overdue_banner_dismissal",
+  MANUAL_DONE_TASKS: "schedule:classroom_manual_done_tasks",
 } as const;
 
 export const CLASSROOM_LINKED_EVENT = "classroom-linked-change";
@@ -116,6 +117,7 @@ function clearLocalClassroomKeys(storage: Storage): void {
   try {
     storage.removeItem(CLASSROOM_STORAGE_KEYS.SELECTED_SUBGROUP);
     storage.removeItem(CLASSROOM_STORAGE_KEYS.OVERDUE_BANNER_DISMISSAL);
+    storage.removeItem(CLASSROOM_STORAGE_KEYS.MANUAL_DONE_TASKS);
   } catch {}
 }
 

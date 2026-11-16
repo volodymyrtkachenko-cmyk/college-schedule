@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { FullTaskItem } from "../components/TaskCardItem";
+import { isCompletedTaskState } from "./classroomTaskFilter";
 import { getMondayOf, formatShortWeekRange, isSubjectMatch, normalizeSubjectName } from "./format";
 import { getTaskPublishedTimestamp } from "./lesson-card";
 import { KYIV_DATE_FMT } from "./date";
@@ -63,7 +64,7 @@ export function useTaskGroups(
     let doneCount = 0;
 
     for (const t of tasks) {
-      const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
+      const isDone = isLinked && isCompletedTaskState(t.state);
       const isOverdue = !isDone && Boolean(t.deadline.isOverdue);
 
       const matchesSubject = !filters.subject || isSubjectMatch(t.subject, filters.subject);
@@ -103,7 +104,7 @@ export function useTaskGroups(
     const turnedInTasks: FullTaskItem[] = [];
 
     for (const t of subjectFiltered) {
-      const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
+      const isDone = isLinked && isCompletedTaskState(t.state);
       let dueIso = t.dueDateIso;
       if (!dueIso && t.deadline.date) {
         dueIso = KYIV_DATE_FMT.format(t.deadline.date);

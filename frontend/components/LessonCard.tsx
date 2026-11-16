@@ -337,7 +337,12 @@ export const LessonCard = memo(function LessonCard({
       if (isLinked) {
         const key = extractClassroomTaskKey(t.url);
         const sub = submissions[t.url] || (key ? submissions[key] : null);
-        if (sub && (sub.state === "TURNED_IN" || sub.state === "RETURNED")) {
+        if (
+          sub &&
+          (sub.state === "TURNED_IN" ||
+            sub.state === "RETURNED" ||
+            sub.state === "MANUAL_DONE")
+        ) {
           done.push(t);
           continue;
         }
