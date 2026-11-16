@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { SchedulePageClient } from "../../../components/SchedulePageClient";
-import { TransitionLink } from "../../../components/navigation/NavigationTransitionProvider";
 import { SITE_URL } from "../../../lib/site";
 import { getMondayCalendarIso } from "../../../lib/calendarDate";
 import { formatKyivDateIso, getKyivInitialWeekAnchor } from "../../../lib/date";
@@ -222,37 +221,6 @@ export default async function TeacherSchedulePage({
         initialWeekStartIso={initialWeekStartIso}
         ssrNowIso={ssrNowIso}
       />
-
-      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-3 pt-3 pb-bottom-nav-safe text-[11px] text-sys-text-secondary sm:px-6 sm:pt-4 sm:text-xs lg:pb-8">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <p className="truncate sm:whitespace-normal">
-            Викладач <strong className="text-sys-text-primary">{teacherName}</strong> · ДФКР
-          </p>
-          <nav aria-label="Розділи розкладу ДФКР" className="flex flex-wrap items-center gap-x-2 min-[390px]:gap-x-2.5 gap-y-1 sm:gap-x-4 sm:gap-y-1.5">
-            <TransitionLink href="/" className="hover:text-sys-accent hover:underline whitespace-nowrap">
-              Головна
-            </TransitionLink>
-            <TransitionLink href="/teachers" className="hover:text-sys-accent hover:underline whitespace-nowrap">
-              <span className="sm:hidden">Викладачі</span>
-              <span className="hidden sm:inline">Усі викладачі</span>
-            </TransitionLink>
-            <TransitionLink href="/groups" className="hover:text-sys-accent hover:underline whitespace-nowrap">
-              <span className="sm:hidden">Групи</span>
-              <span className="hidden sm:inline">Навчальні групи</span>
-            </TransitionLink>
-            <TransitionLink href="/bells" className="hover:text-sys-accent hover:underline whitespace-nowrap">
-              Дзвінки
-            </TransitionLink>
-            <TransitionLink href="/educational-process" className="hover:text-sys-accent hover:underline whitespace-nowrap">
-              <span className="sm:hidden">Графік</span>
-              <span className="hidden sm:inline">Графік процесу</span>
-            </TransitionLink>
-            <TransitionLink href="/statistics" className="hover:text-sys-accent hover:underline whitespace-nowrap">
-              Статистика
-            </TransitionLink>
-          </nav>
-        </div>
-      </footer>
 
       {scheduleDays.length > 0 && (
         <section

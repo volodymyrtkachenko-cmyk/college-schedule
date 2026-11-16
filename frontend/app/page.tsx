@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { TransitionLink } from "../components/navigation/NavigationTransitionProvider";
 import { SchedulePageClient } from "../components/SchedulePageClient";
 import { SITE_URL } from "../lib/site";
 import { toTeacherSlug } from "../lib/slug";
@@ -78,42 +77,31 @@ export default async function HomePage() {
             </ul>
           </div>
         )}
+        <nav aria-label="Розділи розкладу ДФКР">
+          <ul>
+            <li>
+              <a href="/groups">Усі навчальні групи</a>
+            </li>
+            <li>
+              <a href="/teachers">Усі викладачі</a>
+            </li>
+            <li>
+              <a href="/bells">Розклад дзвінків</a>
+            </li>
+            <li>
+              <a href="/educational-process">Графік освітнього процесу</a>
+            </li>
+            <li>
+              <a href="/statistics">Статистика розкладу</a>
+            </li>
+            <li>
+              <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer">
+                Офіційний сайт ДФКР (kre.dp.ua)
+              </a>
+            </li>
+          </ul>
+        </nav>
       </section>
-
-      <footer className="mx-auto max-w-6xl border-t border-sys-border/60 px-3 pt-3 pb-bottom-nav-safe text-[11px] text-sys-text-secondary sm:px-6 sm:pt-4 sm:text-xs lg:pb-8">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <p className="truncate sm:whitespace-normal">
-            <span className="sm:hidden">ДФКР — розклад занять</span>
-            <span className="hidden sm:inline">Дніпровський фаховий коледж радіоелектроніки (ДФКР)</span>
-          </p>
-          <nav aria-label="Розділи розкладу ДФКР" className="flex flex-wrap items-center gap-x-2 min-[390px]:gap-x-2.5 gap-y-1 sm:gap-x-4 sm:gap-y-1.5">
-            <TransitionLink href="/groups" className="hover:text-sys-accent hover:underline whitespace-nowrap">
-              Групи
-            </TransitionLink>
-            <TransitionLink href="/teachers" className="hover:text-sys-accent hover:underline whitespace-nowrap">
-              Викладачі
-            </TransitionLink>
-            <TransitionLink href="/bells" className="hover:text-sys-accent hover:underline whitespace-nowrap">
-              Дзвінки
-            </TransitionLink>
-            <TransitionLink href="/educational-process" className="hover:text-sys-accent hover:underline whitespace-nowrap">
-              <span className="sm:hidden">Графік</span>
-              <span className="hidden sm:inline">Графік процесу</span>
-            </TransitionLink>
-            <TransitionLink href="/statistics" className="hover:text-sys-accent hover:underline whitespace-nowrap">
-              Статистика
-            </TransitionLink>
-            <a
-              href="https://kre.dp.ua/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-sys-accent hover:underline whitespace-nowrap"
-            >
-              kre.dp.ua
-            </a>
-          </nav>
-        </div>
-      </footer>
     </div>
   );
 }
