@@ -336,37 +336,52 @@ export function formatWeekShareText(params: {
         ? `Викладач ${teachers.find((t) => t.id === teacherId)?.name}`
         : "Розклад";
 
-  const weekTypeSuffix =
-    weekType === "numerator"
-      ? ", чисельник"
-      : weekType === "denominator"
-        ? ", знаменник"
-        : "";
-  const header = `📅 ${groupOrTeacher}\n🗓 ${weekRange}${currentWeekNumber ? ` (${currentWeekNumber} тиждень` : ""}${weekTypeSuffix}${currentWeekNumber ? ")" : ""}\n`;
+  const weekMetaParts: string[] = [];
+  if (currentWeekNumber) weekMetaParts.push(`${currentWeekNumber} тиждень`);
+  if (weekType === "numerator") weekMetaParts.push("чисельник");
+  else if (weekType === "denominator") weekMetaParts.push("знаменник");
+
+  const header = `📅 ${groupOrTeacher}\n🗓 ${weekRange}${weekMetaParts.length > 0 ? ` · ${weekMetaParts.join(" · ")}` : ""}\n`;
 
   const dayBlocks = week
     .map((d) => {
       const dObj = calendarDateIsoToUtcDate(d.date);
-      const dayName = UKR_WEEKDAY_LONG_FMT.format(dObj);
+      const dayRaw = UKR_WEEKDAY_LONG_FMT.format(dObj);
+      const dayName = dayRaw.charAt(0).toUpperCase() + dayRaw.slice(1);
       const dayDate = UKR_DAY_MONTH_SHORT_FMT.format(dObj);
-      const activeLessons = (d.lessons || []).filter((l) => !l.is_cancelled);
-      if (activeLessons.length === 0) {
-        return `▫️ ${dayName.toUpperCase()} (${dayDate}): пар немає`;
+      const dayTags: string[] = [];
+      if (d.is_shortened_day) dayTags.push("⏱ 50 хв");
+      if (d.learning_mode_override) {
+        dayTags.push(d.learning_mode_override.mode === "online" ? "Дистанційно" : "Очно");
       }
+      const daySuffix = dayTags.length > 0 ? ` · ${dayTags.join(" · ")}` : "";
+
+      const activeLessons = (d.lessons || []).filter((l) => !l.is_cancelled);
+      if (d.period_info && activeLessons.length === 0) {
+        return `▫️ ${dayName}, ${dayDate}${daySuffix}\n   📌 ${d.period_info.name || "Особливий період"}`;
+      }
+      if (activeLessons.length === 0) {
+        return `▫️ ${dayName}, ${dayDate}${daySuffix}: пар немає`;
+      }
+
       const lessons = [...activeLessons]
-        .sort((a, b) => a.lesson_number - b.lesson_number)
+        .sort((a, b) => a.lesson_number - b.lesson_number || a.id - b.id)
         .map((l) => {
-          const room = l.room ? ` [${l.room}]` : "";
-          const secondary =
-            mode === "teacher" && l.group_name
-              ? ` (гр. ${l.group_name})`
-              : mode === "student" && l.teacher_name
-                ? ` (${l.teacher_name})`
-                : "";
-          return `  ${l.lesson_number}. ${l.time} ${l.subject_name}${room}${secondary}`;
+          const meta: string[] = [];
+          if (l.room) meta.push(l.room);
+          if (mode === "teacher" && l.group_name) meta.push(`гр. ${l.group_name}`);
+          else if (mode === "student" && l.teacher_name) meta.push(l.teacher_name);
+
+          const badge = l.event_type
+            ? ` [${l.event_type === "exam" ? "Екзамен" : l.event_type === "credit" ? "Залік" : l.event_type === "consultation" ? "Консультація" : l.event_type === "defense" ? "Захист" : "Подія"}]`
+            : l.is_replacement
+              ? " ⚡ Заміна"
+              : "";
+          const metaStr = meta.length > 0 ? ` · ${meta.join(" · ")}` : "";
+          return `  ${l.lesson_number}. ${l.time} — ${l.subject_name}${badge}${metaStr}`;
         })
         .join("\n");
-      return `▫️ ${dayName.toUpperCase()} (${dayDate}):\n${lessons}`;
+      return `▫️ ${dayName}, ${dayDate}${daySuffix}:\n${lessons}`;
     })
     .join("\n\n");
 

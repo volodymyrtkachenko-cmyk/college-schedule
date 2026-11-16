@@ -489,6 +489,7 @@ export interface FormattedLessonItem {
   meetings: MeetingInfo[];
   eventBadge: { label: string; bg?: string; text?: string } | null;
   isReplacement: boolean;
+  isCancelled: boolean;
 }
 
 export function formatLessonDetails(
@@ -520,7 +521,9 @@ export function formatLessonDetails(
     lesson.note,
     lesson.room,
     lesson.teacher_name,
-    lesson.subject_name
+    lesson.subject_name,
+    lesson.teacher_room,
+    lesson.second_teacher_room
   );
 
   let eventBadge: FormattedLessonItem["eventBadge"] = null;
@@ -546,19 +549,9 @@ export function formatLessonDetails(
     meetings,
     eventBadge,
     isReplacement: Boolean(lesson.is_replacement),
+    isCancelled: Boolean(lesson.is_cancelled),
   };
 }
-
-const NUM_EMOJI: Record<number, string> = {
-  1: "1️⃣",
-  2: "2️⃣",
-  3: "3️⃣",
-  4: "4️⃣",
-  5: "5️⃣",
-  6: "6️⃣",
-  7: "7️⃣",
-  8: "8️⃣",
-};
 
 export function calculateWeekNumber(anchorDate: Date, semesterStart?: string | null): number | null {
   if (!semesterStart) return null;
@@ -573,7 +566,8 @@ export function calculateWeekNumber(anchorDate: Date, semesterStart?: string | n
 export function buildTelegramShareText(
   schedule: ScheduleResponse,
   scheduleMode: "student" | "teacher" | "admin" = "student",
-  weekNumber?: number | null
+  weekNumber?: number | null,
+  ownerLabel?: string
 ): string {
   const dateObj = calendarDateIsoToUtcDate(schedule.date);
   const dateFormatted = new Intl.DateTimeFormat("uk-UA", {
@@ -591,18 +585,37 @@ export function buildTelegramShareText(
       ? "знаменник"
       : "";
 
-  let weekInfo = "";
+  const metaChips: string[] = [];
   if (weekNumber && weekTypeUk) {
-    weekInfo = ` · ${weekNumber} тиждень (${weekTypeUk})`;
+    metaChips.push(`${weekNumber} тиждень · ${weekTypeUk}`);
   } else if (weekNumber) {
-    weekInfo = ` · ${weekNumber} тиждень`;
+    metaChips.push(`${weekNumber} тиждень`);
   } else if (weekTypeUk) {
-    weekInfo = ` (${weekTypeUk})`;
+    metaChips.push(weekTypeUk);
+  }
+  if (schedule.is_shortened_day) {
+    metaChips.push("⏱ 50 хв");
+  }
+  if (schedule.learning_mode_override) {
+    metaChips.push(
+      schedule.learning_mode_override.mode === "online" ? "💻 Дистанційно" : "🏫 Очно"
+    );
   }
 
-  const header = `📅 ${capitalizedDate}${weekInfo}`;
+  const titlePrefix = ownerLabel ? `${ownerLabel} · ` : "";
+  const headerLines = [`📅 ${titlePrefix}${capitalizedDate}`];
+  if (metaChips.length > 0) {
+    headerLines.push(metaChips.join(" · "));
+  }
+  const header = headerLines.join("\n");
+
+  if (schedule.period_info && (!schedule.lessons || schedule.lessons.length === 0)) {
+    const pName = schedule.period_info.name || "Особливий період";
+    return `${header}\n\n📌 ${pName} (${schedule.period_info.start_date} – ${schedule.period_info.end_date})`;
+  }
+
   if (!schedule.lessons || schedule.lessons.length === 0) {
-    return `${header}\n\n🎉 Пар немає!`;
+    return `${header}\n\nПар немає — вільний день ✨`;
   }
 
   const sortedLessons = [...schedule.lessons].sort(
@@ -611,16 +624,19 @@ export function buildTelegramShareText(
 
   const lines = sortedLessons.map((l) => {
     const item = formatLessonDetails(l, scheduleMode);
-    const num = NUM_EMOJI[item.lessonNumber] ?? `${item.lessonNumber}.`;
-    const rep = item.eventBadge
+    if (item.isCancelled) {
+      return `${item.lessonNumber}. ${item.time} — ${item.subjectName} (Скасовано)`;
+    }
+
+    const badge = item.eventBadge
       ? ` [${item.eventBadge.label}]`
       : item.isReplacement
-      ? " ⚡ЗАМІНА"
+      ? " · ⚡ Заміна"
       : "";
 
     const parts: string[] = [];
     if (item.secondary) {
-      parts.push(scheduleMode === "teacher" ? `👥 ${item.secondary}` : `👤 ${item.secondary}`);
+      parts.push(item.secondary);
     }
     if (item.roomText) {
       parts.push(item.roomText);
@@ -629,14 +645,14 @@ export function buildTelegramShareText(
       const m = item.meetings[0];
       const name = m.platform === "zoom" ? "Zoom" : m.platform === "meet" ? "Meet" : "Онлайн";
       if (m.isProtected || !m.url) {
-        parts.push(`💻 🔒 ${name}`);
+        parts.push(`💻 ${name}`);
       } else {
         parts.push(`💻 ${name}: ${m.url}`);
       }
     }
 
-    const detailsLine = parts.length > 0 ? `\n   ${parts.join(" • ")}` : "";
-    return `${num} ${item.time} — ${item.subjectName}${rep}${detailsLine}`;
+    const detailsLine = parts.length > 0 ? `\n   ${parts.join(" · ")}` : "";
+    return `${item.lessonNumber}. ${item.time} — ${item.subjectName}${badge}${detailsLine}`;
   });
 
   return `${header}\n\n${lines.join("\n\n")}`;

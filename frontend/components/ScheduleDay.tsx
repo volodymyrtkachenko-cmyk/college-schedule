@@ -174,7 +174,7 @@ export function ScheduleDay({
           : "Розклад занять";
 
   const handleShareDay = async () => {
-    const text = buildTelegramShareText(schedule, scheduleMode, weekNumber);
+    const text = buildTelegramShareText(schedule, scheduleMode, weekNumber, ownerLabel);
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);

@@ -184,3 +184,82 @@ test("mergeTasksLists preserves richer brief and metadata when note-reconstructe
   assert.equal(merged[0].creation_time, "2026-11-10T10:00:00Z");
   assert.equal(merged[0].brief.summary, "Зібрати схему у Packet Tracer.");
 });
+
+test("buildTelegramShareText and formatWeekShareText include owner, shortened day, overrides, subgroups, cancelled lessons, and period days", () => {
+  const fmt = loadTsModule("lib/format.ts");
+  const nav = loadTsModule("lib/schedule/navigation.ts");
+
+  const daySchedule = {
+    date: "2026-11-16",
+    week_type: "denominator",
+    is_shortened_day: true,
+    learning_mode_override: { mode: "online", start: "2026-11-16", end: "2026-11-20" },
+    lessons: [
+      {
+        id: 1,
+        lesson_number: 1,
+        time: "09:00-09:50",
+        subject_name: "Мікропроцесори",
+        teacher_name: "Криволап Віктор Володимирович",
+        room: "414",
+        is_replacement: true,
+        is_cancelled: false,
+        note: "Zoom: [protected link]",
+        week_type: "both",
+        day_of_week: 1,
+      },
+      {
+        id: 2,
+        lesson_number: 2,
+        time: "10:00-10:50",
+        subject_name: "Фізика",
+        teacher_name: "Іваненко Іван Іванович",
+        room: "209",
+        is_cancelled: true,
+        week_type: "both",
+        day_of_week: 1,
+      },
+    ],
+  };
+
+  const dayText = fmt.buildTelegramShareText(daySchedule, "student", 12, "Група 75");
+  assert.match(dayText, /Група 75/);
+  assert.match(dayText, /12 тиждень · знаменник/);
+  assert.match(dayText, /⏱ 50 хв/);
+  assert.match(dayText, /Дистанційно/);
+  assert.match(dayText, /Мікропроцесори · ⚡ Заміна/);
+  assert.match(dayText, /Фізика \(Скасовано\)/);
+
+  const weekText = nav.formatWeekShareText({
+    week: [
+      daySchedule,
+      {
+        date: "2026-11-17",
+        week_type: "denominator",
+        lessons: [],
+        period_info: {
+          id: 9,
+          period_type: "practice",
+          name: "Технологічна практика",
+          start_date: "2026-11-17",
+          end_date: "2026-11-28",
+        },
+      },
+    ],
+    mode: "student",
+    groupId: 75,
+    teacherId: null,
+    groups: [{ id: 75, name: "75" }],
+    teachers: [],
+    weekRange: "16–20 листопада 2026 року",
+    currentWeekNumber: 12,
+    weekType: "denominator",
+  });
+
+  assert.match(weekText, /📅 Група 75/);
+  assert.match(weekText, /⏱ 50 хв/);
+  assert.match(weekText, /Дистанційно/);
+  assert.match(weekText, /Мікропроцесори ⚡ Заміна/);
+  assert.match(weekText, /Технологічна практика/);
+  assert.doesNotMatch(weekText, /Фізика/);
+});
