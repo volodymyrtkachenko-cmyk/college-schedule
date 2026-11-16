@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { AnimatePresence, m, type Variants } from "framer-motion";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { canMoveLesson } from "../lib/scheduleMove";
 import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
@@ -8,7 +9,7 @@ import { LessonCard, QuickJumpTarget } from "./LessonCard";
 import type { SubjectHubTarget } from "../lib/schedule";
 import { CompactSchedulePeriodCard, getPeriodMeta } from "./SchedulePeriodCard";
 import { ClockIcon } from "./ui/Icons";
-import { useViewportTier } from "../lib/useViewportTier";
+import { useDesktopMotionEnabled, useViewportTier } from "../lib/useViewportTier";
 
 const ScheduleEditGrid = dynamic(() => import("./ScheduleEditGrid").then((m) => m.ScheduleEditGrid), { ssr: false });
 
@@ -32,6 +33,90 @@ function shortDateUk(dateStr: string): string {
     return "";
   }
 }
+
+interface WeekCellMotionCustom {
+  col: number;
+  row: number;
+  dir: number;
+}
+
+const DESKTOP_WEEK_STAGE_VARIANTS: Variants = {
+  enter: (dir: number) => ({
+    x: dir !== 0 ? (dir > 0 ? 28 : -28) : 0,
+    y: dir === 0 ? 8 : 0,
+  }),
+  center: {
+    x: 0,
+    y: 0,
+    transition: {
+      x: { type: "spring", stiffness: 410, damping: 32, mass: 0.78 },
+      y: { type: "spring", stiffness: 410, damping: 32, mass: 0.78 },
+    },
+  },
+  exit: (dir: number) => ({
+    opacity: 0,
+    x: dir !== 0 ? (dir > 0 ? -36 : 36) : 0,
+    y: dir === 0 ? -8 : 0,
+    scale: 0.988,
+    pointerEvents: "none",
+    transition: {
+      x: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
+      y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
+      scale: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
+      opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
+    },
+  }),
+};
+
+const DESKTOP_WEEK_HEADER_VARIANTS: Variants = {
+  enter: ({ col, dir }: WeekCellMotionCustom) => ({
+    opacity: 0,
+    x: dir !== 0 ? (dir > 0 ? 14 + col * 4 : -(14 + (4 - col) * 4)) : 0,
+    y: -8,
+    scale: 0.975,
+  }),
+  center: ({ col, dir }: WeekCellMotionCustom) => {
+    const colStep = dir < 0 ? 4 - col : col;
+    const delay = colStep * 0.022;
+    return {
+      opacity: 1,
+      x: 0,
+      y: 0,
+      scale: 1,
+      transition: {
+        x: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
+        y: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
+        scale: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
+        opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1], delay },
+      },
+    };
+  },
+};
+
+const DESKTOP_WEEK_ITEM_VARIANTS: Variants = {
+  enter: ({ col, dir }: WeekCellMotionCustom) => ({
+    opacity: 0,
+    x: dir !== 0 ? (dir > 0 ? 18 + col * 5 : -(18 + (4 - col) * 5)) : 0,
+    y: dir === 0 ? 16 : 6,
+    scale: 0.965,
+  }),
+  center: ({ col, row, dir }: WeekCellMotionCustom) => {
+    const colStep = dir < 0 ? 4 - col : col;
+    const delay = colStep * 0.022 + Math.min(row, 6) * 0.016;
+    return {
+      opacity: 1,
+      x: 0,
+      y: 0,
+      scale: 1,
+      transition: {
+        x: { type: "spring", stiffness: 420, damping: 31, mass: 0.78, delay },
+        y: { type: "spring", stiffness: 420, damping: 31, mass: 0.78, delay },
+        scale: { type: "spring", stiffness: 420, damping: 31, mass: 0.78, delay },
+        opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1], delay },
+      },
+    };
+  },
+};
 
 export function ScheduleWeekGrid({
   week,
@@ -74,6 +159,7 @@ export function ScheduleWeekGrid({
   currentTeacherId,
   currentTeacherName,
   onOpenSubjectHub,
+  animateOnMount = true,
 }: {
   week: ScheduleResponse[];
   todayDate?: string;
@@ -117,6 +203,7 @@ export function ScheduleWeekGrid({
   currentTeacherId?: number | null;
   currentTeacherName?: string | null;
   onOpenSubjectHub?: (target: SubjectHubTarget) => void;
+  animateOnMount?: boolean;
 }) {
   const canMoveTo = (lesson: Lesson, date: string, lessonNumber: number) =>
     canMoveLesson(lesson, date, lessonNumber, week, availabilityWeek);
@@ -247,6 +334,7 @@ export function ScheduleWeekGrid({
   }, [week]);
 
   const { isMounted, isDesktop, isTablet, isMobile } = useViewportTier();
+  const desktopMotion = useDesktopMotionEnabled();
   const renderDesktop = !isMounted || isDesktop;
   const renderTablet = !isMounted || isTablet;
   const renderMobile = !isMounted || isMobile;
@@ -254,188 +342,276 @@ export function ScheduleWeekGrid({
   const weekSlideAttr = weekSlideDir ? (weekSlideDir > 0 ? "next" : "prev") : undefined;
   const [hoveredDayCol, setHoveredDayCol] = useState<number | null>(null);
 
-  return (
-    <DesktopSpotlightGrid className="w-full pb-4 overflow-x-clip">
-      {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
-      {renderDesktop && (
-        <div
-          key={`desktop-week-${week[0]?.date ?? "week"}`}
-          data-slide-dir={weekSlideAttr}
-          data-focus-day={hoveredDayCol !== null ? hoveredDayCol : undefined}
-          onMouseLeave={() => setHoveredDayCol(null)}
-          onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-              setHoveredDayCol(null);
+  const desktopGridBody = (
+    <>
+      {/* Row 0: Column Headers */}
+      {weekDaysMeta.map(({ day, periodMeta }, dIdx) => {
+        const isToday = day.date === kyivTodayIso;
+        const isPast = day.date < kyivTodayIso;
+        const headerCardClassName = `flex flex-col justify-center min-h-[64px] h-full px-3.5 py-2.5 rounded-2xl border transition-[border-color,background-color] duration-fast ease-smooth ${
+          onSelectDay ? "cursor-pointer hover:border-sys-accent/60" : ""
+        } ${
+          isToday
+            ? "bg-sys-card border-sys-accent/45 shadow-[0_0_15px_rgba(59,130,246,0.08)] ring-1 ring-sys-accent/30"
+            : isPast
+            ? "bg-sys-card/60 border-sys-border/50"
+            : "bg-sys-card border-sys-border"
+        }`;
+        const headerCardInner = (
+          <>
+            <div className="flex min-h-[26px] items-center justify-between gap-1.5">
+              <span
+                data-morph-day={day.date}
+                className="w-fit max-w-full text-[17px] xl:text-[18px] font-bold capitalize tracking-tight truncate text-sys-text-primary"
+              >
+                {longWeekday(day.date)}
+              </span>
+              {isToday ? (
+                <span className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-bold text-sys-accent tracking-wide shadow-xs">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sys-accent animate-pulse" />
+                  Сьогодні
+                </span>
+              ) : periodMeta ? (
+                <span
+                  className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border shadow-xs ${periodMeta.badgeTone}`}
+                  title={periodMeta.title}
+                >
+                  <span>{periodMeta.icon}</span>
+                  <span className="max-w-[70px] truncate">{periodMeta.shortLabel}</span>
+                </span>
+              ) : null}
+            </div>
+            <div className="flex items-center justify-between gap-1.5 mt-0.5">
+              <span className={`ui-mono-slot text-xs xl:text-[13px] font-medium ${
+                isToday ? "text-sys-text-primary font-semibold" : "text-sys-text-secondary"
+              }`}>
+                {shortDateUk(day.date)}
+              </span>
+              {day.is_shortened_day && (
+                <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
+                  <ClockIcon className="w-3 h-3 shrink-0" />
+                  <span>50 хв</span>
+                </span>
+              )}
+            </div>
+          </>
+        );
+        const headerCardProps = {
+          role: onSelectDay ? "button" : undefined,
+          tabIndex: onSelectDay ? 0 : undefined,
+          onClick: () => onSelectDay?.(day.date, dIdx),
+          onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSelectDay?.(day.date, dIdx);
             }
-          }}
-          className="desktop-week-grid hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4 week-grid-enter"
-        >
-        {/* Row 0: Column Headers */}
-        {weekDaysMeta.map(({ day, periodMeta }, dIdx) => {
+          },
+          className: headerCardClassName,
+        };
+        return (
+          <div
+            key={`desktop-header-${day.date}`}
+            data-day-col={dIdx}
+            onMouseEnter={() => setHoveredDayCol(dIdx)}
+            onFocusCapture={() => setHoveredDayCol(dIdx)}
+            style={{ gridColumn: dIdx + 1 }}
+            className={`flex flex-col transition-opacity duration-fast ease-smooth ${
+              isPast && !isToday ? "opacity-75 hover:opacity-100" : ""
+            }`}
+          >
+            {desktopMotion ? (
+              <m.div
+                custom={{ col: dIdx, row: 0, dir: weekSlideDir }}
+                variants={DESKTOP_WEEK_HEADER_VARIANTS}
+                initial={animateOnMount ? "enter" : false}
+                animate="center"
+                {...headerCardProps}
+              >
+                {headerCardInner}
+              </m.div>
+            ) : (
+              <div {...headerCardProps}>
+                {headerCardInner}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Rows 1..N: Lesson Slots (1 row per lesson number, synchronized across all 5 days) */}
+      {allLessonNumbers.map((num, numIdx) =>
+        weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum }, dIdx) => {
           const isToday = day.date === kyivTodayIso;
           const isPast = day.date < kyivTodayIso;
-          return (
-            <div
-              key={`desktop-header-${day.date}`}
-              data-day-col={dIdx}
-              onMouseEnter={() => setHoveredDayCol(dIdx)}
-              onFocusCapture={() => setHoveredDayCol(dIdx)}
-              role={onSelectDay ? "button" : undefined}
-              tabIndex={onSelectDay ? 0 : undefined}
-              onClick={() => onSelectDay?.(day.date, dIdx)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onSelectDay?.(day.date, dIdx);
-                }
-              }}
-              style={{
-                gridColumn: dIdx + 1,
-                "--stagger-index": Number((dIdx * 0.55).toFixed(2)),
-              } as React.CSSProperties}
-              className={`desktop-stagger-card flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-[border-color,background-color,opacity] duration-fast ease-smooth ${
-                onSelectDay ? "cursor-pointer hover:border-sys-accent/60" : ""
-              } ${
-                isToday
-                  ? "bg-sys-card border-sys-accent/45 shadow-[0_0_15px_rgba(59,130,246,0.08)] ring-1 ring-sys-accent/30"
-                  : isPast
-                  ? "bg-sys-card/60 border-sys-border/50 opacity-75 hover:opacity-100"
-                  : "bg-sys-card border-sys-border"
-              }`}
-            >
-              <div className="flex min-h-[26px] items-center justify-between gap-1.5">
-                <span
-                  data-morph-day={day.date}
-                  className="w-fit max-w-full text-[17px] xl:text-[18px] font-bold capitalize tracking-tight truncate text-sys-text-primary"
+          const lessonsForSlot = slots.get(num) ?? [];
+          const isWindow = num > firstLessonNum && num < lastLessonNum && lessonsForSlot.length === 0;
+
+          if (day.period_info && day.lessons.length === 0) {
+            if (numIdx === 0) {
+              return (
+                <div
+                  key={`desktop-slot-${num}-${day.date}`}
+                  data-day-col={dIdx}
+                  onMouseEnter={() => setHoveredDayCol(dIdx)}
+                  onFocusCapture={() => setHoveredDayCol(dIdx)}
+                  style={{
+                    gridColumn: dIdx + 1,
+                    gridRow: `2 / span ${allLessonNumbers.length}`,
+                  }}
+                  className={`flex flex-col h-full transition-opacity ${
+                    isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
+                  }`}
                 >
-                  {longWeekday(day.date)}
-                </span>
-                {isToday ? (
-                  <span className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-bold text-sys-accent tracking-wide shadow-xs">
-                    <span className="h-1.5 w-1.5 rounded-full bg-sys-accent animate-pulse" />
-                    Сьогодні
-                  </span>
-                ) : periodMeta ? (
-                  <span
-                    className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border shadow-xs ${periodMeta.badgeTone}`}
-                    title={periodMeta.title}
-                  >
-                    <span>{periodMeta.icon}</span>
-                    <span className="max-w-[70px] truncate">{periodMeta.shortLabel}</span>
-                  </span>
-                ) : null}
-              </div>
-              <div className="flex items-center justify-between gap-1.5 mt-0.5">
-                <span className={`ui-mono-slot text-xs xl:text-[13px] font-medium ${
-                  isToday ? "text-sys-text-primary font-semibold" : "text-sys-text-secondary"
-                }`}>
-                  {shortDateUk(day.date)}
-                </span>
-                {day.is_shortened_day && (
-                  <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
-                    <ClockIcon className="w-3 h-3 shrink-0" />
-                    <span>50 хв</span>
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Rows 1..N: Lesson Slots (1 row per lesson number, synchronized across all 5 days) */}
-        {allLessonNumbers.map((num, numIdx) =>
-          weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum }, dIdx) => {
-            const isToday = day.date === kyivTodayIso;
-            const isPast = day.date < kyivTodayIso;
-            const lessonsForSlot = slots.get(num) ?? [];
-            const isWindow = num > firstLessonNum && num < lastLessonNum && lessonsForSlot.length === 0;
-
-            if (day.period_info && day.lessons.length === 0) {
-              if (numIdx === 0) {
-                return (
-                  <div
-                    key={`desktop-slot-${num}-${day.date}`}
-                    data-day-col={dIdx}
-                    onMouseEnter={() => setHoveredDayCol(dIdx)}
-                    onFocusCapture={() => setHoveredDayCol(dIdx)}
-                    style={{
-                      gridColumn: dIdx + 1,
-                      gridRow: `2 / span ${allLessonNumbers.length}`,
-                    }}
-                    className={`flex flex-col h-full transition-opacity ${
-                      isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
-                    }`}
-                  >
+                  {desktopMotion ? (
+                    <m.div
+                      custom={{ col: dIdx, row: 1, dir: weekSlideDir }}
+                      variants={DESKTOP_WEEK_ITEM_VARIANTS}
+                      initial={animateOnMount ? "enter" : false}
+                      animate="center"
+                      className="flex flex-col h-full"
+                    >
+                      <CompactSchedulePeriodCard
+                        period={day.period_info}
+                        onClick={onSelectDay ? () => onSelectDay(day.date, dIdx) : undefined}
+                      />
+                    </m.div>
+                  ) : (
                     <CompactSchedulePeriodCard
                       period={day.period_info}
                       onClick={onSelectDay ? () => onSelectDay(day.date, dIdx) : undefined}
                     />
-                  </div>
-                );
-              }
-              return null;
+                  )}
+                </div>
+              );
             }
+            return null;
+          }
 
-            return (
-              <div
-                key={`desktop-slot-${num}-${day.date}`}
-                data-day-col={dIdx}
-                onMouseEnter={() => setHoveredDayCol(dIdx)}
-                onFocusCapture={() => setHoveredDayCol(dIdx)}
-                style={{
-                  gridColumn: dIdx + 1,
-                  "--stagger-index": Number((dIdx * 1.1 + numIdx * 0.7).toFixed(1)),
-                } as React.CSSProperties}
-                className={`desktop-week-slot desktop-stagger-card flex flex-col min-h-[92px] transition-opacity relative has-[[data-open]]:z-50 has-[[data-open]]:opacity-100 ${
-                  isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
-                }`}
-              >
-                {lessonsForSlot.length > 0 ? (
-                  <div className="flex flex-col gap-2 h-full">
-                    {lessonsForSlot.map((lesson) => (
-                      <LessonCard
-                        key={`${lesson.id}-${lesson.lesson_number}`}
-                        lesson={lesson}
-                        targetDate={day.date}
-                        scheduleMode={scheduleMode}
-                        canEdit={canEdit}
-                        onQuickJump={onQuickJump}
-                        learningMode={day.learning_mode ?? null}
-                        mode="week"
-                        currentTeacherId={currentTeacherId}
-                        currentTeacherName={currentTeacherName}
-                        onOpenSubjectHub={onOpenSubjectHub}
-                      />
-                    ))}
-                  </div>
-                ) : isWindow ? (
-                  <div
-                    title={`Вікно на ${num}-й парі`}
-                    className="flex h-full min-h-[72px] items-center justify-center rounded-2xl border border-dashed border-sys-border/50 bg-sys-card/[0.02] p-2 text-center text-xs text-sys-text-muted/60 transition-colors select-none"
-                  >
-                    <span className="text-xs">—</span>
-                  </div>
-                ) : (
-                  <div className="h-full min-h-[16px] pointer-events-none" />
-                )}
-              </div>
-            );
-          })
-        )}
+          const slotInner = lessonsForSlot.length > 0 ? (
+            <div className="flex flex-col gap-2 h-full">
+              {lessonsForSlot.map((lesson) => (
+                <LessonCard
+                  key={`${lesson.id}-${lesson.lesson_number}`}
+                  lesson={lesson}
+                  targetDate={day.date}
+                  scheduleMode={scheduleMode}
+                  canEdit={canEdit}
+                  onQuickJump={onQuickJump}
+                  learningMode={day.learning_mode ?? null}
+                  mode="week"
+                  currentTeacherId={currentTeacherId}
+                  currentTeacherName={currentTeacherName}
+                  onOpenSubjectHub={onOpenSubjectHub}
+                />
+              ))}
+            </div>
+          ) : isWindow ? (
+            <div
+              title={`Вікно на ${num}-й парі`}
+              className="flex h-full min-h-[72px] items-center justify-center rounded-2xl border border-dashed border-sys-border/50 bg-sys-card/[0.02] p-2 text-center text-xs text-sys-text-muted/60 transition-colors select-none"
+            >
+              <span className="text-xs">—</span>
+            </div>
+          ) : (
+            <div className="h-full min-h-[16px] pointer-events-none" />
+          );
 
-        {/* Row N+1: Column Summary Footer */}
-        {weekDaysMeta.map(({ day, summaryText }, dIdx) => (
-          <div
-            key={`desktop-footer-${day.date}`}
-            data-day-col={dIdx}
-            onMouseEnter={() => setHoveredDayCol(dIdx)}
-            style={{ gridColumn: dIdx + 1 }}
-            className="py-2 px-3 text-center text-xs font-medium transition-opacity border-t border-sys-border/40 mt-1 text-sys-text-secondary"
-          >
+          return (
+            <div
+              key={`desktop-slot-${num}-${day.date}`}
+              data-day-col={dIdx}
+              onMouseEnter={() => setHoveredDayCol(dIdx)}
+              onFocusCapture={() => setHoveredDayCol(dIdx)}
+              style={{ gridColumn: dIdx + 1 }}
+              className={`desktop-week-slot flex flex-col min-h-[92px] transition-opacity relative has-[[data-open]]:z-50 has-[[data-open]]:opacity-100 ${
+                isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
+              }`}
+            >
+              {desktopMotion && (lessonsForSlot.length > 0 || isWindow) ? (
+                <m.div
+                  custom={{ col: dIdx, row: numIdx + 1, dir: weekSlideDir }}
+                  variants={DESKTOP_WEEK_ITEM_VARIANTS}
+                  initial={animateOnMount ? "enter" : false}
+                  animate="center"
+                  className="flex flex-col h-full"
+                >
+                  {slotInner}
+                </m.div>
+              ) : (
+                slotInner
+              )}
+            </div>
+          );
+        })
+      )}
+
+      {/* Row N+1: Column Summary Footer */}
+      {weekDaysMeta.map(({ day, summaryText }, dIdx) => (
+        <div
+          key={`desktop-footer-${day.date}`}
+          data-day-col={dIdx}
+          onMouseEnter={() => setHoveredDayCol(dIdx)}
+          style={{ gridColumn: dIdx + 1 }}
+          className="py-2 px-3 text-center text-xs font-medium transition-opacity border-t border-sys-border/40 mt-1 text-sys-text-secondary"
+        >
+          {desktopMotion ? (
+            <m.span
+              className="inline-block"
+              custom={{ col: dIdx, row: allLessonNumbers.length + 1, dir: weekSlideDir }}
+              variants={DESKTOP_WEEK_ITEM_VARIANTS}
+              initial={animateOnMount ? "enter" : false}
+              animate="center"
+            >
+              {summaryText}
+            </m.span>
+          ) : (
             <span>{summaryText}</span>
-          </div>
-        ))}
+          )}
         </div>
+      ))}
+    </>
+  );
+
+  return (
+    <DesktopSpotlightGrid className="relative w-full pb-4 overflow-x-clip">
+      {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
+      {renderDesktop && (
+        desktopMotion ? (
+          <AnimatePresence mode="popLayout" initial={animateOnMount} custom={weekSlideDir}>
+            <m.div
+              key={`desktop-week-${week[0]?.date ?? "week"}`}
+              custom={weekSlideDir}
+              variants={DESKTOP_WEEK_STAGE_VARIANTS}
+              initial={animateOnMount ? "enter" : false}
+              animate="center"
+              exit="exit"
+              data-focus-day={hoveredDayCol !== null ? hoveredDayCol : undefined}
+              onMouseLeave={() => setHoveredDayCol(null)}
+              onBlurCapture={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  setHoveredDayCol(null);
+                }
+              }}
+              className="desktop-week-grid hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4"
+            >
+              {desktopGridBody}
+            </m.div>
+          </AnimatePresence>
+        ) : (
+          <div
+            key={`desktop-week-${week[0]?.date ?? "week"}`}
+            data-focus-day={hoveredDayCol !== null ? hoveredDayCol : undefined}
+            onMouseLeave={() => setHoveredDayCol(null)}
+            onBlurCapture={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                setHoveredDayCol(null);
+              }
+            }}
+            className="desktop-week-grid hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4"
+          >
+            {desktopGridBody}
+          </div>
+        )
       )}
 
       {/* Tablet (640px – 1023px): horizontal scroll with snap-start */}

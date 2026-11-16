@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, m, type Variants } from "framer-motion";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
+import { useDesktopMotionEnabled } from "../lib/useViewportTier";
 import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
 import {
   LessonCard,
@@ -29,6 +31,63 @@ function parseMin(t?: string): number | null {
   return Number.isNaN(h) || Number.isNaN(m) ? null : h * 60 + m;
 }
 
+const DESKTOP_DAY_STAGE_VARIANTS: Variants = {
+  enter: (dir: number) => ({
+    x: dir !== 0 ? (dir > 0 ? 30 : -30) : 0,
+    y: dir === 0 ? 10 : 0,
+  }),
+  center: {
+    x: 0,
+    y: 0,
+    transition: {
+      x: { type: "spring", stiffness: 430, damping: 32, mass: 0.78 },
+      y: { type: "spring", stiffness: 430, damping: 32, mass: 0.78 },
+    },
+  },
+  exit: (dir: number) => ({
+    opacity: 0,
+    x: dir !== 0 ? (dir > 0 ? -34 : 34) : 0,
+    y: dir === 0 ? -8 : 0,
+    scale: 0.985,
+    pointerEvents: "none",
+    transition: {
+      x: { duration: 0.17, ease: [0.32, 0, 0.24, 1] },
+      y: { duration: 0.17, ease: [0.32, 0, 0.24, 1] },
+      scale: { duration: 0.17, ease: [0.32, 0, 0.24, 1] },
+      opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
+    },
+  }),
+};
+
+interface DayItemMotionCustom {
+  idx: number;
+  dir: number;
+}
+
+const DESKTOP_DAY_ITEM_VARIANTS: Variants = {
+  enter: ({ idx, dir }: DayItemMotionCustom) => ({
+    opacity: 0,
+    x: dir !== 0 ? (dir > 0 ? 14 + Math.min(idx, 5) * 6 : -(14 + Math.min(idx, 5) * 6)) : 0,
+    y: dir === 0 ? 12 + Math.min(idx, 5) * 4 : 4,
+    scale: 0.975,
+  }),
+  center: ({ idx }: DayItemMotionCustom) => {
+    const delay = Math.min(idx, 7) * 0.028;
+    return {
+      opacity: 1,
+      x: 0,
+      y: 0,
+      scale: 1,
+      transition: {
+        x: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
+        y: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
+        scale: { type: "spring", stiffness: 430, damping: 32, mass: 0.78, delay },
+        opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1], delay },
+      },
+    };
+  },
+};
+
 /** Read-only or editable list of one day's lessons, with Telegram sharing, live break indicator, and cascade motion. */
 export function ScheduleDay({
   schedule,
@@ -52,6 +111,7 @@ export function ScheduleDay({
   compactPeriod = false,
   daySlideDir = 0,
   shouldReduceMotion = false,
+  animateOnMount = true,
   learningModeBadge = null,
   onOpenSubjectHub,
 }: {
@@ -76,11 +136,14 @@ export function ScheduleDay({
   compactPeriod?: boolean;
   daySlideDir?: number;
   shouldReduceMotion?: boolean;
+  animateOnMount?: boolean;
   learningModeBadge?: HeaderLearningModeData | null;
   onOpenSubjectHub?: (target: SubjectHubTarget) => void;
 }) {
   const { showToast } = useToast();
   const { resolvedTheme } = useTheme();
+  const desktopMotionEnabled = useDesktopMotionEnabled();
+  const desktopMotion = desktopMotionEnabled && mode === "day" && !shouldReduceMotion;
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(() =>
     getSharedKyivNowSnapshot()
   );
@@ -162,123 +225,167 @@ export function ScheduleDay({
   );
   const timeToStart = isBeforeDayStart && firstStart !== null && kyivNow ? firstStart - kyivNow.minutes : 0;
 
-  return (
-    <section className={mode === "day" ? "min-w-0 overflow-x-clip" : "min-w-0"}>
-      <div
-        key={mode === "day" ? `day-stage-${schedule.date}` : undefined}
-        data-slide-dir={
-          mode === "day" && !shouldReduceMotion && daySlideDir !== 0
-            ? daySlideDir > 0
-              ? "next"
-              : "prev"
-            : undefined
-        }
-        className={mode === "day" ? "desktop-day-slide" : undefined}
-      >
-      {(!hideDayTitle || (mode === "day" && orderedLessons.length > 0)) && (
-        <header
-          data-day-vt-header={mode === "day" ? "1" : undefined}
-          className={`mb-3.5 flex items-center ${
-            hideDayTitle ? "justify-end" : "justify-between"
-          } gap-2 px-0 ${mode === "week" ? "min-h-[56px]" : "pt-1"} ${
-            hideHeaderOnMobile ? "hidden sm:flex" : ""
-          }`}
-        >
-          {!hideDayTitle && (
-            mode === "day" ? (
-              <div className="flex flex-wrap items-center gap-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="w-fit text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
-                    {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}<span className="font-normal text-sys-text-secondary">,</span>
-                  </h2>
-                  <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
-                    {UKR_DAY_MONTH_LONG_FMT.format(scheduleDateNoon)}
-                  </span>
-                  {schedule.is_shortened_day && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 shadow-xs">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10" />
-                        <polyline points="12 6 12 12 16 14" />
-                      </svg>
-                      <span>Скорочений день (пари по 50 хв)</span>
-                    </span>
-                  )}
-                  <LearningModeBadge data={learningModeBadge} className="hidden lg:inline-flex" />
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-1">
-                  <h2 className="text-base sm:text-lg font-bold capitalize tracking-tight truncate text-sys-text-primary">
-                    {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}
-                  </h2>
-                </div>
-                <div className="flex items-center justify-between gap-2 mt-0.5">
-                  <span className="text-xs font-medium text-sys-text-secondary">
-                    {UKR_DAY_MONTH_SHORT_FMT.format(scheduleDateNoon)}
-                  </span>
-                  {schedule.is_shortened_day && (
-                    <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
-                      <ClockIcon className="w-3 h-3 shrink-0" />
-                      <span>50 хв</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            )
-          )}
+  const headerClassName = `mb-3.5 flex items-center ${
+    hideDayTitle ? "justify-end" : "justify-between"
+  } gap-2 px-0 ${mode === "week" ? "min-h-[56px]" : "pt-1"} ${
+    hideHeaderOnMobile ? "hidden sm:flex" : ""
+  }`;
 
-        {mode === "day" && orderedLessons.length > 0 && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void handleShareImage()}
-              disabled={sharingImage}
-              title="Скопіювати або зберегти розклад як PNG-картинку"
-              aria-label="Поділитися картинкою розкладу"
-              className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-colors duration-fast ease-smooth hover:border-sky-500/50 hover:text-sky-700 dark:hover:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/10 active:scale-95 disabled:opacity-50"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500 dark:text-sky-400 shrink-0">
-                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                <circle cx="9" cy="9" r="2" />
-                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-              </svg>
-              <span className="hidden sm:inline">Зберегти картинку</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleShareDay}
-              title="Скопіювати розклад"
-              aria-label="Скопіювати розклад дня"
-              className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-colors duration-fast ease-smooth hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 active:scale-95"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 dark:text-emerald-400 shrink-0">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                <polyline points="16 6 12 2 8 6" />
-                <line x1="12" y1="2" x2="12" y2="15" />
-              </svg>
-              <span className="hidden sm:inline">Поділитися</span>
-            </button>
+  const headerContent = (
+    <>
+      {!hideDayTitle && (
+        mode === "day" ? (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="w-fit text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
+                {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}<span className="font-normal text-sys-text-secondary">,</span>
+              </h2>
+              <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
+                {UKR_DAY_MONTH_LONG_FMT.format(scheduleDateNoon)}
+              </span>
+              {schedule.is_shortened_day && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 shadow-xs">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <span>Скорочений день (пари по 50 хв)</span>
+                </span>
+              )}
+              <LearningModeBadge data={learningModeBadge} className="hidden lg:inline-flex" />
+            </div>
           </div>
-        )}
-      </header>
+        ) : (
+          <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-1">
+              <h2 className="text-base sm:text-lg font-bold capitalize tracking-tight truncate text-sys-text-primary">
+                {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}
+              </h2>
+            </div>
+            <div className="flex items-center justify-between gap-2 mt-0.5">
+              <span className="text-xs font-medium text-sys-text-secondary">
+                {UKR_DAY_MONTH_SHORT_FMT.format(scheduleDateNoon)}
+              </span>
+              {schedule.is_shortened_day && (
+                <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                  <ClockIcon className="w-3 h-3 shrink-0" />
+                  <span>50 хв</span>
+                </span>
+              )}
+            </div>
+          </div>
+        )
       )}
 
+      {mode === "day" && orderedLessons.length > 0 && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleShareImage()}
+            disabled={sharingImage}
+            title="Скопіювати або зберегти розклад як PNG-картинку"
+            aria-label="Поділитися картинкою розкладу"
+            className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-colors duration-fast ease-smooth hover:border-sky-500/50 hover:text-sky-700 dark:hover:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/10 active:scale-95 disabled:opacity-50"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500 dark:text-sky-400 shrink-0">
+              <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+              <circle cx="9" cy="9" r="2" />
+              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+            </svg>
+            <span className="hidden sm:inline">Зберегти картинку</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleShareDay}
+            title="Скопіювати розклад"
+            aria-label="Скопіювати розклад дня"
+            className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-colors duration-fast ease-smooth hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 active:scale-95"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 dark:text-emerald-400 shrink-0">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+              <polyline points="16 6 12 2 8 6" />
+              <line x1="12" y1="2" x2="12" y2="15" />
+            </svg>
+            <span className="hidden sm:inline">Поділитися</span>
+          </button>
+        </div>
+      )}
+    </>
+  );
+
+  const preLessonBannerContent = (
+    <>
+      <div className="flex items-center gap-2 shrink-0">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>До початку занять</span>
+      </div>
+      {orderedLessons[0] && timeToStart !== null && (
+        <div className="flex items-center gap-1.5 text-sys-text-primary font-medium min-w-0">
+          <span className="leading-snug">
+            <span className="whitespace-nowrap">{orderedLessons[0].lesson_number}-а пара о {orderedLessons[0].time.split(/[-–—]/)[0]}</span>{" "}
+            <span className="whitespace-nowrap">(через {timeToStart >= 60 ? `${Math.floor(timeToStart / 60)} год${timeToStart % 60 > 0 ? ` ${timeToStart % 60} хв` : ""}` : `${timeToStart} хв`})</span>
+          </span>
+        </div>
+      )}
+    </>
+  );
+
+  const emptyOrPeriodContent = schedule.period_info ? (
+    compactPeriod ? (
+      <CompactSchedulePeriodCard period={schedule.period_info} />
+    ) : (
+      <SchedulePeriodCard period={schedule.period_info} isToday={isToday} />
+    )
+  ) : (
+    <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 px-6 py-12 text-center text-sys-text-muted">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-bg border border-sys-border text-sys-accent shadow-xs">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+          <path d="m9 16 2 2 4-4" />
+        </svg>
+      </div>
+      <p className="text-base font-semibold text-sys-text-primary">Пар немає</p>
+      <p className="text-xs text-sys-text-secondary mt-1">Розклад на цей день вільний</p>
+    </div>
+  );
+
+  const stageBody = (
+    <>
+      {(!hideDayTitle || (mode === "day" && orderedLessons.length > 0)) && (
+        desktopMotion ? (
+          <m.header
+            custom={{ idx: 0, dir: daySlideDir }}
+            variants={DESKTOP_DAY_ITEM_VARIANTS}
+            initial={animateOnMount ? "enter" : false}
+            animate="center"
+            className={headerClassName}
+          >
+            {headerContent}
+          </m.header>
+        ) : (
+          <header className={headerClassName}>
+            {headerContent}
+          </header>
+        )
+      )}
 
       {/* Morning pre-lesson indicator */}
       {isBeforeDayStart && (
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3">
-          <div className="flex items-center gap-2 shrink-0">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span>До початку занять</span>
+        desktopMotion ? (
+          <m.div
+            custom={{ idx: 0.5, dir: daySlideDir }}
+            variants={DESKTOP_DAY_ITEM_VARIANTS}
+            initial={animateOnMount ? "enter" : false}
+            animate="center"
+            className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3"
+          >
+            {preLessonBannerContent}
+          </m.div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3">
+            {preLessonBannerContent}
           </div>
-          <div className="flex items-center gap-1.5 text-sys-text-primary font-medium min-w-0">
-            <span className="leading-snug">
-              <span className="whitespace-nowrap">{orderedLessons[0].lesson_number}-а пара о {orderedLessons[0].time.split(/[-–—]/)[0]}</span>{" "}
-              <span className="whitespace-nowrap">(через {timeToStart >= 60 ? `${Math.floor(timeToStart / 60)} год${timeToStart % 60 > 0 ? ` ${timeToStart % 60} хв` : ""}` : `${timeToStart} хв`})</span>
-            </span>
-          </div>
-        </div>
+        )
       )}
 
       {orderedLessons.length ? (
@@ -301,16 +408,8 @@ export function ScheduleDay({
             const breakDuration = prevEnd !== null && currStart !== null ? currStart - prevEnd : 0;
             const breakLeft = isBreakNow && currStart !== null && kyivNow ? currStart - kyivNow.minutes : 0;
 
-            return (
-              <div
-                key={`${schedule.date}-${lessonKey}`}
-                style={
-                  {
-                    "--stagger-index": idx,
-                  } as React.CSSProperties
-                }
-                className="desktop-stagger-card flex flex-col gap-2.5 relative has-[[data-open]]:z-50"
-              >
+            const lessonRowBody = (
+              <>
                 {isBreakNow && (
                   <div className="flex flex-wrap items-center justify-center text-center gap-x-2 gap-y-0.5 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
                     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
@@ -339,29 +438,72 @@ export function ScheduleDay({
                   currentTeacherName={currentTeacherName}
                   onOpenSubjectHub={onOpenSubjectHub}
                 />
+              </>
+            );
+
+            const rowClassName = "flex flex-col gap-2.5 relative has-[[data-open]]:z-50";
+
+            if (desktopMotion) {
+              return (
+                <m.div
+                  key={`${schedule.date}-${lessonKey}`}
+                  custom={{ idx: idx + 1, dir: daySlideDir }}
+                  variants={DESKTOP_DAY_ITEM_VARIANTS}
+                  initial={animateOnMount ? "enter" : false}
+                  animate="center"
+                  className={rowClassName}
+                >
+                  {lessonRowBody}
+                </m.div>
+              );
+            }
+
+            return (
+              <div
+                key={`${schedule.date}-${lessonKey}`}
+                className={rowClassName}
+              >
+                {lessonRowBody}
               </div>
             );
           })}
         </DesktopSpotlightGrid>
-      ) : schedule.period_info ? (
-        compactPeriod ? (
-          <CompactSchedulePeriodCard period={schedule.period_info} />
-        ) : (
-          <SchedulePeriodCard period={schedule.period_info} isToday={isToday} />
-        )
+      ) : desktopMotion ? (
+        <m.div
+          custom={{ idx: 1, dir: daySlideDir }}
+          variants={DESKTOP_DAY_ITEM_VARIANTS}
+          initial={animateOnMount ? "enter" : false}
+          animate="center"
+        >
+          {emptyOrPeriodContent}
+        </m.div>
       ) : (
-        <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 px-6 py-12 text-center text-sys-text-muted">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-bg border border-sys-border text-sys-accent shadow-xs">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
-              <path d="m9 16 2 2 4-4" />
-            </svg>
-          </div>
-          <p className="text-base font-semibold text-sys-text-primary">Пар немає</p>
-          <p className="text-xs text-sys-text-secondary mt-1">Розклад на цей день вільний</p>
+        emptyOrPeriodContent
+      )}
+    </>
+  );
+
+  return (
+    <section className={mode === "day" ? "relative min-w-0 overflow-x-clip" : "min-w-0"}>
+      {desktopMotion ? (
+        <AnimatePresence mode="popLayout" initial={animateOnMount} custom={daySlideDir}>
+          <m.div
+            key={`day-stage-${schedule.date}`}
+            custom={daySlideDir}
+            variants={DESKTOP_DAY_STAGE_VARIANTS}
+            initial={animateOnMount ? "enter" : false}
+            animate="center"
+            exit="exit"
+            className="w-full"
+          >
+            {stageBody}
+          </m.div>
+        </AnimatePresence>
+      ) : (
+        <div key={mode === "day" ? `day-stage-${schedule.date}` : undefined}>
+          {stageBody}
         </div>
       )}
-      </div>
     </section>
   );
 }

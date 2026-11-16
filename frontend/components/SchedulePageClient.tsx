@@ -534,10 +534,7 @@ export function SchedulePageClient({
                   onReturnBack={sel.handleReturnBack}
                 />
               ) : (
-                <div
-                  key={sel.view}
-                  className={shouldReduceMotion ? "" : "desktop-view-enter"}
-                >
+                <div key={sel.view} className="w-full">
                     {sel.view === "today" ? (
                       <div className="w-full min-w-0 flex items-start justify-center overflow-x-clip">
                         <div
@@ -576,7 +573,7 @@ export function SchedulePageClient({
                             </div>
                           )}
 
-                          <div className="relative w-full vt-schedule-day-stage">
+                          <div className="relative w-full">
                               <ScheduleDay
                                 schedule={sel.selectedDaySchedule ?? today!}
                                 isToday={sel.selectedDaySchedule?.date === sel.todayActualIso && !sel.isWeekend}
@@ -591,6 +588,7 @@ export function SchedulePageClient({
                                 currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
                                 daySlideDir={sel.daySlideDir}
                                 shouldReduceMotion={shouldReduceMotion}
+                                animateOnMount={sel.hasMotionInteracted}
                                 learningModeBadge={sel.headerLearningModeData}
                               />
                           </div>
@@ -651,6 +649,7 @@ export function SchedulePageClient({
                           currentTeacherName={mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
                           onSelectDay={sel.handleSelectDayFromWeek}
                           weekSlideDir={sel.weekSlideDir}
+                          animateOnMount={sel.hasMotionInteracted}
                         />
                       </div>
                     )}

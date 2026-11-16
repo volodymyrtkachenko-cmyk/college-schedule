@@ -134,8 +134,8 @@ export function DesktopSpotlightGrid({
           if (rect.width > 0 && rect.height > 0) {
             const nx = Math.max(-1, Math.min(1, ((job.clientX - rect.left) / rect.width) * 2 - 1));
             const ny = Math.max(-1, Math.min(1, ((job.clientY - rect.top) / rect.height) * 2 - 1));
-            const tiltX = (-ny * 2.5).toFixed(2);
-            const tiltY = (nx * 2.5).toFixed(2);
+            const tiltX = (-ny * 1.6).toFixed(2);
+            const tiltY = (nx * 1.6).toFixed(2);
             nextTiltEl.style.setProperty("--tilt-x", `${tiltX}deg`);
             nextTiltEl.style.setProperty("--tilt-y", `${tiltY}deg`);
             activeTiltElRef.current = nextTiltEl;
