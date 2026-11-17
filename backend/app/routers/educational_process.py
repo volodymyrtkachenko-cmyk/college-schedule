@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import date, timedelta
+import time as _time
 from typing import List, Optional
 
 from app.database import get_db
@@ -15,9 +16,18 @@ from app.schemas.educational_process import (
     SemesterRangeInfo,
     WeekInfo,
 )
+from app.services import cache_rev
 from app.services.learning_mode import infer_year_of_admission
 
 router = APIRouter(prefix="/educational-process", tags=["Educational Process"])
+
+_EP_JSON_CACHE: dict[tuple, tuple[float, bytes]] = {}
+_EP_CACHE_TTL = 120.0
+_EP_CACHE_MAX = 16
+
+
+def invalidate_educational_process_cache() -> None:
+    _EP_JSON_CACHE.clear()
 
 def generate_weeks(start_date: date) -> List[WeekInfo]:
     # Find the Monday of the week containing start_date
@@ -53,9 +63,26 @@ def _week_index_for_date(weeks: list[WeekInfo], target: date, *, clamp_start: bo
 
 @router.get("", response_model=EducationalProcessMatrix)
 async def get_matrix(
+    request: Request,
+    response: Response,
     academic_year_start: int = Query(..., description="Рік початку навчального року (наприклад, 2026)"),
     db: AsyncSession = Depends(get_db)
 ):
+    etag = cache_rev.directory_etag("educational-process", str(academic_year_start))
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    response.headers["Vary"] = "Accept-Encoding"
+    if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers=dict(response.headers))
+
+    can_use_cache = not db.new and not db.dirty and not db.deleted
+    cache_key = (id(db.get_bind()), academic_year_start, cache_rev.global_rev)
+    now_mono = _time.monotonic()
+    if can_use_cache:
+        cached = _EP_JSON_CACHE.get(cache_key)
+        if cached is not None and (now_mono - cached[0]) < _EP_CACHE_TTL:
+            return Response(content=cached[1], media_type="application/json", headers=dict(response.headers))
+
     start_date = date(academic_year_start, 9, 1)
     end_date = date(academic_year_start + 1, 8, 31)
     academic_year_str = f"{academic_year_start}/{academic_year_start + 1}"
@@ -221,11 +248,19 @@ async def get_matrix(
             groups=courses_map[c]
         ))
 
-    return EducationalProcessMatrix(
+    payload = EducationalProcessMatrix(
         academic_year_start=academic_year_start,
         weeks=weeks,
         courses=result_courses,
         semesters=semesters_info,
     )
+    if can_use_cache:
+        raw_bytes = payload.model_dump_json().encode("utf-8")
+        if len(_EP_JSON_CACHE) >= _EP_CACHE_MAX:
+            oldest_k = min(_EP_JSON_CACHE, key=lambda k: _EP_JSON_CACHE[k][0])
+            _EP_JSON_CACHE.pop(oldest_k, None)
+        _EP_JSON_CACHE[cache_key] = (now_mono, raw_bytes)
+        return Response(content=raw_bytes, media_type="application/json", headers=dict(response.headers))
+    return payload
 
 

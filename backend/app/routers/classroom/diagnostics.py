@@ -93,6 +93,8 @@ async def clear_all_classroom_data(
             archived_notes_count += 1
 
     await db.commit()
+    from app.services.classroom_access import invalidate_classroom_access_cache
+    invalidate_classroom_access_cache(group_id)
     return {
         "status": "success",
         "deleted_bindings": deleted_bindings,

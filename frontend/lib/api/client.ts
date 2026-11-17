@@ -28,6 +28,8 @@ function advanceAuthGeneration(): number {
   refreshPromise = null;
   bootstrapPromise = null;
   sessionPromise = null;
+  etagResponseCache.clear();
+  groupStatusCache.clear();
   return authGeneration;
 }
 
@@ -118,7 +120,11 @@ export async function rawRequest<T>(path: string, init: RequestInit = {}): Promi
     } catch {}
   }
 
-  const cachedEtag = method === "GET" ? etagResponseCache.get(path) : undefined;
+  const etagCacheKey =
+    method === "GET"
+      ? `${path}|${headers.get("X-Teacher-Pin") ? "pin" : ""}|${headers.has("Authorization") ? "auth" : ""}|${headers.get("X-Classroom-User-Id") || ""}|${headers.get("X-Classroom-Email") || ""}`
+      : "";
+  const cachedEtag = method === "GET" ? etagResponseCache.get(etagCacheKey) : undefined;
   if (cachedEtag && !headers.has("If-None-Match")) {
     headers.set("If-None-Match", cachedEtag.etag);
   }
@@ -154,7 +160,7 @@ export async function rawRequest<T>(path: string, init: RequestInit = {}): Promi
   const data = (await response.json()) as T;
   const responseEtag = response.headers?.get ? response.headers.get("ETag") : null;
   if (method === "GET" && responseEtag) {
-    etagResponseCache.set(path, { etag: responseEtag, data });
+    etagResponseCache.set(etagCacheKey, { etag: responseEtag, data });
   }
   return data;
 }

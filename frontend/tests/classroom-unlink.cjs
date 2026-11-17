@@ -139,6 +139,7 @@ test("concurrent double-click shares one in-flight disconnect request and clears
       "schedule:classroom_google_user_id": "fake-uid-123",
       "schedule:classroom_linked_group_id": "85",
       "schedule:classroom_access_token": "tok-1",
+      "schedule:classroom_tasks": JSON.stringify([{ id: "t1", title: "Task 1" }]),
     },
     fetch: async () => {
       calls += 1;
@@ -168,6 +169,7 @@ test("concurrent double-click shares one in-flight disconnect request and clears
   assert.equal(localStorage.getItem("schedule:classroom_linked_email"), null);
   assert.equal(localStorage.getItem("schedule:classroom_google_user_id"), null);
   assert.equal(localStorage.getItem("schedule:classroom_access_token"), null);
+  assert.equal(localStorage.getItem("schedule:classroom_tasks"), null);
   assert.deepEqual(events, ["classroom-linked-change", "classroom-access-changed"]);
   assert.equal(mod.getClassroomUnlinkState().status, "success");
   assert.equal(mod.getClassroomUnlinkState().error, null);

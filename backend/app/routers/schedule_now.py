@@ -1,16 +1,14 @@
 from app.core.time import today_local, now_local
-from datetime import datetime
+from datetime import datetime, time as _time_cls
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Dict, Any
+from typing import Dict, Any
 
 from app.database import get_db
-from app.models import BellSchedule
+from app.services.bells import get_bell_times
 from app.services.projection import build_projection
 from app.services.settings import settings_service
 from app.services.week import get_week_type
-from app.core.security import get_current_user
 
 router = APIRouter(prefix="/now", tags=["schedule"])
 
@@ -24,31 +22,31 @@ async def get_schedule_now(db: AsyncSession = Depends(get_db)):
     current_lesson = None
 
     if today_date in shortened_dates:
-        from datetime import time as _time_cls
-        shortened_bells = [
+        active_bells = [
             (1, _time_cls(9, 0), _time_cls(9, 50)),
             (2, _time_cls(10, 0), _time_cls(10, 50)),
             (3, _time_cls(11, 0), _time_cls(11, 50)),
             (4, _time_cls(12, 0), _time_cls(12, 50)),
             (5, _time_cls(13, 0), _time_cls(13, 50)),
         ]
-        for l_num, s_t, e_t in shortened_bells:
-            if s_t <= current_time <= e_t:
-                current_lesson = l_num
-                break
     else:
-        bells = (await db.scalars(select(BellSchedule).where(BellSchedule.is_active == True).order_by(BellSchedule.lesson_number))).all()
-        for bell in bells:
-            if bell.start_time <= current_time <= bell.end_time:
-                current_lesson = bell.lesson_number
-                break
+        bell_map = await get_bell_times(db)
+        active_bells = []
+        for l_num, (start_str, end_str) in sorted(bell_map.items()):
+            sh, sm = map(int, start_str.split(":", 1))
+            eh, em = map(int, end_str.split(":", 1))
+            active_bells.append((l_num, _time_cls(sh, sm), _time_cls(eh, em)))
+
+    for l_num, s_t, e_t in active_bells:
+        if s_t <= current_time <= e_t:
+            current_lesson = l_num
+            break
             
     semester_start = await settings_service.get_semester_start(db)
     week_type = get_week_type(today_date, semester_start)
     
     lessons = await build_projection(db, target_date=today_date)
     
-    active_bells = shortened_bells if today_date in shortened_dates else [(b.lesson_number, b.start_time, b.end_time) for b in bells]
     is_school_day = today_date.isoweekday() <= 5
     is_study_hours = False
     if active_bells and is_school_day:

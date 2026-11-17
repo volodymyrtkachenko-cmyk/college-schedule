@@ -35,6 +35,8 @@ async def delete_classroom_credential(
     group_id = cred.group_id
     await db.delete(cred)
     await db.commit()
+    from app.services.classroom_access import invalidate_classroom_access_cache
+    invalidate_classroom_access_cache(group_id)
     summary = await classroom_sync._build_group_accounts_summary(db, group_id)
     return {"ok": True, "message": "Акаунт успішно відключено", **summary}
 
@@ -153,6 +155,8 @@ async def bulk_import_group_students(
         added += 1
 
     await db.commit()
+    from app.services.classroom_access import invalidate_classroom_access_cache
+    invalidate_classroom_access_cache(group_id)
     total_count = await db.scalar(
         select(func.count(GroupStudent.id)).where(GroupStudent.group_id == group_id)
     )
@@ -176,4 +180,6 @@ async def remove_group_student(
         raise HTTPException(status_code=404, detail="Студента не знайдено")
     await db.delete(st)
     await db.commit()
+    from app.services.classroom_access import invalidate_classroom_access_cache
+    invalidate_classroom_access_cache(group_id)
     return {"status": "deleted"}

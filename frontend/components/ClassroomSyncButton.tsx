@@ -35,6 +35,8 @@ export function ClassroomSyncButton({
   const { linkedEmail, linkedGroupId } = useClassroomSubmissions();
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onSyncedRef = useRef(onSynced);
+  onSyncedRef.current = onSynced;
 
   const checkAndRefreshScheduleIfUpdated = useCallback(
     (gid: number, serverLastSyncedAt?: string | null) => {
@@ -65,9 +67,9 @@ export function ClassroomSyncButton({
         // завантажуються виключно через syncPersonalSubmissions (з його особистих курсів та підгрупи).
         // Загальні data.tasks із groupStatus використовуємо ТІЛЬКИ якщо власна пошта не прив'язана!
         if (allowGroupTasksFallback && !linkedEmail && data.tasks && Array.isArray(data.tasks)) {
-          onSynced(gid, data.tasks, data.last_synced_at ?? null, true);
+          onSyncedRef.current(gid, data.tasks, data.last_synced_at ?? null, true);
         } else if (data.last_synced_at) {
-          onSynced(gid, undefined, data.last_synced_at, true);
+          onSyncedRef.current(gid, undefined, data.last_synced_at, true);
         }
 
         const isStale =
@@ -82,7 +84,7 @@ export function ClassroomSyncButton({
         }
       } catch {}
     },
-    [checkAndRefreshScheduleIfUpdated, linkedEmail, onSynced]
+    [checkAndRefreshScheduleIfUpdated, linkedEmail]
   );
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export function ClassroomSyncButton({
 
     // Якщо користувач не прив'язав свою пошту або дивиться чужу групу — беремо лише публічний статус
     if (!linkedEmail || (linkedGroupId && currentGroupId !== linkedGroupId)) {
-      await fetchGroupStatusAndSchedulePoll(currentGroupId, true, !linkedEmail);
+      await fetchGroupStatusAndSchedulePoll(currentGroupId, false, !linkedEmail);
       return;
     }
 
@@ -123,7 +125,7 @@ export function ClassroomSyncButton({
     } catch {}
 
     // 2. Перевіряємо, чи оновилися посилання Meet/Zoom у розкладі групи (БЕЗ перезапису особистих завдань!)
-    await fetchGroupStatusAndSchedulePoll(currentGroupId, true, !personalOk);
+    await fetchGroupStatusAndSchedulePoll(currentGroupId, false, !personalOk);
   }, [
     currentGroupId,
     syncing,

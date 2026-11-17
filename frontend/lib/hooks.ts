@@ -228,7 +228,7 @@ export function useSchedule(
       ((initialMode ?? "student") === "student" ? Boolean(initialGroupId) : Boolean(initialTeacherId))
   );
 
-  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(Boolean(includeCancelled));
+  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(Boolean(includeCancelled) || Boolean(user));
   const [mode, setMode] = useState<"student" | "teacher">(initialMode ?? "student");
   const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>(initialGroups);
   const [teachers, setTeachers] = useState<import("./api").ReferenceRecord[]>(
@@ -454,11 +454,18 @@ export function useSchedule(
         }
       }
       if (allowFallbackToStorage && currentSetupDone) {
-        if (!initialGroupId && parsedCachedGroups.length > 0) {
+        let resolvedStorageMode: "student" | "teacher" = initialMode ?? "student";
+        if (!initialMode) {
+          try {
+            const savedMode = window.localStorage.getItem("schedule:mode");
+            if (savedMode === "teacher" || savedMode === "student") resolvedStorageMode = savedMode;
+          } catch {}
+        }
+        if ((resolvedStorageMode === "student" || Boolean(includeCancelled)) && !initialGroupId && parsedCachedGroups.length > 0) {
           const parsedGid = Number(cachedGroupId);
           setGroupId(parsedGid > 0 ? parsedGid : (parsedCachedGroups[0]?.id ?? null));
         }
-        if (!initialTeacherId && parsedCachedTeachers.length > 0) {
+        if ((resolvedStorageMode === "teacher" || Boolean(includeCancelled)) && !initialTeacherId && parsedCachedTeachers.length > 0) {
           const parsedTid = Number(cachedTeacherId);
           setTeacherId(parsedTid > 0 ? parsedTid : (parsedCachedTeachers[0]?.id ?? null));
         }
@@ -534,13 +541,30 @@ export function useSchedule(
 
   const toggleMode = (newMode: "student" | "teacher") => {
     setMode(newMode);
+    if (newMode === "teacher" && !teacherId) {
+      let fallbackTid: number | null = null;
+      try {
+        const savedTid = Number(window.localStorage.getItem("schedule:teacherId"));
+        if (savedTid > 0) fallbackTid = savedTid;
+      } catch {}
+      setTeacherId(fallbackTid ?? teachers[0]?.id ?? null);
+    } else if (newMode === "student" && !groupId) {
+      let fallbackGid: number | null = null;
+      try {
+        const savedGid = Number(window.localStorage.getItem("schedule:groupId"));
+        if (savedGid > 0) fallbackGid = savedGid;
+      } catch {}
+      setGroupId(fallbackGid ?? groups[0]?.id ?? null);
+    }
     try {
       window.localStorage.setItem("schedule:mode", newMode);
     } catch {}
   };
 
+  const activeTargetId = mode === "student" ? groupId : teacherId;
+
   useEffect(() => {
-    if (!includeCancelled && !isSetupComplete && !user && !readStoredSetupComplete()) {
+    if (!includeCancelled && !isSetupComplete && !user) {
       return;
     }
     if (mode === "student" && !groupId) {
@@ -596,6 +620,7 @@ export function useSchedule(
       today: ScheduleResponse | null;
       week: ScheduleResponse[];
       rawJson: string;
+      isSameWeek: boolean;
     } | null => {
       try {
         // Спочатку шукаємо точний тиждень у будь-якому tier (:auth або :guest), щоб не блимати при перемиканні
@@ -606,7 +631,7 @@ export function useSchedule(
           if (exactRaw) {
             const parsedWeek = JSON.parse(exactRaw) as ScheduleResponse[];
             if (Array.isArray(parsedWeek) && parsedWeek.length > 0) {
-              return { today: parsedWeek[0], week: parsedWeek, rawJson: exactRaw };
+              return { today: parsedWeek[0], week: parsedWeek, rawJson: exactRaw, isSameWeek: true };
             }
           }
         }
@@ -617,6 +642,8 @@ export function useSchedule(
         for (let i = 0; i < window.localStorage.length; i++) {
           const k = window.localStorage.key(i);
           if (!k || !k.startsWith(prefix)) continue;
+          const isAllKey = k.includes(":all:");
+          if (Boolean(includeCancelled) !== isAllKey) continue;
           const m = k.match(/:(\d{4}-\d{2}-\d{2})(?::|$)/);
           const dStr = m?.[1] ?? "";
           if (dStr >= bestDate) {
@@ -628,9 +655,9 @@ export function useSchedule(
         if (bestRaw) {
           const parsedWeek = JSON.parse(bestRaw) as ScheduleResponse[];
           if (Array.isArray(parsedWeek) && parsedWeek.length > 0) {
+            const isSameWeek = bestDate === dateKey;
             const remappedWeek: ScheduleResponse[] = parsedWeek.map((dayItem, idx) => {
               const mappedIso = addDaysToCalendarIso(dateKey, idx);
-              const isSameWeek = bestDate === dateKey;
               const safeLessons = isSameWeek
                 ? dayItem.lessons
                 : (dayItem.lessons || [])
@@ -655,6 +682,7 @@ export function useSchedule(
               today: remappedWeek[0] ?? null,
               week: remappedWeek,
               rawJson: remappedJson,
+              isSameWeek,
             };
           }
         }
@@ -724,6 +752,7 @@ export function useSchedule(
             lastRenderedWeekJsonRef.current = fallback.rawJson;
             if (fallback.today) setToday(fallback.today);
             setWeek(fallback.week);
+            setIsUsingFallbackCache(!fallback.isSameWeek);
             setLoading(false);
             hasCachedSchedule = true;
           } else if (!silentRevalidate) {
@@ -828,7 +857,7 @@ export function useSchedule(
       window.removeEventListener("teacher-access-changed", handleClassroomAccessChange);
       window.removeEventListener("classroom-access-changed", handleClassroomAccessChange);
     };
-  }, [isSetupComplete, mode, groupId, teacherId, weekAnchorDate, includeCancelled]);
+  }, [isSetupComplete, mode, activeTargetId, weekAnchorDate, includeCancelled]);
 
   useEffect(() => {
     let active = true;

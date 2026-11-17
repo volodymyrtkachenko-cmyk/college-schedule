@@ -26,8 +26,13 @@ _ACCESS_CACHE_TTL = 300.0  # 5 minutes
 _ACCESS_CACHE_MAX = 1000
 
 
-def invalidate_classroom_access_cache() -> None:
-    _ACCESS_CACHE.clear()
+def invalidate_classroom_access_cache(group_id: Optional[int] = None) -> None:
+    if group_id is None:
+        _ACCESS_CACHE.clear()
+        return
+    stale = [k for k in _ACCESS_CACHE if k[0] == group_id]
+    for k in stale:
+        _ACCESS_CACHE.pop(k, None)
 
 
 async def check_teacher_access(

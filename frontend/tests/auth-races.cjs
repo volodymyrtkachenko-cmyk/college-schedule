@@ -82,3 +82,80 @@ test('refresh is single-flight within one generation', async () => {
   const a = api.auth.refresh(); const b = api.auth.refresh(); await tick();
   first.resolve(response(session('A'))); await Promise.all([a, b]); assert.equal(calls, 1);
 });
+
+function createMemoryStorage(initial = {}) {
+  const store = new Map(Object.entries(initial).map(([k, v]) => [String(k), String(v)]));
+  return {
+    getItem: k => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(String(k), String(v)); },
+    removeItem: k => { store.delete(k); },
+  };
+}
+
+test('auth transitions clear cached ETag responses and isolate scoped GET keys', async () => {
+  const storage = createMemoryStorage();
+  const seenHeaders = [];
+  let payloadVersion = 0;
+
+  const api = loadTsModule(path.join(__dirname, '../lib/api.ts'), {
+    window: { localStorage: storage },
+    localStorage: storage,
+    fetch: async (url, init = {}) => {
+      if (url.endsWith('/api/auth/login')) {
+        return response(session('A'));
+      }
+      if (url.endsWith('/api/auth/logout')) {
+        return response({ status: 'ok' });
+      }
+      const hdrs = new Headers(init.headers);
+      const ifNoneMatch = hdrs.get('If-None-Match');
+      const pin = hdrs.get('X-Teacher-Pin') || '';
+      const email = hdrs.get('X-Classroom-Email') || '';
+      seenHeaders.push({ url, ifNoneMatch, pin, email, hasAuth: hdrs.has('Authorization') });
+      const etag = `W/"v${payloadVersion}-${pin}-${email}"`;
+      if (ifNoneMatch && ifNoneMatch === etag) {
+        return {
+          ok: false,
+          status: 304,
+          headers: new Headers({ ETag: etag }),
+          json: async () => ({}),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ ETag: etag }),
+        json: async () => [{ id: ++payloadVersion, pin, email }],
+      };
+    },
+  }).api;
+
+  // 1. Guest fetch populates ETag cache, then PIN change must NOT send guest If-None-Match
+  const guestRows = await api.events.list({ group_id: 1 });
+  assert.equal(guestRows[0].pin, '');
+  storage.setItem('college_schedule_teacher_pin', 'secret-pin');
+  const pinRows = await api.events.list({ group_id: 1 });
+  assert.equal(pinRows[0].pin, 'secret-pin');
+  assert.equal(seenHeaders[1].ifNoneMatch, null);
+
+  // 2. Classroom identity change must NOT hit PIN/previous-identity cache
+  storage.setItem('schedule:classroom_linked_email', 's1@kre.dp.ua');
+  await api.events.list({ group_id: 1 });
+  assert.equal(seenHeaders[2].ifNoneMatch, null);
+
+  // 3. Same credentials DO send If-None-Match and reuse cached payload on 304
+  const repeated = await api.events.list({ group_id: 1 });
+  assert.equal(repeated[0].email, 's1@kre.dp.ua');
+  assert.ok(seenHeaders[3].ifNoneMatch);
+
+  // 4. auth.login and auth.clear MUST invalidate etagResponseCache immediately
+  await api.auth.login('A', 'test');
+  await api.events.list({ group_id: 1 });
+  assert.equal(seenHeaders[4].ifNoneMatch, null);
+  assert.equal(seenHeaders[4].hasAuth, true);
+
+  api.auth.clear();
+  await api.events.list({ group_id: 1 });
+  assert.equal(seenHeaders[5].ifNoneMatch, null);
+  assert.equal(seenHeaders[5].hasAuth, false);
+});

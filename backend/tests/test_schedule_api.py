@@ -819,3 +819,46 @@ async def test_create_subject_strips_asterisk_and_prevents_canonical_duplicate(a
     )
     assert dup.status_code == 409
 
+
+@pytest.mark.anyio
+async def test_schedule_now_uses_cached_bell_times(api_client, monkeypatch):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from sqlalchemy import event as sa_event
+    from app.routers import schedule_now
+    from app.services import bells as bells_service
+
+    client, _, data = api_client
+    bells_service.invalidate_bell_cache()
+
+    fixed_now = datetime(2025, 9, 1, 9, 30, tzinfo=ZoneInfo("Europe/Kyiv"))
+    monkeypatch.setattr(schedule_now, "now_local", lambda: fixed_now)
+
+    async with data["sessions"]() as s:
+        sync_engine = s.get_bind()
+
+    sql_statements = []
+
+    def _capture_sql(conn, cursor, statement, parameters, context, executemany):
+        sql_statements.append(statement)
+
+    sa_event.listen(sync_engine, "before_cursor_execute", _capture_sql)
+    try:
+        r1 = await client.get("/api/schedule/now")
+        assert r1.status_code == 200
+        body1 = r1.json()
+        assert body1["current_lesson_number"] == 1
+        assert len(body1["active_classes"]) == 1
+        first_bell_queries = [stmt for stmt in sql_statements if "bell_schedule" in stmt.lower()]
+        assert len(first_bell_queries) == 1
+
+        sql_statements.clear()
+        r2 = await client.get("/api/schedule/now")
+        assert r2.status_code == 200
+        assert r2.json()["current_lesson_number"] == 1
+        second_bell_queries = [stmt for stmt in sql_statements if "bell_schedule" in stmt.lower()]
+        assert second_bell_queries == []
+    finally:
+        sa_event.remove(sync_engine, "before_cursor_execute", _capture_sql)
+        bells_service.invalidate_bell_cache()
+

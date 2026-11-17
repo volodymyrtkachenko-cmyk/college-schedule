@@ -811,6 +811,7 @@ async def ensure_and_attach_task_briefs(
             for n_url, res in pairs:
                 gemini_results[n_url] = res
 
+    mutated = False
     for _, norm_url, title, description, materials, work_type, max_points, content_hash, _, _ in llm_candidates:
         cached = rows_by_url.get(norm_url)
         brief_data = gemini_results.get(norm_url)
@@ -848,6 +849,7 @@ async def ensure_and_attach_task_briefs(
             )
             db.add(cached)
             rows_by_url[norm_url] = cached
+            mutated = True
         else:
             cached.content_hash = content_hash
             cached.summary = brief_data["summary"]
@@ -856,6 +858,7 @@ async def ensure_and_attach_task_briefs(
             cached.work_format = brief_data["work_format"]
             cached.source = brief_data["source"]
             cached.updated_at = now_utc
+            mutated = True
 
     for task in tasks:
         norm_url = normalize_task_url(task.get("url") or task.get("alternate_link") or "")
@@ -866,7 +869,8 @@ async def ensure_and_attach_task_briefs(
         else:
             task["brief"] = None
 
-    await db.flush()
+    if mutated:
+        await db.flush()
     return tasks
 
 

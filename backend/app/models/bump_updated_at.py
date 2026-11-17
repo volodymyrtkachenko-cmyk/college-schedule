@@ -12,13 +12,14 @@ _NON_SCHEDULE_SETTING_KEYS = {"classroom_auto_sync_heartbeat"}
 # after projection, so they invalidate HTTP/ETag revisions but not the projection cache.
 _GROUP_SCOPED_TABLES = {
     "schedule", "schedule_override", "imported_schedule_changes", "schedule_events",
-    "lesson_occurrence_notes",
+    "lesson_occurrence_notes", "curriculums",
 }
 _NOTE_TABLES = {"lesson_occurrence_notes"}
 # Tables that affect every group's schedule output.
 _GLOBAL_TABLES = {
     "schedule_versions", "schedule_periods", "schedule_period_slots", "subjects",
     "teachers", "groups", "settings", "bell_schedule",
+    "academic_terms", "term_course_schedules",
 }
 # Bulk UPDATEs on these tables come from the updated_at bump below; ORM edits are
 # still caught via session.dirty.

@@ -76,20 +76,39 @@ export function useScheduleDataFetch({
   }, []);
 
   useEffect(() => {
+    const clearCaches = () => {
+      tasksMemoryCache.clear();
+      setClassroomTasks([]);
+      setClassroomLastSyncedAt(null);
+    };
+    window.addEventListener("classroom-access-changed", clearCaches);
+    window.addEventListener("schedule:refresh", clearCaches);
+    return () => {
+      window.removeEventListener("classroom-access-changed", clearCaches);
+      window.removeEventListener("schedule:refresh", clearCaches);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!groupId) {
       setClassroomTasks([]);
+      setClassroomLastSyncedAt(null);
       return;
     }
     const mem = tasksMemoryCache.get(groupId);
     if (mem) {
       setClassroomTasks(mem.tasks);
-      if (mem.lastSyncedAt) setClassroomLastSyncedAt(mem.lastSyncedAt);
+      setClassroomLastSyncedAt(mem.lastSyncedAt ?? null);
       return;
     }
     const cached = readCachedGroupTasks(groupId);
     if (cached.length > 0) {
       tasksMemoryCache.set(groupId, { tasks: cached, lastSyncedAt: null });
       setClassroomTasks(cached);
+      setClassroomLastSyncedAt(null);
+    } else {
+      setClassroomTasks([]);
+      setClassroomLastSyncedAt(null);
     }
   }, [groupId, readCachedGroupTasks]);
 
@@ -387,7 +406,7 @@ export function useScheduleDataFetch({
             if (targetGid) {
               tasksMemoryCache.set(targetGid, {
                 tasks: next,
-                lastSyncedAt: lastSynced ?? classroomLastSyncedAt,
+                lastSyncedAt: lastSynced ?? classroomLastSyncedAtRef.current,
               });
               if (isSilent) {
                 try {
@@ -403,7 +422,7 @@ export function useScheduleDataFetch({
         setClassroomLastSyncedAt(lastSynced);
       }
     },
-    [returnTarget, groupId, setGroupId, classroomLastSyncedAt, isLinkedToGroup, readCachedGroupTasks]
+    [returnTarget, groupId, setGroupId, isLinkedToGroup, readCachedGroupTasks]
   );
 
   const allTasks = useMemo(

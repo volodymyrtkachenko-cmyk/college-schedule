@@ -155,3 +155,59 @@ async def test_get_classroom_group_status_hides_tasks_for_guest(db_session):
     assert res["requires_auth"] is True
     assert res["tasks"] == []
 
+
+@pytest.mark.anyio
+async def test_bulk_import_remove_and_credential_delete_invalidate_access_cache(db_session):
+    from sqlalchemy import select
+    from app.routers.classroom.accounts import (
+        bulk_import_group_students,
+        delete_classroom_credential,
+        remove_group_student,
+    )
+    from app.schemas.classroom import BulkStudentsPayload
+
+    email = "fresh.student@kre.dp.ua"
+    req_email = MagicMock()
+    req_email.headers = {"x-classroom-email": email}
+    req_email.query_params = {}
+
+    # 1. Warm _ACCESS_CACHE with negative result
+    assert await check_classroom_group_access(db_session, group_id=85, request=req_email) is False
+
+    # 2. Bulk import student -> cache for group 85 must be invalidated immediately
+    res_bulk = await bulk_import_group_students(
+        group_id=85,
+        payload=BulkStudentsPayload(raw_text=f"Новак Тест {email}"),
+        db=db_session,
+        _=MagicMock(),
+    )
+    assert res_bulk["added"] == 1
+    assert await check_classroom_group_access(db_session, group_id=85, request=req_email) is True
+
+    # 3. Remove student -> cache must immediately flip back to False
+    st = await db_session.scalar(
+        select(GroupStudent).where(GroupStudent.group_id == 85, GroupStudent.email == email)
+    )
+    assert st is not None
+    await remove_group_student(group_id=85, student_id=st.id, db=db_session, _=MagicMock())
+    assert await check_classroom_group_access(db_session, group_id=85, request=req_email) is False
+
+    # 4. Credential delete -> cache must immediately flip from True to False
+    cred = ClassroomCredential(
+        group_id=85,
+        google_user_id="uid_cache_test",
+        email="cred.cache@kre.dp.ua",
+        student_name="Кред Тест",
+        is_active=True,
+    )
+    db_session.add(cred)
+    await db_session.commit()
+
+    req_uid = MagicMock()
+    req_uid.headers = {"x-classroom-user-id": "uid_cache_test"}
+    req_uid.query_params = {}
+    assert await check_classroom_group_access(db_session, group_id=85, request=req_uid) is True
+
+    await delete_classroom_credential(cred_id=cred.id, db=db_session, _=MagicMock())
+    assert await check_classroom_group_access(db_session, group_id=85, request=req_uid) is False
+

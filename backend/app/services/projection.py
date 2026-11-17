@@ -52,6 +52,12 @@ def invalidate_projection_cache(group_id: Optional[int] = None) -> None:
         classroom_state_mod = sys.modules.get("app.services.classroom.state")
         if classroom_state_mod is not None and hasattr(classroom_state_mod, "_heartbeat_cache"):
             classroom_state_mod._heartbeat_cache = None
+        stats_router = sys.modules.get("app.routers.statistics")
+        if stats_router is not None and hasattr(stats_router, "invalidate_statistics_cache"):
+            stats_router.invalidate_statistics_cache()
+        ep_router = sys.modules.get("app.routers.educational_process")
+        if ep_router is not None and hasattr(ep_router, "invalidate_educational_process_cache"):
+            ep_router.invalidate_educational_process_cache()
         return
     stale_week = [k for k in _WEEK_PROJ_CACHE if k[1] == group_id or k[1] is None]
     for k in stale_week:
@@ -63,6 +69,12 @@ def invalidate_projection_cache(group_id: Optional[int] = None) -> None:
         sys.modules["app.services.lesson_notes"].invalidate_notes_cache(group_id)
     if "app.services.directory_cache" in sys.modules:
         sys.modules["app.services.directory_cache"].invalidate_scope_cache(group_id)
+    stats_router = sys.modules.get("app.routers.statistics")
+    if stats_router is not None and hasattr(stats_router, "invalidate_statistics_cache"):
+        stats_router.invalidate_statistics_cache(group_id)
+    ep_router = sys.modules.get("app.routers.educational_process")
+    if ep_router is not None and hasattr(ep_router, "invalidate_educational_process_cache"):
+        ep_router.invalidate_educational_process_cache()
     classroom_sync_mod = sys.modules.get("app.services.classroom.sync")
     if classroom_sync_mod is not None and hasattr(classroom_sync_mod, "_HAS_SUBGROUPS_CACHE"):
         stale_sub = [k for k in classroom_sync_mod._HAS_SUBGROUPS_CACHE if k[0] == group_id]
@@ -525,8 +537,12 @@ async def build_projection(
     )
     if group_id is not None:
         events_stmt = events_stmt.where(AcademicEvent.group_id == group_id)
-    if teacher_id is not None:
-        events_stmt = events_stmt.where(AcademicEvent.teacher_id == teacher_id)
+    elif teacher_id is not None:
+        teacher_groups = {b.group_id for b in base_lessons}
+        t_ev_filters = [AcademicEvent.teacher_id == teacher_id]
+        if teacher_groups:
+            t_ev_filters.append(AcademicEvent.group_id.in_(teacher_groups))
+        events_stmt = events_stmt.where(or_(*t_ev_filters))
 
     day_events = (await db.scalars(events_stmt)).all()
     for ev in day_events:
@@ -747,8 +763,12 @@ async def build_week_projection(
     )
     if group_id is not None:
         events_stmt = events_stmt.where(AcademicEvent.group_id == group_id)
-    if teacher_id is not None:
-        events_stmt = events_stmt.where(AcademicEvent.teacher_id == teacher_id)
+    elif teacher_id is not None:
+        teacher_groups = {b.group_id for b in all_base_lessons}
+        t_ev_filters = [AcademicEvent.teacher_id == teacher_id]
+        if teacher_groups:
+            t_ev_filters.append(AcademicEvent.group_id.in_(teacher_groups))
+        events_stmt = events_stmt.where(or_(*t_ev_filters))
 
     all_events = (await db.scalars(events_stmt)).all()
 

@@ -152,12 +152,17 @@ export function SchedulePageClient({
   }
 
   useEffect(() => {
-    if (mode !== "student") return;
     let idleId: number | null = null;
     let timerId: number | null = null;
     const preload = () => {
-      void import("./MobileTasksView");
-      void import("./GradesView");
+      void import("./ScheduleWeekGrid");
+      void import("./schedule/DesktopWeekHeaderBar");
+      void import("./schedule/ContextSelectionModal");
+      void import("./schedule/SubjectHubModal");
+      if (mode === "student") {
+        void import("./MobileTasksView");
+        void import("./GradesView");
+      }
     };
     if (typeof window !== "undefined" && "requestIdleCallback" in window) {
       idleId = window.requestIdleCallback(preload, { timeout: 1500 });

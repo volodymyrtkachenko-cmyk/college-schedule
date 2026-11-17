@@ -351,3 +351,62 @@ async def test_teacher_weekly_hours_does_not_sum_multiple_versions_when_unversio
 
     assert result["total_hours"] == 2
     assert result["weekly_hours"] == 2
+
+
+@pytest.mark.anyio
+async def test_statistics_http_etag_304_and_curriculum_cache_invalidation():
+    from httpx import ASGITransport, AsyncClient
+    from app.database import get_db
+    from app.main import app
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    async with sessions() as session:
+        group = Group(name="ETag Stat Group", is_active=True)
+        subj = Subject(name="Математика")
+        teacher = Teacher(name="ETag Teacher", is_active=True)
+        session.add_all([group, subj, teacher])
+        await session.commit()
+        gid = group.id
+        sid = subj.id
+        tid = teacher.id
+
+    async def override_db():
+        async with sessions() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            r1 = await client.get(f"/api/statistics/?group_id={gid}")
+            assert r1.status_code == 200
+            etag1 = r1.headers.get("etag")
+            assert etag1
+            assert "stale-while-revalidate=300" in r1.headers.get("cache-control", "")
+            assert r1.json()["planned_hours"] in (0, None)
+
+            r2 = await client.get(f"/api/statistics/?group_id={gid}", headers={"If-None-Match": etag1})
+            assert r2.status_code == 304
+
+            async with sessions() as session:
+                session.add(
+                    Curriculum(
+                        group_id=gid,
+                        subject_id=sid,
+                        teacher_id=tid,
+                        pairs_per_2_weeks=2,
+                        total_hours=60,
+                    )
+                )
+                await session.commit()
+
+            r3 = await client.get(f"/api/statistics/?group_id={gid}", headers={"If-None-Match": etag1})
+            assert r3.status_code == 200
+            assert r3.headers.get("etag") != etag1
+            assert r3.json()["planned_hours"] == 60
+    finally:
+        app.dependency_overrides.clear()
+        await engine.dispose()

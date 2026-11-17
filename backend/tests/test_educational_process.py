@@ -124,3 +124,57 @@ async def test_educational_process_handles_global_periods_inferred_course_terms_
     # July/August week (week 48: late July) is summer holiday, NOT theory
     assert cells3[48]["period_type"] == "holiday"
     assert cells3[48]["name"] == "Літні канікули"
+
+
+@pytest.mark.anyio
+async def test_educational_process_etag_304_and_term_cache_invalidation(ep_client):
+    client, sessions = ep_client
+    async with sessions() as db:
+        group = Group(name="КІ-25-1", year_of_admission=2025, is_active=True)
+        term = AcademicTerm(
+            name="2026/2027 · I семестр",
+            academic_year="2026/2027",
+            semester_number=1,
+            start_date=date(2026, 9, 1),
+            end_date=date(2026, 12, 25),
+            total_weeks=17,
+            is_current=True,
+            status="ACTIVE",
+        )
+        db.add_all([group, term])
+        await db.commit()
+        term_id = term.id
+
+    r1 = await client.get("/api/educational-process?academic_year_start=2026")
+    assert r1.status_code == 200
+    etag1 = r1.headers.get("etag")
+    assert etag1
+    assert "stale-while-revalidate=300" in r1.headers.get("cache-control", "")
+
+    r2 = await client.get(
+        "/api/educational-process?academic_year_start=2026",
+        headers={"If-None-Match": etag1},
+    )
+    assert r2.status_code == 304
+
+    async with sessions() as db:
+        db.add(
+            TermCourseSchedule(
+                term_id=term_id,
+                course=2,
+                total_weeks=17,
+                practice_weeks=1,
+                practice_timing="MIDDLE",
+                practice_start_week=4,
+                practice_end_week=4,
+                theory_weeks=16,
+            )
+        )
+        await db.commit()
+
+    r3 = await client.get(
+        "/api/educational-process?academic_year_start=2026",
+        headers={"If-None-Match": etag1},
+    )
+    assert r3.status_code == 200
+    assert r3.headers.get("etag") != etag1

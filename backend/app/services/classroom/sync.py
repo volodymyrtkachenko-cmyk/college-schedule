@@ -2,12 +2,16 @@ import asyncio
 import hashlib
 import logging
 import re
+import ssl
 import time as _time
 import traceback
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 import httpx
+
+_DEFAULT_SSL_CONTEXT = ssl.create_default_context()
+_CLIENT_SEEN_TOUCH_INTERVAL = timedelta(minutes=10)
 from fastapi import HTTPException
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -2025,7 +2029,9 @@ async def sync_classroom_account_flow(
         detected_group.updated_at = now_utc
         await db.commit()
         from app.services import cache_rev
+        from app.services.classroom_access import invalidate_classroom_access_cache
         cache_rev.bump([detected_group.id])
+        invalidate_classroom_access_cache(detected_group.id)
 
         _sync_backoff_state.pop(detected_group.id, None)
 
@@ -2098,16 +2104,28 @@ async def disconnect_classroom_account_flow(
             to_delete.append(cred)
             tokens_to_revoke.add(cred_rt)
 
+    affected_group_ids: set[int] = set()
+    if payload.group_id:
+        affected_group_ids.add(payload.group_id)
     deleted_count = 0
     for cred in to_delete:
+        if cred.group_id:
+            affected_group_ids.add(cred.group_id)
         await db.delete(cred)
         deleted_count += 1
 
     await db.commit()
+    if deleted_count > 0 or affected_group_ids:
+        from app.services.classroom_access import invalidate_classroom_access_cache
+        if affected_group_ids and deleted_count == len([c for c in to_delete if c.group_id in affected_group_ids]):
+            for gid in affected_group_ids:
+                invalidate_classroom_access_cache(gid)
+        else:
+            invalidate_classroom_access_cache()
 
     revoked = False
     if tokens_to_revoke:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, verify=_DEFAULT_SSL_CONTEXT) as client:
             for tok in tokens_to_revoke:
                 try:
                     rev_resp = await client.post(
@@ -2178,7 +2196,11 @@ async def _fetch_user_submissions(
 
     now_utc = datetime.now(timezone.utc)
     if cred is not None:
-        cred.last_client_seen_at = now_utc
+        seen_at = cred.last_client_seen_at
+        if seen_at is not None and seen_at.tzinfo is None:
+            seen_at = seen_at.replace(tzinfo=timezone.utc)
+        if seen_at is None or (now_utc - seen_at) >= _CLIENT_SEEN_TOUCH_INTERVAL:
+            cred.last_client_seen_at = now_utc
 
     refresh_err_msg: Optional[str] = None
     refresh_perm_err = False
@@ -2222,7 +2244,7 @@ async def _fetch_user_submissions(
             refresh_perm_err = _is_permanent_token_error(refresh_err_msg)
 
     if not token:
-        if cred is not None:
+        if db.new or db.dirty or db.deleted:
             await db.commit()
         if cred is not None and refresh_perm_err:
             _, tok_status = classroom_tokens.decrypt_token_detailed(cred.refresh_token)
@@ -2256,7 +2278,7 @@ async def _fetch_user_submissions(
 
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, verify=_DEFAULT_SSL_CONTEXT) as client:
             courses_resp = await client.get(
                 "https://classroom.googleapis.com/v1/courses",
                 params={"courseStates": "ACTIVE", "pageSize": 50},
@@ -2735,7 +2757,7 @@ async def _fetch_user_submissions(
                 "updated_at": datetime.now(timezone.utc).isoformat(),
                 "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
             }
-            if cred is not None or briefs_dirty:
+            if db.new or db.dirty or db.deleted:
                 await db.commit()
             return resp_payload
     except Exception as exc:

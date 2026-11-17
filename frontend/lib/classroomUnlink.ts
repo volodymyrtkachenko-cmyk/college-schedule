@@ -114,6 +114,7 @@ function clearLocalClassroomKeys(storage: Storage): void {
   storage.removeItem(CLASSROOM_STORAGE_KEYS.REFRESH_TOKEN);
   storage.removeItem(CLASSROOM_STORAGE_KEYS.NEEDS_RELINK);
   storage.removeItem(CLASSROOM_STORAGE_KEYS.NEEDS_RELINK_REASON);
+  storage.removeItem("schedule:classroom_tasks");
   try {
     storage.removeItem(CLASSROOM_STORAGE_KEYS.SELECTED_SUBGROUP);
     storage.removeItem(CLASSROOM_STORAGE_KEYS.OVERDUE_BANNER_DISMISSAL);

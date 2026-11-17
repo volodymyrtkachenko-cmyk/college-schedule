@@ -7,6 +7,7 @@ import { useTheme, ACCENT_OPTIONS, AccentColor } from "../lib/useTheme";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { requestClassroomAuth } from "../lib/classroomAuth";
 import { api, ScheduleResponse } from "../lib/api";
+import { getKyivInitialWeekAnchor } from "../lib/date";
 import { checkScheduleHasSubgroups, extractSubgroupTeacherHints } from "../lib/format";
 import { CheckIcon, LockIcon, MoonIcon, SunIcon } from "./ui/Icons";
 
@@ -54,7 +55,7 @@ export function StudentOnboardingModal({
   useEffect(() => {
     let isMounted = true;
     api
-      .week(activeGroupId)
+      .week(activeGroupId, undefined, getKyivInitialWeekAnchor())
       .then((data) => {
         if (!isMounted || !Array.isArray(data)) return;
         setWeekSchedule(data);
