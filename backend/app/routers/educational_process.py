@@ -29,6 +29,9 @@ _EP_CACHE_MAX = 16
 def invalidate_educational_process_cache() -> None:
     _EP_JSON_CACHE.clear()
 
+
+cache_rev.register_cache_invalidator(lambda _group_id=None: invalidate_educational_process_cache())
+
 def generate_weeks(start_date: date) -> List[WeekInfo]:
     # Find the Monday of the week containing start_date
     current = start_date - timedelta(days=start_date.weekday())

@@ -692,6 +692,10 @@ async def ensure_and_attach_task_briefs(
     Ensures group task briefs are cached in `classroom_task_briefs` (prioritizing upcoming
     and recent unsubmitted tasks with real text descriptions for Gemini extraction) and attaches
     `brief` onto tasks that have real substance or attached materials.
+
+    Transaction boundary: helper performs ORM mutations and flushes changed rows within the
+    caller's active session, and intentionally does NOT call `db.commit()` (callers own
+    commit/rollback boundaries).
     """
     if not tasks:
         return tasks
@@ -851,14 +855,26 @@ async def ensure_and_attach_task_briefs(
             rows_by_url[norm_url] = cached
             mutated = True
         else:
-            cached.content_hash = content_hash
-            cached.summary = brief_data["summary"]
-            cached.steps_json = encoded_steps
-            cached.estimated_minutes = brief_data["estimated_minutes"]
-            cached.work_format = brief_data["work_format"]
-            cached.source = brief_data["source"]
-            cached.updated_at = now_utc
-            mutated = True
+            changed = (
+                cached.content_hash != content_hash
+                or cached.summary != brief_data["summary"]
+                or cached.steps_json != encoded_steps
+                or cached.estimated_minutes != brief_data["estimated_minutes"]
+                or cached.work_format != brief_data["work_format"]
+                or cached.source != brief_data["source"]
+            )
+            if changed:
+                cached.content_hash = content_hash
+                cached.summary = brief_data["summary"]
+                cached.steps_json = encoded_steps
+                cached.estimated_minutes = brief_data["estimated_minutes"]
+                cached.work_format = brief_data["work_format"]
+                cached.source = brief_data["source"]
+                cached.updated_at = now_utc
+                mutated = True
+
+    if mutated:
+        await db.flush()
 
     for task in tasks:
         norm_url = normalize_task_url(task.get("url") or task.get("alternate_link") or "")
@@ -869,8 +885,6 @@ async def ensure_and_attach_task_briefs(
         else:
             task["brief"] = None
 
-    if mutated:
-        await db.flush()
     return tasks
 
 

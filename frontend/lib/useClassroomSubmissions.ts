@@ -22,7 +22,9 @@ import {
   CLASSROOM_LINKED_EVENT,
   CLASSROOM_STORAGE_KEYS,
   type ClassroomUnlinkResult,
+  bumpClassroomIdentityGeneration,
   clearClassroomUnlinkError,
+  getClassroomIdentityGeneration,
   getClassroomUnlinkState,
   performClassroomUnlink,
   resetClassroomUnlinkState,
@@ -337,6 +339,9 @@ export function saveClassroomSyncData(
 
     // Сповіщаємо картки розкладу ТІЛЬКИ якщо реально змінилися здані роботи або акаунт!
     if (tasksChanged || identityChanged || manualPruned) {
+      if (identityChanged) {
+        bumpClassroomIdentityGeneration();
+      }
       window.dispatchEvent(new Event(EVENT_NAME));
       if (identityChanged) {
         window.dispatchEvent(new Event("classroom-access-changed"));
@@ -471,6 +476,7 @@ export function useClassroomNeedsRelink(): boolean {
 }
 
 let _inFlightPersonalSync: Promise<boolean> | null = null;
+let _inFlightPersonalSyncGen = -1;
 
 function countNewlyServerCompletedTasks(
   prevRawSubs: Record<string, PersonalSubmission>,
@@ -493,7 +499,10 @@ function countNewlyServerCompletedTasks(
 
 export async function syncPersonalSubmissions(groupId?: number | null): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  if (_inFlightPersonalSync) return _inFlightPersonalSync;
+  const currentIdentityGen = getClassroomIdentityGeneration();
+  if (_inFlightPersonalSync && _inFlightPersonalSyncGen === currentIdentityGen) {
+    return _inFlightPersonalSync;
+  }
   const email = getLinkedEmail();
   if (!email) return false;
 
@@ -506,7 +515,9 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
     if (raw) prevRawSubs = JSON.parse(raw) as Record<string, PersonalSubmission>;
   } catch {}
 
-  _inFlightPersonalSync = (async () => {
+  _inFlightPersonalSyncGen = currentIdentityGen;
+  let runSync: Promise<boolean> | null = null;
+  runSync = (async () => {
     try {
       const res = await api.classroom.userSubmissions({
         group_id: gId ?? undefined,
@@ -514,6 +525,22 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
         email: email !== "підключено" ? email : undefined,
         access_token: accessToken ?? undefined,
       });
+
+      const currentEmailNow = getLinkedEmail();
+      const currentUidNow = (() => {
+        try {
+          return localStorage.getItem(GOOGLE_USER_ID_KEY);
+        } catch {
+          return null;
+        }
+      })();
+      if (
+        currentIdentityGen !== getClassroomIdentityGeneration() ||
+        currentEmailNow !== email ||
+        currentUidNow !== googleUserId
+      ) {
+        return false;
+      }
 
       if ((res as any)?.needs_relink) {
         setClassroomNeedsRelink(true, (res as any).reason_code || (res as any).error || null);
@@ -578,10 +605,13 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
     } catch {
       // ignore network errors silently
     } finally {
-      _inFlightPersonalSync = null;
+      if (runSync && _inFlightPersonalSync === runSync) {
+        _inFlightPersonalSync = null;
+      }
     }
     return false;
   })();
 
-  return _inFlightPersonalSync;
+  _inFlightPersonalSync = runSync;
+  return runSync;
 }

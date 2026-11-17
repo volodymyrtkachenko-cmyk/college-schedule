@@ -1,5 +1,6 @@
 from datetime import datetime, date, timezone
 from typing import Optional
+from unittest.mock import AsyncMock
 from zoneinfo import ZoneInfo
 import pytest
 
@@ -3047,5 +3048,415 @@ async def test_user_submissions_paginates_coursework_and_submissions(classroom_d
     assert body["submissions"]["c1_cw2"]["state"] == "TURNED_IN"
     titles = {t["id"]: t["state"] for t in body["tasks"]}
     assert titles == {"cw1": "NEW", "cw2": "TURNED_IN"}
+
+
+def _make_submissions_brief_transport(descriptions_by_cw: dict[str, str], titles_by_cw: dict[str, str] | None = None):
+    titles = titles_by_cw or {"cw-brief-1": "Лабораторна робота №1"}
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/v1/courses?" in url or url.endswith("/v1/courses"):
+            return httpx.Response(200, json={"courses": [{"id": "c-brief", "name": "Програмування"}]})
+        if "/teachers" in url:
+            return httpx.Response(200, json={"teachers": []})
+        if "/topics" in url:
+            return httpx.Response(200, json={"topic": []})
+        if "/studentSubmissions" in url:
+            return httpx.Response(200, json={"studentSubmissions": [{"courseWorkId": "cw-brief-1", "state": "NEW"}]})
+        if "/courseWork" in url:
+            return httpx.Response(
+                200,
+                json={
+                    "courseWork": [
+                        {
+                            "id": "cw-brief-1",
+                            "title": titles["cw-brief-1"],
+                            "description": descriptions_by_cw["cw-brief-1"],
+                            "alternateLink": "https://classroom.google.com/c/c-brief/a/cw-brief-1/details",
+                            "maxPoints": 12,
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(404, json={})
+
+    return httpx.MockTransport(_handler)
+
+
+@pytest.mark.anyio
+async def test_user_submissions_persists_new_and_updated_briefs_across_sessions_with_credential(
+    classroom_db, monkeypatch
+):
+    from datetime import timedelta
+    from sqlalchemy import event as sa_event
+    from app.config import settings
+    from app.models import ClassroomTaskBrief
+    from app.services.classroom.sync import _fetch_user_submissions
+    from app.services.classroom.tokens import encrypt_token
+
+    monkeypatch.setattr(settings, "gemini_api_key", "")
+    client, state = classroom_db
+    gid = state["group_id"]
+
+    async with state["sessions"]() as seed_db:
+        seed_db.add(
+            ClassroomCredential(
+                group_id=gid,
+                google_user_id="uid_brief_persist",
+                email="brief_persist@kre.dp.ua",
+                refresh_token=encrypt_token("1//mock-rt"),
+                is_active=True,
+                needs_relink=False,
+                last_client_seen_at=datetime.now(timezone.utc),
+            )
+        )
+        await seed_db.commit()
+
+    descriptions = {
+        "cw-brief-1": "Реалізувати сортування масиву мовою Python та оформити звіт у PDF."
+    }
+    transport = _make_submissions_brief_transport(descriptions)
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    # 1. New brief via real _fetch_user_submissions, then close handler session and read in a NEW session
+    with (
+        patch("app.services.classroom.sync.httpx.AsyncClient", side_effect=mocked_client),
+        patch(
+            "app.services.classroom.tokens._refresh_google_token_detailed",
+            AsyncMock(return_value=("ya29.brief_tok_1", None, 200)),
+        ),
+    ):
+        async with state["sessions"]() as handler_db:
+            res1 = await _fetch_user_submissions(
+                handler_db,
+                group_id=gid,
+                google_user_id="uid_brief_persist",
+                email="brief_persist@kre.dp.ua",
+            )
+    assert res1["connected"] is True
+    assert len(res1["tasks"]) == 1
+    assert res1["tasks"][0]["brief"] is not None
+
+    async with state["sessions"]() as verify_db:
+        rows1 = (
+            await verify_db.scalars(
+                select(ClassroomTaskBrief).where(ClassroomTaskBrief.group_id == gid)
+            )
+        ).all()
+        assert len(rows1) == 1
+        old_hash = rows1[0].content_hash
+        old_summary = rows1[0].summary
+        assert "Python" in old_summary
+
+    # 2. Updated description changes content_hash and brief in a brand-new session
+    descriptions["cw-brief-1"] = "Скласти ER-діаграму бази даних та експортувати SQL-скрипт таблиць."
+    with (
+        patch("app.services.classroom.sync.httpx.AsyncClient", side_effect=mocked_client),
+        patch(
+            "app.services.classroom.tokens._refresh_google_token_detailed",
+            AsyncMock(return_value=("ya29.brief_tok_1", None, 200)),
+        ),
+    ):
+        async with state["sessions"]() as handler_db2:
+            res2 = await _fetch_user_submissions(
+                handler_db2,
+                group_id=gid,
+                google_user_id="uid_brief_persist",
+                email="brief_persist@kre.dp.ua",
+                access_token="ya29.brief_tok_1",
+            )
+    assert res2["connected"] is True
+    assert "ER-діаграму" in res2["tasks"][0]["brief"]["summary"]
+
+    async with state["sessions"]() as verify_db2:
+        rows2 = (
+            await verify_db2.scalars(
+                select(ClassroomTaskBrief).where(ClassroomTaskBrief.group_id == gid)
+            )
+        ).all()
+        assert len(rows2) == 1
+        assert rows2[0].content_hash != old_hash
+        assert rows2[0].summary != old_summary
+        assert "ER-діаграму" in rows2[0].summary
+
+    # 3. Read-only repeat call (recent last_client_seen_at, matching content_hash, clean cred) skips COMMIT
+    commits = 0
+    async with state["sessions"]() as ro_db:
+        sync_engine = ro_db.get_bind()
+
+    def _on_commit(_conn):
+        nonlocal commits
+        commits += 1
+
+    sa_event.listen(sync_engine, "commit", _on_commit)
+    try:
+        with patch("app.services.classroom.sync.httpx.AsyncClient", side_effect=mocked_client):
+            async with state["sessions"]() as ro_handler_db:
+                res3 = await _fetch_user_submissions(
+                    ro_handler_db,
+                    group_id=gid,
+                    google_user_id="uid_brief_persist",
+                    email="brief_persist@kre.dp.ua",
+                    access_token="ya29.brief_tok_1",
+                )
+        assert res3["connected"] is True
+        assert commits == 0
+    finally:
+        sa_event.remove(sync_engine, "commit", _on_commit)
+
+
+@pytest.mark.anyio
+async def test_user_submissions_persists_briefs_with_access_token_without_credential(
+    classroom_db, monkeypatch
+):
+    from app.config import settings
+    from app.models import ClassroomTaskBrief
+    from app.services.classroom.sync import _fetch_user_submissions
+
+    monkeypatch.setattr(settings, "gemini_api_key", "")
+    client, state = classroom_db
+    gid = state["group_id"]
+
+    descriptions = {
+        "cw-brief-1": "Підготувати доповідь про архітектуру комп'ютерних мереж."
+    }
+    transport = _make_submissions_brief_transport(descriptions)
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    # No ClassroomCredential in DB — only direct ya29 access_token
+    with patch("app.services.classroom.sync.httpx.AsyncClient", side_effect=mocked_client):
+        async with state["sessions"]() as handler_db:
+            res = await _fetch_user_submissions(
+                handler_db,
+                group_id=gid,
+                access_token="ya29.stateless_token_only",
+            )
+    assert res["connected"] is True
+    assert res["tasks"][0]["brief"] is not None
+
+    async with state["sessions"]() as verify_db:
+        saved = await verify_db.scalar(
+            select(ClassroomTaskBrief).where(ClassroomTaskBrief.group_id == gid)
+        )
+        assert saved is not None
+        first_hash = saved.content_hash
+        assert "мереж" in saved.summary
+
+    # Second call with changed coursework description updates brief without credential
+    descriptions["cw-brief-1"] = "Налаштувати маршрутизатор Cisco та перевірити ICMP ping."
+    with patch("app.services.classroom.sync.httpx.AsyncClient", side_effect=mocked_client):
+        async with state["sessions"]() as handler_db2:
+            await _fetch_user_submissions(
+                handler_db2,
+                group_id=gid,
+                access_token="ya29.stateless_token_only",
+            )
+
+    async with state["sessions"]() as verify_db2:
+        saved2 = await verify_db2.scalar(
+            select(ClassroomTaskBrief).where(ClassroomTaskBrief.group_id == gid)
+        )
+        assert saved2 is not None
+        assert saved2.content_hash != first_hash
+        assert "Cisco" in saved2.summary
+
+
+@pytest.mark.anyio
+async def test_user_submissions_persists_credential_fields_despite_throttled_seen_and_autoflush(
+    classroom_db, monkeypatch
+):
+    from datetime import timedelta
+    from app.config import settings
+    from app.services.classroom.sync import _fetch_user_submissions
+    from app.services.classroom.tokens import encrypt_token
+
+    monkeypatch.setattr(settings, "gemini_api_key", "")
+    _, state = classroom_db
+    gid = state["group_id"]
+    now_utc = datetime.now(timezone.utc)
+    recent_seen = now_utc - timedelta(minutes=1)  # Within 10-min throttle window
+
+    async with state["sessions"]() as seed_db:
+        seed_db.add(
+            ClassroomCredential(
+                group_id=gid,
+                google_user_id="uid_throttled_err_clear",
+                email="throttled_err@kre.dp.ua",
+                refresh_token=encrypt_token("1//mock-rt"),
+                is_active=True,
+                needs_relink=False,
+                fail_count=3,
+                last_error="courses_error_503",
+                next_attempt_at=now_utc + timedelta(minutes=30),
+                last_client_seen_at=recent_seen,
+            )
+        )
+        seed_db.add(
+            ClassroomCredential(
+                group_id=gid,
+                google_user_id="uid_stale_seen_autoflush",
+                email="stale_seen@kre.dp.ua",
+                refresh_token=encrypt_token("1//mock-rt"),
+                is_active=True,
+                needs_relink=False,
+                last_client_seen_at=now_utc - timedelta(minutes=25),
+            )
+        )
+        await seed_db.commit()
+
+    def ok_courses_handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"courses": [{"id": "c-empty", "name": "Other"}]})
+
+    transport = httpx.MockTransport(ok_courses_handler)
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    # Empty coursework -> select(Group) runs autoflush after _clear_credential_errors(cred)
+    with patch("app.services.classroom.sync.httpx.AsyncClient", side_effect=mocked_client):
+        async with state["sessions"]() as handler_db:
+            r1 = await _fetch_user_submissions(
+                handler_db,
+                group_id=gid,
+                google_user_id="uid_throttled_err_clear",
+                email="throttled_err@kre.dp.ua",
+                access_token="ya29.tok_clean",
+            )
+        async with state["sessions"]() as handler_db2:
+            r2 = await _fetch_user_submissions(
+                handler_db2,
+                group_id=gid,
+                google_user_id="uid_stale_seen_autoflush",
+                email="stale_seen@kre.dp.ua",
+                access_token="ya29.tok_clean",
+            )
+    assert r1["connected"] is True
+    assert r2["connected"] is True
+
+    async with state["sessions"]() as verify_db:
+        c1 = await verify_db.scalar(
+            select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_throttled_err_clear")
+        )
+        c2 = await verify_db.scalar(
+            select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_stale_seen_autoflush")
+        )
+        assert c1 is not None
+        # last_client_seen_at was throttled, yet fail_count / last_error / next_attempt_at MUST be cleared and persisted!
+        assert c1.fail_count == 0
+        assert c1.last_error is None
+        assert c1.next_attempt_at is None
+        assert abs(c1.last_client_seen_at.replace(tzinfo=timezone.utc) - recent_seen) < timedelta(seconds=2)
+
+        assert c2 is not None
+        assert c2.last_client_seen_at.replace(tzinfo=timezone.utc) > now_utc - timedelta(seconds=30)
+
+
+@pytest.mark.anyio
+async def test_user_submissions_transaction_failure_rolls_back_and_never_confirms_save(
+    classroom_db, monkeypatch
+):
+    from sqlalchemy.exc import OperationalError
+    from app.config import settings
+    from app.models import ClassroomTaskBrief
+    from app.services.classroom.sync import _fetch_user_submissions
+    from app.services.classroom.tokens import encrypt_token
+
+    monkeypatch.setattr(settings, "gemini_api_key", "")
+    _, state = classroom_db
+    gid = state["group_id"]
+
+    async with state["sessions"]() as seed_db:
+        seed_db.add(
+            ClassroomCredential(
+                group_id=gid,
+                google_user_id="uid_tx_fail",
+                email="tx_fail@kre.dp.ua",
+                refresh_token=encrypt_token("1//mock-rt"),
+                is_active=True,
+                needs_relink=False,
+                fail_count=2,
+                last_error="previous_err",
+                last_client_seen_at=None,
+            )
+        )
+        await seed_db.commit()
+
+    descriptions = {"cw-brief-1": "Обов'язкове завдання з курсової роботи для тесту відкату."}
+    transport = _make_submissions_brief_transport(descriptions)
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    # Case A: commit raises OperationalError -> rolls back both brief AND cred mutations, never returns connected=True
+    with patch("app.services.classroom.sync.httpx.AsyncClient", side_effect=mocked_client):
+        async with state["sessions"]() as handler_db:
+            with patch.object(
+                handler_db,
+                "commit",
+                AsyncMock(side_effect=OperationalError("COMMIT", {}, Exception("disk full"))),
+            ):
+                res = await _fetch_user_submissions(
+                    handler_db,
+                    group_id=gid,
+                    google_user_id="uid_tx_fail",
+                    email="tx_fail@kre.dp.ua",
+                    access_token="ya29.tx_fail_tok",
+                )
+    assert res["connected"] is False
+    assert res["tasks"] == []
+    assert res["reason"] == "db_error"
+
+    async with state["sessions"]() as verify_db:
+        briefs_count = len(
+            (await verify_db.scalars(select(ClassroomTaskBrief).where(ClassroomTaskBrief.group_id == gid))).all()
+        )
+        assert briefs_count == 0
+        cred_after = await verify_db.scalar(
+            select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_tx_fail")
+        )
+        assert cred_after is not None
+        assert cred_after.last_client_seen_at is None
+        assert cred_after.fail_count == 2
+        assert cred_after.last_error == "previous_err"
+
+    # Case B: flush inside ensure_and_attach_task_briefs raises OperationalError -> no partial cred update persists either
+    async def failing_briefs(*args, **kwargs):
+        raise OperationalError("INSERT", {}, Exception("constraint failure"))
+
+    with (
+        patch("app.services.classroom.sync.httpx.AsyncClient", side_effect=mocked_client),
+        patch("app.services.classroom.task_briefs.ensure_and_attach_task_briefs", side_effect=failing_briefs),
+    ):
+        async with state["sessions"]() as handler_db_b:
+            res_b = await _fetch_user_submissions(
+                handler_db_b,
+                group_id=gid,
+                google_user_id="uid_tx_fail",
+                email="tx_fail@kre.dp.ua",
+                access_token="ya29.tx_fail_tok",
+            )
+    assert res_b["connected"] is False
+    assert res_b["tasks"] == []
+    assert res_b["reason"] == "db_error"
+
+    async with state["sessions"]() as verify_db_b:
+        cred_after_b = await verify_db_b.scalar(
+            select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_tx_fail")
+        )
+        assert cred_after_b is not None
+        assert cred_after_b.last_client_seen_at is None
+        assert cred_after_b.fail_count == 2
 
 

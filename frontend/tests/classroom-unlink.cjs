@@ -212,3 +212,228 @@ test("retry succeeds after an initial 503 failure", async () => {
   assert.equal(mod.getClassroomUnlinkState().error, null);
   assert.equal(localStorage.getItem("schedule:classroom_linked_email"), null);
 });
+
+test("in-flight syncPersonalSubmissions ignores stale response after unlink and after account switch", async () => {
+  const makeStorage = (seed = {}) => {
+    const map = new Map(Object.entries(seed).map(([k, v]) => [k, String(v)]));
+    return {
+      getItem: (k) => (map.has(k) ? map.get(k) : null),
+      setItem: (k, v) => map.set(k, String(v)),
+      removeItem: (k) => map.delete(k),
+      clear: () => map.clear(),
+    };
+  };
+  const createDeferred = () => {
+    let resolve;
+    const promise = new Promise((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  };
+  class CustomEventShim {
+    constructor(type, init) {
+      this.type = type;
+      this.detail = init ? init.detail : undefined;
+    }
+  }
+  class EventShim {
+    constructor(type) {
+      this.type = type;
+    }
+  }
+
+  const setupSubs = (initialStorage, fetchImpl) => {
+    const dispatched = [];
+    const localStorage = makeStorage(initialStorage);
+    const windowObj = {
+      localStorage,
+      dispatchEvent: (ev) => {
+        dispatched.push(ev.type);
+        return true;
+      },
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    const Module = require("node:module");
+    const ts = require("typescript");
+    const helperPath = require.resolve("./helpers/load-ts-module.cjs");
+    const prevHelperCache = require.cache[helperPath];
+    const origLoad = Module._load;
+    const origTranspile = ts.transpileModule;
+    const wrappedTranspile = function (source, opts) {
+      const isTsx = opts?.fileName?.endsWith(".tsx") || /<\/[A-Za-z.]/.test(source);
+      return origTranspile.call(ts, source, {
+        ...opts,
+        ...(isTsx ? { fileName: opts?.fileName || "module.tsx" } : {}),
+        compilerOptions: {
+          ...(opts?.compilerOptions || {}),
+          ...(isTsx ? { jsx: ts.JsxEmit.React } : {}),
+        },
+      });
+    };
+    const tsProxy = new Proxy(ts, {
+      get(target, prop) {
+        if (prop === "transpileModule") return wrappedTranspile;
+        return Reflect.get(target, prop);
+      },
+    });
+    const reactStub = {
+      createContext: () => ({}),
+      useContext: () => null,
+      useState: (v) => [typeof v === "function" ? v() : v, () => {}],
+      useEffect: () => {},
+      useLayoutEffect: () => {},
+      useMemo: (f) => f(),
+      useRef: (v) => ({ current: v }),
+      useCallback: (f) => f,
+      useSyncExternalStore: (_sub, getSnap) => getSnap(),
+    };
+    Module._load = function (request, parent, isMain) {
+      if (request === "react") return reactStub;
+      if (request === "typescript") return tsProxy;
+      return origLoad.call(this, request, parent, isMain);
+    };
+    delete require.cache[helperPath];
+    const { loadTsModule: loadFreshTsModule } = require("./helpers/load-ts-module.cjs");
+    let mod;
+    try {
+      mod = loadFreshTsModule(path.join(__dirname, "../lib/useClassroomSubmissions.ts"), {
+        window: windowObj,
+        localStorage,
+        fetch: fetchImpl,
+        Event: EventShim,
+        CustomEvent: CustomEventShim,
+      });
+    } finally {
+      Module._load = origLoad;
+      if (prevHelperCache) require.cache[helperPath] = prevHelperCache;
+      else delete require.cache[helperPath];
+    }
+    return { mod, localStorage, dispatched };
+  };
+
+  // Case A: in-flight syncPersonalSubmissions vs unlinkClassroomEmail
+  {
+    const gate = createDeferred();
+    const { mod, localStorage, dispatched } = setupSubs(
+      {
+        "schedule:classroom_linked_email": "studentA@kre.dp.ua",
+        "schedule:classroom_google_user_id": "uid-A",
+        "schedule:classroom_access_token": "tok-A",
+        "schedule:classroom_access_token_exp": String(Date.now() + 300_000),
+      },
+      async (url) => {
+        if (String(url).includes("/user-submissions")) {
+          await gate.promise;
+          return {
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            json: async () => ({
+              connected: true,
+              user_email: "studentA@kre.dp.ua",
+              group_id: 85,
+              tasks: [
+                {
+                  id: "stale-task",
+                  course_id: "c1",
+                  state: "TURNED_IN",
+                  alternate_link: "https://classroom.google.com/c/1/a/stale/details",
+                },
+              ],
+            }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => ({ status: "disconnected", deleted_credentials: 1, revoked: true }),
+        };
+      }
+    );
+
+    const syncPromise = mod.syncPersonalSubmissions(85);
+    await Promise.resolve();
+    await mod.unlinkClassroomEmail();
+    const eventsAfterUnlink = dispatched.length;
+
+    gate.resolve();
+    const synced = await syncPromise;
+
+    assert.equal(synced, false, "stale sync finishing after unlink must return false");
+    assert.equal(localStorage.getItem("schedule:classroom_linked_email"), null);
+    assert.equal(localStorage.getItem("schedule:classroom_tasks"), null);
+    assert.equal(Object.keys(mod.getPersonalSubmissions()).length, 0);
+    assert.equal(
+      dispatched.slice(eventsAfterUnlink).includes("classroom-tasks-synced"),
+      false,
+      "must not dispatch classroom-tasks-synced after unlink"
+    );
+  }
+
+  // Case B: in-flight syncPersonalSubmissions for A vs account switch to B
+  {
+    const gate = createDeferred();
+    const { mod, localStorage, dispatched } = setupSubs(
+      {
+        "schedule:classroom_linked_email": "studentA@kre.dp.ua",
+        "schedule:classroom_google_user_id": "uid-A",
+        "schedule:classroom_access_token": "tok-A",
+        "schedule:classroom_access_token_exp": String(Date.now() + 300_000),
+      },
+      async () => {
+        await gate.promise;
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => ({
+            connected: true,
+            user_email: "studentA@kre.dp.ua",
+            group_id: 85,
+            tasks: [{ id: "from-A", course_id: "cA", state: "NEW" }],
+          }),
+        };
+      }
+    );
+
+    const syncPromise = mod.syncPersonalSubmissions(85);
+    await Promise.resolve();
+
+    mod.saveClassroomSyncData(
+      "studentB@kre.dp.ua",
+      [
+        {
+          id: "from-B",
+          course_id: "cB",
+          state: "TURNED_IN",
+          alternate_link: "https://classroom.google.com/c/cB/a/from-B/details",
+        },
+      ],
+      "tok-B",
+      null,
+      "uid-B",
+      85
+    );
+    const eventsBeforeResolve = dispatched.length;
+
+    gate.resolve();
+    const synced = await syncPromise;
+
+    assert.equal(synced, false, "stale sync for studentA must be discarded after switch to studentB");
+    assert.equal(localStorage.getItem("schedule:classroom_linked_email"), "studentB@kre.dp.ua");
+    const savedSubs = mod.getPersonalSubmissions();
+    assert.equal(Object.keys(savedSubs).length >= 1, true, "studentB submissions should be stored");
+    assert.equal(
+      JSON.stringify(savedSubs).includes("from-A"),
+      false,
+      "studentA's late response must not overwrite studentB's submissions"
+    );
+    assert.equal(
+      dispatched.slice(eventsBeforeResolve).includes("classroom-tasks-synced"),
+      false,
+      "must not emit classroom-tasks-synced for discarded stale account response"
+    );
+  }
+});

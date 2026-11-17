@@ -199,12 +199,25 @@ def _clear_credential_errors(
     now: Optional[datetime] = None,
     *,
     refreshed: bool = False,
-) -> None:
-    """Скидає старі помилки й backoff після успішного оновлення токена або запиту."""
+) -> bool:
+    """Скидає старі помилки й backoff після успішного оновлення токена або запиту. Повертає True, якщо модель змінилась."""
+    changed = False
     if refreshed and now is not None:
         cred.last_refresh_ok_at = now
-    cred.fail_count = 0
-    cred.next_attempt_at = None
-    cred.last_error = None
-    cred.needs_relink = False
-    cred.is_active = True
+        changed = True
+    if (cred.fail_count or 0) != 0 or cred.fail_count is None:
+        cred.fail_count = 0
+        changed = True
+    if cred.next_attempt_at is not None:
+        cred.next_attempt_at = None
+        changed = True
+    if cred.last_error is not None:
+        cred.last_error = None
+        changed = True
+    if cred.needs_relink is not False:
+        cred.needs_relink = False
+        changed = True
+    if cred.is_active is not True:
+        cred.is_active = True
+        changed = True
+    return changed

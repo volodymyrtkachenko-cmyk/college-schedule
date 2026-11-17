@@ -13,7 +13,8 @@ import httpx
 _DEFAULT_SSL_CONTEXT = ssl.create_default_context()
 _CLIENT_SEEN_TOUCH_INTERVAL = timedelta(minutes=10)
 from fastapi import HTTPException
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, event as sa_event, func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import KYIV_TZ
@@ -1394,15 +1395,16 @@ async def perform_course_sync(
 
     await db.flush()
     try:
-        await classroom_briefs.ensure_and_attach_task_briefs(
-            db,
-            group.id,
-            all_classroom_tasks,
-            descriptions_by_url=task_descriptions_by_url,
-            materials_by_url=task_materials_by_url,
-            work_types_by_url=task_work_types_by_url,
-            topics_by_url=task_topics_by_url,
-        )
+        async with db.begin_nested():
+            await classroom_briefs.ensure_and_attach_task_briefs(
+                db,
+                group.id,
+                all_classroom_tasks,
+                descriptions_by_url=task_descriptions_by_url,
+                materials_by_url=task_materials_by_url,
+                work_types_by_url=task_work_types_by_url,
+                topics_by_url=task_topics_by_url,
+            )
     except Exception as exc:
         logger.warning("Task briefs enrichment error during group sync: %s", _sanitize_error_msg(str(exc)))
 
@@ -2145,8 +2147,88 @@ async def disconnect_classroom_account_flow(
     }
 
 
+class _SessionWriteTracker:
+    """Tracks whether any ORM write occurred inside an AsyncSession unit of work,
+    including writes already persisted into the open transaction via flush/autoflush.
+    """
+
+    def __init__(self, db: AsyncSession) -> None:
+        self._sync_session = getattr(db, "sync_session", None)
+        self.flushed_writes = False
+        self._attached = False
+
+    def _on_before_flush(self, session, flush_context, instances) -> None:
+        if (
+            session.new
+            or session.deleted
+            or any(session.is_modified(obj, include_collections=False) for obj in session.dirty)
+        ):
+            self.flushed_writes = True
+
+    def attach(self) -> "_SessionWriteTracker":
+        if self._sync_session is not None and not self._attached:
+            sa_event.listen(self._sync_session, "before_flush", self._on_before_flush)
+            self._attached = True
+        return self
+
+    def detach(self) -> None:
+        if self._attached and self._sync_session is not None:
+            sa_event.remove(self._sync_session, "before_flush", self._on_before_flush)
+            self._attached = False
+
+    def needs_commit(self) -> bool:
+        if self.flushed_writes:
+            return True
+        if self._sync_session is None:
+            return False
+        return bool(
+            self._sync_session.new
+            or self._sync_session.deleted
+            or any(
+                self._sync_session.is_modified(obj, include_collections=False)
+                for obj in self._sync_session.dirty
+            )
+        )
+
+
 async def _fetch_user_submissions(
     db: AsyncSession,
+    group_id: Optional[int] = None,
+    google_user_id: Optional[str] = None,
+    email: Optional[str] = None,
+    access_token: Optional[str] = None,
+    refresh_token: Optional[str] = None,
+) -> dict[str, Any]:
+    """Fetch personal Classroom tasks/submissions for one student and manage commit/rollback."""
+    write_tracker = _SessionWriteTracker(db).attach()
+    try:
+        return await _fetch_user_submissions_impl(
+            db,
+            write_tracker=write_tracker,
+            group_id=group_id,
+            google_user_id=google_user_id,
+            email=email,
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
+    except SQLAlchemyError as db_exc:
+        logger.error("User submissions DB transaction error: %s", _sanitize_error_msg(str(db_exc)))
+        if db.in_transaction():
+            await db.rollback()
+        return {
+            "connected": False,
+            "submissions": {},
+            "tasks": [],
+            "reason": "db_error",
+        }
+    finally:
+        write_tracker.detach()
+
+
+async def _fetch_user_submissions_impl(
+    db: AsyncSession,
+    *,
+    write_tracker: _SessionWriteTracker,
     group_id: Optional[int] = None,
     google_user_id: Optional[str] = None,
     email: Optional[str] = None,
@@ -2244,7 +2326,7 @@ async def _fetch_user_submissions(
             refresh_perm_err = _is_permanent_token_error(refresh_err_msg)
 
     if not token:
-        if db.new or db.dirty or db.deleted:
+        if write_tracker.needs_commit():
             await db.commit()
         if cred is not None and refresh_perm_err:
             _, tok_status = classroom_tokens.decrypt_token_detailed(cred.refresh_token)
@@ -2385,7 +2467,7 @@ async def _fetch_user_submissions(
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                     "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
                 }
-                if cred is not None:
+                if write_tracker.needs_commit():
                     await db.commit()
                 return resp_payload
 
@@ -2702,21 +2784,22 @@ async def _fetch_user_submissions(
                         key = f"{c_id}_{cw_id}"
                         submissions_map[key] = sub_obj
 
-            briefs_dirty = False
             if tasks_list:
                 if eff_gid:
                     try:
-                        await classroom_briefs.ensure_and_attach_task_briefs(
-                            db,
-                            eff_gid,
-                            tasks_list,
-                            descriptions_by_url=sub_descriptions_by_url,
-                            materials_by_url=sub_materials_by_url,
-                            work_types_by_url=sub_work_types_by_url,
-                            topics_by_url=sub_topics_by_url,
-                            max_llm_calls=12,
-                        )
-                        briefs_dirty = True
+                        async with db.begin_nested():
+                            await classroom_briefs.ensure_and_attach_task_briefs(
+                                db,
+                                eff_gid,
+                                tasks_list,
+                                descriptions_by_url=sub_descriptions_by_url,
+                                materials_by_url=sub_materials_by_url,
+                                work_types_by_url=sub_work_types_by_url,
+                                topics_by_url=sub_topics_by_url,
+                                max_llm_calls=12,
+                            )
+                    except SQLAlchemyError:
+                        raise
                     except Exception as exc:
                         logger.warning(
                             "Task briefs enrichment error during user-submissions: %s",
@@ -2757,11 +2840,15 @@ async def _fetch_user_submissions(
                 "updated_at": datetime.now(timezone.utc).isoformat(),
                 "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
             }
-            if db.new or db.dirty or db.deleted:
+            if write_tracker.needs_commit():
                 await db.commit()
             return resp_payload
+    except SQLAlchemyError:
+        raise
     except Exception as exc:
         logger.error(f"User submissions fetch error: {_sanitize_error_msg(str(exc))}")
+        if db.in_transaction():
+            await db.rollback()
         return {
             "connected": False,
             "submissions": {},

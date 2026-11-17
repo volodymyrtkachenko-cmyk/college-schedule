@@ -18,7 +18,8 @@ from __future__ import annotations
 
 import itertools
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from typing import Optional
 
 ETAG_BUCKET_SECONDS = 60
 
@@ -28,6 +29,19 @@ _counter = itertools.count(1)
 global_rev = 0
 any_rev = 0
 group_rev: dict[int, int] = {}
+_cache_invalidators: list[Callable[[Optional[int]], None]] = []
+
+
+def register_cache_invalidator(callback: Callable[[Optional[int]], None]) -> None:
+    """Register a callback invoked by service-layer cache invalidation without importing routers."""
+    if callback not in _cache_invalidators:
+        _cache_invalidators.append(callback)
+
+
+def invalidate_registered_caches(group_id: Optional[int] = None) -> None:
+    """Invoke registered cache invalidators cleanly in dependency-safe direction."""
+    for callback in list(_cache_invalidators):
+        callback(group_id)
 
 
 def bump(groups: Iterable[int] = (), global_: bool = False) -> None:

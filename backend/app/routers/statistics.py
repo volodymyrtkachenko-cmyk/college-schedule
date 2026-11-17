@@ -29,6 +29,9 @@ def invalidate_statistics_cache(group_id: int | None = None) -> None:
         _STATS_CACHE.pop(k, None)
 
 
+cache_rev.register_cache_invalidator(invalidate_statistics_cache)
+
+
 @router.get("/", response_model=StatisticsResponse)
 async def statistics(
     group_id: int | None = Query(None, gt=0),

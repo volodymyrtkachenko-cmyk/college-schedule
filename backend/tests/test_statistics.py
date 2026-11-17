@@ -410,3 +410,18 @@ async def test_statistics_http_etag_304_and_curriculum_cache_invalidation():
     finally:
         app.dependency_overrides.clear()
         await engine.dispose()
+
+
+def test_projection_invalidation_clears_router_caches_without_router_dependency():
+    from pathlib import Path
+    from app.routers.statistics import _STATS_CACHE
+    from app.services.projection import invalidate_projection_cache
+
+    projection_src = (
+        Path(__file__).resolve().parents[1] / "app" / "services" / "projection.py"
+    ).read_text(encoding="utf-8")
+    assert "app.routers" not in projection_src
+
+    _STATS_CACHE[(999, "group", 42, date(2026, 9, 1), date(2026, 9, 2), (0, 0))] = (1.0, {})  # type: ignore[assignment]
+    invalidate_projection_cache(42)
+    assert all(k[2] != 42 for k in _STATS_CACHE)

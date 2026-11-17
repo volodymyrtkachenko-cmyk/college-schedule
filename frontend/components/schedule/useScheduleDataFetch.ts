@@ -75,17 +75,18 @@ export function useScheduleDataFetch({
     }
   }, []);
 
+  const accessGenerationRef = useRef(0);
+
   useEffect(() => {
     const clearCaches = () => {
+      accessGenerationRef.current += 1;
       tasksMemoryCache.clear();
       setClassroomTasks([]);
       setClassroomLastSyncedAt(null);
     };
     window.addEventListener("classroom-access-changed", clearCaches);
-    window.addEventListener("schedule:refresh", clearCaches);
     return () => {
       window.removeEventListener("classroom-access-changed", clearCaches);
-      window.removeEventListener("schedule:refresh", clearCaches);
     };
   }, []);
 
@@ -227,11 +228,12 @@ export function useScheduleDataFetch({
 
   const fetchClassroomTasks = useCallback(
     async (gid: number) => {
+      const reqGen = accessGenerationRef.current;
       let groupFallbackTasks: any[] = [];
       let linkedAfterStatus = isLinkedToGroup(gid);
       try {
         const res = await api.classroom.groupStatus(gid);
-        if (currentGroupIdRef.current !== gid) return;
+        if (reqGen !== accessGenerationRef.current || currentGroupIdRef.current !== gid) return;
         if (Array.isArray(res?.tasks) && res.tasks.length > 0) {
           groupFallbackTasks = res.tasks;
           try {
@@ -268,7 +270,9 @@ export function useScheduleDataFetch({
         // Ignore background fetch error
       }
       if (isLinked && currentGroupIdRef.current === gid) {
+        const postSyncGen = accessGenerationRef.current;
         const personalOk = await syncPersonalSubmissions(gid);
+        if (postSyncGen !== accessGenerationRef.current || currentGroupIdRef.current !== gid) return;
         if (!personalOk && groupFallbackTasks.length > 0) {
           const hasLocalPersonal = readCachedGroupTasks(gid).length > 0;
           if (!hasLocalPersonal) {

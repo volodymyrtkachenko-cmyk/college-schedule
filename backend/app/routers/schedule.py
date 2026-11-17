@@ -82,6 +82,11 @@ async def _has_admin_or_editor_access(request: Request | None, db: AsyncSession)
 _HORIZON_CACHE: dict[tuple[date, int], tuple[float, date]] = {}
 _HORIZON_CACHE_TTL = 60.0
 
+from app.services import cache_rev as _schedule_cache_rev
+_schedule_cache_rev.register_cache_invalidator(
+    lambda group_id=None: _HORIZON_CACHE.clear() if group_id is None else None
+)
+
 
 async def _resolve_public_schedule_horizon(db: AsyncSession) -> date:
     today = today_local()

@@ -1,4 +1,16 @@
 import { classroomApi } from "./api/classroom";
+import { invalidateEtagCache, invalidateGroupStatusCache } from "./api/client";
+
+let classroomIdentityGeneration = 0;
+
+export function getClassroomIdentityGeneration(): number {
+  return classroomIdentityGeneration;
+}
+
+export function bumpClassroomIdentityGeneration(): number {
+  classroomIdentityGeneration += 1;
+  return classroomIdentityGeneration;
+}
 
 export const CLASSROOM_STORAGE_KEYS = {
   LINKED_EMAIL: "schedule:classroom_linked_email",
@@ -181,7 +193,10 @@ export async function performClassroomUnlink(
     }
 
     try {
+      bumpClassroomIdentityGeneration();
       clearLocalClassroomKeys(storage);
+      invalidateEtagCache();
+      invalidateGroupStatusCache();
       options.onClearCaches?.();
     } catch {}
 

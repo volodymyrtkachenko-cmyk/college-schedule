@@ -159,3 +159,212 @@ test('auth transitions clear cached ETag responses and isolate scoped GET keys',
   assert.equal(seenHeaders[5].ifNoneMatch, null);
   assert.equal(seenHeaders[5].hasAuth, false);
 });
+
+test("distinct teacher PINs and User A -> logout -> User B transitions never reuse ETag cache", async () => {
+  const makeMemoryStorage = () => {
+    const store = new Map();
+    return {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+      clear: () => store.clear(),
+    };
+  };
+  const makeSession = (username) => {
+    const payload = Buffer.from(
+      JSON.stringify({ sub: username, role: "admin", exp: Math.floor(Date.now() / 1000) + 86400 * 5 })
+    ).toString("base64url");
+    return {
+      access_token: `hdr.${payload}.sig-${username}`,
+      refresh_token: `rt-${username}`,
+      user: { username, role: "admin" },
+    };
+  };
+
+  const storage = makeMemoryStorage();
+  const requests = [];
+  let ver = 0;
+
+  const { api } = loadTsModule(path.join(__dirname, "../lib/api.ts"), {
+    window: { localStorage: storage },
+    localStorage: storage,
+    fetch: async (url, init = {}) => {
+      if (url.endsWith("/api/auth/login")) {
+        const { username } = JSON.parse(init.body);
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => makeSession(username),
+        };
+      }
+      if (url.endsWith("/api/auth/logout")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => ({ status: "ok" }),
+        };
+      }
+      const hdrs = new Headers(init.headers);
+      const ifNoneMatch = hdrs.get("If-None-Match");
+      const pin = hdrs.get("X-Teacher-Pin") || "";
+      const auth = hdrs.get("Authorization") || "";
+      requests.push({ ifNoneMatch, pin, auth });
+      const etag = `W/"v${ver}-${pin}-${auth}"`;
+      if (ifNoneMatch && ifNoneMatch === etag) {
+        return {
+          ok: false,
+          status: 304,
+          headers: new Headers({ ETag: etag }),
+          json: async () => ({}),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ ETag: etag }),
+        json: async () => [{ seq: ++ver, pin, auth }],
+      };
+    },
+  });
+
+  // Distinct teacher PINs must get separate ETag entries
+  storage.setItem("college_schedule_teacher_pin", "pin-1");
+  const r1 = await api.events.list({ group_id: 1 });
+  assert.equal(r1[0].pin, "pin-1");
+  assert.equal(requests[0].ifNoneMatch, null);
+
+  storage.setItem("college_schedule_teacher_pin", "pin-2");
+  const r2 = await api.events.list({ group_id: 1 });
+  assert.equal(r2[0].pin, "pin-2");
+  assert.equal(requests[1].ifNoneMatch, null);
+
+  // User A -> logout -> User B must not share ETag cache across different Bearer tokens
+  await api.auth.login("userA", "pw");
+  const aRows = await api.events.list({ group_id: 1 });
+  assert.match(aRows[0].auth, /sig-userA/);
+  assert.equal(requests[2].ifNoneMatch, null);
+
+  const aCached = await api.events.list({ group_id: 1 });
+  assert.match(aCached[0].auth, /sig-userA/);
+  assert.ok(requests[3].ifNoneMatch);
+
+  await api.auth.logout();
+  await api.auth.login("userB", "pw");
+  const bRows = await api.events.list({ group_id: 1 });
+  assert.match(bRows[0].auth, /sig-userB/);
+  assert.equal(requests[4].ifNoneMatch, null);
+});
+
+test("late GET response after invalidateEtagCache / auth.clear / auth.logout does not repopulate ETag cache", async () => {
+  const makeMemoryStorage = () => {
+    const store = new Map();
+    return {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+      clear: () => store.clear(),
+    };
+  };
+  const makeSession = (username) => {
+    const payload = Buffer.from(
+      JSON.stringify({ sub: username, role: "admin", exp: Math.floor(Date.now() / 1000) + 86400 * 5 })
+    ).toString("base64url");
+    return {
+      access_token: `hdr.${payload}.sig-${username}`,
+      refresh_token: `rt-${username}`,
+      user: { username, role: "admin" },
+    };
+  };
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  };
+
+  const storage = makeMemoryStorage();
+  const seen = [];
+  const pendingGets = [];
+
+  const mod = loadTsModule(path.join(__dirname, "../lib/api.ts"), {
+    window: { localStorage: storage },
+    localStorage: storage,
+    fetch: async (url, init = {}) => {
+      if (url.endsWith("/api/auth/login")) {
+        const { username } = JSON.parse(init.body);
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => makeSession(username),
+        };
+      }
+      if (url.endsWith("/api/auth/logout")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => ({ status: "ok" }),
+        };
+      }
+      const hdrs = new Headers(init.headers);
+      const ifNoneMatch = hdrs.get("If-None-Match");
+      seen.push({ ifNoneMatch, index: seen.length });
+      if (pendingGets.length > 0 && pendingGets[0].hold) {
+        const gate = pendingGets.shift();
+        await gate.gate.promise;
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({ ETag: gate.etag }),
+          json: async () => [{ stale: true, tag: gate.etag }],
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ ETag: 'W/"fresh"' }),
+        json: async () => [{ fresh: true }],
+      };
+    },
+  });
+
+  // Case 1: invalidateEtagCache() while GET is in flight
+  const g1 = deferred();
+  pendingGets.push({ hold: true, gate: g1, etag: 'W/"stale-1"' });
+  const inFlight1 = mod.api.events.list({ group_id: 2 });
+  await Promise.resolve();
+  mod.invalidateEtagCache();
+  g1.resolve();
+  await inFlight1;
+  await mod.api.events.list({ group_id: 2 });
+  assert.equal(seen[1].ifNoneMatch, null, "late GET after invalidateEtagCache must not repopulate ETag cache");
+
+  // Case 2: auth.clear() while GET is in flight
+  mod.invalidateEtagCache();
+  await mod.api.auth.login("user1", "pw");
+  const g2 = deferred();
+  pendingGets.push({ hold: true, gate: g2, etag: 'W/"stale-2"' });
+  const inFlight2 = mod.api.events.list({ group_id: 3 });
+  await Promise.resolve();
+  mod.api.auth.clear();
+  g2.resolve();
+  await inFlight2;
+  await mod.api.events.list({ group_id: 3 });
+  assert.equal(seen[3].ifNoneMatch, null, "late GET after auth.clear must not repopulate ETag cache");
+
+  // Case 3: auth.logout() while GET is in flight
+  await mod.api.auth.login("user2", "pw");
+  const g3 = deferred();
+  pendingGets.push({ hold: true, gate: g3, etag: 'W/"stale-3"' });
+  const inFlight3 = mod.api.events.list({ group_id: 4 });
+  await Promise.resolve();
+  const logoutPromise = mod.api.auth.logout();
+  g3.resolve();
+  await Promise.all([inFlight3, logoutPromise]);
+  await mod.api.events.list({ group_id: 4 });
+  assert.equal(seen[5].ifNoneMatch, null, "late GET after auth.logout must not repopulate ETag cache");
+});

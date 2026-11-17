@@ -17,14 +17,25 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
 let accessToken: string | null = null;
 let currentSession: AuthSession | null = null;
 let authGeneration = 0;
+let etagCacheEpoch = 0;
 let refreshPromise: Promise<AuthSession> | null = null;
 let bootstrapPromise: Promise<AuthSession> | null = null;
 let sessionPromise: Promise<AuthSession> | null = null;
 let authHttpTail: Promise<void> = Promise.resolve();
 let logoutPending = false;
 
+function hashKeyPart(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 function advanceAuthGeneration(): number {
   authGeneration++;
+  etagCacheEpoch++;
   refreshPromise = null;
   bootstrapPromise = null;
   sessionPromise = null;
@@ -61,6 +72,7 @@ interface EtagCacheEntry<T = any> {
 const etagResponseCache = new Map<string, EtagCacheEntry>();
 
 export function invalidateEtagCache(): void {
+  etagCacheEpoch++;
   etagResponseCache.clear();
 }
 
@@ -120,25 +132,47 @@ export async function rawRequest<T>(path: string, init: RequestInit = {}): Promi
     } catch {}
   }
 
+  const rawPin = headers.get("X-Teacher-Pin") || "";
+  const rawAuth = headers.get("Authorization") || "";
+  const rawUid = headers.get("X-Classroom-User-Id") || "";
+  const rawEmail = headers.get("X-Classroom-Email") || "";
   const etagCacheKey =
     method === "GET"
-      ? `${path}|${headers.get("X-Teacher-Pin") ? "pin" : ""}|${headers.has("Authorization") ? "auth" : ""}|${headers.get("X-Classroom-User-Id") || ""}|${headers.get("X-Classroom-Email") || ""}`
+      ? `${path}|gen:${authGeneration}|pin:${rawPin ? hashKeyPart(rawPin) : ""}|auth:${rawAuth ? hashKeyPart(rawAuth) : ""}|uid:${rawUid}|email:${rawEmail}`
       : "";
+  const requestCacheEpoch = etagCacheEpoch;
   const cachedEtag = method === "GET" ? etagResponseCache.get(etagCacheKey) : undefined;
   if (cachedEtag && !headers.has("If-None-Match")) {
     headers.set("If-None-Match", cachedEtag.etag);
   }
 
+  const externalSignal = init.signal;
+  if (externalSignal?.aborted) {
+    throw new ApiError(0, "Не вдалося з’єднатися із сервером. Перевірте підключення до інтернету та спробуйте ще раз.");
+  }
+
   const defaultTimeout = method === "GET" ? 8500 : 15000;
   const timeoutMs = (init as any).timeoutMs ?? (path.includes("/admin/import") ? 90000 : defaultTimeout);
   const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-  const timeoutId = controller && !init.signal ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let onExternalAbort: (() => void) | null = null;
+
+  if (controller) {
+    if (externalSignal) {
+      onExternalAbort = () => controller.abort();
+      if (typeof externalSignal.addEventListener === "function") {
+        externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+      }
+    }
+    timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  }
+  const requestSignal = controller ? controller.signal : externalSignal;
 
   try {
     const cacheMode = init.cache ?? (method === "GET" ? "no-cache" : "no-store");
     response = await fetch(`${API_URL}${path}`, {
       ...init,
-      signal: init.signal ?? controller?.signal,
+      signal: requestSignal,
       cache: cacheMode,
       next: { revalidate: 0 },
       credentials: "include",
@@ -148,6 +182,9 @@ export async function rawRequest<T>(path: string, init: RequestInit = {}): Promi
     throw new ApiError(0, "Не вдалося з’єднатися із сервером. Перевірте підключення до інтернету та спробуйте ще раз.");
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
+    if (externalSignal && onExternalAbort && typeof externalSignal.removeEventListener === "function") {
+      externalSignal.removeEventListener("abort", onExternalAbort);
+    }
   }
 
   updateServerTimeOffset(response.headers?.get ? response.headers.get("Date") : null);
@@ -159,7 +196,7 @@ export async function rawRequest<T>(path: string, init: RequestInit = {}): Promi
 
   const data = (await response.json()) as T;
   const responseEtag = response.headers?.get ? response.headers.get("ETag") : null;
-  if (method === "GET" && responseEtag) {
+  if (method === "GET" && responseEtag && requestCacheEpoch === etagCacheEpoch) {
     etagResponseCache.set(etagCacheKey, { etag: responseEtag, data });
   }
   return data;
