@@ -41,7 +41,10 @@ async def commit_version_change(db: AsyncSession):
         raise HTTPException(409, detail={"code": "version_constraint_conflict"}) from exc
 
 @router.get("", response_model=list[ScheduleVersionResponse])
-async def list_versions(db: AsyncSession = Depends(get_db)):
+async def list_versions(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles("admin", "editor")),
+):
     subq = (
         select(Schedule.version_id, func.count(Schedule.id).label("count"))
         .where(Schedule.version_id.is_not(None))

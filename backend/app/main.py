@@ -121,7 +121,7 @@ async def lifespan(_: FastAPI):
             if not admin_user:
                 admin_pw = settings.admin_password or os.environ.get("ADMIN_PASSWORD")
                 if not admin_pw:
-                    if settings.environment.lower() == "production":
+                    if settings.is_production:
                         logger.error(
                             "ADMIN_PASSWORD is not set in production. Skipping default admin creation for security."
                         )
@@ -162,16 +162,20 @@ async def lifespan(_: FastAPI):
         await engine.dispose()
 
 
+_hide_docs = settings.is_production and not settings.enable_docs
+
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
     description="Backend API for the College Schedule project.",
     lifespan=lifespan,
+    docs_url=None if _hide_docs else "/docs",
+    redoc_url=None if _hide_docs else "/redoc",
+    openapi_url=None if _hide_docs else "/openapi.json",
 )
 
 from app.core.rate_limit import limiter
 from fastapi.responses import JSONResponse
-import traceback
 import logging
 
 app.state.limiter = limiter

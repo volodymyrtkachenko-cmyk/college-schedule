@@ -28,8 +28,12 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     classroom_fernet_key: str = ""
     classroom_fernet_old_keys: str = ""
+    classroom_legacy_auth: bool = True
     teacher_pin: str = "dfkr2026"
-    admin_password: str | None = "admin123"
+    admin_password: str | None = None
+    wipe_secret: str | None = None
+    enable_docs: bool = False
+    forwarded_allow_ips: str = "127.0.0.1"
     run_schema_bootstrap: bool = False
     auto_import_enabled: bool = True
     auto_import_interval_minutes: int = 30
@@ -43,20 +47,22 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @property
+    def is_production(self) -> bool:
+        return self.environment.lower() == "production" or bool(os.environ.get("DYNO"))
 
     @model_validator(mode="after")
     def validate_production_secret(self) -> 'Settings':
-        if self.environment.lower() == "production" and self.jwt_secret_key == DEFAULT_DEV_JWT_SECRET:
-            raise ValueError("JWT_SECRET_KEY must be overridden in production!")
+        if self.environment.lower() == "production":
+            if not self.jwt_secret_key or self.jwt_secret_key in (DEFAULT_DEV_JWT_SECRET, "change-me"):
+                raise ValueError("JWT_SECRET_KEY must be overridden in production!")
+            if self.admin_password == "admin123":
+                raise ValueError("Default ADMIN_PASSWORD 'admin123' is forbidden in production!")
         return self
 
     @property
     def is_cookie_secure(self) -> bool:
-        return (
-            self.auth_cookie_secure
-            or self.environment.lower() == "production"
-            or bool(os.environ.get("DYNO"))
-        )
+        return self.auth_cookie_secure or self.is_production
 
     @property
     def cors_origins(self) -> list[str]:

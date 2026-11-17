@@ -328,6 +328,7 @@ def _solver_input_diagnostics(curriculums, constraints) -> dict[str, int | str]:
 
 
 _generation_lock = asyncio.Lock()
+_solver_semaphore = asyncio.Semaphore(1)
 
 
 def _solver_kwargs(settings: GeneratorSettings, progress_path: str | None = None) -> dict:
@@ -378,40 +379,41 @@ async def _run_solver(
         and "PYTEST_CURRENT_TEST" not in os.environ
         and os.environ.get("SOLVER_USE_SUBPROCESS", "").lower() in ("1", "true")
     )
-    if use_subprocess:
-        curr_snapshots, cons_snapshots = _snapshot_inputs(curriculums, constraints)
-        try:
-            loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(
-                _get_solver_pool(),
-                partial(
-                    solver.solve,
-                    curr_snapshots,
-                    cons_snapshots,
-                    max_time_in_seconds,
-                    workers,
-                    hints=hints,
-                    **locked_kwargs,
-                    **solver_kwargs,
-                ),
-            )
-        except Exception:
-            global _solver_pool
-            _solver_pool = None
-            logger.warning("Subprocess solver failed; falling back to thread", exc_info=True)
+    async with _solver_semaphore:
+        if use_subprocess:
+            curr_snapshots, cons_snapshots = _snapshot_inputs(curriculums, constraints)
+            try:
+                loop = asyncio.get_running_loop()
+                return await loop.run_in_executor(
+                    _get_solver_pool(),
+                    partial(
+                        solver.solve,
+                        curr_snapshots,
+                        cons_snapshots,
+                        max_time_in_seconds,
+                        workers,
+                        hints=hints,
+                        **locked_kwargs,
+                        **solver_kwargs,
+                    ),
+                )
+            except Exception:
+                global _solver_pool
+                _solver_pool = None
+                logger.warning("Subprocess solver failed; falling back to thread", exc_info=True)
 
-    return await asyncio.to_thread(
-        partial(
-            solver.solve,
-            curriculums,
-            constraints,
-            max_time_in_seconds,
-            workers,
-            hints=hints,
-            **locked_kwargs,
-            **solver_kwargs,
+        return await asyncio.to_thread(
+            partial(
+                solver.solve,
+                curriculums,
+                constraints,
+                max_time_in_seconds,
+                workers,
+                hints=hints,
+                **locked_kwargs,
+                **solver_kwargs,
+            )
         )
-    )
 
 
 def _generation_summary(

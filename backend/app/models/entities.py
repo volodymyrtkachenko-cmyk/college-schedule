@@ -43,8 +43,8 @@ class Group(Base):
     __tablename__ = "groups"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
-    faculty_id: Mapped[Optional[int]] = mapped_column(ForeignKey("faculties.id"), nullable=True)
-    curator_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
+    faculty_id: Mapped[Optional[int]] = mapped_column(ForeignKey("faculties.id"), nullable=True, index=True)
+    curator_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     year_of_admission: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -229,9 +229,9 @@ class SchedulePeriodSlot(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     period_id: Mapped[int] = mapped_column(ForeignKey("schedule_periods.id", ondelete="CASCADE"), index=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), index=True)
-    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
-    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"))
-    second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"), index=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), index=True)
+    second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True, index=True)
     day_of_week: Mapped[int] = mapped_column(Integer)
     lesson_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     room_override: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -284,6 +284,10 @@ class ImportedScheduleChange(Base):
     @property
     def week_type(self) -> str:
         return "both"
+
+    @property
+    def is_same_day_swap(self) -> bool:
+        return self.change_type == "swap"
 
 
 class AcademicTerm(Base):
@@ -348,9 +352,9 @@ class Curriculum(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     term_id: Mapped[Optional[int]] = mapped_column(ForeignKey("academic_terms.id", ondelete="CASCADE"), nullable=True, index=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
-    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
-    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"))
-    second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"), index=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), index=True)
+    second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True, index=True)
     pairs_per_2_weeks: Mapped[int] = mapped_column(Integer)
     total_hours: Mapped[int] = mapped_column(Integer, default=0)
     is_stream: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -385,6 +389,9 @@ class TeacherConstraint(Base):
 
 class ScheduleDraft(Base):
     __tablename__ = "schedule_drafts"
+    __table_args__ = (
+        Index("ix_schedule_drafts_type_status", "draft_type", "status"),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     term_id: Mapped[Optional[int]] = mapped_column(ForeignKey("academic_terms.id", ondelete="SET NULL"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
@@ -401,6 +408,9 @@ class ScheduleDraft(Base):
 
 class ScheduleSlot(Base):
     __tablename__ = "schedule_slots"
+    __table_args__ = (
+        Index("ix_schedule_slots_draft_day_lesson", "draft_id", "day_of_week", "lesson_number"),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     draft_id: Mapped[int] = mapped_column(ForeignKey("schedule_drafts.id", ondelete="CASCADE"), index=True)
     curriculum_id: Mapped[int] = mapped_column(ForeignKey("curriculums.id"), index=True)
@@ -466,10 +476,13 @@ class SchedulePublicationSnapshot(Base):
 
 class AcademicEvent(Base):
     __tablename__ = "schedule_events"
+    __table_args__ = (
+        Index("ix_schedule_events_group_date", "group_id", "event_date"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
-    subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True)
+    subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True)
     teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True)
 
     title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
@@ -497,7 +510,7 @@ class GroupStudent(Base):
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
     classroom_user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
-    email: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(150), nullable=True, index=True)
     photo_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     group: Mapped["Group"] = relationship("Group")
@@ -522,12 +535,13 @@ class ClassroomCredential(Base):
     __tablename__ = "classroom_credentials"
     __table_args__ = (
         UniqueConstraint("group_id", "google_user_id", name="uq_classroom_cred_group_user"),
+        Index("ix_classroom_cred_active_sync", "group_id", "is_active", "needs_relink"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
     google_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    email: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(150), nullable=True, index=True)
     student_name: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     photo_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     subgroup: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

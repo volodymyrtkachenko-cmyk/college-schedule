@@ -55,7 +55,7 @@ async def _check_draft_access(db, draft, user):
         slots = (await db.scalars(select(ScheduleSlot).where(ScheduleSlot.draft_id == draft.id).options(selectinload(ScheduleSlot.curriculum)))).all()
         draft_groups = {s.curriculum.group_id for s in slots if s.curriculum}
         
-    if not draft_groups.issubset(allowed):
+    if not draft_groups or not draft_groups.issubset(allowed):
         raise HTTPException(403, "Ви не маєте доступу до однієї або кількох груп у цій чернетці")
 
 
@@ -263,6 +263,10 @@ async def list_draft_slots(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles("admin", "editor"))
 ):
+    draft = await db.get(ScheduleDraft, id)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Чернетку розкладу не знайдено")
+    await _check_draft_access(db, draft, current_user)
     query = (
         select(ScheduleSlot)
         .where(ScheduleSlot.draft_id == id)
@@ -289,6 +293,7 @@ async def move_slot(
     draft = await db.get(ScheduleDraft, slot.draft_id)
     if not draft or draft.status not in {"pending", "DRAFT", "draft"}:
         raise HTTPException(status_code=409, detail="Змінювати можна лише активну чернетку")
+    await _check_draft_access(db, draft, current_user)
     if slot.is_locked:
         raise HTTPException(status_code=409, detail="Зафіксовану пару не можна переміщати")
         
@@ -385,6 +390,7 @@ async def lock_slot(
     draft = await db.get(ScheduleDraft, slot.draft_id)
     if not draft or draft.status not in {"pending", "DRAFT", "draft"}:
         raise HTTPException(status_code=409, detail="Фіксувати можна лише активну чернетку")
+    await _check_draft_access(db, draft, current_user)
     slot.is_locked = payload.is_locked
     draft.revision += 1
     await db.commit()
@@ -416,6 +422,7 @@ async def swap_slots(
     draft = await db.get(ScheduleDraft, slot_a.draft_id)
     if not draft or draft.status not in {"pending", "DRAFT", "draft"}:
         raise HTTPException(status_code=409, detail="Змінювати можна лише активну чернетку")
+    await _check_draft_access(db, draft, current_user)
     if slot_a.is_locked or slot_b.is_locked:
         raise HTTPException(status_code=409, detail="Зафіксовані пари не можна міняти місцями")
 

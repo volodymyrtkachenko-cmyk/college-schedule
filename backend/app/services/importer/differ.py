@@ -35,42 +35,55 @@ class ScheduleDiffer:
         skipped_base_slots = []
         week_type = parsed_week.week_type if parsed_week.week_type in VALID_WEEK_TYPES else "both"
 
-        # --- Auto-create missing entities ---
+        # --- Auto-create missing entities in a single batch flush ---
+        pending_groups: list[tuple[str, str, Group]] = []
+        pending_subjects: list[tuple[str, str, Subject]] = []
+        pending_teachers: list[tuple[str, str, Teacher]] = []
+        seen_new_groups: set[str] = set()
+        seen_new_subjects: set[str] = set()
+        seen_new_teachers: set[str] = set()
+
         for lesson in parsed_week.lessons:
             if lesson.group_name:
                 cleaned_group = clean_name(lesson.group_name)[:MAX_GROUP_NAME_LEN]
-                if cleaned_group and not self.normalizer.normalize_group(cleaned_group):
+                if cleaned_group and not self.normalizer.normalize_group(cleaned_group) and cleaned_group not in seen_new_groups:
+                    seen_new_groups.add(cleaned_group)
                     new_group = Group(name=cleaned_group, is_active=True)
                     self.db.add(new_group)
-                    await self.db.flush()
-                    self.normalizer.remember("group", lesson.group_name, new_group.id)
-                    self.normalizer.remember("group", cleaned_group, new_group.id)
-                    self.unresolved_entities.append({"type": "group", "raw": cleaned_group, "actual_id": new_group.id})
+                    pending_groups.append((lesson.group_name, cleaned_group, new_group))
 
             if lesson.subject_name:
                 cleaned_subj = clean_name(lesson.subject_name)[:MAX_SUBJECT_NAME_LEN]
-                if cleaned_subj and not self.normalizer.normalize_subject(cleaned_subj):
+                if cleaned_subj and not self.normalizer.normalize_subject(cleaned_subj) and cleaned_subj not in seen_new_subjects:
+                    seen_new_subjects.add(cleaned_subj)
                     new_subj = Subject(name=cleaned_subj, is_active=True)
                     self.db.add(new_subj)
-                    await self.db.flush()
-                    self.normalizer.remember("subject", lesson.subject_name, new_subj.id)
-                    self.normalizer.remember("subject", cleaned_subj, new_subj.id)
-                    self.unresolved_entities.append({"type": "subject", "raw": cleaned_subj, "actual_id": new_subj.id})
+                    pending_subjects.append((lesson.subject_name, cleaned_subj, new_subj))
 
             if lesson.teacher_name:
                 for t in lesson.teacher_name.split("/"):
                     t_name = clean_name(t)[:MAX_TEACHER_NAME_LEN]
-                    if t_name and not self.normalizer.normalize_teacher(t_name):
+                    if t_name and not self.normalizer.normalize_teacher(t_name) and t_name not in seen_new_teachers:
+                        seen_new_teachers.add(t_name)
                         new_teacher = Teacher(name=t_name, is_active=True)
                         self.db.add(new_teacher)
-                        await self.db.flush()
-                        self.normalizer.remember("teacher", t.strip(), new_teacher.id)
-                        self.normalizer.remember("teacher", t_name, new_teacher.id)
-                        self.unresolved_entities.append({"type": "teacher", "raw": t_name, "actual_id": new_teacher.id})
+                        pending_teachers.append((t.strip(), t_name, new_teacher))
 
-        # Flush only: entities are committed together with the import result,
-        # so a failed import does not leave orphan groups/subjects/teachers.
-        await self.db.flush()
+        # Flush once for the entire batch: entities are committed together with the import result
+        if pending_groups or pending_subjects or pending_teachers:
+            await self.db.flush()
+            for raw_g, cleaned_g, g_obj in pending_groups:
+                self.normalizer.remember("group", raw_g, g_obj.id)
+                self.normalizer.remember("group", cleaned_g, g_obj.id)
+                self.unresolved_entities.append({"type": "group", "raw": cleaned_g, "actual_id": g_obj.id})
+            for raw_s, cleaned_s, s_obj in pending_subjects:
+                self.normalizer.remember("subject", raw_s, s_obj.id)
+                self.normalizer.remember("subject", cleaned_s, s_obj.id)
+                self.unresolved_entities.append({"type": "subject", "raw": cleaned_s, "actual_id": s_obj.id})
+            for raw_t, cleaned_t, t_obj in pending_teachers:
+                self.normalizer.remember("teacher", raw_t, t_obj.id)
+                self.normalizer.remember("teacher", cleaned_t, t_obj.id)
+                self.unresolved_entities.append({"type": "teacher", "raw": cleaned_t, "actual_id": t_obj.id})
 
         for lesson in parsed_week.lessons:
             if not isinstance(lesson.date, date):

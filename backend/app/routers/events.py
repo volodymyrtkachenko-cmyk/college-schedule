@@ -22,7 +22,7 @@ class EventCreatePayload(BaseModel):
     title: Optional[str] = Field(default=None, max_length=200)
     event_type: str = Field(default="exam", pattern="^(exam|consultation|credit|defense|general)$")
     event_date: date
-    lesson_number: Optional[int] = Field(default=None, ge=1, le=8)
+    lesson_number: Optional[int] = Field(default=None, ge=1, le=4)
     start_time: str = Field(default="09:00", max_length=10)
     end_time: Optional[str] = Field(default=None, max_length=10)
     room: Optional[str] = Field(default=None, max_length=50)
@@ -37,7 +37,7 @@ class EventUpdatePayload(BaseModel):
     title: Optional[str] = Field(default=None, max_length=200)
     event_type: Optional[str] = Field(default=None, pattern="^(exam|consultation|credit|defense|general)$")
     event_date: Optional[date] = None
-    lesson_number: Optional[int] = Field(default=None, ge=1, le=8)
+    lesson_number: Optional[int] = Field(default=None, ge=1, le=4)
     start_time: Optional[str] = Field(default=None, max_length=10)
     end_time: Optional[str] = Field(default=None, max_length=10)
     room: Optional[str] = Field(default=None, max_length=50)
@@ -158,10 +158,8 @@ async def create_event(
                 lesson_num = 2
             elif mins < 13 * 60 + 55:
                 lesson_num = 3
-            elif mins < 15 * 60 + 25:
-                lesson_num = 4
             else:
-                lesson_num = 5
+                lesson_num = 4
         except Exception:
             lesson_num = 1
 
@@ -228,7 +226,7 @@ async def update_event(
             setattr(ev, field, value)
 
     if "lesson_number" in update_data and payload.lesson_number is not None and "start_time" not in update_data:
-        bell_defaults = {1: "09:00", 2: "10:40", 3: "12:30", 4: "14:00", 5: "15:30"}
+        bell_defaults = {1: "09:00", 2: "10:40", 3: "12:30", 4: "14:00"}
         if payload.lesson_number in bell_defaults:
             ev.start_time = bell_defaults[payload.lesson_number]
 

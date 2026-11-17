@@ -328,7 +328,8 @@ def anyio_backend():
 
 
 @pytest.fixture
-async def classroom_db():
+async def classroom_db(monkeypatch):
+    monkeypatch.setenv("CLASSROOM_FERNET_KEY", "unit-test-classroom-fernet-key-stable")
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
 
     @event.listens_for(engine.sync_engine, "connect")
@@ -1774,7 +1775,8 @@ async def test_user_submissions_endpoint(classroom_db):
         assert res_post.status_code == 200
         p_data = res_post.json()
         assert p_data["connected"] is True
-        assert p_data["access_token"] == "ya29.refreshed_access_token_123"
+        assert "access_token" not in p_data
+        assert p_data.get("session_token")
         assert len(p_data["tasks"]) == 1
         assert p_data["tasks"][0]["state"] == "TURNED_IN"
         assert p_data["tasks"][0]["grade"] == 11

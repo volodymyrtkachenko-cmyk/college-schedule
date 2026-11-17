@@ -18,8 +18,16 @@ from app.services.classroom import sync as classroom_sync
 from app.services.classroom import worker as classroom_worker
 from app.services.classroom.parser import IGNORE_ROSTER_LINES, _norm, ukr_sort_key
 from app.services.classroom.state import MAX_ACCOUNTS_PER_CYCLE, _iso_utc
+from app.services.lesson_notes import authorize_group
 
 router = APIRouter()
+
+
+async def _authorize_account_group(db: AsyncSession, user: User | None, group_id: int) -> None:
+    role = getattr(user, "role", None)
+    if not isinstance(role, str) or role == "admin":
+        return
+    await authorize_group(db, user, group_id)
 
 
 @router.delete("/credentials/{cred_id}")
@@ -33,6 +41,7 @@ async def delete_classroom_credential(
     if not cred:
         raise HTTPException(status_code=404, detail="Підключений акаунт не знайдено")
     group_id = cred.group_id
+    await _authorize_account_group(db, _, group_id)
     await db.delete(cred)
     await db.commit()
     from app.services.classroom_access import invalidate_classroom_access_cache
@@ -47,6 +56,7 @@ async def get_group_students(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles("admin", "editor")),
 ):
+    await _authorize_account_group(db, _, group_id)
     students = (
         await db.scalars(
             select(GroupStudent).where(GroupStudent.group_id == group_id)
@@ -84,6 +94,7 @@ async def sync_group_classroom_now(
     _: User = Depends(require_roles("admin", "editor")),
 ):
     """Примусово запускає синхронізацію Classroom для конкретної групи з адмін-панелі."""
+    await _authorize_account_group(db, _, group_id)
     group = await db.get(Group, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Групу не знайдено")
@@ -104,6 +115,7 @@ async def bulk_import_group_students(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles("admin", "editor")),
 ):
+    await _authorize_account_group(db, _, group_id)
     group = await db.get(Group, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Групу не знайдено")
@@ -170,6 +182,7 @@ async def remove_group_student(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles("admin", "editor")),
 ):
+    await _authorize_account_group(db, _, group_id)
     st = await db.scalar(
         select(GroupStudent).where(
             GroupStudent.id == student_id,

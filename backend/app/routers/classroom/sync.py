@@ -23,20 +23,26 @@ router = APIRouter()
 @router.post("/sync")
 async def sync_from_classroom(
     payload: ClassroomSyncRequest,
+    x_classroom_session: Optional[str] = Header(None, alias="X-Classroom-Session"),
     db: AsyncSession = Depends(get_db),
 ):
+    if not payload.session_token and x_classroom_session:
+        payload.session_token = x_classroom_session
     return await classroom_sync.sync_classroom_account_flow(payload, db)
 
 
 @router.post("/disconnect")
 async def disconnect_classroom_account(
     payload: ClassroomDisconnectRequest,
+    x_classroom_session: Optional[str] = Header(None, alias="X-Classroom-Session"),
     db: AsyncSession = Depends(get_db),
 ):
     """
     25.6: «Від'єднати» видаляє запис цього студента з classroom_credentials
     і відкликає його токен у Google. Інші записи групи не зачіпаються.
     """
+    if not payload.session_token and x_classroom_session:
+        payload.session_token = x_classroom_session
     return await classroom_sync.disconnect_classroom_account_flow(payload, db)
 
 
@@ -45,6 +51,7 @@ async def get_user_submissions_post(
     payload: Optional[ClassroomUserSubmissionsRequest] = None,
     x_classroom_user_id: Optional[str] = Header(None, alias="X-Classroom-User-Id"),
     x_classroom_email: Optional[str] = Header(None, alias="X-Classroom-Email"),
+    x_classroom_session: Optional[str] = Header(None, alias="X-Classroom-Session"),
     db: AsyncSession = Depends(get_db),
 ):
     eff_group_id = payload.group_id if payload else None
@@ -52,6 +59,7 @@ async def get_user_submissions_post(
     eff_email = (payload.email if payload else None) or x_classroom_email
     eff_access_token = payload.access_token if payload else None
     eff_refresh_token = payload.refresh_token if payload else None
+    eff_session_token = (payload.session_token if payload else None) or x_classroom_session
     return await classroom_sync._fetch_user_submissions(
         db,
         group_id=eff_group_id,
@@ -59,6 +67,7 @@ async def get_user_submissions_post(
         email=eff_email,
         access_token=eff_access_token,
         refresh_token=eff_refresh_token,
+        session_token=eff_session_token,
     )
 
 
@@ -69,12 +78,15 @@ async def get_user_submissions_get(
     email: Optional[str] = Query(None),
     access_token: Optional[str] = Query(None),
     refresh_token: Optional[str] = Query(None),
+    session_token: Optional[str] = Query(None),
     x_classroom_user_id: Optional[str] = Header(None, alias="X-Classroom-User-Id"),
     x_classroom_email: Optional[str] = Header(None, alias="X-Classroom-Email"),
+    x_classroom_session: Optional[str] = Header(None, alias="X-Classroom-Session"),
     db: AsyncSession = Depends(get_db),
 ):
     eff_user_id = google_user_id or x_classroom_user_id
     eff_email = email or x_classroom_email
+    eff_session_token = session_token or x_classroom_session
     return await classroom_sync._fetch_user_submissions(
         db,
         group_id=group_id,
@@ -82,6 +94,7 @@ async def get_user_submissions_get(
         email=eff_email,
         access_token=access_token,
         refresh_token=refresh_token,
+        session_token=eff_session_token,
     )
 
 

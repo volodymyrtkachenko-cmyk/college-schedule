@@ -129,6 +129,32 @@ async def _fetch_paginated_classroom_response(
     return _MergedClassroomResponse(200, {item_key: merged_items})
 
 
+def _infer_subgroups_from_lessons(
+    synced_teacher_tokens: set[str],
+    lessons: list[Any],
+) -> set[int]:
+    """Infer subgroup numbers (1/2) dynamically from dual-teacher lessons matching synced teachers."""
+    inferred: set[int] = set()
+    if not synced_teacher_tokens or not lessons:
+        return inferred
+    folded_tokens = [_fold(t) for t in synced_teacher_tokens]
+    folded_tokens = [t for t in folded_tokens if len(t) >= 3]
+    if not folded_tokens:
+        return inferred
+    for l_obj in lessons:
+        if getattr(l_obj, "second_teacher_id", None) or ("/" in (getattr(l_obj, "teacher_name", "") or "")):
+            t_names = [t.strip() for t in (getattr(l_obj, "teacher_name", "") or "").split("/") if t.strip()]
+            t1_fold = _fold(t_names[0].split()[0].strip()) if len(t_names) > 0 else ""
+            t2_fold = _fold(t_names[1].split()[0].strip()) if len(t_names) > 1 else ""
+            m1 = any(t1_fold in tok or (len(tok) >= 4 and tok in t1_fold) for tok in folded_tokens) if t1_fold else False
+            m2 = any(t2_fold in tok or (len(tok) >= 4 and tok in t2_fold) for tok in folded_tokens) if t2_fold else False
+            if m1 and not m2:
+                inferred.add(1)
+            elif m2 and not m1:
+                inferred.add(2)
+    return inferred
+
+
 async def perform_course_sync(
     db: AsyncSession,
     group: Group,
@@ -173,6 +199,7 @@ async def perform_course_sync(
     failed_coursework_course_ids: set[str] = set()
 
     db_teachers = (await db.scalars(select(Teacher))).all()
+    all_active_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
 
     skipped_ids = {str(cid) for cid in (skip_course_ids or set()) if cid}
     effective_courses = [c for c in courses if str(c.get("id") or "") not in skipped_ids]
@@ -201,6 +228,10 @@ async def perform_course_sync(
         await _ensure_task_week_loaded(w_mon)
         w_mon += timedelta(days=7)
 
+    # Закриваємо read-only транзакцію перед тривалими зовнішніми HTTP-запитами до Google API (#21)
+    if not db.new and not db.dirty and not db.deleted and db.in_transaction():
+        await db.commit()
+
     parsed_announcements: list[dict] = []
     raw_coursework_items: list[dict] = []
     all_classroom_tasks: list[dict] = []
@@ -211,6 +242,15 @@ async def perform_course_sync(
     course_cw_total: dict[str, int] = {}
     course_cw_active: dict[str, int] = {}
     teacher_tokens_by_uid: dict[str, list[str]] = {}
+    students_by_user_id: dict[str, dict] = {}
+
+    now_utc = datetime.now(timezone.utc)
+    last_stud_sync = _last_students_synced_at.get(group.id)
+    should_sync_students = (
+        force
+        or (last_stud_sync is None)
+        or ((now_utc - last_stud_sync).total_seconds() >= 24 * 3600)
+    )
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         user_email: Optional[str] = prefetched_user_email
@@ -241,7 +281,6 @@ async def perform_course_sync(
             except Exception as e:
                 logger.warning(f"Could not fetch oauth2 userinfo: {_sanitize_error_msg(str(e))}")
 
-        all_active_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
         target_group_courses = []
         relevant_courses = []
 
@@ -264,17 +303,8 @@ async def perform_course_sync(
         if not relevant_courses and not skipped_ids:
             relevant_courses = target_group_courses
 
-        # 1. Розумна синхронізація списку студентів (1 раз на добу або при force=True)
-        now_utc = datetime.now(timezone.utc)
-        last_stud_sync = _last_students_synced_at.get(group.id)
-        should_sync_students = (
-            force
-            or (last_stud_sync is None)
-            or ((now_utc - last_stud_sync).total_seconds() >= 24 * 3600)
-        )
-
+        # 1. Розумна синхронізація списку студентів (1 раз на добу або при force=True) — тільки HTTP у клієнті
         if should_sync_students:
-            students_by_user_id: dict[str, dict] = {}
             for gc in target_group_courses:
                 c_id = gc.get("id")
                 if not c_id:
@@ -323,7 +353,7 @@ async def perform_course_sync(
                 except Exception as e:
                     logger.warning(f"Could not sync students for course {c_id}: {_sanitize_error_msg(str(e))}")
 
-            # Пошук одногрупників через Google People Directory API (@kre.dp.ua)
+            # Пошук одногрупників через Google People Directory API
             if target_group_courses:
                 try:
                     search_queries = [group.name]
@@ -365,38 +395,6 @@ async def perform_course_sync(
                                     }
                 except Exception as e:
                     logger.warning(f"People API directory search skipped: {_sanitize_error_msg(str(e))}")
-
-            existing_students = (
-                await db.scalars(
-                    select(GroupStudent).where(GroupStudent.group_id == group.id)
-                )
-            ).all()
-            existing_by_uid = {s.classroom_user_id: s for s in existing_students if s.classroom_user_id}
-            existing_by_name = {_norm(s.full_name): s for s in existing_students}
-
-            for uid, s_info in students_by_user_id.items():
-                norm_name = _norm(s_info["full_name"])
-                target_row = existing_by_uid.get(uid) or existing_by_name.get(norm_name)
-                if target_row:
-                    if uid and not target_row.classroom_user_id.startswith("manual_"):
-                        target_row.classroom_user_id = uid
-                    target_row.full_name = s_info["full_name"]
-                    if s_info["email"]:
-                        target_row.email = s_info["email"]
-                    if s_info["photo_url"]:
-                        target_row.photo_url = s_info["photo_url"]
-                else:
-                    db.add(
-                        GroupStudent(
-                            group_id=group.id,
-                            classroom_user_id=s_info["classroom_user_id"],
-                            full_name=s_info["full_name"],
-                            email=s_info["email"],
-                            photo_url=s_info["photo_url"],
-                        )
-                    )
-                    synced_students += 1
-            _last_students_synced_at[group.id] = now_utc
         else:
             logger.debug(
                 "Classroom sync group_id=%s: skipping students sync (already synced within 24h at %s)",
@@ -673,23 +671,8 @@ async def perform_course_sync(
                     synced_teacher_names.add(teacher_name_by_uid[dominant_uid])
 
         # Динамічно визначаємо підгрупи студента (1 або 2) за викладачами в парах розкладу з поділом на підгрупи:
-        for d_lessons in horizon_lessons_by_date.values():
-            for l in d_lessons:
-                if getattr(l, "second_teacher_id", None) or ("/" in (getattr(l, "teacher_name", "") or "")):
-                    t_names = [t.strip() for t in (getattr(l, "teacher_name", "") or "").split("/") if t.strip()]
-                    t1_surname = t_names[0].split()[0].strip() if len(t_names) > 0 else ""
-                    t2_surname = t_names[1].split()[0].strip() if len(t_names) > 1 else ""
-
-                    t1_folded = _fold(t1_surname)
-                    t2_folded = _fold(t2_surname)
-
-                    m1 = any(t1_folded in tok or (len(tok) >= 4 and tok in t1_folded) for tok in synced_teacher_tokens if len(tok) >= 3) if t1_folded else False
-                    m2 = any(t2_folded in tok or (len(tok) >= 4 and tok in t2_folded) for tok in synced_teacher_tokens if len(tok) >= 3) if t2_folded else False
-
-                    if m1 and not m2:
-                        synced_subgroups.add(1)
-                    elif m2 and not m1:
-                        synced_subgroups.add(2)
+        all_horizon_lessons = [l_obj for d_lessons in horizon_lessons_by_date.values() for l_obj in d_lessons]
+        synced_subgroups.update(_infer_subgroups_from_lessons(synced_teacher_tokens, all_horizon_lessons))
 
         # Також перевіряємо назви курсів Classroom на наявність явних позначок підгруп
         for c in courses:
@@ -948,6 +931,40 @@ async def perform_course_sync(
                         "author_tokens": list(set(task_author_tokens)),
                         "task_entry": task_entry,
                     })
+
+    # Записуємо синхронізованих студентів у БД після завершення всіх зовнішніх HTTP-запитів (#21)
+    if should_sync_students:
+        existing_students = (
+            await db.scalars(
+                select(GroupStudent).where(GroupStudent.group_id == group.id)
+            )
+        ).all()
+        existing_by_uid = {s.classroom_user_id: s for s in existing_students if s.classroom_user_id}
+        existing_by_name = {_norm(s.full_name): s for s in existing_students}
+
+        for uid, s_info in students_by_user_id.items():
+            norm_name = _norm(s_info["full_name"])
+            target_row = existing_by_uid.get(uid) or existing_by_name.get(norm_name)
+            if target_row:
+                if uid and not target_row.classroom_user_id.startswith("manual_"):
+                    target_row.classroom_user_id = uid
+                target_row.full_name = s_info["full_name"]
+                if s_info["email"]:
+                    target_row.email = s_info["email"]
+                if s_info["photo_url"]:
+                    target_row.photo_url = s_info["photo_url"]
+            else:
+                db.add(
+                    GroupStudent(
+                        group_id=group.id,
+                        classroom_user_id=s_info["classroom_user_id"],
+                        full_name=s_info["full_name"],
+                        email=s_info["email"],
+                        photo_url=s_info["photo_url"],
+                    )
+                )
+                synced_students += 1
+        _last_students_synced_at[group.id] = now_utc
 
     # Дозавантажуємо тижні для всіх актуальних завдань (як майбутніх, так і минулих боргів у межах семестру)
     extra_task_mondays: set[date] = set()
@@ -1466,11 +1483,9 @@ async def perform_course_sync(
         _latest_group_tasks[group.id] = combined_tasks
     _latest_scope_missing[group.id] = has_submission_scope_error
 
-    for tok in synced_teacher_tokens:
-        if "токар" in tok:
-            synced_subgroups.add(1)
-        elif "хочин" in tok:
-            synced_subgroups.add(2)
+    if not synced_subgroups and synced_teacher_tokens:
+        all_horizon_lessons = [l_obj for day_list in horizon_lessons_by_date.values() for l_obj in day_list]
+        synced_subgroups.update(_infer_subgroups_from_lessons(synced_teacher_tokens, all_horizon_lessons))
 
     deduplicable_course_ids = [
         cid for cid in current_sync_course_ids
@@ -1495,15 +1510,77 @@ async def perform_course_sync(
     }
 
 
+async def _verify_google_access_token_identity(
+    access_token: str,
+) -> tuple[Optional[str], Optional[str], str]:
+    """
+    Verifies a Google OAuth access_token against Google userinfo / Classroom userProfiles/me.
+    Returns (verified_google_user_id, verified_email, status) where status is:
+    - 'verified': Google confirmed the token and returned identity
+    - 'invalid': Google rejected the token (401/403)
+    - 'unavailable': endpoints not reachable or not mocked (e.g. 404 in partial test mocks)
+    """
+    headers = {"Authorization": f"Bearer {access_token}"}
+    v_uid: Optional[str] = None
+    v_email: Optional[str] = None
+    saw_auth_error = False
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0, verify=_DEFAULT_SSL_CONTEXT) as client:
+            try:
+                uinfo_resp = await client.get(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    headers=headers,
+                )
+                if uinfo_resp.status_code == 200:
+                    uinfo = uinfo_resp.json()
+                    v_uid = str(uinfo.get("sub") or "").strip() or None
+                    v_email = (uinfo.get("email") or "").strip().lower() or None
+                elif uinfo_resp.status_code in (401, 403):
+                    saw_auth_error = True
+            except Exception:
+                pass
+
+            if not v_uid or not v_email:
+                try:
+                    me_resp = await client.get(
+                        "https://classroom.googleapis.com/v1/userProfiles/me",
+                        headers=headers,
+                    )
+                    if me_resp.status_code == 200:
+                        me_data = me_resp.json()
+                        v_uid = v_uid or str(me_data.get("id") or "").strip() or None
+                        v_email = v_email or (me_data.get("emailAddress") or "").strip().lower() or None
+                    elif me_resp.status_code in (401, 403):
+                        saw_auth_error = True
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    if v_uid or v_email:
+        return v_uid, v_email, "verified"
+    if saw_auth_error:
+        return None, None, "invalid"
+    return None, None, "unavailable"
+
+
 async def sync_classroom_account_flow(
     payload: ClassroomSyncRequest,
     db: AsyncSession,
 ) -> dict:
+    from app.config import settings
+    from app.core.security import create_classroom_session_token, verify_classroom_session_token
+
     try:
         access_token = payload.access_token
         refresh_token = payload.refresh_token
         granted_scope_str: Optional[str] = None
         code_exchanged = False
+
+        verified_session = verify_classroom_session_token(payload.session_token)
+        lookup_uid = verified_session.get("google_user_id") if verified_session else None
+        lookup_email = verified_session.get("email") if verified_session else None
 
         if payload.code:
             code_exchanged = True
@@ -1557,25 +1634,45 @@ async def sync_classroom_account_flow(
         if not access_token and refresh_token:
             access_token = await classroom_tokens._refresh_google_token(refresh_token)
 
-        # Серверний фолбек для тихої синхронізації: якщо передано google_user_id або email без refresh_token у клієнта,
-        # дістаємо зашифрований refresh_token із таблиці ClassroomCredential на сервері.
+        if not verified_session and not access_token and not refresh_token and (payload.google_user_id or payload.email):
+            if not settings.classroom_legacy_auth:
+                logger.warning(
+                    "Classroom legacy auth rejected in /sync (CLASSROOM_LEGACY_AUTH=false): uid=%s email=%s group_id=%s",
+                    payload.google_user_id,
+                    payload.email,
+                    payload.group_id,
+                )
+                raise HTTPException(
+                    status_code=401,
+                    detail="Потрібне підтвердження особи через Google Classroom",
+                )
+            logger.warning(
+                "Classroom legacy auth used in /sync (unverified identity): uid=%s email=%s group_id=%s",
+                payload.google_user_id,
+                payload.email,
+                payload.group_id,
+            )
+            lookup_uid = (payload.google_user_id or "").strip() or None
+            lookup_email = (payload.email or "").strip().lower() or None
+
+        # Серверний фолбек для тихої синхронізації: якщо передано підтверджений токен або дозволений legacy google_user_id / email
         db_lookup_cred: Optional[ClassroomCredential] = None
         refresh_permanent_error = False
-        if (payload.google_user_id or payload.email) and (not access_token or not refresh_token):
+        if (lookup_uid or lookup_email) and (not access_token or not refresh_token):
             cred_q = select(ClassroomCredential)
-            if payload.google_user_id:
-                cred_q = cred_q.where(ClassroomCredential.google_user_id == payload.google_user_id.strip())
-            elif payload.email and "@" in payload.email:
-                cred_q = cred_q.where(func.lower(ClassroomCredential.email) == payload.email.strip().lower())
+            if lookup_uid:
+                cred_q = cred_q.where(ClassroomCredential.google_user_id == lookup_uid)
+            elif lookup_email and "@" in lookup_email:
+                cred_q = cred_q.where(func.lower(ClassroomCredential.email) == lookup_email)
             if payload.group_id:
                 cred_q = cred_q.where(ClassroomCredential.group_id == payload.group_id)
             cred_q = cred_q.order_by(ClassroomCredential.last_synced_at.desc().nullslast())
             db_lookup_cred = await db.scalar(cred_q)
-            if not db_lookup_cred and payload.google_user_id:
+            if not db_lookup_cred and lookup_uid:
                 db_lookup_cred = await db.scalar(
                     select(ClassroomCredential)
                     .where(
-                        ClassroomCredential.google_user_id == payload.google_user_id.strip(),
+                        ClassroomCredential.google_user_id == lookup_uid,
                     )
                     .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
                 )
@@ -1612,7 +1709,7 @@ async def sync_classroom_account_flow(
                 await db.commit()
 
         if not access_token:
-            if not payload.code and (payload.google_user_id or payload.email):
+            if not payload.code and (lookup_uid or lookup_email):
                 target_gid = payload.group_id or (db_lookup_cred.group_id if db_lookup_cred else 0)
                 target_gname = ""
                 if target_gid:
@@ -1898,22 +1995,46 @@ async def sync_classroom_account_flow(
             force=True,
         )
 
+        verified_google_uid = google_user_id or stats.get("google_user_id")
+        verified_google_email = profile_email or stats.get("user_email")
+
         effective_user_id = (
-            google_user_id
-            or stats.get("google_user_id")
-            or payload.google_user_id
-            or profile_email
-            or stats.get("user_email")
+            verified_google_uid
+            or (verified_session.get("google_user_id") if verified_session else None)
+            or verified_google_email
+            or (verified_session.get("email") if verified_session else None)
         )
+        if not effective_user_id and (payload.google_user_id or payload.email):
+            if settings.classroom_legacy_auth:
+                logger.warning(
+                    "Classroom legacy auth fallback for effective_user_id in /sync: uid=%s email=%s",
+                    payload.google_user_id,
+                    payload.email,
+                )
+                effective_user_id = payload.google_user_id or payload.email
+            else:
+                logger.warning(
+                    "Classroom legacy auth rejected for effective_user_id in /sync (CLASSROOM_LEGACY_AUTH=false): uid=%s email=%s",
+                    payload.google_user_id,
+                    payload.email,
+                )
         if not effective_user_id and plain_refresh:
             effective_user_id = f"user_{hashlib.sha256(plain_refresh.encode('utf-8')).hexdigest()[:16]}"
 
         # 25.4.2 & 1.2: Upsert запису в classroom_credentials за парою (group_id, google_user_id) або email.
         # Ніколи не створюємо запис ClassroomCredential із порожнім refresh_token = ""!
         cred: Optional[ClassroomCredential] = None
+        final_email = (
+            verified_google_email
+            or (verified_session.get("email") if verified_session else None)
+            or (
+                payload.email
+                if (settings.classroom_legacy_auth and payload.email and "@" in payload.email)
+                else None
+            )
+        )
         if effective_user_id:
             effective_user_id = str(effective_user_id)[:128]
-            final_email = profile_email or stats.get("user_email") or (payload.email if payload.email and "@" in payload.email else None)
             safe_email = final_email[:150] if final_email else None
             safe_name = profile_name[:150] if profile_name else None
             safe_photo = profile_photo[:2048] if profile_photo else None
@@ -2037,6 +2158,16 @@ async def sync_classroom_account_flow(
 
         _sync_backoff_state.pop(detected_group.id, None)
 
+        issued_session_token = (
+            create_classroom_session_token(
+                google_user_id=str(effective_user_id) if effective_user_id else None,
+                email=final_email,
+                group_id=detected_group.id,
+            )
+            if (effective_user_id or final_email)
+            else None
+        )
+
         return {
             "group_id": detected_group.id,
             "group_name": detected_group.name,
@@ -2044,6 +2175,7 @@ async def sync_classroom_account_flow(
             "last_synced_at": binding.last_synced_at.isoformat() if binding.last_synced_at else now_utc.isoformat(),
             "access_token": access_token,
             "refresh_token": None,
+            "session_token": issued_session_token,
             "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
             **stats,
             "google_user_id": effective_user_id,
@@ -2067,22 +2199,46 @@ async def disconnect_classroom_account_flow(
     25.6: «Від'єднати» видаляє запис цього студента з classroom_credentials
     і відкликає його токен у Google. Інші записи групи не зачіпаються.
     """
-    target_user_id = (payload.google_user_id or "").strip() or None
+    from app.config import settings
+    from app.core.security import verify_classroom_session_token
+
+    verified_session = verify_classroom_session_token(payload.session_token)
     plain_rt = decrypt_token(payload.refresh_token) if payload.refresh_token else ""
     plain_at = decrypt_token(payload.access_token) if payload.access_token else ""
 
-    if not target_user_id and plain_at:
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                me_resp = await client.get(
-                    "https://classroom.googleapis.com/v1/userProfiles/me",
-                    headers={"Authorization": f"Bearer {plain_at}"},
-                )
-                if me_resp.status_code == 200:
-                    me_data = me_resp.json()
-                    target_user_id = str(me_data.get("id") or me_data.get("emailAddress") or "").strip() or None
-        except Exception as exc:
-            logger.warning(f"Disconnect profile lookup failed: {_sanitize_error_msg(str(exc))}")
+    target_user_id: Optional[str] = None
+    target_email: Optional[str] = None
+    identity_verified = False
+
+    if verified_session:
+        target_user_id = verified_session.get("google_user_id")
+        target_email = verified_session.get("email")
+        identity_verified = True
+
+    if not identity_verified and plain_at:
+        v_uid, v_email, v_status = await _verify_google_access_token_identity(plain_at)
+        if v_status == "verified":
+            target_user_id = v_uid or v_email
+            target_email = v_email
+            identity_verified = True
+
+    if not identity_verified and not plain_rt and payload.google_user_id:
+        if not settings.classroom_legacy_auth:
+            logger.warning(
+                "Classroom legacy auth rejected in /disconnect (CLASSROOM_LEGACY_AUTH=false): uid=%s group_id=%s",
+                payload.google_user_id,
+                payload.group_id,
+            )
+            raise HTTPException(
+                status_code=401,
+                detail="Потрібне підтвердження особи для від'єднання акаунта",
+            )
+        logger.warning(
+            "Classroom legacy auth used in /disconnect (unverified google_user_id): uid=%s group_id=%s",
+            payload.google_user_id,
+            payload.group_id,
+        )
+        target_user_id = payload.google_user_id.strip() or None
 
     query = select(ClassroomCredential)
     if payload.group_id:
@@ -2099,6 +2255,10 @@ async def disconnect_classroom_account_flow(
     for cred in candidates:
         cred_rt = decrypt_token(cred.refresh_token)
         if target_user_id and cred.google_user_id == target_user_id:
+            to_delete.append(cred)
+            if cred_rt:
+                tokens_to_revoke.add(cred_rt)
+        elif target_email and cred.email and cred.email.lower() == target_email.lower():
             to_delete.append(cred)
             if cred_rt:
                 tokens_to_revoke.add(cred_rt)
@@ -2198,6 +2358,7 @@ async def _fetch_user_submissions(
     email: Optional[str] = None,
     access_token: Optional[str] = None,
     refresh_token: Optional[str] = None,
+    session_token: Optional[str] = None,
 ) -> dict[str, Any]:
     """Fetch personal Classroom tasks/submissions for one student and manage commit/rollback."""
     write_tracker = _SessionWriteTracker(db).attach()
@@ -2210,6 +2371,7 @@ async def _fetch_user_submissions(
             email=email,
             access_token=access_token,
             refresh_token=refresh_token,
+            session_token=session_token,
         )
     except SQLAlchemyError as db_exc:
         logger.error("User submissions DB transaction error: %s", _sanitize_error_msg(str(db_exc)))
@@ -2234,7 +2396,11 @@ async def _fetch_user_submissions_impl(
     email: Optional[str] = None,
     access_token: Optional[str] = None,
     refresh_token: Optional[str] = None,
+    session_token: Optional[str] = None,
 ) -> dict[str, Any]:
+    from app.config import settings
+    from app.core.security import create_classroom_session_token, verify_classroom_session_token
+
     eff_user_id = (google_user_id or "").strip() or None
     if eff_user_id and eff_user_id.startswith("legacy_group_"):
         eff_user_id = None
@@ -2250,6 +2416,60 @@ async def _fetch_user_submissions_impl(
 
     if token and not token.startswith("ya29."):
         token = None
+
+    verified_session = verify_classroom_session_token(session_token)
+    identity_verified = False
+
+    if verified_session:
+        eff_user_id = verified_session.get("google_user_id") or eff_user_id
+        eff_email = verified_session.get("email") or eff_email
+        if not group_id and verified_session.get("group_id"):
+            group_id = verified_session.get("group_id")
+        identity_verified = True
+
+    if token:
+        v_uid, v_email, v_status = await _verify_google_access_token_identity(token)
+        if v_status == "verified":
+            if (eff_user_id and v_uid and eff_user_id != v_uid) or (
+                eff_email and v_email and eff_email.lower() != v_email.lower()
+            ):
+                logger.warning(
+                    "Classroom user-submissions identity mismatch: claimed=(%s, %s) google=(%s, %s)",
+                    eff_user_id,
+                    eff_email,
+                    v_uid,
+                    v_email,
+                )
+                return {
+                    "connected": False,
+                    "submissions": {},
+                    "tasks": [],
+                    "reason": "identity_mismatch",
+                }
+            eff_user_id = v_uid or eff_user_id
+            eff_email = v_email or eff_email
+            identity_verified = True
+
+    if not identity_verified and not plain_rt and (eff_user_id or eff_email):
+        if not settings.classroom_legacy_auth:
+            logger.warning(
+                "Classroom legacy auth rejected in /user-submissions (CLASSROOM_LEGACY_AUTH=false): uid=%s email=%s group_id=%s",
+                eff_user_id,
+                eff_email,
+                group_id,
+            )
+            return {
+                "connected": False,
+                "submissions": {},
+                "tasks": [],
+                "reason": "unauthenticated",
+            }
+        logger.warning(
+            "Classroom legacy auth used in /user-submissions (unverified identity): uid=%s email=%s group_id=%s",
+            eff_user_id,
+            eff_email,
+            group_id,
+        )
 
     # БЕЗПЕКА: Шукаємо ClassroomCredential ВИКЛЮЧНО за особистим google_user_id або email користувача!
     # Жодних фолбеків за самим лише group_id, щоб ніколи не підтягнути чужий акаунт одногрупника.
@@ -2458,12 +2678,24 @@ async def _fetch_user_submissions_impl(
 
             all_courses = courses_resp.json().get("courses", [])
             if not all_courses:
+                final_uid = cred.google_user_id if cred else eff_user_id
+                final_email = cred.email if cred else eff_email
+                issued_sess = (
+                    create_classroom_session_token(
+                        google_user_id=final_uid,
+                        email=final_email,
+                        group_id=(cred.group_id if cred else None) or group_id,
+                    )
+                    if (final_uid or final_email)
+                    else None
+                )
                 resp_payload = {
                     "connected": True,
-                    "user_email": cred.email if cred else eff_email,
+                    "user_email": final_email,
+                    "google_user_id": final_uid,
                     "submissions": {},
                     "tasks": [],
-                    "access_token": refreshed_access_token or token,
+                    "session_token": issued_sess,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                     "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
                 }
@@ -2819,24 +3051,32 @@ async def _fetch_user_submissions_impl(
 
             if not synced_subgroups and cred is not None and getattr(cred, "subgroup", None) in (1, 2):
                 synced_subgroups.add(int(cred.subgroup))
-            if not synced_subgroups and synced_teacher_tokens:
-                if any("токар" in tok for tok in synced_teacher_tokens) and not any("хочин" in tok for tok in synced_teacher_tokens):
-                    synced_subgroups.add(1)
-                elif any("хочин" in tok for tok in synced_teacher_tokens) and not any("токар" in tok for tok in synced_teacher_tokens):
-                    synced_subgroups.add(2)
+            if not synced_subgroups and synced_teacher_tokens and group_schedule_lessons:
+                synced_subgroups.update(_infer_subgroups_from_lessons(synced_teacher_tokens, group_schedule_lessons))
 
+            final_uid = cred.google_user_id if cred else eff_user_id
+            final_email = cred.email if cred else eff_email
+            issued_sess = (
+                create_classroom_session_token(
+                    google_user_id=final_uid,
+                    email=final_email,
+                    group_id=detected_group_id or group_id,
+                )
+                if (final_uid or final_email)
+                else None
+            )
             resp_payload = {
                 "connected": True,
                 "group_id": detected_group_id,
-                "user_email": cred.email if cred else eff_email,
-                "google_user_id": cred.google_user_id if cred else eff_user_id,
+                "user_email": final_email,
+                "google_user_id": final_uid,
                 "submissions": submissions_map,
                 "tasks": tasks_list,
                 "synced_teacher_names": sorted(list(synced_teacher_names)),
                 "synced_teacher_tokens": sorted(list(synced_teacher_tokens)),
                 "synced_subgroups": sorted(list(synced_subgroups)),
                 "last_synced_at": cred.last_synced_at.isoformat() if (cred and cred.last_synced_at) else None,
-                "access_token": refreshed_access_token or token,
+                "session_token": issued_sess,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
                 "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
             }

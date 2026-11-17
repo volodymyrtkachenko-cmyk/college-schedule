@@ -598,6 +598,6 @@ async def admin_subjects(db: AsyncSession = Depends(get_db), _: object = admin):
 
 
 @router.get("/metrics")
-async def get_metrics():
+async def get_metrics(_: object = admin):
     from app.analytics import get_system_metrics
     return get_system_metrics()

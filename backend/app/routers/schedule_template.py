@@ -98,10 +98,14 @@ async def get_template_schedule(
     week_type: str = Query("numerator"),
     effective_date: Optional[date] = Query(None),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin", "editor")),
 ):
     version = await db.get(ScheduleVersion, version_id)
     if not version:
         raise HTTPException(404, "Версію розкладу не знайдено")
+
+    if group_id is not None:
+        await authorize_group(db, current_user, group_id)
 
     eff_date = effective_date or get_current_monday()
 
@@ -114,6 +118,13 @@ async def get_template_schedule(
     ]
     if group_id is not None:
         conds.append(Schedule.group_id == group_id)
+    elif current_user.role == "editor":
+        from sqlalchemy.orm import selectinload
+        u = await db.scalar(
+            select(User).options(selectinload(User.allowed_groups)).where(User.id == current_user.id)
+        )
+        allowed_ids = [g.id for g in u.allowed_groups] if u else []
+        conds.append(Schedule.group_id.in_(allowed_ids or [-1]))
     if teacher_id is not None:
         conds.append(
             or_(

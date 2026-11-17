@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.models import User
+from app.models import TokenBlocklist, User
 
 password_hash = PasswordHash.recommended()
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -90,6 +90,13 @@ def decode_token(token: str, expected_type: str) -> dict[str, Any]:
     return payload
 
 
+async def is_token_blocklisted(db: AsyncSession, jti: str | None) -> bool:
+    if not jti:
+        return False
+    blocked = await db.scalar(select(TokenBlocklist.id).where(TokenBlocklist.jti == jti))
+    return blocked is not None
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
@@ -101,6 +108,8 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     payload = decode_token(credentials.credentials, "access")
+    if await is_token_blocklisted(db, payload.get("jti")):
+        raise HTTPException(status_code=401, detail="Сесія відкликана. Будь ласка, увійдіть знову.")
     try:
         user_id = int(payload["sub"])
     except (TypeError, ValueError) as exc:
@@ -120,3 +129,54 @@ def require_roles(*roles: str):
         return user
 
     return dependency
+
+
+def create_classroom_session_token(
+    *,
+    google_user_id: str | None = None,
+    email: str | None = None,
+    group_id: int | None = None,
+    expires_days: int = 30,
+) -> str:
+    now = datetime.now(timezone.utc)
+    clean_uid = (google_user_id or "").strip() or None
+    clean_email = (email or "").strip().lower() or None
+    if clean_email in ("підключено", "connected"):
+        clean_email = None
+    sub = clean_uid or clean_email or "classroom_user"
+    payload: dict[str, Any] = {
+        "sub": sub,
+        "type": "classroom_session",
+        "uid": clean_uid,
+        "email": clean_email,
+        "group_id": group_id,
+        "iat": now,
+        "exp": now + timedelta(days=expires_days),
+        "jti": str(uuid4()),
+    }
+    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+
+
+def verify_classroom_session_token(token: str | None) -> dict[str, Any] | None:
+    if not token or not token.strip():
+        return None
+    try:
+        payload = jwt.decode(
+            token.strip(),
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+        )
+    except jwt.PyJWTError:
+        return None
+    if payload.get("type") != "classroom_session":
+        return None
+    uid = (payload.get("uid") or "").strip() or None
+    email = (payload.get("email") or "").strip().lower() or None
+    if not uid and not email:
+        return None
+    return {
+        "google_user_id": uid,
+        "email": email,
+        "group_id": payload.get("group_id"),
+    }
+

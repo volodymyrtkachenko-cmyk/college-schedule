@@ -569,6 +569,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
 
         semaphore = asyncio.Semaphore(12)
         scraped_weeks: dict[int, set[str]] = {}
+        if not db.new and not db.dirty and not db.deleted and db.in_transaction():
+            await db.commit()
         client_limits = httpx.Limits(max_connections=25, max_keepalive_connections=20)
         async with httpx.AsyncClient(timeout=10.0, limits=client_limits) as client:
             tasks = [
@@ -768,6 +770,32 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
         import_settings = await get_import_settings(db)
         is_anomaly = False
         anomaly_reasons = []
+
+        group_thresh = float(import_settings.get("anomaly_group_threshold", 0.30))
+        total_thresh = float(import_settings.get("anomaly_total_threshold", 0.20))
+        base_slots_per_group = Counter(s.group_id for s in current_schedules if s.is_active)
+        cancelled_per_group = Counter(c["group_id"] for c in aggregated_cancelled)
+
+        for gid, canc_cnt in cancelled_per_group.items():
+            base_cnt = base_slots_per_group.get(gid, 0)
+            if base_cnt > 0 and canc_cnt >= 3:
+                ratio = canc_cnt / max(base_cnt, 1)
+                if ratio > group_thresh:
+                    is_anomaly = True
+                    g_name = groups_map[gid].name if gid in groups_map else str(gid)
+                    anomaly_reasons.append(
+                        f"Група {g_name}: аномальна частка скасувань ({canc_cnt}/{base_cnt}, {ratio:.0%} > {group_thresh:.0%})"
+                    )
+
+        total_base_cnt = sum(base_slots_per_group.values())
+        total_canc_cnt = len(aggregated_cancelled)
+        if total_base_cnt > 0 and total_canc_cnt >= 5:
+            total_ratio = total_canc_cnt / max(total_base_cnt, 1)
+            if total_ratio > total_thresh:
+                is_anomaly = True
+                anomaly_reasons.append(
+                    f"Загальна частка скасувань перевищує поріг ({total_canc_cnt}/{total_base_cnt}, {total_ratio:.0%} > {total_thresh:.0%})"
+                )
 
         # Safety Guard 4: No duplicates & no noise
         auto_publish_substitutions = [
@@ -1250,9 +1278,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
         raise HTTPException(
             status_code=500,
             detail={
-                "msg": f"Внутрішня помилка імпорту: {e}",
+                "msg": "Внутрішня помилка імпорту",
                 "error_id": error_id,
-                "trace": traceback.format_exc().splitlines()[-10:],
             },
         )
     finally:

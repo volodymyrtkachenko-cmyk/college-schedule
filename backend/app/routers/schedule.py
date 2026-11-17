@@ -52,7 +52,7 @@ async def load_user_groups(db: AsyncSession, user: User) -> list[int]:
 async def _has_admin_or_editor_access(request: Request | None, db: AsyncSession) -> bool:
     if request is None:
         return False
-    from app.core.security import get_current_user, decode_token
+    from app.core.security import get_current_user, decode_token, is_token_blocklisted
     override = request.app.dependency_overrides.get(get_current_user) if hasattr(request, "app") and request.app else None
     if override is not None:
         try:
@@ -66,14 +66,24 @@ async def _has_admin_or_editor_access(request: Request | None, db: AsyncSession)
         token = auth_header[7:].strip()
         try:
             payload = decode_token(token, expected_type="access")
+            if await is_token_blocklisted(db, payload.get("jti")):
+                return False
+            sub = payload.get("sub")
+            u = None
+            if sub is not None:
+                if str(sub).isdigit():
+                    u = await db.scalar(select(User).where(User.id == int(sub)))
+                if u is None:
+                    u = await db.scalar(select(User).where(User.username == str(sub)))
+            if u is not None:
+                if not u.is_active:
+                    return False
+                if payload.get("session_version") and payload.get("session_version") != getattr(u, "session_version", 1):
+                    return False
+                return u.role in ("admin", "editor")
             role = payload.get("role")
             if role in ("admin", "editor"):
                 return True
-            sub = payload.get("sub")
-            if sub:
-                u = await db.scalar(select(User).where(User.username == str(sub), User.is_active == True))
-                if u and u.role in ("admin", "editor"):
-                    return True
         except Exception:
             pass
     return False
@@ -121,14 +131,16 @@ async def _resolve_public_schedule_floor(db: AsyncSession) -> date | None:
     return saved_start
 
 
-@router.get("/schedule", response_model=ScheduleResponse)
-async def schedule(request: Request = None,
-                   group_id: int | None = None, teacher_id: int | None = None,
-                   day_of_week: int | None = Query(None, ge=1, le=7),
-                   target_date: date | None = None,
-                   include_cancelled: bool = Query(False),
-                   has_access: bool | None = None,
-                   db: AsyncSession = Depends(get_db)):
+async def _build_day_schedule(
+    request: Request | None = None,
+    group_id: int | None = None,
+    teacher_id: int | None = None,
+    day_of_week: int | None = None,
+    target_date: date | None = None,
+    include_cancelled: bool = False,
+    has_access: bool | None = None,
+    db: AsyncSession = None,
+) -> ScheduleResponse:
     try:
         target_date = target_date or today_local()
         is_privileged = await _has_admin_or_editor_access(request, db)
@@ -226,9 +238,30 @@ async def schedule(request: Request = None,
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in /schedule: {e}", exc_info=True)
-        import traceback
-        raise HTTPException(status_code=500, detail={"msg": f"Schedule error: {e}", "trace": traceback.format_exc().splitlines()[-10:]})
+        logger.error("Error in /schedule: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутрішня помилка сервера")
+
+
+@router.get("/schedule", response_model=ScheduleResponse)
+async def schedule(
+    request: Request = None,
+    group_id: int | None = None,
+    teacher_id: int | None = None,
+    day_of_week: int | None = Query(None, ge=1, le=7),
+    target_date: date | None = None,
+    include_cancelled: bool = Query(False),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _build_day_schedule(
+        request=request,
+        group_id=group_id,
+        teacher_id=teacher_id,
+        day_of_week=day_of_week,
+        target_date=target_date,
+        include_cancelled=include_cancelled,
+        has_access=None,
+        db=db,
+    )
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
 async def today(
@@ -257,11 +290,12 @@ async def today(
     from app.services import cache_rev
     cred_tag = "0"
     if teacher_id and not group_id and not is_auth and request:
+        c_sess = request.headers.get("x-classroom-session") or request.query_params.get("classroom_session") or ""
         c_uid = request.headers.get("x-classroom-user-id") or request.query_params.get("classroom_user_id") or ""
         c_email = request.headers.get("x-classroom-email") or request.query_params.get("classroom_email") or ""
-        if c_uid or c_email:
+        if c_sess or c_uid or c_email:
             import hashlib
-            cred_tag = hashlib.sha256(f"{c_uid}:{c_email.strip().lower()}".encode()).hexdigest()[:8]
+            cred_tag = hashlib.sha256(f"{c_sess}:{c_uid}:{c_email.strip().lower()}".encode()).hexdigest()[:8]
     variant = f"today:{target.isoformat()}:{int(include_cancelled)}:{int(is_auth)}:{cred_tag}"
     etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
     response.headers["ETag"] = etag
@@ -270,9 +304,11 @@ async def today(
         has_auth_context = bool(
             request.headers.get("authorization")
             or request.headers.get("x-teacher-pin")
+            or request.headers.get("x-classroom-session")
             or request.headers.get("x-classroom-user-id")
             or request.headers.get("x-classroom-email")
             or request.query_params.get("teacher_pin")
+            or request.query_params.get("classroom_session")
             or request.query_params.get("classroom_user_id")
             or request.query_params.get("classroom_email")
         )
@@ -280,7 +316,7 @@ async def today(
         response.headers["Cache-Control"] = "private, max-age=0, must-revalidate"
     else:
         response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
-    response.headers["Vary"] = "Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, X-Teacher-Pin, Authorization"
+    response.headers["Vary"] = "Origin, Accept-Encoding, X-Classroom-Session, X-Classroom-User-Id, X-Classroom-Email, X-Teacher-Pin, Authorization"
 
     if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=dict(response.headers))
@@ -312,7 +348,7 @@ async def today(
         from email.utils import format_datetime
         response.headers["Last-Modified"] = format_datetime(last_modified, usegmt=True)
 
-    return await schedule(
+    return await _build_day_schedule(
         request=request,
         group_id=group_id,
         teacher_id=teacher_id,
@@ -350,11 +386,12 @@ async def week(
     from app.services import cache_rev
     cred_tag = "0"
     if teacher_id and not group_id and not is_auth and request:
+        c_sess = request.headers.get("x-classroom-session") or request.query_params.get("classroom_session") or ""
         c_uid = request.headers.get("x-classroom-user-id") or request.query_params.get("classroom_user_id") or ""
         c_email = request.headers.get("x-classroom-email") or request.query_params.get("classroom_email") or ""
-        if c_uid or c_email:
+        if c_sess or c_uid or c_email:
             import hashlib
-            cred_tag = hashlib.sha256(f"{c_uid}:{c_email.strip().lower()}".encode()).hexdigest()[:8]
+            cred_tag = hashlib.sha256(f"{c_sess}:{c_uid}:{c_email.strip().lower()}".encode()).hexdigest()[:8]
     variant = f"week:{start.isoformat()}:{int(include_cancelled)}:{int(is_auth)}:{cred_tag}"
     etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
     response.headers["ETag"] = etag
@@ -363,9 +400,11 @@ async def week(
         has_auth_context = bool(
             request.headers.get("authorization")
             or request.headers.get("x-teacher-pin")
+            or request.headers.get("x-classroom-session")
             or request.headers.get("x-classroom-user-id")
             or request.headers.get("x-classroom-email")
             or request.query_params.get("teacher_pin")
+            or request.query_params.get("classroom_session")
             or request.query_params.get("classroom_user_id")
             or request.query_params.get("classroom_email")
         )
@@ -373,7 +412,7 @@ async def week(
         response.headers["Cache-Control"] = "private, max-age=0, must-revalidate"
     else:
         response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
-    response.headers["Vary"] = "Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, X-Teacher-Pin, Authorization"
+    response.headers["Vary"] = "Origin, Accept-Encoding, X-Classroom-Session, X-Classroom-User-Id, X-Classroom-Email, X-Teacher-Pin, Authorization"
 
     if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=dict(response.headers))

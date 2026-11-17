@@ -6,6 +6,7 @@ from typing import Dict, Any
 
 from app.database import get_db
 from app.services.bells import get_bell_times
+from app.services.classroom_access import sanitize_room_for_guest
 from app.services.projection import build_projection
 from app.services.settings import settings_service
 from app.services.week import get_week_type
@@ -27,7 +28,6 @@ async def get_schedule_now(db: AsyncSession = Depends(get_db)):
             (2, _time_cls(10, 0), _time_cls(10, 50)),
             (3, _time_cls(11, 0), _time_cls(11, 50)),
             (4, _time_cls(12, 0), _time_cls(12, 50)),
-            (5, _time_cls(13, 0), _time_cls(13, 50)),
         ]
     else:
         bell_map = await get_bell_times(db)
@@ -65,7 +65,8 @@ async def get_schedule_now(db: AsyncSession = Depends(get_db)):
         grp = ln.group_name or "Unknown"
         subj_name = ln.subject_name or "-"
         t1_name = ln.teacher_name or "-"
-        room_val = ln.room or "-"
+        sanitized_room, _ = sanitize_room_for_guest(ln.room)
+        room_val = sanitized_room or "-"
             
         response_data.append({
             "lesson_number": ln.lesson_number,

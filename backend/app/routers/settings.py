@@ -178,7 +178,7 @@ async def list_shortened_days(request: Request, response: Response, db: AsyncSes
 async def add_shortened_day_setting(
     payload: ShortenedDayItem,
     db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_roles("admin", "editor")),
+    _: object = Depends(require_roles("admin")),
 ):
     items = await settings_service.add_shortened_day(db, payload.date, payload.reason)
     return [ShortenedDayItem(date=it["date"], reason=it.get("reason")) for it in items]
@@ -188,7 +188,7 @@ async def add_shortened_day_setting(
 async def delete_shortened_day_setting(
     date_str: str,
     db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_roles("admin", "editor")),
+    _: object = Depends(require_roles("admin")),
 ):
     try:
         from datetime import date as _date
@@ -203,7 +203,7 @@ async def delete_shortened_day_setting(
 async def toggle_shortened_day_setting(
     payload: ShortenedDayTogglePayload,
     db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_roles("admin", "editor")),
+    _: object = Depends(require_roles("admin")),
 ):
     is_shortened = await settings_service.toggle_shortened_day(db, payload.date, payload.reason)
     return {"date": payload.date.isoformat(), "is_shortened": is_shortened}

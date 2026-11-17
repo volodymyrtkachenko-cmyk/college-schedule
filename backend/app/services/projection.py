@@ -249,10 +249,8 @@ def infer_lesson_number(start_time: str) -> int:
             return 2
         elif mins < 13 * 60 + 55:
             return 3
-        elif mins < 15 * 60 + 25:
-            return 4
         else:
-            return 5
+            return 4
     except Exception:
         return 1
 

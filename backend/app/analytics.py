@@ -13,11 +13,10 @@ ACTIVE_WINDOW = 95
 
 MAX_TRACKED_USERS = 5000
 
+from app.core.rate_limit import get_real_client_ip
+
 def get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    return get_real_client_ip(request)
 
 def track_request(request: Request):
     path = request.url.path
@@ -45,33 +44,28 @@ def track_request(request: Request):
         _active_users.pop(identifier, None)
         return
 
-    role = request.query_params.get("role") or "guest"
+    reported_role = request.query_params.get("role") or "guest"
     username = request.query_params.get("u") or ""
     name = request.query_params.get("n") or ""
 
-    # Verify authorization if staff role (admin/editor) is reported
+    # Verify authorization strictly via Authorization Bearer header if staff role is reported
+    role = "guest"
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ", 1)[1]
+        token = auth_header.split(" ", 1)[1].strip()
         try:
             from app.core.security import decode_token
             payload = decode_token(token, expected_type="access")
             verified_role = payload.get("role")
-            if verified_role:
+            if verified_role in ("admin", "editor"):
                 role = verified_role
+                username = str(payload.get("sub") or username)
         except Exception:
-            pass
-    elif role in ("admin", "editor"):
-        token_param = request.query_params.get("token")
-        if token_param:
-            try:
-                from app.core.security import decode_token
-                payload = decode_token(token_param, expected_type="access")
-                role = payload.get("role", "guest")
-            except Exception:
-                role = "guest"
-        else:
             role = "guest"
+
+    if role == "guest":
+        username = ""
+        name = ""
 
     _active_users[identifier] = {
         "last_seen": time.time(),

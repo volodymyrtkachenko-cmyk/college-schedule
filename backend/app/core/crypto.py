@@ -29,14 +29,17 @@ def _candidate_key_sources(override_key: Optional[str] = None) -> list[tuple[str
     sources: list[tuple[str, Optional[str]]] = []
     if override_key and override_key.strip():
         sources.append(("override", override_key))
+    jwt_env = os.getenv("JWT_SECRET_KEY")
+    jwt_cfg = getattr(settings, "jwt_secret_key", None)
+    non_default_jwt = jwt_env or (jwt_cfg if jwt_cfg and jwt_cfg != LEGACY_DEV_KEY else None)
     sources.extend([
         ("ENCRYPTION_KEY", os.getenv("ENCRYPTION_KEY")),
         ("CLASSROOM_FERNET_KEY", os.getenv("CLASSROOM_FERNET_KEY")),
         ("CLASSROOM_FERNET_KEY", getattr(settings, "classroom_fernet_key", None)),
         ("FERNET_KEY", os.getenv("FERNET_KEY")),
-        ("GOOGLE_CLIENT_SECRET", os.getenv("GOOGLE_CLIENT_SECRET")),
-        ("DATABASE_URL", os.getenv("DATABASE_URL")),
-        ("fallback_default", "dfkr-college-schedule-persistent-key-2026"),
+        ("GOOGLE_CLIENT_SECRET", os.getenv("GOOGLE_CLIENT_SECRET") or getattr(settings, "google_client_secret", None)),
+        ("JWT_SECRET_KEY", non_default_jwt),
+        ("DATABASE_URL", os.getenv("DATABASE_URL") or getattr(settings, "database_url", None)),
     ])
     return sources
 
@@ -46,7 +49,7 @@ def get_encryption_key_source() -> str:
     for name, seed in _candidate_key_sources():
         if seed and str(seed).strip():
             return name
-    return "fallback_default"
+    return "dev_ephemeral_fallback"
 
 
 def has_primary_encryption_key() -> bool:
@@ -59,7 +62,7 @@ def get_primary_raw_key(override_key: Optional[str] = None) -> str:
     for _, seed in _candidate_key_sources(override_key):
         if seed and str(seed).strip():
             return str(seed).strip()
-    return (getattr(settings, "jwt_secret_key", "") or LEGACY_FALLBACK_KEY).strip()
+    return (getattr(settings, "jwt_secret_key", "") or LEGACY_DEV_KEY).strip()
 
 
 def get_fernet(override_key: Optional[str] = None) -> Fernet:
@@ -109,12 +112,13 @@ def get_candidate_fernets(override_key: Optional[str] = None) -> list[Fernet]:
         for k in old_keys_str.split(","):
             _add_raw(k)
 
-    # Secondary & legacy fallback seeds
+    # Secondary & legacy fallback seeds (decryption/rotation only, never primary encryption)
     _add_raw(os.getenv("SECRET_KEY"))
     _add_raw(getattr(settings, "jwt_secret_key", ""))
     _add_raw(os.getenv("JWT_SECRET_KEY", ""))
     _add_raw(getattr(settings, "google_client_secret", ""))
     _add_raw(getattr(settings, "database_url", ""))
+    _add_raw("dfkr-college-schedule-persistent-key-2026")
     _add_raw(LEGACY_DEV_KEY)
     _add_raw(LEGACY_FALLBACK_KEY)
 

@@ -1,4 +1,5 @@
 import asyncio
+import hmac
 import os
 import re
 import time as _time
@@ -48,7 +49,8 @@ async def clear_all_classroom_data(
     та автоматичні нотатки/посилання/ДЗ.
     Ручні текстові нотатки студентів та викладачів залишаються недоторканими.
     """
-    if not settings.wipe_secret or wipe_secret != settings.wipe_secret:
+    configured_secret = settings.wipe_secret or os.environ.get("WIPE_SECRET")
+    if not configured_secret or not wipe_secret or not hmac.compare_digest(wipe_secret, configured_secret):
         raise HTTPException(status_code=403, detail="Невірний секрет очищення")
 
     # 1. Видаляємо зв'язки
