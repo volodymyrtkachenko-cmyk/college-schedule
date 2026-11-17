@@ -500,7 +500,7 @@ export const LessonCard = memo(function LessonCard({
       : lesson.is_cancelled
         ? "border-rose-500/40 border-dashed bg-rose-500/[0.04] opacity-80"
         : isLive
-          ? "border-sys-accent/65 ring-1 ring-sys-accent/20 shadow-[0_6px_22px_-8px_rgb(var(--sys-accent)/0.22)]"
+          ? "border-sys-accent/20 shadow-[0_8px_26px_-10px_rgb(var(--sys-accent)/0.28)]"
           : eventBadge
             ? eventBadge.cardClass
             : lesson.is_replacement
@@ -596,7 +596,7 @@ export const LessonCard = memo(function LessonCard({
           <div className="live-aurora-orb-b" />
           <svg
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full"
+            className="pointer-events-none absolute inset-0 h-full w-full drop-shadow-[0_0_5px_rgb(var(--sys-accent)/0.55)]"
           >
             <rect
               x="0"
@@ -607,21 +607,7 @@ export const LessonCard = memo(function LessonCard({
               style={{ rx: isDay ? "var(--radius-2xl, 16px)" : "var(--radius-xl, 12px)" }}
               fill="none"
               stroke="rgb(var(--sys-accent) / 0.25)"
-              strokeWidth="3"
-            />
-            <rect
-              x="0"
-              y="0"
-              width="100%"
-              height="100%"
-              rx={isDay ? 16 : 12}
-              style={{ rx: isDay ? "var(--radius-2xl, 16px)" : "var(--radius-xl, 12px)" }}
-              pathLength={100}
-              fill="none"
-              stroke="rgb(var(--sys-accent) / 0.35)"
-              strokeWidth="6"
-              strokeLinecap="round"
-              className="live-svg-beam-halo"
+              strokeWidth="2.5"
             />
             <rect
               x="0"
@@ -633,7 +619,7 @@ export const LessonCard = memo(function LessonCard({
               pathLength={100}
               fill="none"
               stroke="rgb(var(--sys-accent))"
-              strokeWidth="3"
+              strokeWidth="2.5"
               strokeLinecap="round"
               className="live-svg-beam"
             />

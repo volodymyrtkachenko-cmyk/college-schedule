@@ -2321,13 +2321,8 @@ html[data-density="relaxed"] {
 }
 
 .live-svg-beam {
-  stroke-dasharray: 22 78;
+  stroke-dasharray: 20 80;
   stroke-dashoffset: 0;
-}
-
-.live-svg-beam-halo {
-  stroke-dasharray: 26 74;
-  stroke-dashoffset: 2;
 }
 
 .live-aurora-orb-a {
@@ -2380,8 +2375,7 @@ html[data-density="relaxed"] {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-motion="off"]) .live-svg-beam,
-  html:not([data-motion="off"]) .live-svg-beam-halo {
+  html:not([data-motion="off"]) .live-svg-beam {
     animation: live-svg-orbit 5.2s linear infinite;
   }
 
