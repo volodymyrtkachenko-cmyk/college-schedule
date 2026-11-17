@@ -601,11 +601,9 @@ export const LessonCard = memo(function LessonCard({
             }`}
           >
             <div
-              className="relative h-full bg-sys-accent transition-[width] duration-300 ease-out"
+              className="relative h-full overflow-hidden bg-sys-accent/90 shadow-[0_0_8px_rgb(var(--sys-accent)/0.45)] transition-[width] duration-300 ease-out"
               style={{ width: `${progressPercent}%` }}
-            >
-              <span className="live-horizon-shimmer" />
-            </div>
+            />
           </div>
         </div>
       )}
