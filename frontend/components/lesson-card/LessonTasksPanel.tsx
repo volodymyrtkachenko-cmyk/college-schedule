@@ -77,7 +77,8 @@ function ActiveTasksList({
                   vibrateTap(10);
                 }}
                 title={`${task.teacher ? `[${task.teacher}] ` : ""}${task.title || "Завдання"} — Відкрити в Classroom`}
-                className="group flex items-start justify-between gap-2 rounded-lg border border-sys-border bg-sys-bg/80 px-2.5 py-1.5 text-xs text-sys-text-primary hover:border-sys-elevated-border hover:bg-sys-surface transition-colors"
+                style={{ "--task-idx": idx } as React.CSSProperties}
+                className="task-stagger-item group flex items-start justify-between gap-2 rounded-lg border border-sys-border bg-sys-bg/80 px-2.5 py-1.5 text-xs text-sys-text-primary hover:border-sys-elevated-border hover:bg-sys-surface transition-colors"
               >
                 <div className="flex min-w-0 flex-col">
                   <span className="font-semibold text-sys-text-primary line-clamp-2 break-words leading-snug text-xs group-hover:text-sys-accent transition-colors">
@@ -99,7 +100,8 @@ function ActiveTasksList({
             ) : (
               <div
                 key={idx}
-                className={`flex items-center justify-between gap-2 rounded-lg hover:bg-sys-card transition-colors ${
+                style={{ "--task-idx": idx } as React.CSSProperties}
+                className={`task-stagger-item flex items-center justify-between gap-2 rounded-lg hover:bg-sys-card transition-colors ${
                   isMobile ? "min-h-[44px] pr-1.5" : "pr-1.5"
                 }`}
               >
@@ -529,7 +531,7 @@ export function DayTasksSection({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`text-sys-text-muted transition-transform duration-200 shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
+            className={`text-sys-text-muted transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
           >
             <path d="m6 9 6 6 6-6" />
           </svg>
@@ -598,7 +600,7 @@ export function WeekTasksTrigger({
         </svg>
       ) : null}
       <span>{tasks.length} ДЗ</span>
-      <span className={`text-xs text-sys-text-muted transition-transform duration-150 ${isHwOpen ? "rotate-180" : ""}`}>
+      <span className={`text-xs text-sys-text-muted transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isHwOpen ? "rotate-180" : ""}`}>
         ▾
       </span>
     </button>
@@ -630,7 +632,7 @@ export function WeekTasksPopover({
   onClose: () => void;
   onToggleHw: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
-  const { shouldRender, isClosing } = useAnimatedDisclosure(show, 190);
+  const { shouldRender, isClosing } = useAnimatedDisclosure(show, 230);
   if (!shouldRender) return null;
 
   return (

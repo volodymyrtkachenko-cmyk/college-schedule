@@ -1830,23 +1830,34 @@ html[data-surface="glass"] #desktop-sections-menu {
     }
   }
 
-  /* Компактний поповер ДЗ на десктопі: фірмова м'яка 60fps пружина сайту */
+  /* Компактний поповер ДЗ на десктопі: шовковисте 60fps розгортання з оптичним фокусом і каскадом */
   .discrete-popup.desktop-compact-popover {
-    will-change: transform, opacity;
-    transition-duration: 200ms, 300ms;
-    transition-timing-function: var(--ease-out), var(--ease-spring-gentle);
+    will-change: transform, opacity, filter;
+    transform-origin: var(--popup-origin, top left);
+    transition-property: opacity, transform, filter;
+    transition-duration: 240ms, 340ms, 260ms;
+    transition-timing-function: var(--ease-out), var(--ease-smooth), var(--ease-out);
+    animation: compact-popover-halo 560ms var(--ease-smooth) both;
   }
 
   .discrete-popup.desktop-compact-popover[data-closing="true"] {
-    transition-duration: 160ms, 180ms;
-    transition-timing-function: var(--ease-out), cubic-bezier(0.32, 0, 0.24, 1);
-    transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.96);
+    animation: none;
+    transition-duration: 190ms, 220ms, 190ms;
+    transition-timing-function: var(--ease-out), cubic-bezier(0.32, 0, 0.24, 1), var(--ease-out);
+    transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.95);
+    filter: blur(4px);
+  }
+
+  .discrete-popup.desktop-compact-popover:not([data-closing="true"]) .task-stagger-item {
+    animation: task-stagger-in 340ms var(--ease-smooth) backwards;
+    animation-delay: calc(min(var(--task-idx, 0), 6) * 42ms + 50ms);
   }
 
   @starting-style {
     .discrete-popup.desktop-compact-popover {
       opacity: 0;
-      transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.95);
+      transform: translate3d(0, var(--popup-y, -8px), 0) scale(0.92);
+      filter: blur(6px);
     }
   }
 }
@@ -1928,50 +1939,146 @@ html[data-surface="glass"] #desktop-sections-menu {
   transform: translate3d(0, 0, 0);
 }
 
-/* Фірмове плавне 60fps розгортання/згортання компактних блоків завдань на десктопі */
+/* Фірмове плавне 60fps розгортання/згортання компактних блоків завдань на десктопі
+   з оптичним фокусом, світловим акцентним променем та каскадною появою рядків */
+@keyframes task-accent-sweep {
+  0% {
+    opacity: 0;
+    transform: translate3d(-45%, 0, 0) scaleX(0.35);
+  }
+  35% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(45%, 0, 0) scaleX(0.85);
+  }
+}
+
+@keyframes compact-popover-halo {
+  0% {
+    box-shadow: 0 0 0 1px rgb(var(--sys-accent) / 0.45), 0 14px 36px -8px rgb(var(--sys-accent) / 0.24);
+  }
+  100% {
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.25), 0 8px 10px -6px rgb(0 0 0 / 0.2);
+  }
+}
+
+@keyframes task-stagger-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 .grid-accordion.task-compact-accordion {
+  position: relative;
   will-change: grid-template-rows, opacity;
   transition:
-    grid-template-rows 220ms cubic-bezier(0.32, 0, 0.24, 1),
-    opacity 170ms var(--ease-out);
+    grid-template-rows 260ms cubic-bezier(0.32, 0, 0.24, 1),
+    opacity 210ms var(--ease-out);
+}
+
+.grid-accordion.task-compact-accordion::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(90deg, transparent 0%, rgb(var(--sys-accent) / 0.78) 50%, transparent 100%);
+  opacity: 0;
+  transform: translate3d(-45%, 0, 0) scaleX(0.35);
 }
 
 .grid-accordion.task-compact-accordion[data-open="true"] {
   transition:
-    grid-template-rows 300ms var(--ease-spring-gentle),
-    opacity 220ms var(--ease-out);
+    grid-template-rows 380ms var(--ease-smooth),
+    opacity 280ms var(--ease-out);
+}
+
+.grid-accordion.task-compact-accordion[data-open="true"]::before {
+  animation: task-accent-sweep 560ms var(--ease-smooth) both;
 }
 
 .grid-accordion.task-compact-accordion > .grid-accordion-inner {
   contain: layout style;
   transform-origin: top center;
-  will-change: transform;
-  transform: translate3d(0, -6px, 0) scale(0.988);
+  will-change: transform, filter, opacity;
+  opacity: 0.3;
+  filter: blur(4px);
+  transform: translate3d(0, -10px, 0) scale(0.98);
   transition:
-    visibility 220ms linear,
-    transform 210ms cubic-bezier(0.32, 0, 0.24, 1);
+    visibility 260ms linear,
+    transform 250ms cubic-bezier(0.32, 0, 0.24, 1),
+    filter 210ms var(--ease-out),
+    opacity 210ms var(--ease-out);
 }
 
 .grid-accordion.task-compact-accordion[data-open="true"] > .grid-accordion-inner {
   visibility: visible;
+  opacity: 1;
+  filter: blur(0px);
   transform: translate3d(0, 0, 0) scale(1);
   transition:
     visibility 0ms linear,
-    transform 300ms var(--ease-spring-gentle);
+    transform 380ms var(--ease-smooth),
+    filter 280ms var(--ease-out),
+    opacity 260ms var(--ease-out);
+}
+
+.grid-accordion.task-compact-accordion .task-stagger-item {
+  opacity: 0;
+  transform: translate3d(0, 8px, 0);
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 200ms cubic-bezier(0.32, 0, 0.24, 1);
+  transition-delay: 0ms;
+}
+
+.grid-accordion.task-compact-accordion[data-open="true"] .task-stagger-item {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity 280ms var(--ease-out),
+    transform 360ms var(--ease-smooth);
+  transition-delay: calc(min(var(--task-idx, 0), 6) * 45ms + 45ms);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .grid-accordion,
   .grid-accordion.task-compact-accordion,
-  .grid-accordion.task-compact-accordion[data-open="true"] {
+  .grid-accordion.task-compact-accordion[data-open="true"],
+  .grid-accordion.task-compact-accordion .task-stagger-item,
+  .grid-accordion.task-compact-accordion[data-open="true"] .task-stagger-item {
+    transform: none !important;
+    filter: none !important;
     transition: opacity 90ms ease-out !important;
+    transition-delay: 0ms !important;
+  }
+
+  .grid-accordion.task-compact-accordion::before,
+  .discrete-popup.desktop-compact-popover,
+  .discrete-popup.desktop-compact-popover:not([data-closing="true"]) .task-stagger-item {
+    animation: none !important;
+  }
+
+  .grid-accordion.task-compact-accordion::before {
+    display: none !important;
   }
 
   .grid-accordion-inner,
   .grid-accordion.task-compact-accordion > .grid-accordion-inner,
   .grid-accordion.task-compact-accordion[data-open="true"] > .grid-accordion-inner {
     transform: none !important;
-    transition: visibility 90ms linear !important;
+    filter: none !important;
+    transition: visibility 90ms linear, opacity 90ms ease-out !important;
   }
 }
 

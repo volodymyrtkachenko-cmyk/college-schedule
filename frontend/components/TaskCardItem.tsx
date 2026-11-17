@@ -344,7 +344,7 @@ export const TaskCardItem = memo(function TaskCardItem({
                 strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className={`transition-transform duration-200 shrink-0 ${briefOpen ? "rotate-180" : ""}`}
+                className={`transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shrink-0 ${briefOpen ? "rotate-180" : ""}`}
               >
                 <path d="m6 9 6 6 6-6" />
               </svg>
