@@ -40,6 +40,7 @@ const WeekTypeBottomSheet = dynamic(() => import("./schedule/WeekTypeBottomSheet
 const DatePickerModal = dynamic(() => import("./DatePickerModal").then((m) => m.DatePickerModal), { ssr: false });
 const TeacherPinModal = dynamic(() => import("./TeacherPinModal").then((m) => m.TeacherPinModal), { ssr: false });
 const MobileTasksView = dynamic(() => import("./MobileTasksView").then((m) => m.MobileTasksView), { ssr: false });
+const SettingsContent = dynamic(() => import("./settings/SettingsContent").then((m) => m.SettingsContent), { ssr: false });
 const GuideHubModal = dynamic(() => import("./GuideHubModal").then((m) => m.GuideHubModal), { ssr: false });
 const SubjectHubModal = dynamic(() => import("./schedule/SubjectHubModal").then((m) => m.SubjectHubModal), { ssr: false });
 const InstallPrompt = dynamic(() => import("./InstallPrompt").then((m) => m.InstallPrompt), { ssr: false });
@@ -198,12 +199,14 @@ export function SchedulePageClient({
   const [desktopSidebarTab, setDesktopSidebarTab] = useState<"tasks" | "grades">("tasks");
   const { urlSearch } = useMobileNav();
   const tasksPanelRef = useRef<HTMLDivElement | null>(null);
+  const settingsPanelRef = useRef<HTMLDivElement | null>(null);
   const schedulePanelRef = useRef<HTMLDivElement | null>(null);
 
   const [prevMobileTab, setPrevMobileTab] = useState(sel.mobileTab);
   const [mobileTabDir, setMobileTabDir] = useState<"next" | "prev" | null>(null);
   if (sel.mobileTab !== prevMobileTab) {
-    setMobileTabDir(sel.mobileTab === "tasks" ? "next" : "prev");
+    const order = { schedule: 0, tasks: 1, settings: 2 } as const;
+    setMobileTabDir(order[sel.mobileTab] > order[prevMobileTab] ? "next" : "prev");
     setPrevMobileTab(sel.mobileTab);
   }
 
@@ -213,12 +216,17 @@ export function SchedulePageClient({
       if (sel.mobileTab !== "tasks") tasksEl.setAttribute("inert", "");
       else tasksEl.removeAttribute("inert");
     }
+    const settingsEl = settingsPanelRef.current;
+    if (settingsEl) {
+      if (sel.mobileTab !== "settings") settingsEl.setAttribute("inert", "");
+      else settingsEl.removeAttribute("inert");
+    }
     const scheduleEl = schedulePanelRef.current;
     if (scheduleEl) {
-      if (sel.mobileTab === "tasks") scheduleEl.setAttribute("inert", "");
+      if (sel.mobileTab !== "schedule") scheduleEl.setAttribute("inert", "");
       else scheduleEl.removeAttribute("inert");
     }
-  }, [sel.mobileTab, sel.tasksTabMounted, showMobile]);
+  }, [sel.mobileTab, sel.tasksTabMounted, sel.settingsTabMounted, showMobile]);
 
   const handleOpenTeacherPinModal = useCallback((groupName: string | null = null) => {
     setTeacherPinTargetGroup(groupName);
@@ -458,11 +466,23 @@ export function SchedulePageClient({
                   </div>
                 ) : null}
 
+                {sel.settingsTabMounted || sel.mobileTab === "settings" ? (
+                  <div
+                    ref={settingsPanelRef}
+                    data-inactive={sel.mobileTab !== "settings"}
+                    data-slide-dir={mobileTabDir ?? undefined}
+                    aria-hidden={sel.mobileTab !== "settings"}
+                    className="spa-tab-panel"
+                  >
+                    <SettingsContent embedded />
+                  </div>
+                ) : null}
+
                 <div
                   ref={schedulePanelRef}
-                  data-inactive={sel.mobileTab === "tasks"}
+                  data-inactive={sel.mobileTab !== "schedule"}
                   data-slide-dir={mobileTabDir ?? undefined}
-                  aria-hidden={sel.mobileTab === "tasks"}
+                  aria-hidden={sel.mobileTab !== "schedule"}
                   className="spa-tab-panel"
                 >
                   {sel.view === "today" && (

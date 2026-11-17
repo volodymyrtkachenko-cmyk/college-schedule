@@ -1,0 +1,822 @@
+"use client";
+
+import React, { useEffect, useLayoutEffect, useState } from "react";
+import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
+import { SubpageHeader } from "@/components/navigation/SubpageHeader";
+import dynamic from "next/dynamic";
+import { AppearanceStudioSection } from "@/components/settings/AppearanceStudioSection";
+import { useUserSettings } from "@/lib/useUserSettings";
+import { useClassroomSubmissions } from "@/lib/useClassroomSubmissions";
+import { ClassroomRelinkBanner } from "@/components/ClassroomRelinkBanner";
+import { useTeacherAccess } from "@/lib/useTeacherAccess";
+import { useAuth } from "@/lib/auth";
+import { useToast } from "@/components/ToastProvider";
+import { requestClassroomAuth } from "@/lib/classroomAuth";
+import { resolveEffectiveScheduleMode } from "@/lib/navigation";
+import { useMobileNav } from "@/lib/useMobileNav";
+import { api } from "@/lib/api";
+import { checkScheduleHasSubgroups, extractSubgroupTeacherHints, SubgroupTeacherHint } from "@/lib/format";
+import {
+  BarChartIcon,
+  BellIcon,
+  CalendarIcon,
+  GraduationCapIcon,
+  LightbulbIcon,
+  LinkIcon,
+  NetworkIcon,
+  ShieldIcon,
+  UserCheckIcon,
+} from "@/components/ui/Icons";
+
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+const preloadGuideHubModal = () => {
+  void import("@/components/GuideHubModal");
+};
+
+const GuideHubModal = dynamic(
+  () => import("@/components/GuideHubModal").then((m) => m.GuideHubModal),
+  { ssr: false }
+);
+
+const ROLE_NAMES: Record<string, string> = {
+  admin: "Адміністратор",
+  editor: "Редактор",
+  viewer: "Перегляд",
+  teacher: "Викладач",
+};
+
+export function SettingsContent({ embedded = false }: { embedded?: boolean }) {
+  const { settings, updateSetting } = useUserSettings();
+  const { isLinked, linkedEmail, needsRelink, isUnlinking, unlinkError, clearUnlinkError, unlink } =
+    useClassroomSubmissions();
+  const { isTeacherUnlocked, unlockTeacher, lockTeacher } = useTeacherAccess();
+  const auth = useAuth();
+  const { showToast } = useToast();
+  const [isLinkingClassroom, setIsLinkingClassroom] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showGuideMounted, setShowGuideMounted] = useState(false);
+  if (showGuideModal && !showGuideMounted) {
+    setShowGuideMounted(true);
+  }
+
+  const [groupHasSubgroups, setGroupHasSubgroups] = useState<boolean>(false);
+  const [subgroupHints, setSubgroupHints] = useState<{ sub1: SubgroupTeacherHint[]; sub2: SubgroupTeacherHint[] }>({ sub1: [], sub2: [] });
+
+  // Синхронно читаємо кеш підгруп до першого кадру (0 CLS під час View Transition)
+  useIsomorphicLayoutEffect(() => {
+    try {
+      const gid =
+        Number(localStorage.getItem("schedule:groupId")) ||
+        Number(localStorage.getItem("schedule:classroom_linked_group_id"));
+      if (!gid) return;
+
+      const cachedFlag = localStorage.getItem(`schedule:has_subgroups:${gid}`);
+      if (cachedFlag !== null) {
+        setGroupHasSubgroups(cachedFlag === "1");
+      }
+
+      const cachedHintsRaw = localStorage.getItem(`schedule:subgroup_hints:${gid}`);
+      if (cachedHintsRaw) {
+        const parsed = JSON.parse(cachedHintsRaw);
+        if (parsed && Array.isArray(parsed.sub1) && Array.isArray(parsed.sub2)) {
+          setSubgroupHints(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    const gid =
+      Number(localStorage.getItem("schedule:groupId")) ||
+      Number(localStorage.getItem("schedule:classroom_linked_group_id"));
+    if (!gid) return;
+
+    const cachedFlag = localStorage.getItem(`schedule:has_subgroups:${gid}`);
+    const cachedHintsRaw = localStorage.getItem(`schedule:subgroup_hints:${gid}`);
+    if (cachedFlag !== null && cachedHintsRaw) {
+      return;
+    }
+
+    let cancelled = false;
+    api.week(gid)
+      .then((data) => {
+        if (cancelled) return;
+        if (Array.isArray(data) && data.length > 0) {
+          const allLessons = data.flatMap((d) => d.lessons || []);
+          const has = checkScheduleHasSubgroups(allLessons);
+          const hints = extractSubgroupTeacherHints(allLessons);
+          setGroupHasSubgroups(has);
+          setSubgroupHints(hints);
+          try {
+            localStorage.setItem(`schedule:has_subgroups:${gid}`, has ? "1" : "0");
+            localStorage.setItem(`schedule:subgroup_hints:${gid}`, JSON.stringify(hints));
+          } catch {}
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const {
+    setHideTasksTab,
+    scheduleMode: navScheduleMode,
+    setScheduleMode: setNavScheduleMode,
+    setHomeTab,
+    urlSearch,
+  } = useMobileNav();
+  const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">(navScheduleMode);
+
+  useIsomorphicLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const rawSearch = urlSearch || window.location.search;
+    let cached: string | null = null;
+    try {
+      cached = localStorage.getItem("schedule:mode");
+    } catch {}
+    const resolved = resolveEffectiveScheduleMode(rawSearch, cached);
+
+    setScheduleMode(resolved);
+    setHideTasksTab(resolved === "teacher");
+    setNavScheduleMode(resolved);
+  }, [urlSearch, setHideTasksTab, setNavScheduleMode]);
+
+  const [pinInput, setPinInput] = useState("");
+  const [showPinInput, setShowPinInput] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinSuccess, setPinSuccess] = useState(false);
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+
+  const handlePinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pinInput.trim()) return;
+    setPinError(null);
+    setPinSuccess(false);
+    setIsVerifyingPin(true);
+    const res = await unlockTeacher(pinInput.trim());
+    setIsVerifyingPin(false);
+    if (res.success) {
+      setPinInput("");
+      setPinSuccess(true);
+      setTimeout(() => setPinSuccess(false), 3000);
+    } else {
+      setPinError("Невірний PIN-код. Перевірте й спробуйте ще раз.");
+    }
+  };
+
+  const handleClassroomLinkClick = async () => {
+    if (isLinkingClassroom || isUnlinking) return;
+    clearUnlinkError();
+    setIsLinkingClassroom(true);
+    try {
+      const cachedGroupId = typeof window !== "undefined"
+        ? (Number(localStorage.getItem("schedule:groupId")) || Number(localStorage.getItem("schedule:classroom_linked_group_id")) || undefined)
+        : undefined;
+
+      await requestClassroomAuth({
+        groupId: cachedGroupId,
+        onSuccess: (res) => {
+          const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
+          if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
+          const groupPrefix = res.group_name ? `Група ${res.group_name}: ` : "";
+          showToast(`${groupPrefix}Classroom успішно прив'язано (${parts.join(", ")})!`, "success");
+
+          if (res.group_id) {
+            const newGid = Number(res.group_id);
+            if (cachedGroupId && newGid !== cachedGroupId) {
+              showToast(`Групу автоматично визначено як «${res.group_name || newGid}» за курсами Classroom`, "info");
+            }
+            api.week(newGid).then((data) => {
+              if (Array.isArray(data) && data.length > 0) {
+                const allLessons = data.flatMap((d) => d.lessons || []);
+                const has = checkScheduleHasSubgroups(allLessons);
+                setGroupHasSubgroups(has);
+                try {
+                  localStorage.setItem(`schedule:has_subgroups:${newGid}`, has ? "1" : "0");
+                } catch {}
+              }
+            }).catch(() => {});
+          }
+        },
+      });
+    } catch (err: any) {
+      showToast(err?.message || "Не вдалося прив'язати Classroom", "error");
+    } finally {
+      setIsLinkingClassroom(false);
+    }
+  };
+
+  const handleClassroomUnlinkClick = async () => {
+    const res = await unlink();
+    if (res.ok) {
+      showToast("Google Classroom відв'язано", "success");
+    } else if (res.error) {
+      showToast(res.error, "error");
+    }
+  };
+
+  const isStudent = scheduleMode === "student";
+  const isTeacher = scheduleMode === "teacher";
+  const roleLabel = (auth?.user && (ROLE_NAMES[auth.user.role] || auth.user.role)) || "";
+
+  const BodyContainer = embedded ? "div" : "main";
+  const bodyContent = (
+    <BodyContainer
+      id={embedded ? undefined : "main-content"}
+      tabIndex={embedded ? undefined : -1}
+      className={
+        embedded
+          ? "max-w-2xl mx-auto px-3 py-4 sm:px-4 space-y-5 pb-bottom-nav-safe text-sys-text-primary"
+          : "vt-main-content focus:outline-none max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-6 pb-bottom-nav-safe lg:pb-12"
+      }
+    >
+        {/* Section 1: Розклад */}
+        <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
+            <CalendarIcon className="h-4 w-4 text-sys-text-muted" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
+              Розклад
+            </h2>
+          </div>
+
+          {/* 1.1 Setting: Моя підгрупа (для студентів при наявності підгруп у групи) */}
+          {isStudent && groupHasSubgroups && (
+            <>
+              <div className="space-y-2 py-1">
+                <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
+                  Моя підгрупа
+                </span>
+                <p className="text-xs text-sys-text-secondary leading-relaxed">
+                  Фільтрує пари з поділом на 1 або 2 підгрупу. Перемкнути на «Обидві» можна прямо з картки пари.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateSetting("defaultSubgroup", 1)}
+                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer min-w-0 ${
+                      settings.defaultSubgroup === 1
+                        ? "bg-sys-accent text-white border-sys-accent shadow-xs"
+                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
+                    }`}
+                  >
+                    <div className="text-xs font-bold">1 підгрупа</div>
+                    {subgroupHints.sub1.length > 0 ? (
+                      <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === 1 ? "text-sys-onAccent font-medium" : "text-sys-text-secondary"}`}>
+                        {subgroupHints.sub1.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
+                      </div>
+                    ) : (
+                      <div className={`text-[11px] mt-0.5 leading-snug ${settings.defaultSubgroup === 1 ? "text-sys-onAccent font-medium" : "text-sys-text-muted"}`}>
+                        Перша половина групи
+                      </div>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => updateSetting("defaultSubgroup", 2)}
+                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer min-w-0 ${
+                      settings.defaultSubgroup === 2
+                        ? "bg-sys-accent text-white border-sys-accent shadow-xs"
+                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
+                    }`}
+                  >
+                    <div className="text-xs font-bold">2 підгрупа</div>
+                    {subgroupHints.sub2.length > 0 ? (
+                      <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === 2 ? "text-sys-onAccent font-medium" : "text-sys-text-secondary"}`}>
+                        {subgroupHints.sub2.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
+                      </div>
+                    ) : (
+                      <div className={`text-[11px] mt-0.5 leading-snug ${settings.defaultSubgroup === 2 ? "text-sys-onAccent font-medium" : "text-sys-text-muted"}`}>
+                        Друга половина групи
+                      </div>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => updateSetting("defaultSubgroup", "all")}
+                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer min-w-0 ${
+                      settings.defaultSubgroup === "all" || settings.defaultSubgroup === null
+                        ? "bg-sys-accent text-white border-sys-accent shadow-xs"
+                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
+                    }`}
+                  >
+                    <div className="text-xs font-bold">Обидві підгрупи</div>
+                    <div className={`text-[11px] mt-0.5 leading-snug break-words [text-wrap:pretty] ${settings.defaultSubgroup === "all" || settings.defaultSubgroup === null ? "text-sys-onAccent font-medium" : "text-sys-text-secondary"}`}>
+                      Показувати викладачів обох підгруп
+                    </div>
+                  </button>
+                </div>
+              </div>
+              <div className="hidden lg:block h-px bg-sys-border/40" />
+            </>
+          )}
+
+          {/* 1.2 Setting: Початковий вигляд (лише на комп'ютері >= 1024px) */}
+          <div className="hidden lg:block space-y-2 py-1">
+            <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
+              Початковий вигляд
+            </span>
+            <p className="text-xs text-sys-text-secondary leading-relaxed">
+              Який режим відкривати при запуску: день або повну сітку тижня.
+            </p>
+            <div
+              role="group"
+              aria-label="Початковий вигляд"
+              style={
+                {
+                  "--seg-cols": 2,
+                  "--seg-index": settings.defaultViewDesktop === "week" ? 1 : 0,
+                } as React.CSSProperties
+              }
+              className="ui-seg-xl ui-seg-pad-4 relative grid grid-cols-2 items-stretch rounded-xl border border-sys-border bg-sys-bg text-xs isolate select-none"
+            >
+              <div
+                aria-hidden="true"
+                className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu"
+              />
+              <button
+                type="button"
+                aria-pressed={settings.defaultViewDesktop === "today"}
+                onClick={() => updateSetting("defaultViewDesktop", "today")}
+                className={`ui-seg-pill relative z-10 flex min-h-[36px] items-center justify-center py-1.5 px-2 font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+                  settings.defaultViewDesktop === "today"
+                    ? "text-white font-bold"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                День
+              </button>
+              <button
+                type="button"
+                aria-pressed={settings.defaultViewDesktop === "week"}
+                onClick={() => updateSetting("defaultViewDesktop", "week")}
+                className={`ui-seg-pill relative z-10 flex min-h-[36px] items-center justify-center py-1.5 px-2 font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+                  settings.defaultViewDesktop === "week"
+                    ? "text-white font-bold"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                Тиждень
+              </button>
+            </div>
+          </div>
+
+          <div className="hidden lg:block h-px bg-sys-border/40" />
+
+          {/* 1.3 Toggle: Завдання (ДЗ) на картках пар */}
+          <div className="flex items-start justify-between gap-4 py-1">
+            <div className="space-y-0.5 min-w-0 pr-2">
+              <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
+                Завдання (ДЗ) на картках пар
+              </span>
+              <p className="text-xs text-sys-text-secondary leading-relaxed">
+                Показувати активні завдання з Classroom на картках пар.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-label="Показувати завдання з Classroom на картках пар"
+              aria-checked={settings.showHomeworkBadges}
+              onClick={() => updateSetting("showHomeworkBadges", !settings.showHomeworkBadges)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                settings.showHomeworkBadges ? "bg-sys-accentSolid" : "bg-sys-elevatedBorder"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                  settings.showHomeworkBadges ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        </section>
+
+        {/* Section 2: Google Classroom (для студентів) */}
+        {isStudent && (
+          <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
+              <GraduationCapIcon className="h-4 w-4 text-sys-text-muted" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
+                Google Classroom
+              </h2>
+            </div>
+
+            <ClassroomRelinkBanner />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 text-xs">
+              <div className="space-y-0.5 min-w-0">
+                <span className="text-xs font-semibold text-sys-text-secondary">Студентська пошта Google</span>
+                {isLinked && linkedEmail ? (
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-bold text-sys-text-primary min-w-0">
+                    <span
+                      className={`h-2 w-2 rounded-full shrink-0 ${
+                        needsRelink ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
+                      }`}
+                    />
+                    <span
+                      className={`font-semibold shrink-0 ${
+                        needsRelink
+                          ? "text-amber-700 dark:text-amber-400"
+                          : "text-emerald-700 dark:text-emerald-400"
+                      }`}
+                    >
+                      {needsRelink ? "Потрібна повторна прив'язка ·" : "Прив'язано ·"}
+                    </span>
+                    <span className="break-all sm:truncate min-w-0">{linkedEmail}</span>
+                  </div>
+                ) : (
+                  <div className="text-sys-text-muted font-medium">Не прив&apos;язано</div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {isLinked ? (
+                  <>
+                    {needsRelink && (
+                      <button
+                        type="button"
+                        onClick={handleClassroomLinkClick}
+                        disabled={isLinkingClassroom || isUnlinking}
+                        className="rounded-lg bg-amber-700 hover:bg-amber-800 text-white px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 active:scale-95 shadow-xs"
+                      >
+                        {isLinkingClassroom ? "Підключення..." : "Оновити"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleClassroomUnlinkClick}
+                      disabled={isUnlinking || isLinkingClassroom}
+                      className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isUnlinking ? "Відв'язування..." : "Відв'язати"}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleClassroomLinkClick}
+                    disabled={isLinkingClassroom}
+                    className="rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 px-3 py-1.5 text-xs font-semibold text-sky-700 dark:text-sky-400 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isLinkingClassroom ? "Підключення..." : "Прив'язати Classroom"}
+                  </button>
+                )}
+              </div>
+            </div>
+            {unlinkError && (
+              <div
+                role="alert"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-rose-500/35 bg-rose-500/10 p-3 text-xs text-rose-800 dark:text-rose-200"
+              >
+                <p className="font-medium leading-relaxed">{unlinkError}</p>
+                <button
+                  type="button"
+                  onClick={handleClassroomUnlinkClick}
+                  disabled={isUnlinking}
+                  className="shrink-0 self-end sm:self-center rounded-lg bg-rose-700 hover:bg-rose-800 text-white px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isUnlinking ? "Відв'язування..." : "Повторити"}
+                </button>
+              </div>
+            )}
+            <p className="text-xs text-sys-text-secondary leading-relaxed">
+              Пошта @kre.dp.ua відкриває посилання Meet/Zoom, завдання, статуси здачі та оцінки.
+            </p>
+          </section>
+        )}
+
+        {/* Section 3: Студія оформлення */}
+        <AppearanceStudioSection />
+
+        {/* Section 4: Доступ викладача (для викладачів) */}
+        {isTeacher && (
+          <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
+              <UserCheckIcon className="h-4 w-4 text-sys-text-muted" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
+                Доступ викладача
+              </h2>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3.5 text-xs">
+              <div className="space-y-0.5 min-w-0">
+                <span className="text-xs font-semibold text-sys-text-secondary">Статус</span>
+                {isTeacherUnlocked ? (
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-400">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                    <span>Активовано · посилання Meet/Zoom відкрито</span>
+                  </div>
+                ) : (
+                  <div className="text-sys-text-muted font-medium">Не активовано</div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {isTeacherUnlocked && (
+                  <button
+                    type="button"
+                    onClick={lockTeacher}
+                    className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors cursor-pointer"
+                  >
+                    Скинути PIN-доступ
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {!isTeacherUnlocked && (
+              <form onSubmit={handlePinSubmit} className="space-y-2 pt-1">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type={showPinInput ? "text" : "password"}
+                      placeholder="PIN-код викладача"
+                      value={pinInput}
+                      onChange={(e) => {
+                        setPinInput(e.target.value);
+                        if (pinError) setPinError(null);
+                      }}
+                      className={`w-full h-10 px-3 pr-9 rounded-xl border bg-sys-bg text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:outline-hidden focus:ring-2 ${
+                        pinError ? "border-rose-500/50 focus:ring-rose-500/20" : "border-sys-border focus:border-sys-accent focus:ring-sys-accent/20"
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPinInput(!showPinInput)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-sys-text-muted hover:text-sys-text-primary p-1 transition-colors cursor-pointer"
+                      title={showPinInput ? "Приховати PIN" : "Показати PIN"}
+                    >
+                      {showPinInput ? (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                          <line x1="2" x2="22" y1="2" y2="22" />
+                        </svg>
+                      ) : (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isVerifyingPin || !pinInput.trim()}
+                    className="h-10 px-4 rounded-xl bg-sys-accent text-white font-semibold text-xs hover:bg-sys-accent/90 disabled:opacity-50 transition-colors duration-fast ease-smooth shrink-0 cursor-pointer shadow-xs active:scale-95"
+                  >
+                    {isVerifyingPin ? "Перевірка…" : "Активувати"}
+                  </button>
+                </div>
+                {pinError && <p className="text-xs text-rose-700 dark:text-rose-400 font-medium">{pinError}</p>}
+                {pinSuccess && <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Доступ викладача активовано.</p>}
+              </form>
+            )}
+
+            <p className="text-xs text-sys-text-secondary leading-relaxed">
+              PIN-код відкриває посилання на онлайн-пари (Meet/Zoom) для всіх груп на цьому пристрої без прив&apos;язки Classroom. Код видає адміністратор.
+            </p>
+          </section>
+        )}
+
+        {/* Section 5: Корисні посилання (на мобільному, бо на десктопі всі розділи вже є у верхньому меню «Розділи») */}
+        <section className="lg:hidden rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
+          <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
+            <LinkIcon className="h-4 w-4 text-sys-text-muted" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
+              Корисні посилання
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <button
+              type="button"
+              onPointerEnter={preloadGuideHubModal}
+              onTouchStart={preloadGuideHubModal}
+              onFocus={preloadGuideHubModal}
+              onClick={() => {
+                preloadGuideHubModal();
+                setShowGuideMounted(true);
+                setShowGuideModal(true);
+              }}
+              className="spring-press sm:col-span-2 flex items-center justify-between gap-3 rounded-xl border border-sys-accent/30 bg-sys-accent/10 p-3 hover:border-sys-accent/60 hover:bg-sys-accent/15 transition-colors duration-fast ease-smooth group text-left cursor-pointer"
+            >
+              <span className="flex items-center gap-2.5 min-w-0 flex-1">
+                <LightbulbIcon className="h-4 w-4 shrink-0 text-sys-accent" />
+                <span className="flex flex-col min-w-0">
+                  <span className="font-semibold text-sys-text-primary text-xs sm:text-sm leading-snug">Гід та довідник можливостей</span>
+                  <span className="text-[11px] text-sys-text-secondary leading-snug">Покрокова шпаргалка: Classroom, Meet/Zoom, підгрупи, оцінки й заміни</span>
+                </span>
+              </span>
+              <span className="text-sys-accent group-hover:translate-x-0.5 transition-transform text-xs font-bold shrink-0">Відкрити →</span>
+            </button>
+
+            <TransitionLink
+              href="/bells"
+              className="spring-press flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-amber-500/40 hover:bg-amber-500/5 transition-colors duration-fast ease-smooth group"
+            >
+              <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
+                <BellIcon className="h-4 w-4 text-sys-text-secondary" />
+                <span>Розклад дзвінків</span>
+              </span>
+              <span className="text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform">↗</span>
+            </TransitionLink>
+
+            <TransitionLink
+              href={scheduleMode === "teacher" ? "/statistics?mode=teacher" : "/statistics"}
+              className="spring-press flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-purple-500/40 hover:bg-purple-500/5 transition-colors duration-fast ease-smooth group"
+            >
+              <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
+                <BarChartIcon className="h-4 w-4 text-sys-text-secondary" />
+                <span>Статистика занять</span>
+              </span>
+              <span className="text-purple-600 dark:text-purple-400 group-hover:translate-x-0.5 transition-transform">↗</span>
+            </TransitionLink>
+
+            <TransitionLink
+              href="/educational-process"
+              className="spring-press sm:col-span-2 flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors duration-fast ease-smooth group"
+            >
+              <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
+                <CalendarIcon className="h-4 w-4 text-sys-text-secondary" />
+                <span>Графік освітнього процесу</span>
+              </span>
+              <span className="text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">↗</span>
+            </TransitionLink>
+
+            <TransitionLink
+              href="/atlas"
+              className="spring-press sm:col-span-2 flex items-center justify-between gap-3 rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-sys-accent/45 hover:bg-sys-accent/5 transition-colors duration-fast ease-smooth group text-left"
+            >
+              <span className="flex items-center gap-2.5 min-w-0 flex-1">
+                <NetworkIcon className="h-4 w-4 shrink-0 text-sys-accent" />
+                <span className="flex flex-col min-w-0">
+                  <span className="font-semibold text-sys-text-primary text-xs sm:text-sm leading-snug">
+                    Атлас ДФКР — Мапа зв&apos;язків коледжу
+                  </span>
+                  <span className="text-[11px] text-sys-text-secondary leading-snug">
+                    Зв&apos;язки груп, викладачів, предметів і аудиторій
+                  </span>
+                </span>
+              </span>
+              <span className="text-sys-accent group-hover:translate-x-0.5 transition-transform text-xs font-bold shrink-0">Відкрити →</span>
+            </TransitionLink>
+          </div>
+        </section>
+
+        {/* Desktop-only Keyboard Shortcuts & Guide */}
+        <section className="hidden lg:block rounded-2xl border border-sys-border bg-sys-card p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between gap-2 pb-2 border-b border-sys-border/60">
+            <div className="flex items-center gap-2">
+              <LightbulbIcon className="h-4 w-4 text-sys-text-muted" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
+                Керування з клавіатури
+              </h2>
+            </div>
+            <button
+              type="button"
+              onPointerEnter={preloadGuideHubModal}
+              onFocus={preloadGuideHubModal}
+              onClick={() => {
+                preloadGuideHubModal();
+                setShowGuideMounted(true);
+                setShowGuideModal(true);
+              }}
+              className="text-xs font-semibold text-sys-accent hover:underline cursor-pointer"
+            >
+              Гід можливостей →
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2">
+              <span className="text-sys-text-secondary">День / тиждень вперед-назад</span>
+              <kbd className="rounded-md border border-sys-border bg-sys-card px-1.5 py-0.5 font-mono text-[11px] font-semibold text-sys-text-primary">← / →</kbd>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2">
+              <span className="text-sys-text-secondary">Вибір групи або викладача</span>
+              <kbd className="rounded-md border border-sys-border bg-sys-card px-1.5 py-0.5 font-mono text-[11px] font-semibold text-sys-text-primary">Ctrl+K / /</kbd>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2">
+              <span className="text-sys-text-secondary">Вигляд День / Тиждень / Сьогодні</span>
+              <kbd className="rounded-md border border-sys-border bg-sys-card px-1.5 py-0.5 font-mono text-[11px] font-semibold text-sys-text-primary">D / W / T</kbd>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2">
+              <span className="text-sys-text-secondary">Перемкнути підгрупу (1 / 2 / всі)</span>
+              <kbd className="rounded-md border border-sys-border bg-sys-card px-1.5 py-0.5 font-mono text-[11px] font-semibold text-sys-text-primary">1 / 2 / 0</kbd>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 6: Адміністрування */}
+        {auth?.user ? (
+          <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
+            <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
+              <ShieldIcon className="h-4 w-4 text-sys-text-muted" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
+                Адміністрування
+              </h2>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
+                <div>
+                  <div className="font-bold text-emerald-800 dark:text-emerald-400">Увійшли як {auth.user.username}</div>
+                  <div className="text-sys-text-secondary text-[11px]">Роль: {roleLabel}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => auth.logout()}
+                  className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors cursor-pointer"
+                >
+                  Вийти з акаунта
+                </button>
+              </div>
+              <TransitionLink
+                href="/admin"
+                className="flex items-center justify-center gap-2 rounded-xl bg-sys-accent px-4 py-2.5 text-xs font-bold text-white hover:bg-sys-accent/90 transition-colors"
+              >
+                <span>Панель керування розкладом</span>
+                <span>→</span>
+              </TransitionLink>
+            </div>
+          </section>
+        ) : (
+          <div className="pt-1">
+            <TransitionLink
+              href="/login"
+              className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-card/70 px-4 py-2.5 text-xs text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-text-primary transition-colors duration-fast ease-smooth group"
+            >
+              <span className="flex items-center gap-2 font-medium">
+                <ShieldIcon className="h-3.5 w-3.5 text-sys-text-muted" />
+                <span>Вхід для адміністратора та редакторів</span>
+              </span>
+              <span className="text-sys-accent font-semibold group-hover:translate-x-0.5 transition-transform">→</span>
+            </TransitionLink>
+          </div>
+        )}
+
+        {showGuideMounted && (
+          <GuideHubModal
+            isOpen={showGuideModal}
+            groupId={
+              typeof window !== "undefined"
+                ? Number(localStorage.getItem("schedule:groupId")) ||
+                  Number(localStorage.getItem("schedule:classroom_linked_group_id")) ||
+                  undefined
+                : undefined
+            }
+            teacherId={
+              typeof window !== "undefined"
+                ? Number(localStorage.getItem("schedule:teacherId")) || undefined
+                : undefined
+            }
+            mode={
+              typeof window !== "undefined"
+                ? (localStorage.getItem("schedule:mode") as "student" | "teacher") || "student"
+                : "student"
+            }
+            onClose={() => setShowGuideModal(false)}
+          />
+        )}
+    </BodyContainer>
+  );
+
+  if (embedded) {
+    return bodyContent;
+  }
+
+  return (
+    <div className="min-h-screen bg-sys-bg text-sys-text-primary">
+      <SubpageHeader
+        title="Налаштування"
+        subtitle="Зберігаються лише на цьому пристрої"
+        backHref="/"
+        onBackClick={() => setHomeTab("schedule")}
+        maxWidthClass="max-w-2xl"
+        rightSlot={
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary whitespace-nowrap">
+            {scheduleMode === "teacher" ? (
+              <>
+                <UserCheckIcon className="h-3.5 w-3.5 text-sys-accent" />
+                <span>Викладач</span>
+              </>
+            ) : (
+              <>
+                <GraduationCapIcon className="h-3.5 w-3.5 text-sys-accent" />
+                <span>Студент</span>
+              </>
+            )}
+          </span>
+        }
+      />
+      {bodyContent}
+    </div>
+  );
+}

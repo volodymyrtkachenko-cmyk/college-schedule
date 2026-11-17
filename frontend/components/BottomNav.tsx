@@ -38,6 +38,10 @@ export function BottomNav() {
     void import("./MobileTasksView");
   };
 
+  const preloadSettingsChunk = () => {
+    void import("./settings/SettingsContent");
+  };
+
   const isHiddenRoute = pathname?.startsWith("/admin") || pathname?.startsWith("/login");
   const { isOnboarded } = useOnboardingStatus();
   const isOnSchedulePage = isScheduleRoutePath(pathname);
@@ -113,15 +117,29 @@ export function BottomNav() {
   const handleSettingsClick = (e: React.MouseEvent) => {
     if (isModifiedMouseClick(e)) return;
     vibrateTap(8);
-    if (!isSettings) {
-      setPendingTab("settings");
+    preloadSettingsChunk();
+    if (isOnSchedulePage) {
+      e.preventDefault();
+      if (activeTab === "settings") {
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+        return;
+      }
+      syncScheduleLocation(
+        buildCurrentScheduleHref(window.location.pathname, window.location.search, "settings")
+      );
+      return;
     }
     if (isSettings) {
       e.preventDefault();
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
+      return;
     }
+    setHomeTab("settings");
+    setPendingTab("settings");
   };
 
   const scheduleHref = isOnSchedulePage
@@ -130,7 +148,11 @@ export function BottomNav() {
   const tasksHref = isOnSchedulePage
     ? buildCurrentScheduleHref(pathname, urlSearch, "tasks")
     : "/?tab=tasks";
-  const settingsHref = scheduleMode === "teacher" ? "/settings?mode=teacher" : "/settings";
+  const settingsHref = isOnSchedulePage
+    ? buildCurrentScheduleHref(pathname, urlSearch, "settings")
+    : scheduleMode === "teacher"
+    ? "/?tab=settings&mode=teacher"
+    : "/?tab=settings";
 
   const totalTabs = hideTasksTab ? 2 : 3;
   const tabIndex = activeTab === "schedule" ? 0 : activeTab === "tasks" ? 1 : hideTasksTab ? 1 : 2;
@@ -251,6 +273,9 @@ export function BottomNav() {
         <TransitionLink
           href={settingsHref}
           prefetch={true}
+          onMouseEnter={preloadSettingsChunk}
+          onTouchStart={preloadSettingsChunk}
+          onFocus={preloadSettingsChunk}
           onClick={handleSettingsClick}
           data-bottom-nav-item="settings"
           aria-current={activeTab === "settings" ? "page" : undefined}

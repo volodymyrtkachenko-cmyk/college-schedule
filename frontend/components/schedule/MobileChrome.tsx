@@ -104,6 +104,10 @@ export function MobileChrome({
           <div className="flex flex-col items-center justify-center flex-1 min-w-0 overflow-hidden">
             <span className="text-sm font-bold text-sys-text-primary truncate">Завдання</span>
           </div>
+        ) : mobileTab === "settings" ? (
+          <div className="flex flex-col items-center justify-center flex-1 min-w-0 overflow-hidden">
+            <span className="text-sm font-bold text-sys-text-primary truncate">Налаштування</span>
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center flex-1 min-w-0 overflow-hidden">
             <div className="flex items-center justify-center gap-0.5 max-w-full">

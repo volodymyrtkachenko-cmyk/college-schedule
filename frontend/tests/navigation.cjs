@@ -84,8 +84,11 @@ test("resolveHomeTabFromLocation resets mobile tab to schedule unless explicit t
   assert.equal(nav.resolveHomeTabFromLocation("/group/КІ-24-1", ""), "schedule");
   assert.equal(nav.resolveHomeTabFromLocation("/teacher/ivanenko", ""), "schedule");
   assert.equal(nav.resolveHomeTabFromLocation("/", "?tab=tasks"), "tasks");
+  assert.equal(nav.resolveHomeTabFromLocation("/", "?tab=settings"), "settings");
   assert.equal(nav.resolveHomeTabFromLocation("/group/КІ-24-1", "tab=tasks"), "tasks");
+  assert.equal(nav.resolveHomeTabFromLocation("/group/КІ-24-1", "tab=settings"), "settings");
   assert.equal(nav.resolveHomeTabFromLocation("/bells", "?tab=tasks"), "schedule");
+  assert.equal(nav.resolveHomeTabFromLocation("/bells", "?tab=settings"), "schedule");
 });
 
 test("resolveActiveMobileTab hides active bottom tab indicator on auxiliary subpages", () => {
@@ -147,6 +150,10 @@ test("buildScheduleTabSearch and buildCurrentScheduleHref preserve route path an
   assert.equal(
     nav.buildCurrentScheduleHref("/settings", "?mode=student", "tasks"),
     "/?mode=student&tab=tasks",
+  );
+  assert.equal(
+    nav.buildCurrentScheduleHref("/group/85", "?tab=tasks&subtab=grades&date=2026-11-16", "settings"),
+    "/group/85?tab=settings&date=2026-11-16",
   );
 });
 

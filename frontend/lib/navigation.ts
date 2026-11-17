@@ -6,8 +6,8 @@ export type PublicSectionId =
   | "atlas"
   | "settings";
 
-export type MobileHomeTab = "schedule" | "tasks";
-export type MobileTab = MobileHomeTab | "settings";
+export type MobileHomeTab = "schedule" | "tasks" | "settings";
+export type MobileTab = MobileHomeTab;
 export type ScheduleMode = "student" | "teacher";
 
 export type RouteTransitionDirection = "route-forward" | "route-backward";
@@ -149,15 +149,17 @@ export function isScheduleRoutePath(pathname?: string | null): boolean {
 
 /**
  * Resolves which mobile homepage tab should open for a schedule URL.
- * Any schedule route without explicit `?tab=tasks` defaults back to `"schedule"`.
+ * Any schedule route without explicit `?tab=tasks` or `?tab=settings` defaults back to `"schedule"`.
  */
 export function resolveHomeTabFromLocation(
   pathname?: string | null,
   search = "",
 ): MobileHomeTab {
   if (!isScheduleRoutePath(pathname)) return "schedule";
-  const params = new URLSearchParams(search.replace(/^\?/, ""));
-  return params.get("tab") === "tasks" ? "tasks" : "schedule";
+  const tab = new URLSearchParams(search.replace(/^\?/, "")).get("tab");
+  if (tab === "tasks") return "tasks";
+  if (tab === "settings") return "settings";
+  return "schedule";
 }
 
 /**
@@ -239,6 +241,9 @@ export function buildScheduleTabSearch(
 
   if (tab === "schedule") {
     params.delete("tab");
+    params.delete("subtab");
+  } else if (tab === "settings") {
+    params.set("tab", "settings");
     params.delete("subtab");
   } else {
     params.set("tab", "tasks");

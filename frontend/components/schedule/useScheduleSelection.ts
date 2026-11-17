@@ -268,6 +268,10 @@ export function useScheduleSelection({
   if (mobileTab === "tasks" && !tasksTabMounted) {
     setTasksTabMounted(true);
   }
+  const [settingsTabMounted, setSettingsTabMounted] = useState(() => mobileTab === "settings");
+  if (mobileTab === "settings" && !settingsTabMounted) {
+    setSettingsTabMounted(true);
+  }
 
   useEffect(() => {
     setHideTasksTab(mode === "teacher");
@@ -917,6 +921,7 @@ export function useScheduleSelection({
     mobileTab,
     setOverdueCount,
     tasksTabMounted,
+    settingsTabMounted,
     recentGroupIds,
     recentTeacherIds,
     returnTarget,
