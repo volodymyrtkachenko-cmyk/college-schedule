@@ -2489,10 +2489,14 @@ html[data-backdrop]:not([data-backdrop="none"]) body {
   background-image: none;
 }
 
-/* Yield page-level outer wrappers so fixed <AppBackdrop /> stays visible */
+/* Yield page-level outer wrappers so fixed <AppBackdrop /> and OLED/glass canvas stay visible on all routes */
 html:is([data-backdrop]:not([data-backdrop="none"]), [data-surface="glass"], [data-surface="oled"])
   .app-content-layer
-  > :is(div, main):first-child {
+  > :is(div, main):first-child,
+html:is([data-backdrop]:not([data-backdrop="none"]), [data-surface="glass"], [data-surface="oled"])
+  .app-content-layer
+  .app-gate-shell
+  > :is(div, main) {
   background-color: transparent !important;
 }
 

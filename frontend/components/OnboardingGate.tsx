@@ -140,8 +140,8 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
         aria-hidden={needsGlobalGate ? "true" : undefined}
         className={
           needsGlobalGate
-            ? "blur-[8px] opacity-60 saturate-90 pointer-events-none select-none max-h-dvh overflow-hidden"
-            : undefined
+            ? "app-gate-shell blur-[8px] opacity-60 saturate-90 pointer-events-none select-none max-h-dvh overflow-hidden"
+            : "app-gate-shell"
         }
       >
         {children}
