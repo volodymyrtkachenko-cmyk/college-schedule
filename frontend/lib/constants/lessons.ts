@@ -14,5 +14,4 @@ export const SHORTENED_LESSON_TIMES: Record<number, string> = {
   2: "10:00–10:50",
   3: "11:00–11:50",
   4: "12:00–12:50",
-  5: "13:00–13:50",
 };

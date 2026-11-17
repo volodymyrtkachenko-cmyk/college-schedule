@@ -14,7 +14,6 @@ SHORTENED_BELL_TIMES: dict[int, tuple[str, str]] = {
     2: ("10:00", "10:50"),
     3: ("11:00", "11:50"),
     4: ("12:00", "12:50"),
-    5: ("13:00", "13:50"),
 }
 
 
@@ -50,7 +49,11 @@ def build_bell_slot_items(
 
 async def get_public_bells_payload(db) -> dict:
     """Return active standard/shortened bells and Kyiv today shortened-day status."""
-    standard_map = await get_bell_times(db)
+    standard_map = {
+        num: times
+        for num, times in (await get_bell_times(db)).items()
+        if num <= 4
+    }
     today = today_local()
     today_iso = today.isoformat()
     shortened_items = await settings_service.get_shortened_days(db)

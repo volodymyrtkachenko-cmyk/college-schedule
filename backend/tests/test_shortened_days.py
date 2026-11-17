@@ -238,6 +238,9 @@ async def test_public_bells_endpoint_returns_active_and_shortened_today(shortene
     assert len(data["standard"]) == 2
     assert data["standard"][0]["duration_minutes"] == 80
     assert data["standard"][0]["break_after_minutes"] == 20
-    assert len(data["shortened"]) == 5
+    assert len(data["shortened"]) == 4
     assert data["shortened"][0]["duration_minutes"] == 50
-    assert data["shortened"][4]["is_optional"] is True
+    assert data["shortened"][-1]["lesson_number"] == 4
+    assert data["shortened"][-1]["break_after_minutes"] is None
+    assert all(not item["is_optional"] and item["lesson_number"] <= 4 for item in data["shortened"])
+    assert all(not item["is_optional"] and item["lesson_number"] <= 4 for item in data["standard"])

@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Розклад дзвінків ДФКР — стандартні та скорочені дні",
     description:
-      "Розклад дзвінків навчальних пар коледжу радіоелектроніки: 1–5 пари, велика перерва 30 хв, скорочені дні по 50 хв.",
+      "Розклад дзвінків навчальних пар коледжу радіоелектроніки: 1–4 пари, велика перерва 30 хв, скорочені дні по 50 хв.",
     url: `${SITE_URL}/bells`,
     type: "website",
     locale: "uk_UA",
@@ -60,15 +60,13 @@ const FALLBACK_BELLS: PublicBellsResponse = {
     { lesson_number: 1, start_time: "09:00", end_time: "10:20", duration_minutes: 80, break_after_minutes: 20, is_optional: false },
     { lesson_number: 2, start_time: "10:40", end_time: "12:00", duration_minutes: 80, break_after_minutes: 30, is_optional: false },
     { lesson_number: 3, start_time: "12:30", end_time: "13:50", duration_minutes: 80, break_after_minutes: 10, is_optional: false },
-    { lesson_number: 4, start_time: "14:00", end_time: "15:20", duration_minutes: 80, break_after_minutes: 10, is_optional: false },
-    { lesson_number: 5, start_time: "15:30", end_time: "16:50", duration_minutes: 80, break_after_minutes: null, is_optional: true },
+    { lesson_number: 4, start_time: "14:00", end_time: "15:20", duration_minutes: 80, break_after_minutes: null, is_optional: false },
   ],
   shortened: [
     { lesson_number: 1, start_time: "09:00", end_time: "09:50", duration_minutes: 50, break_after_minutes: 10, is_optional: false },
     { lesson_number: 2, start_time: "10:00", end_time: "10:50", duration_minutes: 50, break_after_minutes: 10, is_optional: false },
     { lesson_number: 3, start_time: "11:00", end_time: "11:50", duration_minutes: 50, break_after_minutes: 10, is_optional: false },
-    { lesson_number: 4, start_time: "12:00", end_time: "12:50", duration_minutes: 50, break_after_minutes: 10, is_optional: false },
-    { lesson_number: 5, start_time: "13:00", end_time: "13:50", duration_minutes: 50, break_after_minutes: null, is_optional: true },
+    { lesson_number: 4, start_time: "12:00", end_time: "12:50", duration_minutes: 50, break_after_minutes: null, is_optional: false },
   ],
   today_date: "",
   is_shortened_today: false,
@@ -91,7 +89,7 @@ const FAQS = [
   },
   {
     q: "Який розклад дзвінків у скорочені дні (50 хв)?",
-    a: "У скорочені дні пари тривають по 50 хвилин з перервами по 10 хвилин: 1 пара 09:00–09:50, 2 пара 10:00–10:50, 3 пара 11:00–11:50, 4 пара 12:00–12:50, 5 пара 13:00–13:50.",
+    a: "У скорочені дні пари тривають по 50 хвилин з перервами по 10 хвилин: 1 пара 09:00–09:50, 2 пара 10:00–10:50, 3 пара 11:00–11:50, 4 пара 12:00–12:50.",
   },
   {
     q: "Чи діють скорочені дні автоматично у розкладі на сайті?",

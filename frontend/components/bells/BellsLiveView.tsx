@@ -78,7 +78,7 @@ interface BellsTableCardProps {
   isTodayMode: boolean;
   activeLesson: number | null;
   nextLesson: number | null;
-  footnote: string;
+  footnote?: string;
   staggerIndex: number;
   icon: "bell" | "clock";
 }
@@ -187,7 +187,6 @@ function BellsTableCard({
                       )}
                       <span>
                         {slot.lesson_number} пара
-                        {slot.is_optional ? " *" : ""}
                       </span>
                     </span>
                   </th>
@@ -204,13 +203,27 @@ function BellsTableCard({
         </table>
       </div>
 
-      <p className="mt-3 text-xs text-sys-text-secondary">{footnote}</p>
+      {footnote && (
+        <p className="mt-3 text-xs text-sys-text-secondary">{footnote}</p>
+      )}
     </section>
   );
 }
 
+function normalizeBellSlots(slots: BellSlotItem[]): BellSlotItem[] {
+  return slots
+    .filter((slot) => slot.lesson_number <= 4)
+    .map((slot, idx, arr) =>
+      idx === arr.length - 1
+        ? { ...slot, break_after_minutes: null, is_optional: false }
+        : slot
+    );
+}
+
 export function BellsLiveView({ initialData }: { initialData: PublicBellsResponse }) {
   const [data, setData] = useState<PublicBellsResponse>(initialData);
+  const standardSlots = useMemo(() => normalizeBellSlots(data.standard), [data.standard]);
+  const shortenedSlots = useMemo(() => normalizeBellSlots(data.shortened), [data.shortened]);
   const [kyivNow, setKyivNow] = useState<{
     dateIso: string;
     minutes: number;
@@ -255,7 +268,7 @@ export function BellsLiveView({ initialData }: { initialData: PublicBellsRespons
         ? data.today_reason
         : data.upcoming_shortened_days.find((d) => d.date === todayIso)?.reason ?? null;
 
-    const activeSlots = isShortenedToday ? data.shortened : data.standard;
+    const activeSlots = isShortenedToday ? shortenedSlots : standardSlots;
 
     if (!kyivNow || activeSlots.length === 0) {
       return {
@@ -332,10 +345,10 @@ export function BellsLiveView({ initialData }: { initialData: PublicBellsRespons
       progressPct: null,
       headline: "Навчальні пари на сьогодні завершились",
     };
-  }, [data, kyivNow]);
+  }, [data.today_date, data.is_shortened_today, data.today_reason, data.upcoming_shortened_days, standardSlots, shortenedSlots, kyivNow]);
 
-  const standardDuration = data.standard[0]?.duration_minutes ?? 80;
-  const shortenedDuration = data.shortened[0]?.duration_minutes ?? 50;
+  const standardDuration = standardSlots[0]?.duration_minutes ?? 80;
+  const shortenedDuration = shortenedSlots[0]?.duration_minutes ?? 50;
 
   return (
     <div className="space-y-6">
@@ -404,12 +417,11 @@ export function BellsLiveView({ initialData }: { initialData: PublicBellsRespons
           id="heading-standard-bells"
           title="Стандартні дні"
           durationBadge={`${standardDuration} хв пара`}
-          slots={data.standard}
+          slots={standardSlots}
           mode="standard"
           isTodayMode={!todayState.isShortenedToday && !todayState.isWeekend}
           activeLesson={todayState.activeLesson}
           nextLesson={todayState.nextLesson}
-          footnote="* 5-та пара призначається факультативно або за індивідуальним розкладом."
           staggerIndex={0}
           icon="bell"
         />
@@ -418,7 +430,7 @@ export function BellsLiveView({ initialData }: { initialData: PublicBellsRespons
           id="heading-short-bells"
           title="Скорочені дні"
           durationBadge={`${shortenedDuration} хв пара`}
-          slots={data.shortened}
+          slots={shortenedSlots}
           mode="shortened"
           isTodayMode={todayState.isShortenedToday && !todayState.isWeekend}
           activeLesson={todayState.activeLesson}

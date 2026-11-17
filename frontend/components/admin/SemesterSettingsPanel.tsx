@@ -277,7 +277,6 @@ export function SemesterSettingsPanel() {
               <div>2 пара: 10:00 – 10:50</div>
               <div>3 пара: 11:00 – 11:50</div>
               <div>4 пара: 12:00 – 12:50</div>
-              <div className="col-span-2">5 пара: 13:00 – 13:50</div>
             </div>
             <p className="text-[11px] text-sys-text-muted pt-1 border-t border-sys-border/40">
               Усі перерви — рівно 10 хвилин. У розкладі день автоматично отримує позначку «⏱ 50 хв».
