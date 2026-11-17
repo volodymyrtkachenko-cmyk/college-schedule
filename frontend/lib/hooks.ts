@@ -692,6 +692,7 @@ export function useSchedule(
 
     const fetchSchedule = (forceNetwork = false, silentRevalidate = false) => {
       let hasCachedSchedule = false;
+      let usedCrossWeekFallback = false;
       const currentMemKey = getMemKey();
 
       const memCached = memoryCache.get(currentMemKey);
@@ -752,7 +753,8 @@ export function useSchedule(
             lastRenderedWeekJsonRef.current = fallback.rawJson;
             if (fallback.today) setToday(fallback.today);
             setWeek(fallback.week);
-            setIsUsingFallbackCache(!fallback.isSameWeek);
+            usedCrossWeekFallback = !fallback.isSameWeek;
+            setIsUsingFallbackCache(false);
             setLoading(false);
             hasCachedSchedule = true;
           } else if (!silentRevalidate) {
@@ -829,6 +831,8 @@ export function useSchedule(
           setIsSlowNetwork(false);
           if (!hasCachedSchedule) {
             setError("Слабке з'єднання з інтернетом. Не вдалося завантажити розклад із сервера.");
+          } else if (usedCrossWeekFallback) {
+            setIsUsingFallbackCache(true);
           }
         })
         .finally(() => {
