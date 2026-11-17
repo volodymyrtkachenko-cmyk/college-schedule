@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { m } from "framer-motion";
 import type { HeaderLearningModeData, WeekDayMini } from "../../lib/schedule";
 import { useDesktopMotionEnabled } from "../../lib/useViewportTier";
@@ -35,28 +36,33 @@ export function DesktopFocusDaySwitcher({
   onSelectDayIndex,
 }: DesktopFocusDaySwitcherProps) {
   const desktopMotion = useDesktopMotionEnabled();
+  const [prevVisible, setPrevVisible] = useState(visible);
+  const [hasAnimatedToggle, setHasAnimatedToggle] = useState(false);
+  if (visible !== prevVisible) {
+    setPrevVisible(visible);
+    if (!hasAnimatedToggle) setHasAnimatedToggle(true);
+  }
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (el) {
+      if (!visible) el.setAttribute("inert", "");
+      else el.removeAttribute("inert");
+    }
+  }, [visible]);
 
   return (
     <div
-      style={{
-        display: "grid",
-        gridTemplateRows: visible ? "1fr" : "0fr",
-        opacity: visible ? 1 : 0,
-        marginBottom: visible ? 20 : 0,
-        transition: shouldReduceMotion
-          ? "none"
-          : "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, margin-bottom 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
-      }}
-      className={`w-full overflow-hidden ${visible ? "" : "pointer-events-none"}`}
+      ref={containerRef}
+      data-visible={visible ? "true" : "false"}
+      data-animated={hasAnimatedToggle ? "true" : undefined}
+      data-reduced-motion={shouldReduceMotion ? "true" : undefined}
+      aria-hidden={!visible || undefined}
+      className="desktop-focus-switcher w-full"
     >
-      <div
-        className="min-h-0 overflow-hidden"
-        style={{
-          transform: shouldReduceMotion ? undefined : visible ? "translate3d(0, 0, 0)" : "translate3d(0, -10px, 0)",
-          transition: shouldReduceMotion ? "none" : "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
-      >
-        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
+      <div className="desktop-focus-switcher-inner">
+        <div className="desktop-focus-switcher-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-sys-border/50">
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-xs font-bold uppercase tracking-wider text-sys-text-muted shrink-0">

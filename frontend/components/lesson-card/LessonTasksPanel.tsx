@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { Lesson } from "../../lib/api";
 import {
   ClassroomTaskItem,
@@ -77,8 +77,7 @@ function ActiveTasksList({
                   vibrateTap(10);
                 }}
                 title={`${task.teacher ? `[${task.teacher}] ` : ""}${task.title || "Завдання"} — Відкрити в Classroom`}
-                style={{ "--task-idx": idx } as React.CSSProperties}
-                className="task-stagger-item group flex items-start justify-between gap-2 rounded-lg border border-sys-border bg-sys-bg/80 px-2.5 py-1.5 text-xs text-sys-text-primary hover:border-sys-elevated-border hover:bg-sys-surface transition-colors"
+                className="group flex items-start justify-between gap-2 rounded-lg border border-sys-border bg-sys-bg/80 px-2.5 py-1.5 text-xs text-sys-text-primary hover:border-sys-elevated-border hover:bg-sys-surface transition-colors"
               >
                 <div className="flex min-w-0 flex-col">
                   <span className="font-semibold text-sys-text-primary line-clamp-2 break-words leading-snug text-xs group-hover:text-sys-accent transition-colors">
@@ -100,8 +99,7 @@ function ActiveTasksList({
             ) : (
               <div
                 key={idx}
-                style={{ "--task-idx": idx } as React.CSSProperties}
-                className={`task-stagger-item flex items-center justify-between gap-2 rounded-lg hover:bg-sys-card transition-colors ${
+                className={`flex items-center justify-between gap-2 rounded-lg hover:bg-sys-card transition-colors ${
                   isMobile ? "min-h-[44px] pr-1.5" : "pr-1.5"
                 }`}
               >
@@ -374,15 +372,6 @@ export function DayTasksSection({
   onToggleHw: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
   const optionalToast = useOptionalToast();
-  const hwInnerRef = useRef<HTMLDivElement>(null);
-
-  const hasCollapsibleList = tasks.length > 1;
-
-  useEffect(() => {
-    const el = hwInnerRef.current;
-    if (el && hasCollapsibleList) el.inert = !isHwOpen;
-  }, [isHwOpen, hasCollapsibleList]);
-
   if (tasks.length === 0) return null;
 
   const isMobile = variant === "mobile";
@@ -476,8 +465,6 @@ export function DayTasksSection({
     );
   }
 
-  const hwPanelId = `day-hw-list-${lesson.id}-${lesson.lesson_number}`;
-
   return (
     <div
       className={`w-full rounded-xl bg-sys-bg/60 border border-sys-border transition-[opacity,border-color] duration-fast ease-smooth overflow-hidden shadow-xs ${
@@ -489,13 +476,8 @@ export function DayTasksSection({
         onClick={onToggleHw}
         role="button"
         tabIndex={0}
-        aria-expanded={isHwOpen}
-        aria-controls={hwPanelId}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            if (e.key === " ") e.preventDefault();
-            onToggleHw(e);
-          }
+          if (e.key === "Enter" || e.key === " ") onToggleHw(e);
         }}
         className={`flex ${
           isMobile ? "min-h-[44px]" : ""
@@ -531,7 +513,7 @@ export function DayTasksSection({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`text-sys-text-muted transition-transform duration-[420ms] ease-[cubic-bezier(0.25,0.9,0.3,1)] shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
+            className={`text-sys-text-muted transition-transform duration-200 shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
           >
             <path d="m6 9 6 6 6-6" />
           </svg>
@@ -539,12 +521,23 @@ export function DayTasksSection({
       </div>
 
       <div
-        id={hwPanelId}
-        data-open={isHwOpen ? "true" : undefined}
-        aria-hidden={!isHwOpen || undefined}
-        className={`w-full grid-accordion ${isMobile ? "" : "task-compact-accordion"}`}
+        style={{
+          display: "grid",
+          gridTemplateRows: isHwOpen ? "1fr" : "0fr",
+          transition: isMobile
+            ? "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease"
+            : "grid-template-rows 0.30s var(--ease-spring), opacity 0.22s ease",
+          opacity: isHwOpen ? 1 : 0,
+        }}
+        className="w-full overflow-hidden"
       >
-        <div ref={hwInnerRef} className="grid-accordion-inner">
+        <div
+          className="min-h-0 overflow-hidden"
+          style={{
+            transform: isMobile ? undefined : isHwOpen ? "translate3d(0, 0, 0)" : "translate3d(0, -6px, 0)",
+            transition: isMobile ? undefined : "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        >
           <div className="flex flex-col gap-2 p-3 border-t border-sys-border/60 bg-sys-bg/40">
             <ActiveTasksList groups={groupedTasks} isLinked={isLinked} isMobile={isMobile} />
             <CompletedTasksList
@@ -600,7 +593,7 @@ export function WeekTasksTrigger({
         </svg>
       ) : null}
       <span>{tasks.length} ДЗ</span>
-      <span className={`text-xs text-sys-text-muted transition-transform duration-[420ms] ease-[cubic-bezier(0.25,0.9,0.3,1)] ${isHwOpen ? "rotate-180" : ""}`}>
+      <span className={`text-xs text-sys-text-muted transition-transform duration-150 ${isHwOpen ? "rotate-180" : ""}`}>
         ▾
       </span>
     </button>
@@ -632,7 +625,7 @@ export function WeekTasksPopover({
   onClose: () => void;
   onToggleHw: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
-  const { shouldRender, isClosing } = useAnimatedDisclosure(show, 310);
+  const { shouldRender, isClosing } = useAnimatedDisclosure(show, 190);
   if (!shouldRender) return null;
 
   return (
@@ -650,10 +643,10 @@ export function WeekTasksPopover({
         data-closing={isClosing ? "true" : undefined}
         onClick={(e) => e.stopPropagation()}
         style={{
-          "--popup-y": lesson.lesson_number >= 3 ? "6px" : "-6px",
+          "--popup-y": lesson.lesson_number >= 3 ? "8px" : "-8px",
           "--popup-origin": lesson.lesson_number >= 3 ? "bottom left" : "top left",
         } as React.CSSProperties}
-        className={`discrete-popup desktop-compact-popover absolute left-0 right-0 ${
+        className={`discrete-popup desktop-spring-popup absolute left-0 right-0 ${
           lesson.lesson_number >= 3 ? "bottom-full mb-1.5" : "top-full mt-1.5"
         } z-50 max-h-64 overflow-y-auto rounded-xl border border-sys-border bg-sys-card p-2.5 shadow-lg sm:shadow-2xl min-w-[220px]`}
       >

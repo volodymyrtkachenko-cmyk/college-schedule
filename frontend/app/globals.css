@@ -1831,26 +1831,6 @@ html[data-surface="glass"] #desktop-sections-menu {
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  /* Компактний поповер ДЗ на десктопі: помітне шовковисте 60fps розгортання з оптичним фокусом і каскадом */
-  .discrete-popup.desktop-compact-popover {
-    will-change: transform, opacity, filter;
-    transform-origin: var(--popup-origin, top left);
-    transition: none;
-    animation: compact-popover-enter 420ms cubic-bezier(0.25, 0.9, 0.3, 1) both;
-  }
-
-  .discrete-popup.desktop-compact-popover[data-closing="true"] {
-    animation: compact-popover-exit 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    pointer-events: none;
-  }
-
-  .discrete-popup.desktop-compact-popover:not([data-closing="true"]) .task-stagger-item {
-    animation: task-stagger-in 400ms cubic-bezier(0.25, 0.9, 0.3, 1) backwards;
-    animation-delay: calc(min(var(--task-idx, 0), 6) * 55ms + 70ms);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .discrete-popup,
   .discrete-popup[data-closing="true"],
@@ -1928,47 +1908,25 @@ html[data-surface="glass"] #desktop-sections-menu {
   transform: translate3d(0, 0, 0);
 }
 
-/* Фірмове плавне 60fps розгортання/згортання компактних блоків завдань на десктопі
-   з оптичним фокусом, світловим акцентним променем та каскадною появою рядків */
-@keyframes compact-popover-enter {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, var(--popup-y, -10px), 0) scale(0.88);
-    filter: blur(6px);
-    box-shadow: 0 0 0 1px rgb(var(--sys-accent) / 0.52), 0 18px 40px -8px rgb(var(--sys-accent) / 0.28);
+@media (prefers-reduced-motion: reduce) {
+  .grid-accordion {
+    transition: opacity 90ms ease-out !important;
   }
-  45% {
-    opacity: 1;
-    filter: blur(1px);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-    filter: blur(0px);
-    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.25), 0 8px 10px -6px rgb(0 0 0 / 0.2);
+
+  .grid-accordion-inner {
+    transform: none !important;
+    transition: visibility 90ms linear !important;
   }
 }
 
-@keyframes compact-popover-exit {
-  0% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-    filter: blur(0px);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(0, var(--popup-y, -8px), 0) scale(0.92);
-    filter: blur(5px);
-  }
-}
-
-@keyframes task-accent-sweep {
+/* Синхронна хореографія переходу між повним (з панеллю завдань) і компактним (фокус) режимом на ПК */
+@keyframes desktop-focus-sweep {
   0% {
     opacity: 0;
-    transform: translate3d(-55%, 0, 0) scaleX(0.3);
+    transform: translate3d(-55%, 0, 0) scaleX(0.35);
   }
-  30% {
-    opacity: 1;
+  35% {
+    opacity: 0.95;
   }
   100% {
     opacity: 0;
@@ -1976,162 +1934,223 @@ html[data-surface="glass"] #desktop-sections-menu {
   }
 }
 
-@keyframes task-stagger-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 10px, 0);
-    filter: blur(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-    filter: blur(0px);
-  }
-}
-
-.grid-accordion.task-compact-accordion {
-  position: relative;
-  will-change: grid-template-rows, opacity;
-  transition:
-    grid-template-rows 340ms cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.grid-accordion.task-compact-accordion::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 8%;
-  right: 8%;
-  height: 1.5px;
-  pointer-events: none;
-  z-index: 2;
-  background: linear-gradient(90deg, transparent 0%, rgb(var(--sys-accent) / 0.85) 50%, transparent 100%);
-  opacity: 0;
-  transform: translate3d(-55%, 0, 0) scaleX(0.3);
-}
-
-.grid-accordion.task-compact-accordion[data-open="true"] {
-  transition:
-    grid-template-rows 460ms cubic-bezier(0.25, 0.9, 0.3, 1),
-    opacity 360ms cubic-bezier(0.25, 0.9, 0.3, 1);
-}
-
-.grid-accordion.task-compact-accordion[data-open="true"]::before {
-  animation: task-accent-sweep 700ms cubic-bezier(0.25, 0.9, 0.3, 1) both;
-}
-
-.grid-accordion.task-compact-accordion > .grid-accordion-inner {
-  contain: layout style;
-  transform-origin: top center;
-  will-change: transform, filter, opacity;
-  opacity: 0.2;
-  filter: blur(5px);
-  transform: translate3d(0, -12px, 0) scale(0.972);
-  transition:
-    visibility 340ms linear,
-    transform 320ms cubic-bezier(0.4, 0, 0.2, 1),
-    filter 280ms cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.grid-accordion.task-compact-accordion[data-open="true"] > .grid-accordion-inner {
-  visibility: visible;
-  opacity: 1;
-  filter: blur(0px);
-  transform: translate3d(0, 0, 0) scale(1);
-  transition:
-    visibility 0ms linear,
-    transform 460ms cubic-bezier(0.25, 0.9, 0.3, 1),
-    filter 360ms cubic-bezier(0.25, 0.9, 0.3, 1),
-    opacity 340ms cubic-bezier(0.25, 0.9, 0.3, 1);
-}
-
-.grid-accordion.task-compact-accordion .task-stagger-item {
-  opacity: 0;
-  transform: translate3d(0, 10px, 0);
-  filter: blur(2px);
-  transition:
-    opacity 220ms cubic-bezier(0.4, 0, 0.2, 1),
-    transform 260ms cubic-bezier(0.4, 0, 0.2, 1),
-    filter 220ms cubic-bezier(0.4, 0, 0.2, 1);
-  transition-delay: 0ms;
-}
-
-.grid-accordion.task-compact-accordion[data-open="true"] .task-stagger-item {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
-  filter: blur(0px);
-  transition:
-    opacity 360ms cubic-bezier(0.25, 0.9, 0.3, 1),
-    transform 420ms cubic-bezier(0.25, 0.9, 0.3, 1),
-    filter 340ms cubic-bezier(0.25, 0.9, 0.3, 1);
-  transition-delay: calc(min(var(--task-idx, 0), 6) * 60ms + 70ms);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .grid-accordion,
-  .grid-accordion.task-compact-accordion,
-  .grid-accordion.task-compact-accordion[data-open="true"],
-  .grid-accordion.task-compact-accordion .task-stagger-item,
-  .grid-accordion.task-compact-accordion[data-open="true"] .task-stagger-item {
-    transform: none !important;
-    filter: none !important;
-    transition: opacity 90ms ease-out !important;
-    transition-delay: 0ms !important;
-  }
-
-  .grid-accordion.task-compact-accordion::before,
-  .discrete-popup.desktop-compact-popover,
-  .discrete-popup.desktop-compact-popover:not([data-closing="true"]) .task-stagger-item {
-    animation: none !important;
-  }
-
-  .grid-accordion.task-compact-accordion::before {
-    display: none !important;
-  }
-
-  .grid-accordion-inner,
-  .grid-accordion.task-compact-accordion > .grid-accordion-inner,
-  .grid-accordion.task-compact-accordion[data-open="true"] > .grid-accordion-inner {
-    transform: none !important;
-    filter: none !important;
-    transition: visibility 90ms linear, opacity 90ms ease-out !important;
-  }
-}
-
-/* Синхронне згортання правої панелі у фокус-режимі десктопа (без зламу sticky) */
 @media (min-width: 1024px) {
   .desktop-sidebar-shell {
+    --desktop-sidebar-w: clamp(296px, 27vw, 356px);
+    --desktop-sidebar-gap: clamp(1rem, 2.2vw, 2rem);
     overflow-x: clip;
-    width: clamp(296px, 27vw, 356px);
-    margin-left: clamp(1rem, 2.2vw, 2rem);
-    opacity: 1;
+    overflow-y: visible;
+    width: var(--desktop-sidebar-w);
+    margin-left: var(--desktop-sidebar-gap);
     visibility: visible;
+    will-change: width, margin-left;
     transition:
-      width 240ms cubic-bezier(0.22, 1, 0.36, 1),
-      margin-left 240ms cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 180ms ease-out,
-      visibility 240ms linear;
+      width 460ms cubic-bezier(0.22, 1, 0.36, 1),
+      margin-left 460ms cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0ms linear;
   }
 
   .desktop-sidebar-shell[data-visible="false"] {
-    overflow: hidden;
+    overflow: clip;
     width: 0;
     margin-left: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      width 420ms cubic-bezier(0.32, 0, 0.24, 1) 45ms,
+      margin-left 420ms cubic-bezier(0.32, 0, 0.24, 1) 45ms,
+      visibility 465ms linear;
+  }
+
+  .desktop-sidebar-track {
+    width: var(--desktop-sidebar-w);
+    min-width: var(--desktop-sidebar-w);
+  }
+
+  .desktop-sidebar-card {
+    will-change: transform, opacity, filter;
+    transform-origin: right center;
+    opacity: 1;
+    filter: blur(0px);
+    transform: translate3d(0, 0, 0) scale(1);
+    transition:
+      transform 460ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 340ms var(--ease-out),
+      filter 340ms var(--ease-out);
+  }
+
+  .desktop-sidebar-card-1 {
+    transition-delay: 55ms, 55ms, 55ms;
+  }
+
+  .desktop-sidebar-card-2 {
+    position: relative;
+    overflow: hidden;
+    transition-delay: 115ms, 115ms, 115ms;
+  }
+
+  .desktop-sidebar-card-2::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1.5px;
+    pointer-events: none;
+    z-index: 2;
+    background: linear-gradient(90deg, transparent 0%, rgb(var(--sys-accent) / 0.8) 50%, transparent 100%);
+    opacity: 0;
+    transform: translate3d(-55%, 0, 0) scaleX(0.35);
+  }
+
+  .desktop-sidebar-shell[data-visible="true"][data-animated="true"] .desktop-sidebar-card-2::before {
+    animation: desktop-focus-sweep 700ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+  }
+
+  .desktop-sidebar-shell[data-visible="false"] .desktop-sidebar-card {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translate3d(34px, 0, 0) scale(0.96);
+    transition:
+      transform 310ms cubic-bezier(0.32, 0, 0.24, 1),
+      opacity 230ms var(--ease-out),
+      filter 250ms var(--ease-out);
+  }
+
+  .desktop-sidebar-shell[data-visible="false"] .desktop-sidebar-card-1 {
+    transition-delay: 35ms, 35ms, 35ms;
+  }
+
+  .desktop-sidebar-shell[data-visible="false"] .desktop-sidebar-card-2 {
+    transition-delay: 0ms, 0ms, 0ms;
+  }
+
+  .desktop-sidebar-shell[data-reduced-motion="true"],
+  .desktop-sidebar-shell[data-reduced-motion="true"] .desktop-sidebar-card,
+  .desktop-sidebar-shell[data-reduced-motion="true"] .desktop-sidebar-card-2::before {
+    transition: none !important;
+    animation: none !important;
+    filter: none !important;
+  }
+
+  /* Верхня компактна панель фокус-режиму */
+  .desktop-focus-switcher {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin-bottom: 0;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
+    will-change: grid-template-rows, margin-bottom, opacity;
+    transition:
+      grid-template-rows 330ms cubic-bezier(0.32, 0, 0.24, 1),
+      margin-bottom 330ms cubic-bezier(0.32, 0, 0.24, 1),
+      opacity 240ms var(--ease-out),
+      visibility 330ms linear;
   }
 
-  .desktop-sidebar-shell[data-reduced-motion="true"] {
+  .desktop-focus-switcher[data-visible="true"] {
+    grid-template-rows: 1fr;
+    margin-bottom: 20px;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition:
+      grid-template-rows 460ms cubic-bezier(0.22, 1, 0.36, 1) 70ms,
+      margin-bottom 460ms cubic-bezier(0.22, 1, 0.36, 1) 70ms,
+      opacity 320ms var(--ease-out) 70ms,
+      visibility 0ms linear;
+  }
+
+  .desktop-focus-switcher-inner {
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .desktop-focus-switcher-card {
+    position: relative;
+    overflow: hidden;
+    will-change: transform, opacity, filter;
+    transform-origin: top center;
+    opacity: 0;
+    filter: blur(4px);
+    transform: translate3d(0, -14px, 0) scale(0.975);
+    transition:
+      transform 310ms cubic-bezier(0.32, 0, 0.24, 1),
+      opacity 230ms var(--ease-out),
+      filter 250ms var(--ease-out);
+  }
+
+  .desktop-focus-switcher[data-visible="true"] .desktop-focus-switcher-card {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translate3d(0, 0, 0) scale(1);
+    transition:
+      transform 460ms cubic-bezier(0.22, 1, 0.36, 1) 70ms,
+      opacity 320ms var(--ease-out) 70ms,
+      filter 340ms var(--ease-out) 70ms;
+  }
+
+  .desktop-focus-switcher-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1.5px;
+    pointer-events: none;
+    z-index: 2;
+    background: linear-gradient(90deg, transparent 0%, rgb(var(--sys-accent) / 0.8) 50%, transparent 100%);
+    opacity: 0;
+    transform: translate3d(-55%, 0, 0) scaleX(0.35);
+  }
+
+  .desktop-focus-switcher[data-visible="true"][data-animated="true"] .desktop-focus-switcher-card::before {
+    animation: desktop-focus-sweep 700ms cubic-bezier(0.22, 1, 0.36, 1) 110ms both;
+  }
+
+  .desktop-focus-switcher[data-reduced-motion="true"],
+  .desktop-focus-switcher[data-reduced-motion="true"] .desktop-focus-switcher-card,
+  .desktop-focus-switcher[data-reduced-motion="true"] .desktop-focus-switcher-card::before {
     transition: none !important;
+    animation: none !important;
+    filter: none !important;
+  }
+
+  /* Плавне зникнення/поява заголовка дня при вході у фокус-режим */
+  .schedule-day-title-slot {
+    will-change: transform, opacity, filter;
+    opacity: 1;
+    filter: blur(0px);
+    transform: translate3d(0, 0, 0);
+    transition:
+      opacity 340ms var(--ease-out) 50ms,
+      transform 400ms cubic-bezier(0.22, 1, 0.36, 1) 50ms,
+      filter 300ms var(--ease-out) 50ms;
+  }
+
+  .schedule-day-title-slot[data-hidden="true"] {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translate3d(-16px, 0, 0);
+    pointer-events: none;
+    transition:
+      opacity 220ms var(--ease-out),
+      transform 280ms cubic-bezier(0.32, 0, 0.24, 1),
+      filter 220ms var(--ease-out);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .desktop-sidebar-shell {
+  .desktop-sidebar-shell,
+  .desktop-sidebar-card,
+  .desktop-focus-switcher,
+  .desktop-focus-switcher-card,
+  .schedule-day-title-slot {
     transition: none !important;
+    animation: none !important;
+    filter: none !important;
   }
 }
 

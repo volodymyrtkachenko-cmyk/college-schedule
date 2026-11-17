@@ -232,57 +232,60 @@ export function ScheduleDay({
   );
   const timeToStart = isBeforeDayStart && firstStart !== null && kyivNow ? firstStart - kyivNow.minutes : 0;
 
-  const headerClassName = `mb-3.5 flex items-center ${
-    hideDayTitle ? "justify-end" : "justify-between"
-  } gap-2 px-0 ${mode === "week" ? "min-h-[56px]" : "pt-1"} ${
+  const headerClassName = `mb-3.5 flex items-center justify-between gap-2 px-0 ${mode === "week" ? "min-h-[56px]" : "pt-1"} ${
     hideHeaderOnMobile ? "hidden sm:flex" : ""
   }`;
 
   const headerContent = (
     <>
-      {!hideDayTitle && (
-        mode === "day" ? (
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="w-fit text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
-                {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}<span className="font-normal text-sys-text-secondary">,</span>
-              </h2>
-              <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
-                {UKR_DAY_MONTH_LONG_FMT.format(scheduleDateNoon)}
+      {mode === "day" ? (
+        <div
+          ref={(el) => {
+            if (el) el.inert = hideDayTitle;
+          }}
+          data-hidden={hideDayTitle ? "true" : "false"}
+          aria-hidden={hideDayTitle || undefined}
+          className="schedule-day-title-slot flex flex-wrap items-center gap-2.5 min-w-0 flex-1"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="w-fit text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
+              {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}<span className="font-normal text-sys-text-secondary">,</span>
+            </h2>
+            <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
+              {UKR_DAY_MONTH_LONG_FMT.format(scheduleDateNoon)}
+            </span>
+            {schedule.is_shortened_day && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 shadow-xs">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <span>Скорочений день (пари по 50 хв)</span>
               </span>
-              {schedule.is_shortened_day && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 shadow-xs">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                  <span>Скорочений день (пари по 50 хв)</span>
-                </span>
-              )}
-              <LearningModeBadge data={learningModeBadge} className="hidden lg:inline-flex" />
-            </div>
+            )}
+            <LearningModeBadge data={learningModeBadge} className="hidden lg:inline-flex" />
           </div>
-        ) : (
-          <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-1">
-              <h2 className="text-base sm:text-lg font-bold capitalize tracking-tight truncate text-sys-text-primary">
-                {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}
-              </h2>
-            </div>
-            <div className="flex items-center justify-between gap-2 mt-0.5">
-              <span className="text-xs font-medium text-sys-text-secondary">
-                {UKR_DAY_MONTH_SHORT_FMT.format(scheduleDateNoon)}
+        </div>
+      ) : !hideDayTitle ? (
+        <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-1">
+            <h2 className="text-base sm:text-lg font-bold capitalize tracking-tight truncate text-sys-text-primary">
+              {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}
+            </h2>
+          </div>
+          <div className="flex items-center justify-between gap-2 mt-0.5">
+            <span className="text-xs font-medium text-sys-text-secondary">
+              {UKR_DAY_MONTH_SHORT_FMT.format(scheduleDateNoon)}
+            </span>
+            {schedule.is_shortened_day && (
+              <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                <ClockIcon className="w-3 h-3 shrink-0" />
+                <span>50 хв</span>
               </span>
-              {schedule.is_shortened_day && (
-                <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
-                  <ClockIcon className="w-3 h-3 shrink-0" />
-                  <span>50 хв</span>
-                </span>
-              )}
-            </div>
+            )}
           </div>
-        )
-      )}
+        </div>
+      ) : null}
 
       {mode === "day" && orderedLessons.length > 0 && (
         <div className="flex items-center gap-2">

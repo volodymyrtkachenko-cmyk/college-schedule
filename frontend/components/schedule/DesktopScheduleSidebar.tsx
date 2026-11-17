@@ -94,8 +94,24 @@ export function DesktopScheduleSidebar({
     setPrevSidebarTab(desktopSidebarTab);
   }
 
+  const [prevVisible, setPrevVisible] = useState(visible);
+  const [hasAnimatedToggle, setHasAnimatedToggle] = useState(false);
+  if (visible !== prevVisible) {
+    setPrevVisible(visible);
+    if (!hasAnimatedToggle) setHasAnimatedToggle(true);
+  }
+
+  const sidebarRef = useRef<HTMLElement | null>(null);
   const tasksPanelRef = useRef<HTMLDivElement | null>(null);
   const gradesPanelRef = useRef<HTMLDivElement | null>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    const asideEl = sidebarRef.current;
+    if (asideEl) {
+      if (!visible) asideEl.setAttribute("inert", "");
+      else asideEl.removeAttribute("inert");
+    }
+  }, [visible]);
 
   useIsomorphicLayoutEffect(() => {
     const tasksEl = tasksPanelRef.current;
@@ -133,14 +149,16 @@ export function DesktopScheduleSidebar({
 
   return (
     <aside
+      ref={sidebarRef}
       data-visible={visible ? "true" : "false"}
+      data-animated={hasAnimatedToggle ? "true" : undefined}
       data-reduced-motion={shouldReduceMotion ? "true" : undefined}
       aria-hidden={!visible}
       className="desktop-sidebar-shell hidden lg:block shrink-0"
     >
-      <div className="w-full min-w-0 flex flex-col gap-6 sticky top-[72px]">
+      <div className="desktop-sidebar-track flex flex-col gap-6 sticky top-[72px]">
         {/* Week & Navigator Card */}
-        <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
+        <div className="desktop-sidebar-card desktop-sidebar-card-1 rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
           <div className="pb-3.5 border-b border-sys-border/50 flex items-center justify-between gap-2 min-w-0">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-bold uppercase tracking-wider text-sys-text-muted min-w-0">
@@ -240,7 +258,7 @@ export function DesktopScheduleSidebar({
         </div>
 
         {/* Google Classroom Deadlines Widget */}
-        <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm min-h-[260px]">
+        <div className="desktop-sidebar-card desktop-sidebar-card-2 rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm min-h-[260px]">
           <div className="pb-3 border-b border-sys-border/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
