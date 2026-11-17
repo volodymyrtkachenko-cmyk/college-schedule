@@ -39,26 +39,6 @@ function formatDate(value: string) {
   return UKR_UTC_FULL_DATE_FMT.format(parsed);
 }
 
-const SEGMENT_PALETTE = [
-  { bar: "bg-sky-500", dot: "bg-sky-500" },
-  { bar: "bg-indigo-500", dot: "bg-indigo-500" },
-  { bar: "bg-emerald-500", dot: "bg-emerald-500" },
-  { bar: "bg-amber-500", dot: "bg-amber-500" },
-  { bar: "bg-purple-500", dot: "bg-purple-500" },
-  { bar: "bg-rose-500", dot: "bg-rose-500" },
-  { bar: "bg-teal-500", dot: "bg-teal-500" },
-  { bar: "bg-cyan-500", dot: "bg-cyan-500" },
-] as const;
-
-interface DistributionSegment {
-  id: number;
-  label: string;
-  hours: number;
-  sharePercent: number;
-  plannedHours: number | null;
-  colorIdx: number;
-}
-
 export function StatisticsClient() {
   const { user } = useAuth();
   const {
@@ -72,7 +52,6 @@ export function StatisticsClient() {
   const [studentFilter, setStudentFilter] = useState<StudentFilterMode>("all");
   const [teacherSort, setTeacherSort] = useState<TeacherSortMode>("hours");
   const [itemSearch, setItemSearch] = useState("");
-  const [activeSegmentIdx, setActiveSegmentIdx] = useState<number | null>(null);
   const [reorderStatusText, setReorderStatusText] = useState("");
 
   const [groups, setGroups] = useState<ReferenceRecord[]>([]);
@@ -170,7 +149,6 @@ export function StatisticsClient() {
   }, [urlSearch, teachers.length, setNavScheduleMode, setHideTasksTab]);
 
   useEffect(() => {
-    setActiveSegmentIdx(null);
     setStudentFilter("all");
     setItemSearch("");
   }, [mode, groupId, teacherId, teacherView]);
@@ -304,54 +282,6 @@ export function StatisticsClient() {
     if (Number.isNaN(throughDateObj.getTime())) return null;
     return calculateWeekNumber(throughDateObj, stats.semester_start);
   }, [stats?.semester_start, stats?.through_date]);
-
-  const distributionSegments = useMemo<DistributionSegment[]>(() => {
-    if (!stats) return [];
-    const sourceItems =
-      mode === "student"
-        ? [...rawStudentEntries]
-            .filter((e) => e.completed_hours > 0)
-            .sort((a, b) => b.completed_hours - a.completed_hours)
-            .map((e) => ({
-              id: e.id,
-              label: e.name,
-              hours: e.completed_hours,
-              plannedHours: e.planned_hours && e.planned_hours > 0 ? e.planned_hours : null,
-            }))
-        : teacherView === "subjects"
-        ? [...rawTeacherSubjects]
-            .filter((s) => s.completed_hours > 0)
-            .sort((a, b) => b.completed_hours - a.completed_hours)
-            .map((s) => ({
-              id: s.id,
-              label: s.name,
-              hours: s.completed_hours,
-              plannedHours: s.planned_hours && s.planned_hours > 0 ? s.planned_hours : null,
-            }))
-        : [...rawTeacherGroups]
-            .filter((g) => g.completed_hours > 0)
-            .sort((a, b) => b.completed_hours - a.completed_hours)
-            .map((g) => ({
-              id: g.id,
-              label: `Група ${g.name}`,
-              hours: g.completed_hours,
-              plannedHours: null,
-            }));
-
-    const sumHours = sourceItems.reduce((acc, item) => acc + item.hours, 0);
-    if (sumHours <= 0) return [];
-
-    return sourceItems.map((item, idx) => ({
-      ...item,
-      sharePercent: Math.max(1, Math.round((item.hours / sumHours) * 100)),
-      colorIdx: idx % SEGMENT_PALETTE.length,
-    }));
-  }, [stats, mode, teacherView, rawStudentEntries, rawTeacherSubjects, rawTeacherGroups]);
-
-  const inspectedSegment =
-    distributionSegments.length > 0
-      ? distributionSegments[activeSegmentIdx ?? 0] ?? distributionSegments[0]
-      : null;
 
   const selectedName =
     mode === "student"
@@ -811,86 +741,6 @@ export function StatisticsClient() {
                   </div>
                 )}
               </DesktopSpotlightGrid>
-            )}
-
-            {/* Proportional Workload Distribution Ribbon */}
-            {distributionSegments.length > 1 && (
-              <section
-                aria-label="Структура проведених годин"
-                className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs space-y-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                    Структура навантаження{" "}
-                    {mode === "teacher"
-                      ? teacherView === "subjects"
-                        ? "(за дисциплінами)"
-                        : "(за групами)"
-                      : "(за предметами)"}
-                  </h2>
-                  <span className="text-xs text-sys-text-muted">
-                    Наведіть або натисніть на сегмент для деталей
-                  </span>
-                </div>
-
-                <div
-                  className="flex h-3.5 w-full overflow-hidden rounded-full bg-sys-bg p-0.5 border border-sys-border/70 gap-[2px]"
-                  onMouseLeave={() => setActiveSegmentIdx(null)}
-                >
-                  {distributionSegments.map((seg, idx) => {
-                    const palette = SEGMENT_PALETTE[seg.colorIdx];
-                    const isInspected = (activeSegmentIdx ?? 0) === idx;
-                    const label = `${seg.label}: ${seg.hours} акад. год (${seg.sharePercent}%)`;
-                    return (
-                      <button
-                        key={seg.id}
-                        type="button"
-                        title={label}
-                        aria-label={label}
-                        onMouseEnter={() => setActiveSegmentIdx(idx)}
-                        onFocus={() => setActiveSegmentIdx(idx)}
-                        onClick={() => setActiveSegmentIdx(idx)}
-                        style={{ flexGrow: seg.hours, flexBasis: 0 }}
-                        className={`h-full min-w-[4px] rounded-full transition-opacity duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent ${palette.bar} ${
-                          isInspected
-                            ? "opacity-100 ring-1 ring-sys-text-primary/40"
-                            : "opacity-80 hover:opacity-100"
-                        }`}
-                      />
-                    );
-                  })}
-                </div>
-
-                {inspectedSegment && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sys-border/70 bg-sys-bg/60 px-3 py-2 text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                          SEGMENT_PALETTE[inspectedSegment.colorIdx].dot
-                        }`}
-                      />
-                      <span className="font-bold text-sys-text-primary truncate">
-                        {inspectedSegment.label}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-sys-text-secondary font-medium">
-                      <span>
-                        <strong className="text-sys-text-primary">{inspectedSegment.hours}</strong>{" "}
-                        год ({formatPairsFromHours(inspectedSegment.hours)} пар)
-                      </span>
-                      <span>·</span>
-                      <span className="rounded-md bg-sys-elevated border border-sys-border px-1.5 py-0.5 text-[11px] font-semibold text-sys-text-primary">
-                        {inspectedSegment.sharePercent}% усіх годин
-                      </span>
-                      {inspectedSegment.plannedHours ? (
-                        <span className="text-sys-text-muted">
-                          (план: {inspectedSegment.plannedHours} год)
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
-              </section>
             )}
 
             {mode === "student" ? (
