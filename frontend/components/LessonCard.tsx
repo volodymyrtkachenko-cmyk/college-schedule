@@ -605,9 +605,6 @@ export const LessonCard = memo(function LessonCard({
               style={{ width: `${progressPercent}%` }}
             >
               <span className="live-horizon-shimmer" />
-              {progressPercent > 0 && progressPercent < 100 && (
-                <span className="live-horizon-spark" />
-              )}
             </div>
           </div>
         </div>
@@ -622,9 +619,6 @@ export const LessonCard = memo(function LessonCard({
                 <span className={`ui-mono-slot text-2xl sm:text-[26px] font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
                   {lesson.lesson_number}
                 </span>
-                {isLive && (
-                  <span className="live-dot-settle h-2 w-2 rounded-full bg-sys-accent shrink-0" />
-                )}
               </div>
               <div className="ui-mono-slot mt-1.5 flex flex-col leading-tight whitespace-nowrap">
                 <span className="text-sm sm:text-[15px] font-bold text-sys-text-primary">{startT}</span>
@@ -870,9 +864,6 @@ export const LessonCard = memo(function LessonCard({
                 <span className={`text-lg sm:text-xl font-bold leading-none transition-colors ${isLive ? "text-sys-accent font-black" : "text-sys-text-primary"}`}>
                   {lesson.lesson_number}
                 </span>
-                {isLive && (
-                  <span className="live-dot-settle h-1.5 w-1.5 shrink-0 rounded-full bg-sys-accent" />
-                )}
               </div>
               <span className="text-xs sm:text-xs font-semibold text-sys-text-secondary mt-1 whitespace-nowrap">
                 {startT}

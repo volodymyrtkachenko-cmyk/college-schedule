@@ -84,6 +84,7 @@ export function TasksTodoBoard({
   const { shouldRender: shouldRenderSubjectMenu, isClosing: isSubjectMenuClosing } =
     useAnimatedDisclosure(subjectMenuOpen, 190);
   const [showAllDone, setShowAllDone] = useState(false);
+  const [noDateExpanded, setNoDateExpanded] = useState(false);
 
   useEffect(() => {
     if (!subjectMenuOpen) return;
@@ -360,7 +361,7 @@ export function TasksTodoBoard({
 
       {/* Compact Collapsible Subject Selector */}
       {subjects.length > 1 && (
-        <div ref={subjectMenuRef} className="relative">
+        <div ref={subjectMenuRef} className="relative z-30">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -432,7 +433,7 @@ export function TasksTodoBoard({
             <div
               data-closing={isSubjectMenuClosing ? "true" : undefined}
               style={{ "--popup-y": "-6px", "--popup-origin": "top center" } as React.CSSProperties}
-              className="discrete-popup desktop-spring-popup mt-1.5 max-h-60 overflow-y-auto custom-scrollbar rounded-xl border border-sys-border bg-sys-card p-1.5 shadow-lg space-y-0.5"
+              className="discrete-popup desktop-spring-popup absolute left-0 right-0 top-full z-40 mt-1.5 max-h-60 overflow-y-auto custom-scrollbar rounded-xl border border-sys-border bg-sys-card p-1.5 shadow-xl space-y-0.5"
             >
               <button
                 type="button"
@@ -605,17 +606,42 @@ export function TasksTodoBoard({
 
                 {noDateTasks.length > 0 && (
                   <section className="space-y-2">
-                    <div className="flex items-center gap-2 px-1 pt-1">
-                      <span className="h-2 w-2 rounded-full bg-slate-400" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                        Без терміну здачі ({noDateTasks.length})
-                      </h3>
-                    </div>
-                    <div className="space-y-2">
-                      {noDateTasks.map((t, idx) => (
-                        <TaskCardItem key={t.id || t.url || `nodate-${idx}`} task={t} isLinked={isLinked} />
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      aria-expanded={noDateExpanded}
+                      onClick={() => setNoDateExpanded((prev) => !prev)}
+                      className="w-full flex items-center justify-between gap-2 rounded-xl border border-sys-border/70 bg-sys-card/60 hover:bg-sys-card px-3 py-2 text-left transition-colors cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="h-2 w-2 rounded-full bg-slate-400 shrink-0" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary truncate">
+                          Без терміну здачі ({noDateTasks.length})
+                        </span>
+                      </span>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                        className={`shrink-0 text-sys-text-muted transition-transform duration-150 ${
+                          noDateExpanded ? "rotate-180" : ""
+                        }`}
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </button>
+                    {noDateExpanded && (
+                      <div className="space-y-2">
+                        {noDateTasks.map((t, idx) => (
+                          <TaskCardItem key={t.id || t.url || `nodate-${idx}`} task={t} isLinked={isLinked} />
+                        ))}
+                      </div>
+                    )}
                   </section>
                 )}
               </>
