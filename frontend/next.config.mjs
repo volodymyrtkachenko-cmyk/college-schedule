@@ -15,13 +15,13 @@ const withPwa = withPWAInit({
     runtimeCaching: [
       {
         // Розклад: мережа з таймаутом 7 с, офлайн — з кешу SW (localStorage-кеш застосунку лишається головним)
-        urlPattern: ({ url }) => url.pathname.startsWith("/api/schedule") && !url.pathname.startsWith("/api/schedule-versions"),
+        urlPattern: ({ url }) => url.pathname.startsWith("/api/schedule") && !url.pathname.startsWith("/api/schedule-versions") && !url.pathname.startsWith("/api/schedule/template") && !url.pathname.startsWith("/api/schedule/now"),
         handler: "NetworkFirst",
         options: {
           cacheName: "api-schedule",
           networkTimeoutSeconds: 7,
           expiration: { maxEntries: 60, maxAgeSeconds: 7 * 24 * 60 * 60 },
-          cacheableResponse: { statuses: [0, 200] },
+          cacheableResponse: { statuses: [200] },
         },
       },
       {
@@ -31,7 +31,7 @@ const withPwa = withPWAInit({
         options: {
           cacheName: "api-directory",
           expiration: { maxEntries: 20, maxAgeSeconds: 24 * 60 * 60 },
-          cacheableResponse: { statuses: [0, 200] },
+          cacheableResponse: { statuses: [200] },
         },
       },
       {
@@ -42,7 +42,7 @@ const withPwa = withPWAInit({
           cacheName: "api-classroom",
           networkTimeoutSeconds: 7,
           expiration: { maxEntries: 30, maxAgeSeconds: 24 * 60 * 60 },
-          cacheableResponse: { statuses: [0, 200] },
+          cacheableResponse: { statuses: [200] },
         },
       },
     ],

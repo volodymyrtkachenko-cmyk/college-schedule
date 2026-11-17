@@ -38,14 +38,14 @@ function LoginForm() {
 
   if (loading || user) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-sys-text-secondary">
+      <main className="flex min-h-dvh items-center justify-center bg-sys-bg p-6 text-sys-text-secondary">
         Завантаження…
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-sys-bg px-4 py-12 sm:px-6 lg:px-8 text-sys-text-primary">
+    <main className="flex min-h-dvh items-center justify-center bg-sys-bg px-4 py-12 sm:px-6 lg:px-8 text-sys-text-primary">
       <div className="surface-panel w-full max-w-md space-y-8 p-6 shadow-xl sm:p-8">
         <div>
           <div className="mb-5 flex justify-center">
@@ -130,7 +130,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-sys-text-secondary">
+        <main className="flex min-h-dvh items-center justify-center bg-sys-bg p-6 text-sys-text-secondary">
           Завантаження…
         </main>
       }

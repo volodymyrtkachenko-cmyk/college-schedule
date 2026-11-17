@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, Lesson, ReferenceRecord } from "../../lib/api";
+import { calendarDateIsoToUtcDate } from "../../lib/date";
 
 const DAY_NAMES_LOWER: Record<number, string> = {
   1: "понеділок",
@@ -139,7 +140,7 @@ export function OfficialPrintModal({
   const loadDayForAllGroups = async (dateStr: string) => {
     setLoading(true);
     try {
-      const dateObj = new Date(`${dateStr}T12:00:00`);
+      const dateObj = calendarDateIsoToUtcDate(dateStr);
       const weekData = await api.week(undefined, undefined, dateObj);
       const daySchedule = weekData.find((d) => d.date === dateStr) ?? weekData[0];
       if (daySchedule) {

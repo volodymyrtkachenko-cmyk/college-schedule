@@ -3003,3 +3003,37 @@ html.light .app-prism-beams {
     padding-bottom: calc(max(5.5rem, var(--bottom-nav-height, 4rem)) + 1.25rem + env(safe-area-inset-bottom));
   }
 }
+
+/* #12: Prevent iOS Safari auto-zoom on input focus (< 16px) */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
+}
+
+/* #18: Clean print stylesheet */
+@media print {
+  .vt-bottom-nav,
+  .skip-link,
+  .app-backdrop,
+  header.sticky,
+  nav[aria-label],
+  button[aria-label="Поділитися розкладом на день"],
+  button[aria-label="Скопіювати розклад текстом"] {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}

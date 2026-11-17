@@ -566,7 +566,7 @@ export function EducationalProcessClient() {
   const headerSubtitle = `Семестри, сесії, практика та канікули · ${academicYearLabel} навчальний рік`;
 
   return (
-    <div className="min-h-screen bg-[var(--page-bg)] text-sys-text-primary">
+    <div className="min-h-dvh bg-[var(--page-bg)] text-sys-text-primary">
       <SubpageHeader
         title="Графік освітнього процесу"
         subtitle={headerSubtitle}

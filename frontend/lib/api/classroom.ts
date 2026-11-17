@@ -85,6 +85,7 @@ export const classroomApi = {
           code?: string;
           access_token?: string;
           refresh_token?: string;
+          session_token?: string;
           google_user_id?: string;
           email?: string;
           group_id?: number;
@@ -92,10 +93,16 @@ export const classroomApi = {
         },
     groupId?: number,
   ) => {
+    let storedSessionToken: string | undefined = undefined;
+    if (typeof window !== "undefined") {
+      try {
+        storedSessionToken = localStorage.getItem("schedule:classroom_session_token") || undefined;
+      } catch {}
+    }
     const body =
       typeof tokenOrPayload === "string"
-        ? { access_token: tokenOrPayload, group_id: groupId }
-        : tokenOrPayload;
+        ? { access_token: tokenOrPayload, group_id: groupId, session_token: storedSessionToken }
+        : { session_token: storedSessionToken, ...tokenOrPayload };
     return rawRequest<{
       group_id: number;
       group_name: string;
@@ -105,6 +112,7 @@ export const classroomApi = {
       last_synced_at?: string;
       access_token?: string | null;
       refresh_token?: string | null;
+      session_token?: string | null;
       synced_links: number;
       synced_tasks: number;
       synced_students: number;
@@ -133,6 +141,7 @@ export const classroomApi = {
     google_user_id?: string | null;
     access_token?: string | null;
     refresh_token?: string | null;
+    session_token?: string | null;
   }) =>
     rawRequest<{
       status: string;
@@ -148,8 +157,10 @@ export const classroomApi = {
     email?: string | null;
     access_token?: string | null;
     refresh_token?: string | null;
+    session_token?: string | null;
   }) => {
     let validLocalAccess: string | undefined = undefined;
+    let storedSessionToken: string | undefined = undefined;
     if (typeof window !== "undefined") {
       try {
         const rawTok = localStorage.getItem("schedule:classroom_access_token");
@@ -157,6 +168,7 @@ export const classroomApi = {
         if (rawTok && rawExp > Date.now()) {
           validLocalAccess = rawTok;
         }
+        storedSessionToken = localStorage.getItem("schedule:classroom_session_token") || undefined;
       } catch {}
     }
     const body = {
@@ -173,6 +185,7 @@ export const classroomApi = {
           : undefined),
       access_token: payload?.access_token ?? validLocalAccess,
       refresh_token: payload?.refresh_token ?? undefined,
+      session_token: payload?.session_token ?? storedSessionToken,
     };
     return rawRequest<{
       connected: boolean;
@@ -203,6 +216,7 @@ export const classroomApi = {
       synced_subgroups?: number[];
       last_synced_at?: string | null;
       access_token?: string | null;
+      session_token?: string | null;
       updated_at?: string;
       needs_relink?: boolean;
       reason_code?: string;

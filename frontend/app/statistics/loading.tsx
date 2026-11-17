@@ -1,6 +1,6 @@
 export default function StatisticsLoading() {
   return (
-    <div className="min-h-screen bg-sys-bg pb-24 lg:pb-12">
+    <div className="min-h-dvh bg-sys-bg pb-24 lg:pb-12">
       <div className="h-14 sm:h-16 border-b border-sys-border bg-sys-card" />
       <main className="vt-main-content mx-auto max-w-5xl px-4 py-6 sm:px-6 space-y-5">
         <div className="flex flex-wrap gap-2">

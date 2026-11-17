@@ -1,6 +1,7 @@
 import type { Lesson, ScheduleResponse } from "./api";
+import { calendarDateIsoToUtcDate } from "./date";
 
-const weekdayOf = (date: string) => new Date(`${date}T12:00:00`).getDay() || 7;
+const weekdayOf = (date: string) => calendarDateIsoToUtcDate(date).getUTCDay() || 7;
 const weeksOverlap = (a: Lesson, b: Lesson) =>
   !a.week_type || !b.week_type || a.week_type === "both" || b.week_type === "both" || a.week_type === b.week_type;
 

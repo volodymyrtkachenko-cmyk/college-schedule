@@ -51,6 +51,7 @@ const PERSONAL_SUBGROUP_KEY = CLASSROOM_STORAGE_KEYS.PERSONAL_SUBGROUP;
 const ACCESS_TOKEN_KEY = CLASSROOM_STORAGE_KEYS.ACCESS_TOKEN;
 const ACCESS_TOKEN_EXP_KEY = CLASSROOM_STORAGE_KEYS.ACCESS_TOKEN_EXP;
 const REFRESH_TOKEN_KEY = CLASSROOM_STORAGE_KEYS.REFRESH_TOKEN;
+const SESSION_TOKEN_KEY = CLASSROOM_STORAGE_KEYS.SESSION_TOKEN;
 const NEEDS_RELINK_KEY = CLASSROOM_STORAGE_KEYS.NEEDS_RELINK;
 const NEEDS_RELINK_REASON_KEY = CLASSROOM_STORAGE_KEYS.NEEDS_RELINK_REASON;
 const EVENT_NAME = CLASSROOM_LINKED_EVENT;
@@ -162,13 +163,17 @@ export function setClassroomNeedsRelink(val: boolean, reason?: string | null): v
 export function saveClassroomTokens(
   accessToken?: string | null,
   _refreshToken?: string | null,
-  ttlSeconds: number = 3300
+  ttlSeconds: number = 3300,
+  sessionToken?: string | null
 ): void {
   if (typeof window === "undefined") return;
   try {
     if (accessToken) {
       localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
       localStorage.setItem(ACCESS_TOKEN_EXP_KEY, String(Date.now() + ttlSeconds * 1000));
+    }
+    if (sessionToken) {
+      localStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
     }
     // 1.5: Ніколи не зберігаємо сирий refresh_token у localStorage браузера!
     // Серверне оновлення токенів здійснюється через зашифрований ClassroomCredential за google_user_id.
@@ -180,19 +185,21 @@ export function getClassroomSilentAuth(): {
   accessToken: string | null;
   refreshToken: string | null;
   googleUserId: string | null;
+  sessionToken: string | null;
 } {
   if (typeof window === "undefined") {
-    return { accessToken: null, refreshToken: null, googleUserId: null };
+    return { accessToken: null, refreshToken: null, googleUserId: null, sessionToken: null };
   }
   try {
     const rawToken = localStorage.getItem(ACCESS_TOKEN_KEY);
     const rawExp = Number(localStorage.getItem(ACCESS_TOKEN_EXP_KEY) || "0");
     const validAccess = rawToken && rawExp > Date.now() ? rawToken : null;
     const googleUserId = localStorage.getItem(GOOGLE_USER_ID_KEY) || null;
+    const sessionToken = localStorage.getItem(SESSION_TOKEN_KEY) || null;
     localStorage.removeItem(REFRESH_TOKEN_KEY);
-    return { accessToken: validAccess, refreshToken: null, googleUserId };
+    return { accessToken: validAccess, refreshToken: null, googleUserId, sessionToken };
   } catch {
-    return { accessToken: null, refreshToken: null, googleUserId: null };
+    return { accessToken: null, refreshToken: null, googleUserId: null, sessionToken: null };
   }
 }
 
@@ -227,7 +234,8 @@ export function saveClassroomSyncData(
   googleUserId?: string | null,
   groupId?: number | null,
   teachers?: string[] | null,
-  subgroups?: number[] | null
+  subgroups?: number[] | null,
+  sessionToken?: string | null
 ): void {
   if (typeof window === "undefined") return;
   try {
@@ -245,6 +253,7 @@ export function saveClassroomSyncData(
       localStorage.removeItem(PERSONAL_TEACHERS_KEY);
       localStorage.removeItem(PERSONAL_SUBGROUP_KEY);
       localStorage.removeItem("schedule:classroom_tasks");
+      localStorage.removeItem(SESSION_TOKEN_KEY);
     }
 
     if (userEmail) {
@@ -260,7 +269,7 @@ export function saveClassroomSyncData(
     }
     localStorage.removeItem(NEEDS_RELINK_KEY);
     localStorage.removeItem(NEEDS_RELINK_REASON_KEY);
-    saveClassroomTokens(accessToken, refreshToken);
+    saveClassroomTokens(accessToken, refreshToken, 3300, sessionToken);
 
     const submittedMap: Record<string, PersonalSubmission> = {};
     const extractedTeachers = new Set<string>(teachers || []);
@@ -506,7 +515,7 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
   const email = getLinkedEmail();
   if (!email) return false;
 
-  const { accessToken, googleUserId } = getClassroomSilentAuth();
+  const { accessToken, googleUserId, sessionToken } = getClassroomSilentAuth();
   const gId = groupId ?? getLinkedGroupId();
 
   let prevRawSubs: Record<string, PersonalSubmission> = {};
@@ -524,6 +533,7 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
         google_user_id: googleUserId ?? undefined,
         email: email !== "підключено" ? email : undefined,
         access_token: accessToken ?? undefined,
+        session_token: sessionToken ?? undefined,
       });
 
       const currentEmailNow = getLinkedEmail();
@@ -575,7 +585,8 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
           res.google_user_id || googleUserId,
           resolvedGroupId,
           resolvedTeachers,
-          serverSubgroups
+          serverSubgroups,
+          res.session_token ?? sessionToken
         );
 
         if (Array.isArray(res.tasks)) {

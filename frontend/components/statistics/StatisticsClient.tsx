@@ -332,7 +332,7 @@ export function StatisticsClient() {
   };
 
   return (
-    <div className="min-h-screen bg-sys-bg text-sys-text-primary">
+    <div className="min-h-dvh bg-sys-bg text-sys-text-primary">
       <SubpageHeader
         title="Статистика занять ДФКР"
         subtitle="Виконання навчального плану та навантаження"

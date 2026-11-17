@@ -52,7 +52,7 @@ export function MobileChrome({
   onOpenGuideHub,
 }: MobileChromeProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card pt-[env(safe-area-inset-top)] lg:hidden">
+    <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:hidden">
       {/* Tier 1 (min-h-14): [ДФКР Група ▾]   ‹ 19–25 жовт. ›   [💡] */}
       <div className="flex min-h-[3.5rem] items-center justify-between px-2.5 sm:px-3 py-1 gap-1 sm:gap-1.5 overflow-x-clip">
         {/* Left: Brand + Context Selector */}
@@ -72,7 +72,7 @@ export function MobileChrome({
             type="button"
             onClick={onOpenContextModal}
             aria-label="Обрати групу або викладача"
-            className={`flex h-9 sm:h-10 items-center gap-1 rounded-xl border border-sys-border bg-sys-bg/90 px-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth truncate shrink-0 ${
+            className={`flex min-h-[44px] h-11 sm:h-10 items-center gap-1 rounded-xl border border-sys-border bg-sys-bg/90 px-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth truncate shrink-0 ${
               mode === "teacher" && !isTeacherUnlocked
                 ? "max-w-[96px] min-[390px]:max-w-[116px] sm:max-w-[175px]"
                 : "max-w-[98px] min-[390px]:max-w-[120px] sm:max-w-[200px]"
@@ -87,7 +87,7 @@ export function MobileChrome({
             <button
               type="button"
               onClick={onOpenTeacherPinModal}
-              className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-accent transition-colors duration-fast ease-smooth active:scale-95 shrink-0"
+              className="flex min-h-[44px] min-w-[44px] h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-accent transition-colors duration-fast ease-smooth active:scale-95 shrink-0"
               title="Вхід для викладача (PIN)"
               aria-label="Вхід для викладача (PIN)"
             >
@@ -116,7 +116,7 @@ export function MobileChrome({
                 disabled={!canNavigatePrevWeek}
                 onClick={() => onShiftWeekPreservingDay(-1)}
                 aria-label="Попередній тиждень"
-                className="relative after:absolute after:-inset-1.5 after:content-[''] flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+                className="relative after:absolute after:-inset-2 after:content-[''] flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
               >
                 <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m15 18-6-6 6-6" />
@@ -146,7 +146,7 @@ export function MobileChrome({
                 disabled={!canNavigateNextWeek}
                 onClick={() => onShiftWeekPreservingDay(1)}
                 aria-label="Наступний тиждень"
-                className="relative after:absolute after:-inset-1.5 after:content-[''] flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+                className="relative after:absolute after:-inset-2 after:content-[''] flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
               >
                 <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m9 18 6-6-6-6" />
@@ -203,7 +203,7 @@ export function MobileChrome({
               resolvedTheme={resolvedTheme}
               onToggleTheme={onToggleTheme}
               iconSize={16}
-              className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer shrink-0"
+              className="flex min-h-[44px] min-w-[44px] h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer shrink-0"
             />
           )}
           <button
@@ -211,7 +211,7 @@ export function MobileChrome({
             onClick={onOpenGuideHub}
             aria-label="Гід та довідник можливостей"
             title="Гід та довідник"
-            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-accent hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer shrink-0"
+            className="flex min-h-[44px] min-w-[44px] h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-accent hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer shrink-0"
           >
             <LightbulbIcon className="h-[18px] w-[18px]" />
           </button>

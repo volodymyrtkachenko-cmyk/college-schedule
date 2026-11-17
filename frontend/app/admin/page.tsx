@@ -211,10 +211,10 @@ function AdminContent() {
     return () => { cancelled = true; };
   }, [authLoading, activeResource, currentTab, user]);
 
-  if (authLoading) return <main className="min-h-screen bg-sys-bg p-8 text-sys-text-secondary">Перевірка доступу…</main>;
+  if (authLoading) return <main className="min-h-dvh bg-sys-bg p-8 text-sys-text-secondary">Перевірка доступу…</main>;
   if (!user) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary">
+      <main className="flex min-h-dvh items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary">
         <div className="surface-panel w-full max-w-md p-8 shadow-xl text-center space-y-4">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-sys-accent/15 text-sys-accent text-xl font-black">
             🔒
@@ -243,7 +243,7 @@ function AdminContent() {
   }
   if (!canAccessAdmin(user)) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary">
+      <main className="flex min-h-dvh items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary">
         <div className="surface-panel w-full max-w-md p-8 shadow-xl text-center space-y-3">
           <h1 className="text-2xl font-bold">Недостатньо прав</h1>
           <p className="text-sm text-sys-text-secondary">Ваш обліковий запис (<span className="font-semibold">{user.username}</span>) не має прав адміністратора чи редактора.</p>
@@ -708,5 +708,5 @@ function AdminContent() {
 }
 
 export default function AdminPage() {
-  return <Suspense fallback={<main className="min-h-screen bg-sys-bg p-8 text-sys-text-secondary">Завантаження…</main>}><AdminContent /></Suspense>;
+  return <Suspense fallback={<main className="min-h-dvh bg-sys-bg p-8 text-sys-text-secondary">Завантаження…</main>}><AdminContent /></Suspense>;
 }

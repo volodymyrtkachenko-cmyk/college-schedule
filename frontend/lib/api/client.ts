@@ -9,9 +9,12 @@ import { ApiError, AuthSupersededError, parseApiError } from "./errors";
 import type { AuthSession, AuthUser } from "./types";
 
 // NEXT_PUBLIC_* values are embedded by Next.js at build time. Keep the
-// production Heroku backend default explicit so an omitted build arg never
-// turns API requests into broken relative frontend URLs or stale hosts.
-const DEFAULT_API_URL = "https://my-college-schedule-api-8ffebe58b2b9.herokuapp.com";
+// production Heroku backend default explicit in production builds, while
+// defaulting to http://localhost:8000 in local development.
+const DEFAULT_API_URL =
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:8000"
+    : "https://my-college-schedule-api-8ffebe58b2b9.herokuapp.com";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
 
 let accessToken: string | null = null;
@@ -94,8 +97,10 @@ export function localDate(date: Date): string {
 export function attachClassroomQueryParams(params: URLSearchParams): void {
   if (typeof window !== "undefined") {
     try {
+      const cSession = localStorage.getItem("schedule:classroom_session_token");
       const cUid = localStorage.getItem("schedule:classroom_google_user_id");
       const cEmail = localStorage.getItem("schedule:classroom_linked_email");
+      if (cSession && !params.has("classroom_session")) params.set("classroom_session", cSession);
       if (cUid && !params.has("classroom_user_id")) params.set("classroom_user_id", cUid);
       if (cEmail && cEmail !== "підключено" && !params.has("classroom_email")) {
         params.set("classroom_email", cEmail);
@@ -162,6 +167,10 @@ export async function rawRequest<T>(path: string, init: RequestInit = {}): Promi
       if (teacherPin && !headers.has("X-Teacher-Pin")) {
         headers.set("X-Teacher-Pin", teacherPin);
       }
+      const classroomSession = localStorage.getItem("schedule:classroom_session_token");
+      if (classroomSession && !headers.has("X-Classroom-Session")) {
+        headers.set("X-Classroom-Session", classroomSession);
+      }
       const classroomUid = localStorage.getItem("schedule:classroom_google_user_id");
       if (classroomUid && !headers.has("X-Classroom-User-Id")) {
         headers.set("X-Classroom-User-Id", classroomUid);
@@ -175,11 +184,12 @@ export async function rawRequest<T>(path: string, init: RequestInit = {}): Promi
 
   const rawPin = headers.get("X-Teacher-Pin") || "";
   const rawAuth = headers.get("Authorization") || "";
+  const rawSess = headers.get("X-Classroom-Session") || "";
   const rawUid = headers.get("X-Classroom-User-Id") || "";
   const rawEmail = headers.get("X-Classroom-Email") || "";
   const etagCacheKey =
     method === "GET"
-      ? `${path}|gen:${authGeneration}|pin:${rawPin ? hashKeyPart(rawPin) : ""}|auth:${rawAuth ? hashKeyPart(rawAuth) : ""}|uid:${rawUid}|email:${rawEmail}`
+      ? `${path}|gen:${authGeneration}|pin:${rawPin ? hashKeyPart(rawPin) : ""}|auth:${rawAuth ? hashKeyPart(rawAuth) : ""}|sess:${rawSess ? hashKeyPart(rawSess) : ""}|uid:${rawUid}|email:${rawEmail}`
       : "";
   const requestCacheEpoch = etagCacheEpoch;
   const cachedEtag = method === "GET" ? etagResponseCache.get(etagCacheKey) : undefined;

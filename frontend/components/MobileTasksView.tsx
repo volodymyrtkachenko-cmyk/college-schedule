@@ -422,7 +422,7 @@ export function TasksTodoBoard({
                 }}
                 title="Скинути фільтр предмета"
                 aria-label="Скинути фільтр предмета"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary hover:text-rose-500 hover:border-rose-500/40 active:scale-95 transition-colors cursor-pointer"
+                className="flex min-h-[44px] min-w-[44px] h-11 w-11 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary hover:text-rose-500 hover:border-rose-500/40 active:scale-95 transition-colors cursor-pointer"
               >
                 <CloseIcon className="h-4 w-4" />
               </button>

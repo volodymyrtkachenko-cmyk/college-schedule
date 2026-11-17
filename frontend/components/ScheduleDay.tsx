@@ -23,6 +23,7 @@ import {
   UKR_DAY_MONTH_LONG_FMT,
   UKR_DAY_MONTH_SHORT_FMT,
   UKR_WEEKDAY_LONG_FMT,
+  calendarDateIsoToUtcDate,
 } from "../lib/date";
 
 function parseMin(t?: string): number | null {
@@ -216,7 +217,7 @@ export function ScheduleDay({
   };
 
 
-  const scheduleDateNoon = new Date(`${schedule.date}T12:00:00`);
+  const scheduleDateNoon = calendarDateIsoToUtcDate(schedule.date);
 
   const orderedLessons = [...schedule.lessons].sort(
     (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,

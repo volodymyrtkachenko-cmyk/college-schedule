@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useRef, useState, useMemo } from "react";
 import { api, DirectoryItem, Lesson, LessonMutation, ScheduleResponse, WeekType } from "../lib/api";
 import { ReferenceRecord } from "../lib/api";
+import { calendarDateIsoToUtcDate } from "../lib/date";
 import { SearchableSelect } from "./SearchableSelect";
 import { SearchableTextInput } from "./SearchableTextInput";
 import { AlertTriangleIcon, CloseIcon } from "./ui/Icons";
@@ -36,7 +37,7 @@ const DAY_OPTIONS: [string, string][] = [
   ["5", "П’ятниця"],
 ];
 function dayFromDate(date: string) {
-  const day = new Date(`${date}T12:00:00`).getDay() || 7;
+  const day = calendarDateIsoToUtcDate(date).getUTCDay() || 7;
   return day >= 1 && day <= 5 ? day : 1;
 }
 function initial(lesson: Lesson | undefined, date: string, scheduleMode: "student"|"teacher", defaultGroupId: number|null, defaultTeacherId: number|null, initialWeekType: WeekType = "both"): LessonMutation {
@@ -120,7 +121,7 @@ export function LessonEditor({
     const targetWeekType = form.week_type ?? "both";
 
     for (const day of availabilityWeek) {
-      const dayNum = new Date(`${day.date}T12:00:00`).getDay() || 7;
+      const dayNum = calendarDateIsoToUtcDate(day.date).getUTCDay() || 7;
       if (dayNum !== targetDay) continue;
       for (const l of day.lessons) {
         if (lesson && l.id === lesson.id) continue;
@@ -153,7 +154,7 @@ export function LessonEditor({
     const targetWeekType = form.week_type ?? "both";
 
     for (const day of availabilityWeek) {
-      const dayNum = new Date(`${day.date}T12:00:00`).getDay() || 7;
+      const dayNum = calendarDateIsoToUtcDate(day.date).getUTCDay() || 7;
       if (dayNum !== targetDay) continue;
 
       for (const l of day.lessons) {

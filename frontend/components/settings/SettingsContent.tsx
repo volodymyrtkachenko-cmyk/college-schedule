@@ -793,7 +793,7 @@ export function SettingsContent({ embedded = false }: { embedded?: boolean }) {
   }
 
   return (
-    <div className="min-h-screen bg-sys-bg text-sys-text-primary">
+    <div className="min-h-dvh bg-sys-bg text-sys-text-primary">
       <SubpageHeader
         title="Налаштування"
         subtitle="Зберігаються лише на цьому пристрої"

@@ -5,6 +5,8 @@ import {
   getMondayCalendarIso,
 } from "./calendarDate";
 
+export { calendarDateIsoToUtcDate };
+
 export let serverTimeOffsetMs = 0;
 
 export function updateServerTimeOffset(dateHeader: string | null | undefined): void {

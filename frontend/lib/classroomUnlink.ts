@@ -22,6 +22,7 @@ export const CLASSROOM_STORAGE_KEYS = {
   ACCESS_TOKEN: "schedule:classroom_access_token",
   ACCESS_TOKEN_EXP: "schedule:classroom_access_token_exp",
   REFRESH_TOKEN: "schedule:classroom_refresh_token",
+  SESSION_TOKEN: "schedule:classroom_session_token",
   NEEDS_RELINK: "schedule:classroom_needs_relink",
   NEEDS_RELINK_REASON: "schedule:classroom_needs_relink_reason",
   SELECTED_SUBGROUP: "schedule_selected_subgroup",
@@ -124,6 +125,7 @@ function clearLocalClassroomKeys(storage: Storage): void {
   storage.removeItem(CLASSROOM_STORAGE_KEYS.ACCESS_TOKEN);
   storage.removeItem(CLASSROOM_STORAGE_KEYS.ACCESS_TOKEN_EXP);
   storage.removeItem(CLASSROOM_STORAGE_KEYS.REFRESH_TOKEN);
+  storage.removeItem(CLASSROOM_STORAGE_KEYS.SESSION_TOKEN);
   storage.removeItem(CLASSROOM_STORAGE_KEYS.NEEDS_RELINK);
   storage.removeItem(CLASSROOM_STORAGE_KEYS.NEEDS_RELINK_REASON);
   storage.removeItem("schedule:classroom_tasks");
@@ -170,10 +172,11 @@ export async function performClassroomUnlink(
     const groupIdRaw = storage.getItem(CLASSROOM_STORAGE_KEYS.LINKED_GROUP_ID);
     const accessToken = storage.getItem(CLASSROOM_STORAGE_KEYS.ACCESS_TOKEN);
     const refreshToken = storage.getItem(CLASSROOM_STORAGE_KEYS.REFRESH_TOKEN);
+    const sessionToken = storage.getItem(CLASSROOM_STORAGE_KEYS.SESSION_TOKEN);
     const parsedGroupId = groupIdRaw ? Number(groupIdRaw) : undefined;
     const groupId = parsedGroupId && !Number.isNaN(parsedGroupId) ? parsedGroupId : undefined;
 
-    const hasServerCredentials = Boolean(googleUserId || accessToken || refreshToken);
+    const hasServerCredentials = Boolean(googleUserId || accessToken || refreshToken || sessionToken);
 
     setUnlinkState({ status: "pending", isUnlinking: true, error: null });
 
@@ -184,6 +187,7 @@ export async function performClassroomUnlink(
           google_user_id: googleUserId || undefined,
           access_token: accessToken || undefined,
           refresh_token: refreshToken || undefined,
+          session_token: sessionToken || undefined,
         });
       } catch (err) {
         const message = formatClassroomUnlinkError(err);

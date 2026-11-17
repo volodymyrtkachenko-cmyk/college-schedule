@@ -107,7 +107,8 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
         res.google_user_id ?? null,
         targetGroupId,
         personalTeachers,
-        res.synced_subgroups ?? null
+        res.synced_subgroups ?? null,
+        res.session_token ?? null
       );
 
       if (typeof window !== "undefined") {

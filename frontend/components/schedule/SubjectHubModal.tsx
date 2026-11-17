@@ -13,6 +13,7 @@ import {
   KYIV_DATE_FMT,
   UKR_DAY_MONTH_SHORT_FMT,
   UKR_WEEKDAY_LONG_FMT,
+  calendarDateIsoToUtcDate,
   getKyivInitialWeekAnchor,
 } from "../../lib/date";
 import { copyTextToClipboard, isSubjectMatch, type MeetingInfo } from "../../lib/format";
@@ -82,7 +83,7 @@ if (typeof window !== "undefined") {
 }
 
 function formatDateLabel(dateIso: string): string {
-  const d = new Date(`${dateIso}T12:00:00`);
+  const d = calendarDateIsoToUtcDate(dateIso);
   if (Number.isNaN(d.getTime())) return dateIso;
   const weekday = UKR_WEEKDAY_LONG_FMT.format(d);
   const capitalized = weekday.charAt(0).toUpperCase() + weekday.slice(1);
@@ -90,7 +91,7 @@ function formatDateLabel(dateIso: string): string {
 }
 
 function formatShortDateOnly(dateIso: string): string {
-  const d = new Date(`${dateIso}T12:00:00`);
+  const d = calendarDateIsoToUtcDate(dateIso);
   if (Number.isNaN(d.getTime())) return dateIso;
   return UKR_DAY_MONTH_SHORT_FMT.format(d);
 }

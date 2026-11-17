@@ -1923,7 +1923,7 @@ export function AtlasClient() {
   const activeScheduleHref = inspector ? getScheduleHref(inspector.node) : null;
 
   return (
-    <div className="min-h-screen bg-sys-bg text-sys-text-primary flex flex-col">
+    <div className="min-h-dvh bg-sys-bg text-sys-text-primary flex flex-col">
       <SubpageHeader
         title="Атлас ДФКР"
         subtitle="Зв'язки груп, викладачів, предметів і аудиторій"

@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { SchedulePeriodInfo } from "../lib/api";
-import { UKR_DAY_MONTH_LONG_FMT } from "../lib/date";
+import { UKR_DAY_MONTH_LONG_FMT, calendarDateIsoToUtcDate } from "../lib/date";
 import {
   BuildingIcon,
   CalendarIcon,
@@ -126,8 +126,8 @@ export function getPeriodMeta(period: SchedulePeriodInfo) {
 
 export function formatDateRange(startIso: string, endIso: string): string {
   try {
-    const s = new Date(`${startIso}T12:00:00`);
-    const e = new Date(`${endIso}T12:00:00`);
+    const s = calendarDateIsoToUtcDate(startIso);
+    const e = calendarDateIsoToUtcDate(endIso);
     if (isNaN(s.getTime()) || isNaN(e.getTime())) {
       return `${startIso} — ${endIso}`;
     }
