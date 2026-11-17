@@ -605,12 +605,12 @@ export function TasksTodoBoard({
                 )}
 
                 {noDateTasks.length > 0 && (
-                  <section className="space-y-2">
+                  <section>
                     <button
                       type="button"
                       aria-expanded={noDateExpanded}
                       onClick={() => setNoDateExpanded((prev) => !prev)}
-                      className="w-full flex items-center justify-between gap-2 rounded-xl border border-sys-border/70 bg-sys-card/60 hover:bg-sys-card px-3 py-2 text-left transition-colors cursor-pointer"
+                      className="w-full flex items-center justify-between gap-2 rounded-xl border border-sys-border/70 bg-sys-card/60 hover:bg-sys-card px-3 py-2 text-left transition-colors cursor-pointer active:scale-[0.99]"
                     >
                       <span className="flex items-center gap-2 min-w-0">
                         <span className="h-2 w-2 rounded-full bg-slate-400 shrink-0" />
@@ -628,18 +628,62 @@ export function TasksTodoBoard({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         aria-hidden="true"
-                        className={`shrink-0 text-sys-text-muted transition-transform duration-150 ${
+                        className={`shrink-0 text-sys-text-muted transition-transform duration-200 ${
                           noDateExpanded ? "rotate-180" : ""
                         }`}
                       >
                         <path d="m6 9 6 6 6-6" />
                       </svg>
                     </button>
-                    {noDateExpanded && (
-                      <div className="space-y-2">
-                        {noDateTasks.map((t, idx) => (
-                          <TaskCardItem key={t.id || t.url || `nodate-${idx}`} task={t} isLinked={isLinked} />
-                        ))}
+                    {desktopMotion ? (
+                      <AnimatePresence initial={false}>
+                        {noDateExpanded && (
+                          <m.div
+                            key="nodate-tasks-panel"
+                            initial={{ opacity: 0, height: 0, y: -4 }}
+                            animate={{
+                              opacity: 1,
+                              height: "auto",
+                              y: 0,
+                              transition: {
+                                height: { duration: 0.24, ease: [0.22, 1, 0.36, 1] },
+                                y: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
+                                opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1], delay: 0.03 },
+                              },
+                            }}
+                            exit={{
+                              opacity: 0,
+                              height: 0,
+                              y: -4,
+                              transition: {
+                                height: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
+                                y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
+                                opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
+                              },
+                            }}
+                            className="overflow-hidden"
+                          >
+                            <div className="space-y-2 pt-2">
+                              {noDateTasks.map((t, idx) => (
+                                <TaskCardItem key={t.id || t.url || `nodate-${idx}`} task={t} isLinked={isLinked} />
+                              ))}
+                            </div>
+                          </m.div>
+                        )}
+                      </AnimatePresence>
+                    ) : (
+                      <div
+                        data-open={noDateExpanded ? "true" : undefined}
+                        aria-hidden={!noDateExpanded || undefined}
+                        className="grid-accordion"
+                      >
+                        <div className="grid-accordion-inner">
+                          <div className="space-y-2 pt-2">
+                            {noDateTasks.map((t, idx) => (
+                              <TaskCardItem key={t.id || t.url || `nodate-${idx}`} task={t} isLinked={isLinked} />
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </section>
