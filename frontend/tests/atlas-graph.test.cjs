@@ -521,3 +521,35 @@ test("getCompareCandidates supports shared-pairs sorting/filtering for groups an
   assert.deepEqual([...sharedTeacherOnly.map((c) => c.node.label)], ["Бойко М. С."]);
   assert.equal(sharedTeacherOnly[0].sharedCount, 1);
 });
+
+test("URL meeting links in teacher or edge rooms never split on slash into 'https:' or leak 'каб. https:'", () => {
+  const engine = loadAtlasEngine();
+  const payload = makeSampleAtlasPayload();
+  payload.teachers[0].room = "https://meet.google.com/audit-sub1-room";
+  payload.edges[0].room = "https://meet.google.com/audit-sub1-room";
+  payload.edges[1].room = "205, https://meet.google.com/extra-room";
+
+  const graph = engine.buildAtlasGraph(payload);
+  const t100Id = engine.makeAtlasNodeId("teacher", 100);
+  const t100Node = graph.nodeMap.get(t100Id);
+  assert.equal(t100Node.homeRoom, "Онлайн");
+  assert.equal(t100Node.subtitle, "Онлайн");
+
+  const resolved1 = engine.resolveTeacherEdgeRoom(graph, payload.edges[0], 100);
+  const resolved2 = engine.resolveTeacherEdgeRoom(graph, payload.edges[1], 100);
+  assert.equal(resolved1, "Онлайн");
+  assert.ok(!String(resolved2).includes("https:"));
+
+  const ego = engine.computeEgoLayout(graph, engine.makeAtlasNodeId("group", 10));
+  const sub = ego.positions.get(t100Id)?.subtitle || "";
+  assert.equal(sub.includes("https:"), false, `unexpected 'https:' in subtitle: ${sub}`);
+  assert.equal(sub.includes("Онлайн"), true);
+
+  const insp = engine.getNodeInspectorData(graph, engine.makeAtlasNodeId("group", 10));
+  for (const row of [...insp.teachers, ...insp.subjects]) {
+    assert.equal(row.subtitle?.includes("https:") || false, false);
+    for (const r of row.rooms) {
+      assert.equal(r.includes("https:"), false);
+    }
+  }
+});

@@ -172,6 +172,36 @@ export function compareAtlasGroupsByCourseAndCodeDesc(
   return compareAtlasLabels(b.label, a.label);
 }
 
+function sanitizeAtlasRoomValue(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const replaced = raw
+    .replace(/https?:\/\/\S+/gi, "Онлайн")
+    .trim();
+  if (!replaced || /^https?:?$/i.test(replaced)) return null;
+  return replaced;
+}
+
+function splitAtlasRooms(raw: string | null | undefined): string[] {
+  const sanitized = sanitizeAtlasRoomValue(raw);
+  if (!sanitized) return [];
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const part of sanitized.split(/\s*[\/,;]\s*/)) {
+    const trimmed = part.trim();
+    if (!trimmed || /^https?:?$/i.test(trimmed)) continue;
+    if (seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    parts.push(trimmed);
+  }
+  return parts;
+}
+
+function formatAtlasRoomText(room: string | null | undefined): string | null {
+  const sanitized = sanitizeAtlasRoomValue(room);
+  if (!sanitized) return null;
+  return /^онлайн$/i.test(sanitized) ? "Онлайн" : `каб. ${sanitized}`;
+}
+
 export function resolveTeacherEdgeRoom(
   graph: Pick<AtlasGraph, "teachersRaw">,
   edge: Pick<AtlasEdge, "teacher_id" | "second_teacher_id" | "room">,
@@ -181,20 +211,17 @@ export function resolveTeacherEdgeRoom(
   const isSecondary = edge.second_teacher_id === teacherId;
   if (!isPrimary && !isSecondary) return null;
 
-  const teacherHome = graph.teachersRaw.get(teacherId)?.room?.trim() || null;
+  const teacherHome = sanitizeAtlasRoomValue(graph.teachersRaw.get(teacherId)?.room);
   const otherTeacherId = isPrimary ? edge.second_teacher_id : edge.teacher_id;
   const otherHome =
-    otherTeacherId != null ? graph.teachersRaw.get(otherTeacherId)?.room?.trim() || null : null;
+    otherTeacherId != null ? sanitizeAtlasRoomValue(graph.teachersRaw.get(otherTeacherId)?.room) : null;
 
-  const rawRoom = edge.room?.trim() || null;
+  const rawRoom = sanitizeAtlasRoomValue(edge.room);
   if (!rawRoom) {
     return teacherHome;
   }
 
-  const parts = rawRoom
-    .split(/\s*[\/,;]\s*/)
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const parts = splitAtlasRooms(rawRoom);
 
   if (parts.length > 1) {
     if (teacherHome) {
@@ -220,7 +247,7 @@ export function resolveTeacherEdgeRoom(
     }
   }
 
-  return rawRoom;
+  return parts[0] ?? rawRoom;
 }
 
 export function compactSubjectLabel(name: string, shortName: string | null): string {
@@ -437,19 +464,24 @@ export function buildAtlasGraph(data: AtlasResponse): AtlasGraph {
   for (const t of data.teachers) {
     const id = makeAtlasNodeId("teacher", t.id);
     ensureAdj(id);
+    const cleanHomeRoom = sanitizeAtlasRoomValue(t.room);
     nodeMap.set(id, {
       id,
       rawId: t.id,
       kind: "teacher",
       label: t.name,
       shortLabel: t.name,
-      subtitle: t.room ? `ауд. ${t.room}` : t.full_name,
+      subtitle: cleanHomeRoom
+        ? /^онлайн$/i.test(cleanHomeRoom)
+          ? "Онлайн"
+          : `ауд. ${cleanHomeRoom}`
+        : t.full_name,
       course: null,
       floor: null,
       curatorId: null,
       facultyName: null,
       fullName: t.full_name,
-      homeRoom: t.room,
+      homeRoom: cleanHomeRoom,
       lessonsCount: t.lessons_count,
       degree: 0,
       isConnected: false,
@@ -682,13 +714,14 @@ function buildOrbitNeighborSubtitle(
       ? `${subjLabel} +${subjectLessons.size - 1}`
       : subjLabel;
 
+  const roomLabel = formatAtlasRoomText(topRoom);
   const detailPart =
-    subjectPart && topRoom
-      ? `${subjectPart} · каб. ${topRoom}`
+    subjectPart && roomLabel
+      ? `${subjectPart} · ${roomLabel}`
       : subjectPart
         ? subjectPart
-        : topRoom
-          ? `каб. ${topRoom}`
+        : roomLabel
+          ? roomLabel
           : null;
 
   if (isCurator && detailPart) return `Куратор · ${detailPart}`;
@@ -976,7 +1009,7 @@ function formatCompareRowSubtitle(
 ): string | null {
   const mainSubj = row?.subjects[0] ?? null;
   const extraSubj = row && row.subjects.length > 1 ? ` +${row.subjects.length - 1}` : "";
-  const mainRoom = row?.rooms[0] ? `каб. ${row.rooms[0]}` : null;
+  const mainRoom = formatAtlasRoomText(row?.rooms[0]);
   const subParts = [mainSubj ? `${mainSubj}${extraSubj}` : null, mainRoom].filter(Boolean);
   return subParts.length > 0 ? subParts.join(" · ") : fallback;
 }
@@ -1241,7 +1274,7 @@ export function getNodeInspectorData(
       const tIds = e.second_teacher_id ? [e.teacher_id, e.second_teacher_id] : [e.teacher_id];
       const tNames = tIds.map((id) => graph.teachersRaw.get(id)?.name).filter(Boolean).join(", ");
       const sid = makeAtlasNodeId("subject", e.subject_id);
-      const subjectTag = [tNames, e.room ? `каб. ${e.room}` : null].filter(Boolean).join(" · ");
+      const subjectTag = [tNames, formatAtlasRoomText(e.room)].filter(Boolean).join(" · ");
       bump(subjectAgg, sid, e.lessons_count, e.days, subjectTag || undefined);
 
       for (const tId of tIds) {
@@ -1297,7 +1330,7 @@ export function getNodeInspectorData(
         fullSubjName,
         resolvedRoom || undefined,
       );
-      const subjectTag = [gName, resolvedRoom ? `каб. ${resolvedRoom}` : null].filter(Boolean).join(" · ");
+      const subjectTag = [gName, formatAtlasRoomText(resolvedRoom)].filter(Boolean).join(" · ");
       bump(subjectAgg, sid, e.lessons_count, e.days, subjectTag || undefined);
       if (resolvedRoom) {
         const rid = makeAtlasNodeId("room", resolvedRoom);

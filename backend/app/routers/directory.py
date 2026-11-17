@@ -256,6 +256,8 @@ _FLOOR_RE = re.compile(r"^([1-9])\d{2}(?:[^\d]|$)")
 
 
 def _normalize_atlas_room(raw: str | None) -> str | None:
+    if raw:
+        raw = re.sub(r"https?://\S+", "Онлайн", raw, flags=re.IGNORECASE)
     cleaned = clean_room_string(raw)
     if not cleaned:
         return None

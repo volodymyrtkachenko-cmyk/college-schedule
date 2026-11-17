@@ -195,7 +195,10 @@ def sanitize_note_for_guest(note: Optional[str]) -> tuple[Optional[str], bool]:
             line = MEETING_URL_RE.sub(_sub_repl, line)
         # Remove zoom passcode lines
         if ZOOM_PASS_RE.search(line):
-            line = ZOOM_PASS_RE.sub("", line).strip()
+            line = ZOOM_PASS_RE.sub("", line)
+            line = re.sub(r"\|\s*\|", "|", line)
+            line = re.sub(r"^\s*[|—–-]+\s*|\s*[|—–-]+\s*$", "", line)
+            line = re.sub(r"\s{2,}", " ", line).strip()
         if line.strip():
             sanitized_lines.append(line)
 

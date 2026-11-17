@@ -375,7 +375,9 @@ export const LessonCard = memo(function LessonCard({
 
   const rawRooms = useMemo(() => {
     if (!lesson.room) return [];
-    return lesson.room.split(/\s*[,/;]\s*/).map((r) => r.trim()).filter(Boolean);
+    const cleaned = lesson.room.replace(/https?:\/\/\S+/gi, "").trim();
+    if (!cleaned) return [];
+    return cleaned.split(/\s*[,/;]\s*/).map((r) => r.trim()).filter(Boolean);
   }, [lesson.room]);
 
   const rooms = useMemo(() => {

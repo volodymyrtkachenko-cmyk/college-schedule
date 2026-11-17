@@ -106,6 +106,47 @@ export function attachClassroomQueryParams(params: URLSearchParams): void {
   }
 }
 
+const NETWORK_ERROR_MESSAGE =
+  "Не вдалося з’єднатися із сервером. Перевірте підключення до інтернету та спробуйте ще раз.";
+
+function raceWithSignal<R>(promise: Promise<R>, signal: AbortSignal | undefined | null): Promise<R> {
+  if (!signal) return promise;
+  if (signal.aborted) {
+    promise.catch(() => {});
+    return Promise.reject(new ApiError(0, NETWORK_ERROR_MESSAGE));
+  }
+  return new Promise<R>((resolve, reject) => {
+    let settled = false;
+    const handleAbort = () => {
+      if (settled) return;
+      settled = true;
+      promise.catch(() => {});
+      reject(new ApiError(0, NETWORK_ERROR_MESSAGE));
+    };
+    if (typeof signal.addEventListener === "function") {
+      signal.addEventListener("abort", handleAbort, { once: true });
+    }
+    promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        if (typeof signal.removeEventListener === "function") {
+          signal.removeEventListener("abort", handleAbort);
+        }
+        resolve(value);
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        if (typeof signal.removeEventListener === "function") {
+          signal.removeEventListener("abort", handleAbort);
+        }
+        reject(err);
+      }
+    );
+  });
+}
+
 export async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
   // Build headers via Headers constructor so existing Headers instances preserve Authorization.
@@ -169,37 +210,48 @@ export async function rawRequest<T>(path: string, init: RequestInit = {}): Promi
   const requestSignal = controller ? controller.signal : externalSignal;
 
   try {
-    const cacheMode = init.cache ?? (method === "GET" ? "no-cache" : "no-store");
-    response = await fetch(`${API_URL}${path}`, {
-      ...init,
-      signal: requestSignal,
-      cache: cacheMode,
-      next: { revalidate: 0 },
-      credentials: "include",
-      headers,
-    });
-  } catch {
-    throw new ApiError(0, "Не вдалося з’єднатися із сервером. Перевірте підключення до інтернету та спробуйте ще раз.");
+    try {
+      const cacheMode = init.cache ?? (method === "GET" ? "no-cache" : "no-store");
+      response = await fetch(`${API_URL}${path}`, {
+        ...init,
+        signal: requestSignal,
+        cache: cacheMode,
+        next: { revalidate: 0 },
+        credentials: "include",
+        headers,
+      });
+    } catch {
+      throw new ApiError(0, NETWORK_ERROR_MESSAGE);
+    }
+
+    updateServerTimeOffset(response.headers?.get ? response.headers.get("Date") : null);
+    if (response.status === 304 && cachedEtag) {
+      return cachedEtag.data as T;
+    }
+    if (!response.ok) {
+      const errorMessage = await raceWithSignal(parseApiError(response), requestSignal);
+      if (requestSignal?.aborted || externalSignal?.aborted) {
+        throw new ApiError(0, NETWORK_ERROR_MESSAGE);
+      }
+      throw new ApiError(response.status, errorMessage);
+    }
+    if (response.status === 204) return undefined as T;
+
+    const data = await raceWithSignal(response.json() as Promise<T>, requestSignal);
+    if (requestSignal?.aborted || externalSignal?.aborted) {
+      throw new ApiError(0, NETWORK_ERROR_MESSAGE);
+    }
+    const responseEtag = response.headers?.get ? response.headers.get("ETag") : null;
+    if (method === "GET" && responseEtag && requestCacheEpoch === etagCacheEpoch) {
+      etagResponseCache.set(etagCacheKey, { etag: responseEtag, data });
+    }
+    return data;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
     if (externalSignal && onExternalAbort && typeof externalSignal.removeEventListener === "function") {
       externalSignal.removeEventListener("abort", onExternalAbort);
     }
   }
-
-  updateServerTimeOffset(response.headers?.get ? response.headers.get("Date") : null);
-  if (response.status === 304 && cachedEtag) {
-    return cachedEtag.data as T;
-  }
-  if (!response.ok) throw new ApiError(response.status, await parseApiError(response));
-  if (response.status === 204) return undefined as T;
-
-  const data = (await response.json()) as T;
-  const responseEtag = response.headers?.get ? response.headers.get("ETag") : null;
-  if (method === "GET" && responseEtag && requestCacheEpoch === etagCacheEpoch) {
-    etagResponseCache.set(etagCacheKey, { etag: responseEtag, data });
-  }
-  return data;
 }
 
 async function refresh(): Promise<AuthSession> {

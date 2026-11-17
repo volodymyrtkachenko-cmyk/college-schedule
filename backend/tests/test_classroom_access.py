@@ -211,3 +211,27 @@ async def test_bulk_import_remove_and_credential_delete_invalidate_access_cache(
     await delete_classroom_credential(cred_id=cred.id, db=db_session, _=MagicMock())
     assert await check_classroom_group_access(db_session, group_id=85, request=req_uid) is False
 
+
+def test_sanitize_note_strips_dangling_pipe_and_dash_around_removed_zoom_passcode():
+    note1 = "https://us04web.zoom.us/j/9988776655 | Код доступу: Pass99"
+    s1, had1 = sanitize_note_for_guest(note1)
+    assert had1 is True
+    assert s1 == "[🔒 Онлайн: Zoom]"
+
+    note2 = "Код доступу: Pass99 | https://us04web.zoom.us/j/9988776655"
+    s2, had2 = sanitize_note_for_guest(note2)
+    assert had2 is True
+    assert s2 == "[🔒 Онлайн: Zoom]"
+
+    note3 = "Примітка | Код доступу: 1234 | Початок о 10:00"
+    s3, had3 = sanitize_note_for_guest(note3)
+    assert had3 is False
+    assert s3 == "Примітка | Початок о 10:00"
+
+
+def test_normalize_atlas_room_sanitizes_meeting_urls():
+    from app.routers.directory import _normalize_atlas_room
+
+    assert _normalize_atlas_room("https://meet.google.com/audit-sub1-room") == "Онлайн"
+    assert _normalize_atlas_room("ауд. 312") == "312"
+
