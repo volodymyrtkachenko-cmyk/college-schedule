@@ -635,57 +635,19 @@ export function TasksTodoBoard({
                         <path d="m6 9 6 6 6-6" />
                       </svg>
                     </button>
-                    {desktopMotion ? (
-                      <AnimatePresence initial={false}>
-                        {noDateExpanded && (
-                          <m.div
-                            key="nodate-tasks-panel"
-                            initial={{ opacity: 0, height: 0, y: -4 }}
-                            animate={{
-                              opacity: 1,
-                              height: "auto",
-                              y: 0,
-                              transition: {
-                                height: { duration: 0.24, ease: [0.22, 1, 0.36, 1] },
-                                y: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
-                                opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1], delay: 0.03 },
-                              },
-                            }}
-                            exit={{
-                              opacity: 0,
-                              height: 0,
-                              y: -4,
-                              transition: {
-                                height: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
-                                y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-                                opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
-                              },
-                            }}
-                            className="overflow-hidden"
-                          >
-                            <div className="space-y-2 pt-2">
-                              {noDateTasks.map((t, idx) => (
-                                <TaskCardItem key={t.id || t.url || `nodate-${idx}`} task={t} isLinked={isLinked} />
-                              ))}
-                            </div>
-                          </m.div>
-                        )}
-                      </AnimatePresence>
-                    ) : (
-                      <div
-                        data-open={noDateExpanded ? "true" : undefined}
-                        aria-hidden={!noDateExpanded || undefined}
-                        className="grid-accordion"
-                      >
-                        <div className="grid-accordion-inner">
-                          <div className="space-y-2 pt-2">
-                            {noDateTasks.map((t, idx) => (
-                              <TaskCardItem key={t.id || t.url || `nodate-${idx}`} task={t} isLinked={isLinked} />
-                            ))}
-                          </div>
+                    <div
+                      data-open={noDateExpanded ? "true" : undefined}
+                      aria-hidden={!noDateExpanded || undefined}
+                      className="grid-accordion"
+                    >
+                      <div className="grid-accordion-inner">
+                        <div className="space-y-2 pt-2">
+                          {noDateTasks.map((t, idx) => (
+                            <TaskCardItem key={t.id || t.url || `nodate-${idx}`} task={t} isLinked={isLinked} />
+                          ))}
                         </div>
                       </div>
-                    )}
+                    </div>
                   </section>
                 )}
               </>
