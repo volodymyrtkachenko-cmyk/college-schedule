@@ -671,7 +671,11 @@ export function useScheduleSelection({
 
   const resetScroll = useCallback(() => {
     if (typeof window !== "undefined" && window.scrollY > 0) {
-      window.scrollTo({ top: 0, behavior: "instant" });
+      window.requestAnimationFrame(() => {
+        if (window.scrollY > 0) {
+          window.scrollTo({ top: 0, behavior: "instant" });
+        }
+      });
     }
   }, []);
 

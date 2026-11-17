@@ -25,6 +25,7 @@ export function DesktopSpotlightGrid({
   const gridRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const surfacesRef = useRef<HTMLElement[]>([]);
+  const surfacesDirtyRef = useRef<boolean>(true);
   const rectCacheRef = useRef<WeakMap<HTMLElement, DOMRect>>(new WeakMap());
   const lastCoordsRef = useRef<WeakMap<HTMLElement, { x: number; y: number }>>(new WeakMap());
   const activeTiltElRef = useRef<HTMLElement | null>(null);
@@ -44,21 +45,10 @@ export function DesktopSpotlightGrid({
 
   useEffect(() => {
     rectCacheRef.current = new WeakMap();
-    const container = gridRef.current;
-    surfacesRef.current =
-      !spotlightHoverOnly && container
-        ? Array.from(container.querySelectorAll<HTMLElement>(".interactive-surface"))
-        : [];
-    if (typeof window === "undefined") return;
-    const timer = window.setTimeout(() => {
-      rectCacheRef.current = new WeakMap();
-      if (!spotlightHoverOnly && gridRef.current) {
-        surfacesRef.current = Array.from(
-          gridRef.current.querySelectorAll<HTMLElement>(".interactive-surface"),
-        );
-      }
-    }, 380);
-    return () => window.clearTimeout(timer);
+    surfacesDirtyRef.current = true;
+    if (spotlightHoverOnly) {
+      surfacesRef.current = [];
+    }
   }, [children, spotlightHoverOnly]);
 
   useEffect(() => {
@@ -150,10 +140,11 @@ export function DesktopSpotlightGrid({
             updateSurfaceCoords(hoveredSurface);
           }
         } else {
-          if (surfacesRef.current.length === 0) {
+          if (surfacesDirtyRef.current || surfacesRef.current.length === 0) {
             surfacesRef.current = Array.from(
               container.querySelectorAll<HTMLElement>(".interactive-surface"),
             );
+            surfacesDirtyRef.current = false;
           }
           surfacesRef.current.forEach(updateSurfaceCoords);
         }
@@ -183,7 +174,7 @@ export function DesktopSpotlightGrid({
         }
       });
     },
-    [onPointerMove, clearTilt],
+    [onPointerMove, clearTilt, spotlightHoverOnly],
   );
 
   const handlePointerLeave = useCallback(

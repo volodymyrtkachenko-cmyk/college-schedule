@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AnimatePresence, m, type Variants } from "framer-motion";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { m, type Variants } from "framer-motion";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
@@ -34,33 +34,20 @@ function parseMin(t?: string): number | null {
 
 const DESKTOP_DAY_STAGE_VARIANTS: Variants = {
   enter: (dir: number) => ({
-    x: dir !== 0 ? (dir > 0 ? 52 : -52) : 0,
-    y: dir === 0 ? 14 : 0,
+    opacity: 0,
+    x: dir !== 0 ? (dir > 0 ? 32 : -32) : 0,
+    y: dir === 0 ? 10 : 0,
   }),
   center: {
+    opacity: 1,
     x: 0,
     y: 0,
     transition: {
-      x: { type: "spring", stiffness: 340, damping: 27, mass: 0.85 },
-      y: { type: "spring", stiffness: 340, damping: 27, mass: 0.85 },
+      x: { type: "spring", stiffness: 400, damping: 32, mass: 0.75 },
+      y: { type: "spring", stiffness: 400, damping: 32, mass: 0.75 },
+      opacity: { duration: 0.14, ease: [0.22, 1, 0.36, 1] },
     },
   },
-  exit: (dir: number) => ({
-    opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? -96 : 96) : 0,
-    y: dir === 0 ? -12 : 0,
-    scale: 0.94,
-    rotateY: dir !== 0 ? (dir > 0 ? -3.5 : 3.5) : 0,
-    transformPerspective: 1400,
-    pointerEvents: "none",
-    transition: {
-      x: { duration: 0.19, ease: [0.32, 0, 0.24, 1] },
-      y: { duration: 0.19, ease: [0.32, 0, 0.24, 1] },
-      scale: { duration: 0.19, ease: [0.32, 0, 0.24, 1] },
-      rotateY: { duration: 0.19, ease: [0.32, 0, 0.24, 1] },
-      opacity: { duration: 0.15, ease: [0.22, 1, 0.36, 1] },
-    },
-  }),
 };
 
 interface DayItemMotionCustom {
@@ -71,33 +58,26 @@ interface DayItemMotionCustom {
 const DESKTOP_DAY_ITEM_VARIANTS: Variants = {
   enter: ({ idx, dir }: DayItemMotionCustom) => ({
     opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? 74 + Math.min(idx, 5) * 24 : -(74 + Math.min(idx, 5) * 24)) : 0,
-    y: dir === 0 ? 16 + Math.min(idx, 5) * 6 : 10,
-    scale: 0.95,
-    rotateY: dir !== 0 ? (dir > 0 ? 4.5 : -4.5) : 0,
-    transformPerspective: 1400,
+    x: dir !== 0 ? (dir > 0 ? 28 + Math.min(idx, 4) * 12 : -(28 + Math.min(idx, 4) * 12)) : 0,
+    y: dir === 0 ? 10 + Math.min(idx, 4) * 4 : 0,
   }),
   center: ({ idx }: DayItemMotionCustom) => {
-    const delay = Math.min(idx, 7) * 0.036;
+    const delay = Math.min(idx, 4) * 0.02;
     return {
       opacity: 1,
       x: 0,
       y: 0,
-      scale: 1,
-      rotateY: 0,
       transition: {
-        x: { type: "spring", stiffness: 340, damping: 26, mass: 0.85, delay },
-        y: { type: "spring", stiffness: 340, damping: 26, mass: 0.85, delay },
-        scale: { type: "spring", stiffness: 340, damping: 26, mass: 0.85, delay },
-        rotateY: { type: "spring", stiffness: 340, damping: 26, mass: 0.85, delay },
-        opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1], delay },
+        x: { type: "spring", stiffness: 400, damping: 32, mass: 0.75, delay },
+        y: { type: "spring", stiffness: 400, damping: 32, mass: 0.75, delay },
+        opacity: { duration: 0.14, ease: [0.22, 1, 0.36, 1], delay },
       },
     };
   },
 };
 
 /** Read-only or editable list of one day's lessons, with Telegram sharing, live break indicator, and cascade motion. */
-export function ScheduleDay({
+export const ScheduleDay = memo(function ScheduleDay({
   schedule,
   isToday = false,
   mode = "day",
@@ -217,10 +197,28 @@ export function ScheduleDay({
   };
 
 
-  const scheduleDateNoon = calendarDateIsoToUtcDate(schedule.date);
+  const { weekdayLabel, dayMonthLabel, dayMonthShortLabel } = useMemo(() => {
+    const d = calendarDateIsoToUtcDate(schedule.date);
+    return {
+      weekdayLabel: UKR_WEEKDAY_LONG_FMT.format(d),
+      dayMonthLabel: UKR_DAY_MONTH_LONG_FMT.format(d),
+      dayMonthShortLabel: UKR_DAY_MONTH_SHORT_FMT.format(d),
+    };
+  }, [schedule.date]);
 
-  const orderedLessons = [...schedule.lessons].sort(
-    (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
+  const titleSlotRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (titleSlotRef.current) {
+      titleSlotRef.current.inert = hideDayTitle;
+    }
+  }, [hideDayTitle]);
+
+  const orderedLessons = useMemo(
+    () =>
+      [...schedule.lessons].sort(
+        (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
+      ),
+    [schedule.lessons],
   );
 
   const firstStart = orderedLessons.length > 0 ? parseMin(orderedLessons[0].time.split(/[-–—]/)[0]) : null;
@@ -241,19 +239,17 @@ export function ScheduleDay({
     <>
       {mode === "day" ? (
         <div
-          ref={(el) => {
-            if (el) el.inert = hideDayTitle;
-          }}
+          ref={titleSlotRef}
           data-hidden={hideDayTitle ? "true" : "false"}
           aria-hidden={hideDayTitle || undefined}
           className="schedule-day-title-slot flex flex-wrap items-center gap-2.5 min-w-0 flex-1"
         >
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="w-fit text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
-              {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}<span className="font-normal text-sys-text-secondary">,</span>
+              {weekdayLabel}<span className="font-normal text-sys-text-secondary">,</span>
             </h2>
             <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
-              {UKR_DAY_MONTH_LONG_FMT.format(scheduleDateNoon)}
+              {dayMonthLabel}
             </span>
             {schedule.is_shortened_day && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 shadow-xs">
@@ -271,12 +267,12 @@ export function ScheduleDay({
         <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
           <div className="flex items-center justify-between gap-1">
             <h2 className="text-base sm:text-lg font-bold capitalize tracking-tight truncate text-sys-text-primary">
-              {UKR_WEEKDAY_LONG_FMT.format(scheduleDateNoon)}
+              {weekdayLabel}
             </h2>
           </div>
           <div className="flex items-center justify-between gap-2 mt-0.5">
             <span className="text-xs font-medium text-sys-text-secondary">
-              {UKR_DAY_MONTH_SHORT_FMT.format(scheduleDateNoon)}
+              {dayMonthShortLabel}
             </span>
             {schedule.is_shortened_day && (
               <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
@@ -495,21 +491,18 @@ export function ScheduleDay({
   );
 
   return (
-    <section className={mode === "day" ? "relative min-w-0 overflow-x-clip -mx-3 px-3" : "min-w-0"}>
+    <section className={mode === "day" ? "relative min-w-0 overflow-x-clip -mx-3 px-3 [contain:layout_style]" : "min-w-0"}>
       {desktopMotion ? (
-        <AnimatePresence mode="popLayout" initial={animateOnMount} custom={daySlideDir}>
-          <m.div
-            key={`day-stage-${schedule.date}`}
-            custom={daySlideDir}
-            variants={DESKTOP_DAY_STAGE_VARIANTS}
-            initial={animateOnMount ? "enter" : false}
-            animate="center"
-            exit="exit"
-            className="w-full"
-          >
-            {stageBody}
-          </m.div>
-        </AnimatePresence>
+        <m.div
+          key={`day-stage-${schedule.date}`}
+          custom={daySlideDir}
+          variants={DESKTOP_DAY_STAGE_VARIANTS}
+          initial={animateOnMount ? "enter" : false}
+          animate="center"
+          className="w-full"
+        >
+          {stageBody}
+        </m.div>
       ) : (
         <div key={mode === "day" ? `day-stage-${schedule.date}` : undefined}>
           {stageBody}
@@ -517,4 +510,4 @@ export function ScheduleDay({
       )}
     </section>
   );
-}
+});

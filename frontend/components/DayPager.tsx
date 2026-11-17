@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ScheduleResponse, Lesson } from "../lib/api";
 
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -36,7 +36,7 @@ function formatDayParts(dateStr?: string): { weekday: string; dayMonth: string }
   };
 }
 
-export function DayPager({
+export const DayPager = memo(function DayPager({
   schedule,
   todayDate,
   scheduleMode = "student",
@@ -113,14 +113,17 @@ export function DayPager({
   }, []);
 
   const firstLesson = schedule.lessons[0];
-  const ownerLabel =
-    scheduleMode === "teacher"
-      ? currentTeacherName || firstLesson?.teacher_name || "Розклад викладача"
-      : currentGroupName
-        ? `Група ${currentGroupName}`
-        : firstLesson?.group_name
-          ? `Група ${firstLesson.group_name}`
-          : "Розклад занять";
+  const ownerLabel = useMemo(
+    () =>
+      scheduleMode === "teacher"
+        ? currentTeacherName || firstLesson?.teacher_name || "Розклад викладача"
+        : currentGroupName
+          ? `Група ${currentGroupName}`
+          : firstLesson?.group_name
+            ? `Група ${firstLesson.group_name}`
+            : "Розклад занять",
+    [scheduleMode, currentTeacherName, firstLesson?.teacher_name, currentGroupName, firstLesson?.group_name],
+  );
 
   const handleShareDay = async () => {
     const text = buildTelegramShareText(schedule, scheduleMode, weekNumber, ownerLabel);
@@ -199,6 +202,7 @@ export function DayPager({
   useIsomorphicLayoutEffect(() => {
     if (!awaitingDateResetRef.current) return;
     awaitingDateResetRef.current = false;
+    pendingTranslateRef.current = 0;
     if (resetTimerRef.current !== null) {
       window.clearTimeout(resetTimerRef.current);
       resetTimerRef.current = null;
@@ -363,7 +367,7 @@ export function DayPager({
           awaitingDateResetRef.current = false;
           snapContainerBack(true);
         }
-      }, 120);
+      }, 260);
       if (wantsNext) {
         onNextDay?.();
       } else {
@@ -388,7 +392,7 @@ export function DayPager({
   const isToday = schedule.date === todayDate;
   const isTomorrow = Boolean(tomorrowDate && schedule.date === tomorrowDate);
   const showTodayChip = !isToday && !!onJumpToToday;
-  const dayParts = formatDayParts(schedule.date);
+  const dayParts = useMemo(() => formatDayParts(schedule.date), [schedule.date]);
   const learningModeBadge = schedule.learning_mode ? (
     <span
       className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${
@@ -419,7 +423,7 @@ export function DayPager({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
-      className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100dvh-12rem)] overflow-x-clip"
+      className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100dvh-12rem)] overflow-x-clip [contain:layout_style]"
     >
       {/* Top context banners: weekend or tomorrow */}
       {isWeekend && (
@@ -441,7 +445,7 @@ export function DayPager({
 
 
       {/* Unified Animated Day Stage (header + pre-lesson banner + lessons move together) */}
-      <div className="relative flex-1 w-full flex flex-col overflow-x-clip">
+      <div className="relative flex-1 w-full flex flex-col overflow-x-clip [contain:layout_style]">
         <div
           key={`${scheduleMode}-${schedule.date}`}
           data-slide-dir={
@@ -593,4 +597,4 @@ export function DayPager({
       </div>
     </div>
   );
-}
+});

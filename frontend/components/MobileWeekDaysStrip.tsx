@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { ScheduleResponse } from "../lib/api";
 import { formatKyivDateIso } from "../lib/date";
 import { addDaysToCalendarIso } from "../lib/calendarDate";
@@ -16,7 +16,7 @@ interface MobileWeekDaysStripProps {
   week?: ScheduleResponse[];
 }
 
-export function MobileWeekDaysStrip({
+export const MobileWeekDaysStrip = memo(function MobileWeekDaysStrip({
   weekAnchorDate,
   selectedDayIndex,
   onSelectDay,
@@ -105,4 +105,4 @@ export function MobileWeekDaysStrip({
       })}
     </div>
   );
-}
+});

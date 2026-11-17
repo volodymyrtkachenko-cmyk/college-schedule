@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 import dynamic from "next/dynamic";
@@ -39,8 +39,8 @@ const ContextSelectionModal = dynamic(() => import("./schedule/ContextSelectionM
 const WeekTypeBottomSheet = dynamic(() => import("./schedule/WeekTypeBottomSheet").then((m) => m.WeekTypeBottomSheet), { ssr: false });
 const DatePickerModal = dynamic(() => import("./DatePickerModal").then((m) => m.DatePickerModal), { ssr: false });
 const TeacherPinModal = dynamic(() => import("./TeacherPinModal").then((m) => m.TeacherPinModal), { ssr: false });
-const MobileTasksView = dynamic(() => import("./MobileTasksView").then((m) => m.MobileTasksView), { ssr: false });
-const SettingsContent = dynamic(() => import("./settings/SettingsContent").then((m) => m.SettingsContent), { ssr: false });
+const MobileTasksView = dynamic(() => import("./MobileTasksView").then((m) => memo(m.MobileTasksView)), { ssr: false });
+const SettingsContent = dynamic(() => import("./settings/SettingsContent").then((m) => memo(m.SettingsContent)), { ssr: false });
 const GuideHubModal = dynamic(() => import("./GuideHubModal").then((m) => m.GuideHubModal), { ssr: false });
 const SubjectHubModal = dynamic(() => import("./schedule/SubjectHubModal").then((m) => m.SubjectHubModal), { ssr: false });
 const InstallPrompt = dynamic(() => import("./InstallPrompt").then((m) => m.InstallPrompt), { ssr: false });
@@ -293,17 +293,31 @@ export function SchedulePageClient({
   const isPreviewContext =
     showWelcome || (!initialGroupId && !initialTeacherId && !isSetupComplete);
   const previewCandidateWeek = initialWeek.length > 0 ? initialWeek : initialPreviewWeek;
-  const blurredPreviewWeek = buildBlurredPreviewWeek(weekStartStr, previewCandidateWeek);
-  const blurredPreviewDay = buildBlurredPreviewScheduleDay(
-    sel.activeDayDate,
-    previewCandidateWeek
+  const blurredPreviewWeek = useMemo(
+    () => (isPreviewContext ? buildBlurredPreviewWeek(weekStartStr, previewCandidateWeek) : EMPTY_SCHEDULE_WEEK),
+    [isPreviewContext, weekStartStr, previewCandidateWeek]
+  );
+  const rawSelectedDay = isPreviewContext ? null : (sel.selectedDaySchedule ?? today);
+  const blurredPreviewDay = useMemo(
+    () =>
+      isPreviewContext || !rawSelectedDay
+        ? buildBlurredPreviewScheduleDay(sel.activeDayDate, previewCandidateWeek)
+        : rawSelectedDay,
+    [isPreviewContext, rawSelectedDay, sel.activeDayDate, previewCandidateWeek]
   );
   const effectiveWeek = isPreviewContext ? blurredPreviewWeek : week;
-  const effectiveDay = isPreviewContext
-    ? blurredPreviewDay
-    : (sel.selectedDaySchedule ?? today);
+  const effectiveDay = isPreviewContext ? blurredPreviewDay : (rawSelectedDay ?? blurredPreviewDay);
   const effectiveLoading = isPreviewContext ? false : loading;
   const effectiveError = isPreviewContext ? null : error;
+
+  const handleMobileTasksSynced = useCallback(
+    (detectedId: number | null, _tasks?: any[], _lastSynced?: string | null, isSilent?: boolean) => {
+      if (!isSilent && !sel.returnTarget && detectedId && detectedId !== groupId) {
+        setGroupId(detectedId);
+      }
+    },
+    [sel.returnTarget, groupId, setGroupId]
+  );
 
   const backgroundShellRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -456,11 +470,7 @@ export function SchedulePageClient({
                       weekAnchorDate={weekAnchorDate}
                       weekNumber={sel.currentWeekNumber}
                       lastSyncedAt={classroomLastSyncedAt}
-                      onSynced={(detectedId, _tasks, _lastSynced, isSilent) => {
-                        if (!isSilent && !sel.returnTarget && detectedId && detectedId !== groupId) {
-                          setGroupId(detectedId);
-                        }
-                      }}
+                      onSynced={handleMobileTasksSynced}
                       onOpenSubjectHub={handleOpenSubjectHub}
                     />
                   </div>
