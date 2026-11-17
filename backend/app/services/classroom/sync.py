@@ -2463,6 +2463,8 @@ async def _fetch_user_submissions_impl(
                 "submissions": {},
                 "tasks": [],
                 "reason": "unauthenticated",
+                "needs_relink": True,
+                "reason_code": "session_upgrade_required",
             }
         logger.warning(
             "Classroom legacy auth used in /user-submissions (unverified identity): uid=%s email=%s group_id=%s",

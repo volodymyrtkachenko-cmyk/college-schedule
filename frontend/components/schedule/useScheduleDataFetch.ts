@@ -12,6 +12,8 @@ import {
 } from "../../lib/schedule";
 import {
   consumePendingClassroomReturn,
+  getClassroomSilentAuth,
+  setClassroomNeedsRelink,
   syncPersonalSubmissions,
   useClassroomSubmissions,
 } from "../../lib/useClassroomSubmissions";
@@ -255,6 +257,14 @@ export function useScheduleDataFetch({
             window.dispatchEvent(new Event("classroom-linked-change"));
             window.dispatchEvent(new Event("classroom-access-changed"));
           } catch {}
+        } else if (
+          isLinked &&
+          res &&
+          res.requires_auth === true &&
+          isLinkedToGroup(gid) &&
+          !getClassroomSilentAuth().sessionToken
+        ) {
+          setClassroomNeedsRelink(true, "session_upgrade_required");
         }
         if (!linkedAfterStatus && groupFallbackTasks.length > 0) {
           setClassroomTasks((prev) => {

@@ -50,14 +50,19 @@ export function ClassroomRelinkBanner({ className = "" }: { className?: string }
     }
   };
 
+  const isSessionUpgrade =
+    relinkReason === "session_upgrade_required" || relinkReason === "unauthenticated";
+
   const reasonText =
-    relinkReason === "key_changed"
-      ? "Ключ шифрування оновлено адміністратором."
+    isSessionUpgrade
+      ? "Ми оновили захист сесій — натисніть «Оновити вхід», щоб знову бачити посилання Meet/Zoom, завдання та оцінки."
+      : relinkReason === "key_changed"
+      ? "Ключ шифрування оновлено адміністратором. Натисніть «Підключити знову», щоб відновити фонову синхронізацію."
       : relinkReason === "missing_scopes"
-      ? "Потрібно надати всі дозволи Google Classroom."
+      ? "Потрібно надати всі дозволи Google Classroom. Натисніть «Підключити знову», щоб відновити фонову синхронізацію."
       : relinkReason === "revoked"
-      ? "Доступ відкликано у Google акаунті."
-      : "Для автоматичного оновлення завдань та онлайн-посилань у фоні.";
+      ? "Доступ відкликано у Google акаунті. Натисніть «Підключити знову», щоб відновити фонову синхронізацію."
+      : "Для автоматичного оновлення завдань та онлайн-посилань у фоні натисніть «Підключити знову».";
 
   return (
     <aside
@@ -71,10 +76,12 @@ export function ClassroomRelinkBanner({ className = "" }: { className?: string }
         </span>
         <div className="min-w-0">
           <p className="font-semibold text-amber-950 dark:text-amber-200">
-            Потрібне повторне підключення до Google Classroom
+            {isSessionUpgrade
+              ? "Оновіть підключення до Google Classroom"
+              : "Потрібне повторне підключення до Google Classroom"}
           </p>
           <p className="text-[11px] text-amber-800/90 dark:text-amber-300/80 mt-0.5 leading-relaxed">
-            {reasonText} Натисніть «Підключити знову», щоб відновити фонову синхронізацію.
+            {reasonText}
           </p>
         </div>
       </div>
@@ -90,7 +97,7 @@ export function ClassroomRelinkBanner({ className = "" }: { className?: string }
             <span>Підключення...</span>
           ) : (
             <>
-              <span>Підключити знову</span>
+              <span>{isSessionUpgrade ? "Оновити вхід" : "Підключити знову"}</span>
               <span>→</span>
             </>
           )}

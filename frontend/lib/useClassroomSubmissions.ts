@@ -243,6 +243,8 @@ export function saveClassroomSyncData(
     const prevEmail = localStorage.getItem(LINKED_EMAIL_KEY);
     const prevGroupId = localStorage.getItem(LINKED_GROUP_ID_KEY);
     const prevUid = localStorage.getItem(GOOGLE_USER_ID_KEY);
+    const prevSessionToken = localStorage.getItem(SESSION_TOKEN_KEY);
+    const hadNeedsRelink = localStorage.getItem(NEEDS_RELINK_KEY) === "true";
 
     if (
       userEmail &&
@@ -343,16 +345,19 @@ export function saveClassroomSyncData(
     const nextEmail = localStorage.getItem(LINKED_EMAIL_KEY);
     const nextGroupId = localStorage.getItem(LINKED_GROUP_ID_KEY);
     const nextUid = localStorage.getItem(GOOGLE_USER_ID_KEY);
+    const nextSessionToken = localStorage.getItem(SESSION_TOKEN_KEY);
     const identityChanged =
       prevEmail !== nextEmail || prevGroupId !== nextGroupId || prevUid !== nextUid;
+    const accessUpgraded =
+      hadNeedsRelink || (!prevSessionToken && Boolean(nextSessionToken));
 
-    // Сповіщаємо картки розкладу ТІЛЬКИ якщо реально змінилися здані роботи або акаунт!
-    if (tasksChanged || identityChanged || manualPruned) {
-      if (identityChanged) {
+    // Сповіщаємо картки розкладу, якщо змінилися здані роботи, акаунт або сесія розблокувалася
+    if (tasksChanged || identityChanged || manualPruned || accessUpgraded) {
+      if (identityChanged || accessUpgraded) {
         bumpClassroomIdentityGeneration();
       }
       window.dispatchEvent(new Event(EVENT_NAME));
-      if (identityChanged) {
+      if (identityChanged || accessUpgraded) {
         window.dispatchEvent(new Event("classroom-access-changed"));
       }
     }

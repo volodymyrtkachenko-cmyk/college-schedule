@@ -186,6 +186,8 @@ async def test_finding_1_and_6_classroom_session_token_and_legacy_auth_switch(ca
                 assert blocked_sub.status_code == 200
                 assert blocked_sub.json()["connected"] is False
                 assert blocked_sub.json()["reason"] == "unauthenticated"
+                assert blocked_sub.json()["needs_relink"] is True
+                assert blocked_sub.json()["reason_code"] == "session_upgrade_required"
 
                 # 4b. Unverified X-Classroom-Email on group status rejected (requires_auth=True)
                 blocked_status = await client.get(
