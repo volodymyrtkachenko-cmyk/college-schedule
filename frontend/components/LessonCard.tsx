@@ -594,6 +594,7 @@ export const LessonCard = memo(function LessonCard({
           <div className="live-card-ambient absolute inset-0" />
           <div className="live-aurora-orb-a" />
           <div className="live-aurora-orb-b" />
+          <div className="live-silk-sheen" />
           <div className="live-perimeter-ring" />
           <div
             className={`absolute bottom-0 inset-x-0 bg-sys-accent/15 ${
@@ -601,7 +602,7 @@ export const LessonCard = memo(function LessonCard({
             }`}
           >
             <div
-              className="relative h-full overflow-hidden bg-sys-accent/90 shadow-[0_0_8px_rgb(var(--sys-accent)/0.45)] transition-[width] duration-300 ease-out"
+              className="live-progress-fill relative h-full overflow-hidden bg-sys-accent/90 shadow-[0_0_8px_rgb(var(--sys-accent)/0.45)] transition-[width] duration-300 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
