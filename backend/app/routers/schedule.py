@@ -115,6 +115,12 @@ async def _resolve_public_schedule_horizon(db: AsyncSession) -> date:
         _HORIZON_CACHE[cache_key] = (now_mono, resolved)
     return resolved
 
+
+async def _resolve_public_schedule_floor(db: AsyncSession) -> date | None:
+    saved_start, _ = await settings_service.get_saved_semester_dates(db)
+    return saved_start
+
+
 @router.get("/schedule", response_model=ScheduleResponse)
 async def schedule(request: Request = None,
                    group_id: int | None = None, teacher_id: int | None = None,
@@ -127,7 +133,8 @@ async def schedule(request: Request = None,
         target_date = target_date or today_local()
         is_privileged = await _has_admin_or_editor_access(request, db)
         horizon_date = None if is_privileged else await _resolve_public_schedule_horizon(db)
-        if horizon_date is not None and target_date > horizon_date:
+        floor_date = None if is_privileged else await _resolve_public_schedule_floor(db)
+        if (horizon_date is not None and target_date > horizon_date) or (floor_date is not None and target_date < floor_date):
             from app.services.projection import get_week_type
             semester_start = await settings_service.get_semester_start(db)
             week_type = get_week_type(target_date, semester_start)
@@ -401,7 +408,8 @@ async def week(
 
     is_privileged = await _has_admin_or_editor_access(request, db)
     horizon_date = None if is_privileged else await _resolve_public_schedule_horizon(db)
-    if horizon_date is not None and start > horizon_date:
+    floor_date = None if is_privileged else await _resolve_public_schedule_floor(db)
+    if (horizon_date is not None and start > horizon_date) or (floor_date is not None and (start + timedelta(days=4)) < floor_date):
         from app.services.projection import get_week_type
         semester_start = await settings_service.get_semester_start(db)
         week_type = get_week_type(start, semester_start)
@@ -414,7 +422,10 @@ async def week(
     days_serialized = [
         (
             start + timedelta(days=i),
-            [] if (horizon_date is not None and (start + timedelta(days=i)) > horizon_date) else serialize_schedule_items(
+            [] if (
+                (horizon_date is not None and (start + timedelta(days=i)) > horizon_date)
+                or (floor_date is not None and (start + timedelta(days=i)) < floor_date)
+            ) else serialize_schedule_items(
                 lessons_by_day.get(i + 1, []),
                 week_type,
                 start + timedelta(days=i),

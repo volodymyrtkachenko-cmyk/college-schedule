@@ -25,12 +25,14 @@ import {
   canNavigateNextWeekDate,
   canNavigatePrevDayDate,
   canNavigatePrevWeekDate,
+  clampWeekDayIndex,
   computeCurrentWeekNumber,
   computeHeaderLearningMode,
   formatCompactWeekRange,
   getActualTodayIndex,
   getEveningSelectedDayIndex,
   getKyivWeekday,
+  isDateWithinBounds,
   isEveningAfterLessonsTime,
   resolveDisplayDaySchedule,
   resolveWeekType,
@@ -194,15 +196,13 @@ export function useScheduleSelection({
     (offset: number) => {
       if (offset < 0 && !canNavigatePrevWeek) return;
       if (offset > 0 && !canNavigateNextWeek) return;
+      const nextAnchorIso = addDaysToCalendarIso(formatKyivDateIso(weekAnchorDate), offset * 7);
       setHasMotionInteracted(true);
       setWeekSlideDir(offset > 0 ? 1 : -1);
-      setWeekAnchorDate((date) => {
-        const next = new Date(date);
-        next.setDate(next.getDate() + offset * 7);
-        return next;
-      });
+      setWeekAnchorDate(calendarDateIsoToUtcDate(nextAnchorIso));
+      setSelectedDayIndex((prev) => clampWeekDayIndex(nextAnchorIso, prev, minDateIso, maxDateIso));
     },
-    [canNavigatePrevWeek, canNavigateNextWeek, setWeekAnchorDate]
+    [canNavigatePrevWeek, canNavigateNextWeek, weekAnchorDate, minDateIso, maxDateIso, setWeekAnchorDate]
   );
 
   const [view, setView] = useState<"today" | "week">("today");
@@ -729,15 +729,16 @@ export function useScheduleSelection({
     (offset: number) => {
       if (offset < 0 && !canNavigatePrevWeek) return;
       if (offset > 0 && !canNavigateNextWeek) return;
+      const nextAnchorIso = addDaysToCalendarIso(formatKyivDateIso(weekAnchorDate), offset * 7);
+      const nextIdx = clampWeekDayIndex(nextAnchorIso, selectedDayIndex, minDateIso, maxDateIso);
       setHasMotionInteracted(true);
       setWeekSlideDir(offset > 0 ? 1 : -1);
       setDaySlideDir(offset > 0 ? 1 : -1);
-      setWeekAnchorDate((prev) =>
-        calendarDateIsoToUtcDate(addDaysToCalendarIso(formatKyivDateIso(prev), offset * 7))
-      );
+      setWeekAnchorDate(calendarDateIsoToUtcDate(nextAnchorIso));
+      setSelectedDayIndex(nextIdx);
       resetScroll();
     },
-    [canNavigatePrevWeek, canNavigateNextWeek, setWeekAnchorDate, resetScroll]
+    [canNavigatePrevWeek, canNavigateNextWeek, weekAnchorDate, selectedDayIndex, minDateIso, maxDateIso, setWeekAnchorDate, resetScroll]
   );
 
   const resetWeekPreservingDay = useCallback(() => {
@@ -811,17 +812,19 @@ export function useScheduleSelection({
       setHasMotionInteracted(true);
       if (nextView === "today") {
         setDaySlideDir(0);
+        setSelectedDayIndex((prev) => clampWeekDayIndex(weekAnchorDate, prev, minDateIso, maxDateIso));
       } else {
         setWeekSlideDir(0);
       }
       setView(nextView);
       resetScroll();
     },
-    [view, resetScroll]
+    [view, weekAnchorDate, minDateIso, maxDateIso, resetScroll]
   );
 
   const handleSelectDayFromWeek = useCallback(
-    (_targetDate: string, dayIdx: number) => {
+    (targetDate: string, dayIdx: number) => {
+      if (!isDateWithinBounds(targetDate, minDateIso, maxDateIso)) return;
       try {
         sessionStorage.setItem("schedule:view", "today");
         localStorage.setItem("schedule:view", "today");
@@ -832,8 +835,18 @@ export function useScheduleSelection({
       setView("today");
       resetScroll();
     },
-    [resetScroll]
+    [minDateIso, maxDateIso, resetScroll]
   );
+
+  useEffect(() => {
+    if (view !== "today") return;
+    if (isDateWithinBounds(activeDayDate, minDateIso, maxDateIso)) return;
+    const clampedIdx = clampWeekDayIndex(weekAnchorDate, selectedDayIndex, minDateIso, maxDateIso);
+    const clampedIso = addDaysToCalendarIso(formatKyivDateIso(weekAnchorDate), clampedIdx);
+    if (clampedIdx !== selectedDayIndex && isDateWithinBounds(clampedIso, minDateIso, maxDateIso)) {
+      setSelectedDayIndex(clampedIdx);
+    }
+  }, [view, activeDayDate, weekAnchorDate, selectedDayIndex, minDateIso, maxDateIso]);
 
   const resetWeek = useCallback(() => {
     const currentAnchor = getKyivInitialWeekAnchor(getSyncedNow());

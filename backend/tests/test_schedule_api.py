@@ -862,3 +862,104 @@ async def test_schedule_now_uses_cached_bell_times(api_client, monkeypatch):
         sa_event.remove(sync_engine, "before_cursor_execute", _capture_sql)
         bells_service.invalidate_bell_cache()
 
+
+@pytest.mark.anyio
+async def test_aug_31_does_not_leak_legacy_rows_or_pre_semester_lessons(api_client):
+    from app.models import ScheduleVersion
+    from app.services.projection import invalidate_projection_cache
+    from app.services.settings import settings_service
+
+    client, headers, data = api_client
+    settings_service.clear_cache()
+    invalidate_projection_cache()
+
+    async with data["sessions"]() as session:
+        version = ScheduleVersion(
+            name="1 семестр",
+            valid_from=date(2026, 9, 1),
+            valid_until=date(2027, 1, 10),
+            is_active=True,
+        )
+        session.add(version)
+        await session.flush()
+
+        # Versioned lessons starting Tue 2026-09-01 (Monday & Tuesday slots)
+        session.add_all([
+            Schedule(
+                group_id=data["group_id"],
+                subject_id=data["subject_id"],
+                teacher_id=data["teacher_id"],
+                version_id=version.id,
+                day_of_week=1,
+                lesson_number=1,
+                week_type="both",
+                is_active=True,
+            ),
+            Schedule(
+                group_id=data["group_id"],
+                subject_id=data["different_subject_id"],
+                teacher_id=data["teacher_id"],
+                version_id=version.id,
+                day_of_week=2,
+                lesson_number=1,
+                week_type="both",
+                is_active=True,
+            ),
+        ])
+        await session.commit()
+
+    try:
+        # 1) Legacy version_id=None slot from fixture must NOT leak onto Mon 2026-08-31 in Week 1
+        aug31_day = await client.get(f"/api/schedule?group_id={data['group_id']}&target_date=2026-08-31")
+        assert aug31_day.status_code == 200
+        assert aug31_day.json()["lessons"] == []
+
+        week1 = await client.get(f"/api/schedule/week?group_id={data['group_id']}&target_date=2026-08-31")
+        assert week1.status_code == 200
+        days = week1.json()
+        assert days[0]["date"] == "2026-08-31"
+        assert days[0]["lessons"] == []
+        assert days[1]["date"] == "2026-09-01"
+        assert len(days[1]["lessons"]) == 1
+
+        # 2) With semester dates configured (even 2026-08-31), prior August weeks must NOT resurrect version_id=None
+        async with data["sessions"]() as session:
+            await settings_service.set_semester_dates(session, date(2026, 8, 31), date(2027, 1, 10))
+        invalidate_projection_cache()
+
+        aug24_week = await client.get(
+            f"/api/schedule/week?group_id={data['group_id']}&target_date=2026-08-24",
+            headers=headers,
+        )
+        assert aug24_week.status_code == 200
+        assert all(day["lessons"] == [] for day in aug24_week.json())
+
+        # 3) Even if a ScheduleVersion includes Aug 31, saving semester_start=2026-09-01 suppresses public Aug 31 lessons
+        async with data["sessions"]() as session:
+            v = (await session.execute(select(ScheduleVersion))).scalar_one()
+            v.valid_from = date(2026, 8, 31)
+            await session.commit()
+            await settings_service.set_semester_dates(session, date(2026, 9, 1), date(2027, 1, 10))
+        invalidate_projection_cache()
+
+        public_aug31 = await client.get(f"/api/schedule?group_id={data['group_id']}&target_date=2026-08-31")
+        assert public_aug31.status_code == 200
+        assert public_aug31.json()["lessons"] == []
+
+        public_week1 = await client.get(f"/api/schedule/week?group_id={data['group_id']}&target_date=2026-08-31")
+        assert public_week1.status_code == 200
+        p_days = public_week1.json()
+        assert p_days[0]["lessons"] == []
+        assert len(p_days[1]["lessons"]) == 1
+
+        # Privileged admin still inspects dates before semester_start
+        admin_aug31 = await client.get(
+            f"/api/schedule?group_id={data['group_id']}&target_date=2026-08-31",
+            headers=headers,
+        )
+        assert admin_aug31.status_code == 200
+        assert len(admin_aug31.json()["lessons"]) == 1
+    finally:
+        settings_service.clear_cache()
+        invalidate_projection_cache()
+

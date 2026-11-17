@@ -151,6 +151,38 @@ def _week_matches(cur: str, base: str) -> bool:
     return cur == "both" or base == "both" or cur == base
 
 
+async def _allows_unversioned_fallback(
+    db: AsyncSession,
+    range_start: date,
+    range_end: date,
+    semester_start: date,
+) -> bool:
+    """Allow legacy version_id=NULL rows only when no active version covers or precedes the range/semester."""
+    semester_end = await settings_service.get_configured_semester_end(db)
+    sem_week_end = semester_start + timedelta(days=6)
+    window_start = min(range_start, semester_start)
+    window_end = (
+        max(range_end, sem_week_end, semester_end)
+        if semester_end is not None
+        else max(range_end, sem_week_end)
+    )
+    overlapping_or_prior = await db.scalar(
+        select(ScheduleVersion.id)
+        .where(
+            ScheduleVersion.is_active.is_(True),
+            or_(
+                and_(
+                    ScheduleVersion.valid_from <= window_end,
+                    ScheduleVersion.valid_until >= window_start,
+                ),
+                ScheduleVersion.valid_from <= range_end,
+            ),
+        )
+        .limit(1)
+    )
+    return overlapping_or_prior is None
+
+
 def is_same_day_swap(
     item_group_id: int,
     item_subject_id: Optional[int],
@@ -284,27 +316,38 @@ async def build_projection(
     )
 
     # 3. Base Schedule
-    base_conds = [
-        Schedule.day_of_week == weekday,
-        Schedule.is_active.is_(True),
-        Schedule.week_type.in_(("both", week_type)),
-        or_(Schedule.effective_from.is_(None), Schedule.effective_from <= target_date),
-        or_(Schedule.effective_until.is_(None), Schedule.effective_until >= target_date),
-    ]
-    if active_version:
-        base_conds.append(Schedule.version_id == active_version.id)
-    else:
-        base_conds.append(Schedule.version_id.is_(None))
-    if group_id is not None:
-        base_conds.append(Schedule.group_id == group_id)
-    elif teacher_id is not None:
-        base_conds.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
+    allow_unversioned = False
+    if active_version is None:
+        week_start = target_date - timedelta(days=target_date.weekday())
+        week_end = week_start + timedelta(days=6)
+        allow_unversioned = await _allows_unversioned_fallback(
+            db, week_start, week_end, semester_start
+        )
 
-    base_query = select(Schedule).where(*base_conds).options(
-        joinedload(Schedule.group), joinedload(Schedule.subject),
-        joinedload(Schedule.teacher), joinedload(Schedule.second_teacher)
-    )
-    base_lessons = (await db.scalars(base_query)).all()
+    if active_version is not None or allow_unversioned:
+        base_conds = [
+            Schedule.day_of_week == weekday,
+            Schedule.is_active.is_(True),
+            Schedule.week_type.in_(("both", week_type)),
+            or_(Schedule.effective_from.is_(None), Schedule.effective_from <= target_date),
+            or_(Schedule.effective_until.is_(None), Schedule.effective_until >= target_date),
+        ]
+        if active_version:
+            base_conds.append(Schedule.version_id == active_version.id)
+        else:
+            base_conds.append(Schedule.version_id.is_(None))
+        if group_id is not None:
+            base_conds.append(Schedule.group_id == group_id)
+        elif teacher_id is not None:
+            base_conds.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
+
+        base_query = select(Schedule).where(*base_conds).options(
+            joinedload(Schedule.group), joinedload(Schedule.subject),
+            joinedload(Schedule.teacher), joinedload(Schedule.second_teacher)
+        )
+        base_lessons = (await db.scalars(base_query)).all()
+    else:
+        base_lessons = []
 
     # 4. Imported Changes (ordered by version DESC so the first per cell is latest)
     import_conds = [
@@ -640,42 +683,53 @@ async def build_week_projection(
         )
     ).unique().all()
 
-    base_conds = [
-        Schedule.day_of_week.between(1, 5),
-        Schedule.is_active.is_(True),
-        Schedule.week_type.in_(("both", week_type)),
-    ]
     version_ids = [v.id for v in versions]
     weekdays_dates = [start_date + timedelta(days=w - 1) for w in range(1, 6)]
-    needs_unversioned = any(
+    allow_unversioned = (
+        False
+        if versions
+        else await _allows_unversioned_fallback(
+            db, start_date, start_date + timedelta(days=6), semester_start
+        )
+    )
+    needs_unversioned = allow_unversioned and any(
         not any(v.valid_from <= d <= v.valid_until for v in versions)
         for d in weekdays_dates
     )
-    if version_ids and not needs_unversioned:
-        base_conds.append(Schedule.version_id.in_(version_ids))
-    elif version_ids and needs_unversioned:
-        base_conds.append(or_(Schedule.version_id.in_(version_ids), Schedule.version_id.is_(None)))
-    else:
-        base_conds.append(Schedule.version_id.is_(None))
-    base_conds.append(or_(Schedule.effective_from.is_(None), Schedule.effective_from <= end_date))
-    base_conds.append(or_(Schedule.effective_until.is_(None), Schedule.effective_until >= start_date))
-    if group_id is not None:
-        base_conds.append(Schedule.group_id == group_id)
-    elif teacher_id is not None:
-        base_conds.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
 
-    all_base_lessons = (
-        await db.scalars(
-            select(Schedule)
-            .where(*base_conds)
-            .options(
-                joinedload(Schedule.group),
-                joinedload(Schedule.subject),
-                joinedload(Schedule.teacher),
-                joinedload(Schedule.second_teacher),
+    if version_ids or allow_unversioned:
+        base_conds = [
+            Schedule.day_of_week.between(1, 5),
+            Schedule.is_active.is_(True),
+            Schedule.week_type.in_(("both", week_type)),
+        ]
+        if version_ids and not needs_unversioned:
+            base_conds.append(Schedule.version_id.in_(version_ids))
+        elif version_ids and needs_unversioned:
+            base_conds.append(or_(Schedule.version_id.in_(version_ids), Schedule.version_id.is_(None)))
+        else:
+            base_conds.append(Schedule.version_id.is_(None))
+        base_conds.append(or_(Schedule.effective_from.is_(None), Schedule.effective_from <= end_date))
+        base_conds.append(or_(Schedule.effective_until.is_(None), Schedule.effective_until >= start_date))
+        if group_id is not None:
+            base_conds.append(Schedule.group_id == group_id)
+        elif teacher_id is not None:
+            base_conds.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
+
+        all_base_lessons = (
+            await db.scalars(
+                select(Schedule)
+                .where(*base_conds)
+                .options(
+                    joinedload(Schedule.group),
+                    joinedload(Schedule.subject),
+                    joinedload(Schedule.teacher),
+                    joinedload(Schedule.second_teacher),
+                )
             )
-        )
-    ).all()
+        ).all()
+    else:
+        all_base_lessons = []
 
     import_conds = [
         ImportedScheduleChange.date.between(start_date, end_date),
@@ -842,50 +896,46 @@ async def build_week_projection(
                             ),
                         )
 
+        has_base_for_day = active_version is not None or allow_unversioned
         expected_version_id = active_version.id if active_version else None
-        for b in all_base_lessons:
-            if b.day_of_week != weekday or b.version_id != expected_version_id:
-                continue
-            if b.effective_from is not None and b.effective_from > target_date:
-                continue
-            if b.effective_until is not None and b.effective_until < target_date:
-                continue
-            if is_all_groups_blocked or b.group_id in blocked_groups or b.group_id in practice_groups:
-                continue
-            b_room = resolve_effective_room(b.room_override, b.teacher, b.second_teacher)
-            b_teacher_name = resolve_teacher_names(b.teacher, b.second_teacher)
-            put_cell(
-                b.group_id,
-                b.lesson_number,
-                f"b{b.id}",
-                EffectiveLesson(
-                    group_id=b.group_id,
-                    date=target_date,
-                    lesson_number=b.lesson_number,
-                    subject_id=b.subject_id,
-                    teacher_id=b.teacher_id,
-                    second_teacher_id=b.second_teacher_id,
-                    teacher_room=resolve_own_room(b.teacher), second_teacher_room=resolve_own_room(b.second_teacher),
-                    room=b_room,
-                    stream_id=b.stream_id,
-                    source_kind="base",
-                    source_ref_id=b.id,
-                    group_name=b.group.name if b.group else None,
-                    subject_name=b.subject.name if b.subject else None,
-                    teacher_name=b_teacher_name,
-                    is_replacement=b.is_replacement,
-                    has_template=True,
-                ),
-            )
-
-        day_base_lessons = [
-            b for b in all_base_lessons
-            if b.day_of_week == weekday
-            and (b.version_id == expected_version_id)
-            and (b.effective_from is None or b.effective_from <= target_date)
-            and (b.effective_until is None or b.effective_until >= target_date)
-            and _week_matches(week_type, b.week_type)
-        ]
+        day_base_lessons = []
+        if has_base_for_day:
+            for b in all_base_lessons:
+                if b.day_of_week != weekday or b.version_id != expected_version_id:
+                    continue
+                if b.effective_from is not None and b.effective_from > target_date:
+                    continue
+                if b.effective_until is not None and b.effective_until < target_date:
+                    continue
+                if _week_matches(week_type, b.week_type):
+                    day_base_lessons.append(b)
+                if is_all_groups_blocked or b.group_id in blocked_groups or b.group_id in practice_groups:
+                    continue
+                b_room = resolve_effective_room(b.room_override, b.teacher, b.second_teacher)
+                b_teacher_name = resolve_teacher_names(b.teacher, b.second_teacher)
+                put_cell(
+                    b.group_id,
+                    b.lesson_number,
+                    f"b{b.id}",
+                    EffectiveLesson(
+                        group_id=b.group_id,
+                        date=target_date,
+                        lesson_number=b.lesson_number,
+                        subject_id=b.subject_id,
+                        teacher_id=b.teacher_id,
+                        second_teacher_id=b.second_teacher_id,
+                        teacher_room=resolve_own_room(b.teacher), second_teacher_room=resolve_own_room(b.second_teacher),
+                        room=b_room,
+                        stream_id=b.stream_id,
+                        source_kind="base",
+                        source_ref_id=b.id,
+                        group_name=b.group.name if b.group else None,
+                        subject_name=b.subject.name if b.subject else None,
+                        teacher_name=b_teacher_name,
+                        is_replacement=b.is_replacement,
+                        has_template=True,
+                    ),
+                )
 
         for imp in all_imported:
             if imp.date != target_date or imp.group_id in blocked_groups:

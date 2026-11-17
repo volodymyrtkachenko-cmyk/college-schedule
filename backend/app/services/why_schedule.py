@@ -26,6 +26,7 @@ from app.models.lesson_notes import LessonOccurrenceNote
 from app.services.settings import settings_service
 from app.services.week import get_week_type
 from app.services.projection import (
+    _allows_unversioned_fallback,
     resolve_effective_room,
     resolve_teacher_names,
     infer_lesson_number,
@@ -107,24 +108,35 @@ async def explain_schedule_slot(
                         practice_slots.append(sl)
 
     # 4. Base Template Slots
-    template_conds = [
-        Schedule.day_of_week == weekday,
-        Schedule.is_active.is_(True),
-    ]
-    if active_version:
-        template_conds.append(Schedule.version_id == active_version.id)
-    else:
-        template_conds.append(Schedule.version_id.is_(None))
-    if group_id:
-        template_conds.append(Schedule.group_id == group_id)
-    if teacher_id:
-        template_conds.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
-
-    template_all_rows = (await db.scalars(
-        select(Schedule).where(*template_conds).options(
-            joinedload(Schedule.subject), joinedload(Schedule.teacher), joinedload(Schedule.second_teacher)
+    allow_unversioned = False
+    if active_version is None:
+        week_start = target_date - timedelta(days=target_date.weekday())
+        week_end = week_start + timedelta(days=6)
+        allow_unversioned = await _allows_unversioned_fallback(
+            db, week_start, week_end, semester_start
         )
-    )).all()
+
+    if active_version is not None or allow_unversioned:
+        template_conds = [
+            Schedule.day_of_week == weekday,
+            Schedule.is_active.is_(True),
+        ]
+        if active_version:
+            template_conds.append(Schedule.version_id == active_version.id)
+        else:
+            template_conds.append(Schedule.version_id.is_(None))
+        if group_id:
+            template_conds.append(Schedule.group_id == group_id)
+        if teacher_id:
+            template_conds.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
+
+        template_all_rows = (await db.scalars(
+            select(Schedule).where(*template_conds).options(
+                joinedload(Schedule.subject), joinedload(Schedule.teacher), joinedload(Schedule.second_teacher)
+            )
+        )).all()
+    else:
+        template_all_rows = []
 
     # Filter by week_type
     template_matching_rows = [

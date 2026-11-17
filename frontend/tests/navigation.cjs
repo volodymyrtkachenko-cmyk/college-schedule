@@ -159,3 +159,27 @@ test("sanitizeInternalRedirect blocks open redirects and login self-loops", () =
   assert.equal(nav.sanitizeInternalRedirect("/login?redirect=/admin", "/"), "/");
   assert.equal(nav.sanitizeInternalRedirect(null, "/admin"), "/admin");
 });
+
+test("week bounds clamp day index away from Aug 31 when semester starts Tue Sep 1", () => {
+  const schedNav = loadTsModule(path.resolve(__dirname, "../lib/schedule/navigation.ts"));
+  const minDateIso = "2026-09-01";
+  const maxDateIso = "2026-11-30";
+
+  assert.equal(schedNav.isDateWithinBounds("2026-08-31", minDateIso, maxDateIso), false);
+  assert.equal(schedNav.isDateWithinBounds("2026-09-01", minDateIso, maxDateIso), true);
+  assert.equal(schedNav.clampWeekDayIndex("2026-08-31", 0, minDateIso, maxDateIso), 1);
+  assert.equal(schedNav.clampWeekDayIndex("2026-08-31", 2, minDateIso, maxDateIso), 2);
+
+  assert.equal(
+    schedNav.canNavigatePrevWeekDate(new Date("2026-09-07T12:00:00Z"), minDateIso),
+    true,
+  );
+  assert.equal(
+    schedNav.canNavigatePrevWeekDate(new Date("2026-08-31T12:00:00Z"), minDateIso),
+    false,
+  );
+  assert.equal(
+    schedNav.canNavigatePrevDayDate(new Date("2026-08-31T12:00:00Z"), 1, minDateIso),
+    false,
+  );
+});

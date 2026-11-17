@@ -17,6 +17,7 @@ from app.models import (
     Teacher,
 )
 from app.models.lesson_notes import LessonOccurrenceNote
+from app.services.settings import settings_service
 from app.services.week import get_week_type
 
 
@@ -280,6 +281,18 @@ async def _scheduled_hours(
 
     from app.models.entities import ScheduleVersion
     active_versions = (await db.scalars(select(ScheduleVersion).where(ScheduleVersion.is_active.is_(True)).order_by(ScheduleVersion.valid_from.desc()))).all()
+    semester_end = await settings_service.get_configured_semester_end(db)
+    sem_week_end = semester_start + timedelta(days=6)
+    version_window_end = (
+        max(through_date, sem_week_end, semester_end)
+        if semester_end is not None
+        else max(through_date, sem_week_end)
+    )
+    allow_unversioned = not any(
+        (v.valid_from <= version_window_end and v.valid_until >= semester_start)
+        or v.valid_from <= through_date
+        for v in active_versions
+    )
 
     result: dict[int, dict] = {}
     unique_lessons: set[tuple] = set()
@@ -313,34 +326,35 @@ async def _scheduled_hours(
                         active_version_id = v.id
                         break
 
-                for item in schedules_by_dow.get(weekday, ()):
-                    cell_key = (current_date, item.group_id, item.lesson_number)
-                    if (
-                        item.week_type not in ("both", week_type)
-                        or item.group_id in blocked_ids
-                        or cell_key in latest_changes
-                        or cell_key in overrides_by_cell
-                        or item.version_id != active_version_id
-                        or (item.effective_from is not None and item.effective_from > current_date)
-                        or (item.effective_until is not None and item.effective_until < current_date)
-                    ):
-                        continue
-                    # Regular base lesson
-                    _record_lesson(
-                        result,
-                        unique_lessons,
-                        item.group_id,
-                        item.group.name,
-                        item.subject_id,
-                        item.subject.name,
-                        current_date,
-                        item.lesson_number,
-                        item.id,
-                        item.stream_id,
-                        teacher_id is not None,
-                        teacher_subjects=teacher_subjects,
-                        unique_subject_lessons=unique_subject_lessons,
-                    )
+                if active_version_id is not None or allow_unversioned:
+                    for item in schedules_by_dow.get(weekday, ()):
+                        cell_key = (current_date, item.group_id, item.lesson_number)
+                        if (
+                            item.week_type not in ("both", week_type)
+                            or item.group_id in blocked_ids
+                            or cell_key in latest_changes
+                            or cell_key in overrides_by_cell
+                            or item.version_id != active_version_id
+                            or (item.effective_from is not None and item.effective_from > current_date)
+                            or (item.effective_until is not None and item.effective_until < current_date)
+                        ):
+                            continue
+                        # Regular base lesson
+                        _record_lesson(
+                            result,
+                            unique_lessons,
+                            item.group_id,
+                            item.group.name,
+                            item.subject_id,
+                            item.subject.name,
+                            current_date,
+                            item.lesson_number,
+                            item.id,
+                            item.stream_id,
+                            teacher_id is not None,
+                            teacher_subjects=teacher_subjects,
+                            unique_subject_lessons=unique_subject_lessons,
+                        )
 
                 for change in changes_by_date.get(current_date, ()):
                     cell_key = (current_date, change.group_id, change.lesson_number)
@@ -491,13 +505,16 @@ async def _scheduled_hours(
                 None,
             )
         through_version_id = through_version.id if through_version else None
-        target_schedules = [
-            s
-            for s in schedules
-            if s.version_id == through_version_id
-            and (s.effective_from is None or s.effective_from <= through_date)
-            and (s.effective_until is None or s.effective_until >= through_date)
-        ]
+        if through_version_id is not None or allow_unversioned:
+            target_schedules = [
+                s
+                for s in schedules
+                if s.version_id == through_version_id
+                and (s.effective_from is None or s.effective_from <= through_date)
+                and (s.effective_until is None or s.effective_until >= through_date)
+            ]
+        else:
+            target_schedules = []
         if target_schedules:
             seen_slots = set()
             half_pairs = 0

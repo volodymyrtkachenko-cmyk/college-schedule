@@ -425,3 +425,68 @@ def test_projection_invalidation_clears_router_caches_without_router_dependency(
     _STATS_CACHE[(999, "group", 42, date(2026, 9, 1), date(2026, 9, 2), (0, 0))] = (1.0, {})  # type: ignore[assignment]
     invalidate_projection_cache(42)
     assert all(k[2] != 42 for k in _STATS_CACHE)
+
+
+@pytest.mark.anyio
+async def test_statistics_ignores_legacy_unversioned_rows_before_active_version_start(statistics_db):
+    settings_service.clear_cache()
+    group = Group(name="85-reg")
+    teacher = Teacher(name="Stat Teacher")
+    subject = Subject(name="Дискретна математика")
+    statistics_db.add_all([group, teacher, subject])
+    await statistics_db.flush()
+
+    sem_version = ScheduleVersion(
+        name="1 семестр",
+        valid_from=date(2026, 9, 1),
+        valid_until=date(2027, 1, 10),
+        is_active=True,
+    )
+    statistics_db.add(sem_version)
+    await statistics_db.flush()
+
+    statistics_db.add_all([
+        # Legacy unversioned row for Monday must NOT leak into 2026-08-31 before version valid_from=2026-09-01
+        Schedule(
+            group_id=group.id,
+            teacher_id=teacher.id,
+            subject_id=subject.id,
+            version_id=None,
+            day_of_week=1,
+            lesson_number=1,
+            week_type="both",
+            is_active=True,
+        ),
+        # Active version Monday + Tuesday lessons
+        Schedule(
+            group_id=group.id,
+            teacher_id=teacher.id,
+            subject_id=subject.id,
+            version_id=sem_version.id,
+            day_of_week=1,
+            lesson_number=1,
+            week_type="both",
+            is_active=True,
+        ),
+        Schedule(
+            group_id=group.id,
+            teacher_id=teacher.id,
+            subject_id=subject.id,
+            version_id=sem_version.id,
+            day_of_week=2,
+            lesson_number=1,
+            week_type="both",
+            is_active=True,
+        ),
+    ])
+    await statistics_db.commit()
+
+    try:
+        g_stats = await group_statistics(statistics_db, group, date(2026, 8, 31), date(2026, 9, 8))
+        t_stats = await teacher_statistics(statistics_db, teacher, date(2026, 8, 31), date(2026, 9, 8))
+
+        # Period 2026-08-31..2026-09-08 has: Mon 08-31 (skipped, before valid_from), Tue 09-01, Mon 09-07, Tue 09-08 => 3 pairs = 6 hours
+        assert g_stats["total_hours"] == 6
+        assert t_stats["total_hours"] == 6
+    finally:
+        settings_service.clear_cache()

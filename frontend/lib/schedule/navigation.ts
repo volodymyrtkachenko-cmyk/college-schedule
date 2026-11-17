@@ -171,6 +171,48 @@ export function buildWeekDaysMini(weekAnchorDate: Date): WeekDayMini[] {
   return days;
 }
 
+/** Checks whether a YYYY-MM-DD calendar date lies within inclusive [minDateIso, maxDateIso] bounds. */
+export function isDateWithinBounds(
+  dateIso: string,
+  minDateIso: string | null | undefined,
+  maxDateIso: string | null | undefined
+): boolean {
+  if (minDateIso && dateIso < minDateIso) return false;
+  if (maxDateIso && dateIso > maxDateIso) return false;
+  return true;
+}
+
+/**
+ * Clamps a weekday index (0..4) within a Mon-Fri week to stay inside [minDateIso, maxDateIso]
+ * whenever the target week contains at least one in-bounds weekday.
+ */
+export function clampWeekDayIndex(
+  weekAnchorDate: Date | string,
+  selectedDayIndex: number,
+  minDateIso: string | null | undefined,
+  maxDateIso: string | null | undefined
+): number {
+  const anchorIso =
+    typeof weekAnchorDate === "string"
+      ? weekAnchorDate
+      : formatKyivDateIso(weekAnchorDate);
+  const safeIdx = Math.max(0, Math.min(4, selectedDayIndex));
+  const currentIso = addDaysToCalendarIso(anchorIso, safeIdx);
+  if (minDateIso && currentIso < minDateIso) {
+    for (let i = 0; i <= 4; i++) {
+      const candidate = addDaysToCalendarIso(anchorIso, i);
+      if (isDateWithinBounds(candidate, minDateIso, maxDateIso)) return i;
+    }
+  }
+  if (maxDateIso && currentIso > maxDateIso) {
+    for (let i = 4; i >= 0; i--) {
+      const candidate = addDaysToCalendarIso(anchorIso, i);
+      if (isDateWithinBounds(candidate, minDateIso, maxDateIso)) return i;
+    }
+  }
+  return safeIdx;
+}
+
 /**
  * Checks whether week navigation backward stays within minDateIso.
  */
