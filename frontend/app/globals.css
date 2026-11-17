@@ -2270,53 +2270,43 @@ html[data-density="relaxed"] {
   );
 }
 
-/* Smooth Live-Lesson Choreography: Breathing Accent Halo + Seamless Silk Sheen + Closest-Side Aurora Orbs + Signal Wave */
-@keyframes live-border-breath {
+/* Smooth Live-Lesson Choreography (1+2): Uniform SVG Perimeter Beam + Liquid Blur Aurora + Signal Wave */
+@keyframes live-svg-orbit {
   from {
-    opacity: 0.32;
+    stroke-dashoffset: 0;
   }
   to {
+    stroke-dashoffset: -100;
+  }
+}
+
+@keyframes live-aurora-orbit-a {
+  0% {
+    transform: translate3d(-12%, -18%, 0) scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate3d(28%, 12%, 0) scale(1.12);
     opacity: 1;
   }
-}
-
-@keyframes live-silk-glide {
-  from {
-    transform: translate3d(-45%, 0, 0);
-  }
-  to {
-    transform: translate3d(45%, 0, 0);
-  }
-}
-
-@keyframes live-aurora-drift-a {
-  from {
-    transform: translate3d(-8%, -6%, 0) scale(0.96);
-    opacity: 0.65;
-  }
-  to {
-    transform: translate3d(14%, 8%, 0) scale(1.1);
-    opacity: 1;
-  }
-}
-
-@keyframes live-aurora-drift-b {
-  from {
-    transform: translate3d(8%, 6%, 0) scale(1.06);
-    opacity: 0.6;
-  }
-  to {
-    transform: translate3d(-14%, -8%, 0) scale(0.94);
-    opacity: 0.95;
-  }
-}
-
-@keyframes live-progress-breath {
-  from {
+  100% {
+    transform: translate3d(68%, -8%, 0) scale(1);
     opacity: 0.78;
   }
-  to {
-    opacity: 1;
+}
+
+@keyframes live-aurora-orbit-b {
+  0% {
+    transform: translate3d(14%, 18%, 0) scale(1.08);
+    opacity: 0.65;
+  }
+  50% {
+    transform: translate3d(-32%, -10%, 0) scale(0.94);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate3d(-72%, 14%, 0) scale(1.04);
+    opacity: 0.72;
   }
 }
 
@@ -2330,60 +2320,47 @@ html[data-density="relaxed"] {
   }
 }
 
-.live-perimeter-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 1.5px solid rgb(var(--sys-accent) / 0.8);
-  box-shadow:
-    inset 0 0 16px rgb(var(--sys-accent) / 0.16),
-    0 0 18px -4px rgb(var(--sys-accent) / 0.35);
-  pointer-events: none;
+.live-svg-beam {
+  stroke-dasharray: 22 78;
+  stroke-dashoffset: 0;
 }
 
-.live-silk-sheen {
-  position: absolute;
-  inset: -10%;
-  background: linear-gradient(
-    110deg,
-    transparent 24%,
-    rgb(var(--sys-accent) / 0.12) 45%,
-    rgb(255 255 255 / 0.07) 50%,
-    rgb(var(--sys-accent) / 0.12) 55%,
-    transparent 76%
-  );
-  pointer-events: none;
+.live-svg-beam-halo {
+  stroke-dasharray: 26 74;
+  stroke-dashoffset: 2;
 }
 
 .live-aurora-orb-a {
   position: absolute;
-  top: -35%;
-  left: -12%;
-  width: 64%;
-  height: 140%;
+  top: -30%;
+  left: -5%;
+  width: 46%;
+  aspect-ratio: 1 / 1;
   border-radius: 9999px;
   background: radial-gradient(
     closest-side,
-    rgb(var(--sys-accent) / 0.22) 0%,
-    rgb(var(--sys-accent) / 0.08) 48%,
+    rgb(var(--sys-accent) / 0.26) 0%,
+    rgb(var(--sys-accent) / 0.1) 52%,
     transparent 100%
   );
+  filter: blur(28px);
   pointer-events: none;
 }
 
 .live-aurora-orb-b {
   position: absolute;
   bottom: -35%;
-  right: -12%;
-  width: 60%;
-  height: 135%;
+  right: -5%;
+  width: 44%;
+  aspect-ratio: 1 / 1;
   border-radius: 9999px;
   background: radial-gradient(
     closest-side,
-    rgb(var(--sys-accent) / 0.18) 0%,
-    rgb(var(--sys-accent) / 0.06) 48%,
+    rgb(var(--sys-accent) / 0.2) 0%,
+    rgb(var(--sys-info) / 0.1) 54%,
     transparent 100%
   );
+  filter: blur(32px);
   pointer-events: none;
 }
 
@@ -2403,24 +2380,17 @@ html[data-density="relaxed"] {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-motion="off"]) .live-perimeter-ring {
-    animation: live-border-breath 3.4s ease-in-out infinite alternate;
-  }
-
-  html:not([data-motion="off"]) .live-silk-sheen {
-    animation: live-silk-glide 6.5s ease-in-out infinite alternate;
+  html:not([data-motion="off"]) .live-svg-beam,
+  html:not([data-motion="off"]) .live-svg-beam-halo {
+    animation: live-svg-orbit 5.2s linear infinite;
   }
 
   html:not([data-motion="off"]) .live-aurora-orb-a {
-    animation: live-aurora-drift-a 7s ease-in-out infinite alternate;
+    animation: live-aurora-orbit-a 10s ease-in-out infinite alternate;
   }
 
   html:not([data-motion="off"]) .live-aurora-orb-b {
-    animation: live-aurora-drift-b 9s ease-in-out infinite alternate;
-  }
-
-  html:not([data-motion="off"]) .live-progress-fill {
-    animation: live-progress-breath 2.6s ease-in-out infinite alternate;
+    animation: live-aurora-orbit-b 12s ease-in-out infinite alternate;
   }
 
   html:not([data-motion="off"]) .live-signal-bar:nth-child(1) {

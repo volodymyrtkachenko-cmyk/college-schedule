@@ -594,15 +594,57 @@ export const LessonCard = memo(function LessonCard({
           <div className="live-card-ambient absolute inset-0" />
           <div className="live-aurora-orb-a" />
           <div className="live-aurora-orb-b" />
-          <div className="live-silk-sheen" />
-          <div className="live-perimeter-ring" />
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full"
+          >
+            <rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              rx={isDay ? 16 : 12}
+              style={{ rx: isDay ? "var(--radius-2xl, 16px)" : "var(--radius-xl, 12px)" }}
+              fill="none"
+              stroke="rgb(var(--sys-accent) / 0.25)"
+              strokeWidth="3"
+            />
+            <rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              rx={isDay ? 16 : 12}
+              style={{ rx: isDay ? "var(--radius-2xl, 16px)" : "var(--radius-xl, 12px)" }}
+              pathLength={100}
+              fill="none"
+              stroke="rgb(var(--sys-accent) / 0.35)"
+              strokeWidth="6"
+              strokeLinecap="round"
+              className="live-svg-beam-halo"
+            />
+            <rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              rx={isDay ? 16 : 12}
+              style={{ rx: isDay ? "var(--radius-2xl, 16px)" : "var(--radius-xl, 12px)" }}
+              pathLength={100}
+              fill="none"
+              stroke="rgb(var(--sys-accent))"
+              strokeWidth="3"
+              strokeLinecap="round"
+              className="live-svg-beam"
+            />
+          </svg>
           <div
             className={`absolute bottom-0 inset-x-0 bg-sys-accent/15 ${
               isDay ? "h-[3px]" : "h-[2.5px]"
             }`}
           >
             <div
-              className="live-progress-fill relative h-full overflow-hidden bg-sys-accent/90 shadow-[0_0_8px_rgb(var(--sys-accent)/0.45)] transition-[width] duration-300 ease-out"
+              className="relative h-full overflow-hidden bg-sys-accent/90 shadow-[0_0_8px_rgb(var(--sys-accent)/0.45)] transition-[width] duration-300 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
