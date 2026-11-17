@@ -38,7 +38,7 @@ async def group_statistics(
             .options(joinedload(Curriculum.subject))
         )
     ).unique().all()
-    scheduled, total_hours, _, _ = await _scheduled_hours(
+    scheduled, total_hours, _, weekly_hours = await _scheduled_hours(
         db, semester_start, through_date, group_id=group.id
     )
 
@@ -87,6 +87,7 @@ async def group_statistics(
         "through_date": through_date,
         "total_hours": total_hours,
         "planned_hours": sum(planned_by_subject.values()),
+        "weekly_hours": weekly_hours,
         "entries": entries,
     }
 
@@ -122,18 +123,6 @@ async def teacher_statistics(
     ]
     groups.sort(key=lambda item: item["name"].casefold())
 
-    subjects_list = [
-        {
-            "id": s_id,
-            "name": s_data["name"],
-            "completed_hours": s_data["hours"],
-            "lessons_count": s_data["hours"] // 2,
-            "groups": sorted(list(s_data["groups"])),
-        }
-        for s_id, s_data in teacher_subjects.items()
-    ]
-    subjects_list.sort(key=lambda item: item["completed_hours"], reverse=True)
-
     active_term = await get_active_term(db)
     teacher_curr_filters = [or_(Curriculum.teacher_id == teacher.id, Curriculum.second_teacher_id == teacher.id)]
     if active_term:
@@ -143,8 +132,27 @@ async def teacher_statistics(
             select(Curriculum).where(*teacher_curr_filters)
         )
     ).all()
+    planned_by_subject: dict[int, int] = defaultdict(int)
+    for c in curricula:
+        if c.subject_id is not None and c.total_hours:
+            planned_by_subject[c.subject_id] += c.total_hours
     planned_hours_val = sum(c.total_hours for c in curricula)
     planned_hours = planned_hours_val if planned_hours_val > 0 else None
+
+    subjects_list = [
+        {
+            "id": s_id,
+            "name": s_data["name"],
+            "completed_hours": s_data["hours"],
+            "lessons_count": s_data["hours"] // 2,
+            "planned_hours": planned_by_subject.get(s_id) or None,
+            "cancelled_count": s_data.get("cancelled_count", 0),
+            "replaced_count": s_data.get("replaced_count", 0),
+            "groups": sorted(list(s_data["groups"])),
+        }
+        for s_id, s_data in teacher_subjects.items()
+    ]
+    subjects_list.sort(key=lambda item: item["completed_hours"], reverse=True)
 
     return {
         "mode": "teacher",
@@ -494,7 +502,7 @@ async def _scheduled_hours(
     )
 
     weekly_hours: int | None = None
-    if teacher_id is not None:
+    if teacher_id is not None or group_id is not None:
         through_version = next(
             (v for v in active_versions if v.valid_from <= through_date <= v.valid_until),
             None,
@@ -521,7 +529,10 @@ async def _scheduled_hours(
             for s in target_schedules:
                 if s.lesson_number is None or s.day_of_week is None:
                     continue
-                slot_key = (s.day_of_week, s.lesson_number, s.week_type, s.stream_id if s.stream_id else f"slot_{s.id}")
+                if group_id is not None:
+                    slot_key = (s.day_of_week, s.lesson_number, s.week_type, s.subject_id)
+                else:
+                    slot_key = (s.day_of_week, s.lesson_number, s.week_type, s.stream_id if s.stream_id else f"slot_{s.id}")
                 if slot_key not in seen_slots:
                     seen_slots.add(slot_key)
                     if s.week_type == "both":
@@ -602,5 +613,9 @@ def _record_lesson(
                 if subj_lesson_key not in unique_subject_lessons:
                     unique_subject_lessons.add(subj_lesson_key)
                     subj_entry["hours"] += 2
+                    if replaced:
+                        subj_entry["replaced_count"] += 1
             else:
                 subj_entry["hours"] += 2
+                if replaced:
+                    subj_entry["replaced_count"] += 1

@@ -105,6 +105,7 @@ async def test_group_and_teacher_statistics_apply_week_types_and_calendar_period
     assert (regular["completed_hours"], regular["planned_hours"], regular["progress_percent"]) == (4, 10, 40)
     assert (practice["completed_hours"], practice["planned_hours"]) == (2, 0)
     assert group_result["total_hours"] == 6
+    assert group_result["weekly_hours"] == 3
     assert teacher_result["total_hours"] == 6
     assert teacher_result["entries"] == [{"id": group.id, "name": group.name, "completed_hours": 6}]
     assert teacher_result["groups"] == [
@@ -120,6 +121,7 @@ async def test_group_and_teacher_statistics_apply_week_types_and_calendar_period
     regular_s = next(s for s in teacher_result["subjects"] if s["id"] == regular_subject.id)
     assert regular_s["completed_hours"] == 4
     assert regular_s["lessons_count"] == 2
+    assert regular_s["planned_hours"] == 10
     assert regular_s["groups"] == [group.name]
     assert teacher_result["planned_hours"] == 10
 

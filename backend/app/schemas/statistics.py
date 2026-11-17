@@ -20,6 +20,9 @@ class TeacherSubjectEntry(BaseModel):
     name: str
     completed_hours: int
     lessons_count: int
+    planned_hours: int | None = None
+    cancelled_count: int = 0
+    replaced_count: int = 0
     groups: list[str] = []
 
 

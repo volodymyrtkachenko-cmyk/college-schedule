@@ -187,6 +187,9 @@ export interface TeacherSubjectEntry {
   name: string;
   completed_hours: number;
   lessons_count: number;
+  planned_hours?: number | null;
+  cancelled_count?: number;
+  replaced_count?: number;
   groups: string[];
 }
 
