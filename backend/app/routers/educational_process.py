@@ -115,10 +115,16 @@ async def get_matrix(
         )
         .order_by(AcademicTerm.semester_number, AcademicTerm.start_date, AcademicTerm.id)
     )
+    year_window_start = date(academic_year_start, 8, 1)
+    year_window_end = date(academic_year_start + 1, 8, 31)
     year_terms = [
         t for t in terms_result.scalars().all()
-        if t.academic_year == academic_year_str
-        or (t.start_date >= date(academic_year_start, 8, 1) and t.end_date <= date(academic_year_start + 1, 8, 31))
+        if t.end_date >= year_window_start
+        and t.start_date <= year_window_end
+        and (
+            t.academic_year == academic_year_str
+            or (t.start_date >= year_window_start and t.end_date <= year_window_end)
+        )
     ]
 
     semesters_info: list[SemesterRangeInfo] = []

@@ -73,6 +73,34 @@ export function mergeProcessCells(
 }
 
 /**
+ * Resolves consistent semester 1 and semester 2 ranges for the active academic year,
+ * ignoring off-year or chronologically inverted semester 2 entries.
+ */
+export function resolveValidSemesters(
+  semesters?: EducationalProcessSemesterRange[] | null,
+  weeks?: EducationalProcessWeekInfo[] | null
+): {
+  sem1: EducationalProcessSemesterRange | undefined;
+  sem2: EducationalProcessSemesterRange | undefined;
+} {
+  const yearStartDate = weeks?.[0]?.start_date;
+  const sem1Raw = semesters?.find((s) => s.semester_number === 1);
+  const sem1 =
+    sem1Raw && (!yearStartDate || sem1Raw.end_date >= yearStartDate)
+      ? sem1Raw
+      : undefined;
+  const sem2Raw = semesters?.find((s) => s.semester_number === 2);
+  const sem2Valid =
+    sem2Raw &&
+    (!yearStartDate || sem2Raw.end_date >= yearStartDate) &&
+    (!sem1?.start_date || sem2Raw.start_date > sem1.start_date);
+  return {
+    sem1,
+    sem2: sem2Valid ? sem2Raw : undefined,
+  };
+}
+
+/**
  * Splits merged periods strictly into semester 1 or semester 2 without duplicating
  * boundary-spanning periods in both buckets.
  */
@@ -81,8 +109,7 @@ export function partitionSemesterPeriods<T extends MergedPeriod>(
   semesters?: EducationalProcessSemesterRange[] | null,
   weeks?: EducationalProcessWeekInfo[] | null
 ): { semester1: T[]; semester2: T[] } {
-  const sem1 = semesters?.find((s) => s.semester_number === 1);
-  const sem2 = semesters?.find((s) => s.semester_number === 2);
+  const { sem1, sem2 } = resolveValidSemesters(semesters, weeks);
 
   const week22StartDate = weeks?.find((w) => w.week_number === 22)?.start_date;
   const boundaryMs = sem2?.start_date
@@ -122,4 +149,61 @@ export function partitionSemesterPeriods<T extends MergedPeriod>(
   }
 
   return { semester1, semester2 };
+}
+
+const SUMMARY_ORDER = [
+  "theory",
+  "practice",
+  "session",
+  "diploma",
+  "attestation",
+  "holiday",
+] as const;
+
+export interface ProcessTypeSummary {
+  period_type: string;
+  weeks_count: number;
+  spans_count: number;
+}
+
+/** Aggregates total week and span counts per period type for fast year-at-a-glance scanning. */
+export function summarizeProcessPeriods(periods: MergedPeriod[]): ProcessTypeSummary[] {
+  const totals = new Map<string, ProcessTypeSummary>();
+  for (const period of periods) {
+    const existing = totals.get(period.period_type);
+    if (existing) {
+      existing.weeks_count += period.weeks_count;
+      existing.spans_count += 1;
+    } else {
+      totals.set(period.period_type, {
+        period_type: period.period_type,
+        weeks_count: period.weeks_count,
+        spans_count: 1,
+      });
+    }
+  }
+
+  const ordered: ProcessTypeSummary[] = [];
+  for (const type of SUMMARY_ORDER) {
+    const entry = totals.get(type);
+    if (entry && entry.weeks_count > 0) {
+      ordered.push(entry);
+      totals.delete(type);
+    }
+  }
+  totals.forEach((entry) => {
+    if (entry.weeks_count > 0) ordered.push(entry);
+  });
+  return ordered;
+}
+
+/** Selects the matching Ukrainian plural form for an integer count. */
+export function pluralizeUk(count: number, [one, few, many]: [string, string, string]): string {
+  const abs = Math.abs(count);
+  const mod100 = abs % 100;
+  const mod10 = abs % 10;
+  if (mod100 >= 11 && mod100 <= 14) return `${count} ${many}`;
+  if (mod10 === 1) return `${count} ${one}`;
+  if (mod10 >= 2 && mod10 <= 4) return `${count} ${few}`;
+  return `${count} ${many}`;
 }

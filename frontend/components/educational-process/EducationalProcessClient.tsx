@@ -19,6 +19,9 @@ import {
   MS_PER_DAY,
   parseUtcMidnightMs,
   partitionSemesterPeriods,
+  pluralizeUk,
+  resolveValidSemesters,
+  summarizeProcessPeriods,
   type MergedPeriod,
 } from "@/lib/educationalProcess";
 
@@ -30,6 +33,7 @@ const TYPE_CONFIG: Record<
     badgeText: string;
     badgeBorder: string;
     dotClass: string;
+    barClass: string;
   }
 > = {
   session: {
@@ -38,6 +42,7 @@ const TYPE_CONFIG: Record<
     badgeText: "text-rose-700 dark:text-rose-300",
     badgeBorder: "border-rose-500/30",
     dotClass: "bg-rose-500",
+    barClass: "bg-rose-500 hover:bg-rose-400",
   },
   holiday: {
     name: "Канікули",
@@ -45,6 +50,7 @@ const TYPE_CONFIG: Record<
     badgeText: "text-emerald-700 dark:text-emerald-300",
     badgeBorder: "border-emerald-500/30",
     dotClass: "bg-emerald-500",
+    barClass: "bg-emerald-500 hover:bg-emerald-400",
   },
   practice: {
     name: "Практика",
@@ -52,6 +58,7 @@ const TYPE_CONFIG: Record<
     badgeText: "text-amber-800 dark:text-amber-300",
     badgeBorder: "border-amber-500/30",
     dotClass: "bg-amber-500",
+    barClass: "bg-amber-500 hover:bg-amber-400",
   },
   diploma: {
     name: "Дипломне проєктування",
@@ -59,6 +66,7 @@ const TYPE_CONFIG: Record<
     badgeText: "text-purple-700 dark:text-purple-300",
     badgeBorder: "border-purple-500/30",
     dotClass: "bg-purple-500",
+    barClass: "bg-purple-500 hover:bg-purple-400",
   },
   attestation: {
     name: "Атестація",
@@ -66,6 +74,7 @@ const TYPE_CONFIG: Record<
     badgeText: "text-sky-700 dark:text-sky-300",
     badgeBorder: "border-sky-500/30",
     dotClass: "bg-sky-500",
+    barClass: "bg-sky-500 hover:bg-sky-400",
   },
   theory: {
     name: "Теоретичне навчання",
@@ -73,8 +82,24 @@ const TYPE_CONFIG: Record<
     badgeText: "text-sys-text-secondary",
     badgeBorder: "border-sys-border",
     dotClass: "bg-slate-400",
+    barClass: "bg-slate-300 dark:bg-slate-600/80 hover:bg-slate-400 dark:hover:bg-slate-500",
   },
 };
+
+const ACADEMIC_MONTH_LABELS = [
+  "Вер",
+  "Жовт",
+  "Лист",
+  "Груд",
+  "Січ",
+  "Лют",
+  "Бер",
+  "Квіт",
+  "Трав",
+  "Черв",
+  "Лип",
+  "Серп",
+];
 
 const MONTH_NAMES_UA = [
   "січ.",
@@ -108,6 +133,111 @@ function formatShortDate(dateStr: string) {
   return `${String(d.getUTCDate()).padStart(2, "0")}.${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function addDaysIso(dateStr: string, days: number): string {
+  const ms = parseUtcMidnightMs(dateStr);
+  if (Number.isNaN(ms)) return dateStr;
+  return new Date(ms + days * MS_PER_DAY).toISOString().slice(0, 10);
+}
+
+interface SemesterMilestoneItem extends MergedPeriod {
+  status: "past" | "current" | "upcoming";
+  daysDiff: number;
+}
+
+function SemesterSection({
+  title,
+  subtitle,
+  items,
+  extraTopPadding = false,
+}: {
+  title: string;
+  subtitle: string;
+  items: SemesterMilestoneItem[];
+  extraTopPadding?: boolean;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <section aria-label={title} className={`space-y-3 ${extraTopPadding ? "pt-2" : ""}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sys-border/60 pb-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="px-2 py-0.5 rounded-md bg-sys-bg border border-sys-border text-xs font-bold text-sys-text-primary">
+            {title}
+          </h2>
+          <span className="text-xs text-sys-text-secondary font-medium">
+            {subtitle}
+          </span>
+        </div>
+        <span className="text-xs text-sys-text-muted">
+          {pluralizeUk(items.length, ["етап", "етапи", "етапів"])}
+        </span>
+      </div>
+
+      <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {items.map((item, idx) => {
+          const cfg = TYPE_CONFIG[item.period_type] || TYPE_CONFIG.theory;
+          const isCurrent = item.status === "current";
+          const isUpcoming = item.status === "upcoming";
+          const isPast = item.status === "past";
+
+          return (
+            <div
+              key={`${item.start_week}-${item.period_type}-${idx}`}
+              className={`interactive-surface scroll-reveal-card rounded-2xl border p-4 flex flex-col justify-between shadow-xs ${
+                isCurrent
+                  ? "border-sys-accent bg-sys-accent/5 ring-1 ring-sys-accent/40"
+                  : isUpcoming
+                  ? "border-sys-border bg-sys-card hover:border-sys-border-elevated"
+                  : "border-sys-border/50 bg-sys-card/50 opacity-65"
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotClass}`} />
+                    <span>{cfg.name}</span>
+                  </span>
+
+                  {isCurrent && (
+                    <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-bold text-[10px] uppercase tracking-wide">
+                      Зараз
+                    </span>
+                  )}
+                  {isUpcoming && (
+                    <span className="text-xs font-semibold text-sys-accent">
+                      через {item.daysDiff} дн.
+                    </span>
+                  )}
+                  {isPast && (
+                    <span className="text-[11px] font-medium text-sys-text-muted">
+                      Завершено
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="text-sm sm:text-base font-bold text-sys-text-primary mt-1">
+                  {item.name || cfg.name}
+                </h3>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-sys-border/50 flex items-center justify-between gap-2 text-xs text-sys-text-secondary">
+                <span className="truncate">
+                  {formatDisplayDate(item.start_date)} — {formatDisplayDate(item.end_date)}
+                </span>
+                <span className="font-semibold text-sys-text-primary shrink-0">
+                  {pluralizeUk(item.weeks_count, ["тиждень", "тижні", "тижнів"])}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </DesktopSpotlightGrid>
+    </section>
+  );
+}
+
 export function EducationalProcessClient() {
   const selectedYear = useMemo(() => getCurrentAcademicYear(), []);
 
@@ -120,6 +250,7 @@ export function EducationalProcessClient() {
   const [activeCourseTab, setActiveCourseTab] = useState<number | "all">(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFullSchedule, setShowFullSchedule] = useState(false);
+  const [activeTimelineIdx, setActiveTimelineIdx] = useState<number | null>(null);
   const hasInitializedGroupRef = useRef(false);
 
   useEffect(() => {
@@ -347,8 +478,7 @@ export function EducationalProcessClient() {
       };
     };
 
-    const sem1 = matrix?.semesters?.find((s) => s.semester_number === 1);
-    const sem2 = matrix?.semesters?.find((s) => s.semester_number === 2);
+    const { sem1, sem2 } = resolveValidSemesters(matrix?.semesters, matrix?.weeks);
 
     const formatted = nonTheory.map(formatItem);
     const { semester1, semester2 } = partitionSemesterPeriods(
@@ -360,12 +490,44 @@ export function EducationalProcessClient() {
     const sem1Subtitle = sem1
       ? `${formatDisplayDate(sem1.start_date)} — ${formatDisplayDate(sem1.end_date)}`
       : "Осінь — Зима (вересень – січень)";
+    const lastWeekEnd = matrix?.weeks?.[matrix.weeks.length - 1]?.end_date;
+    const sem2FallbackStart = sem1?.end_date
+      ? addDaysIso(sem1.end_date, 1)
+      : semester2[0]?.start_date;
+    const sem2FallbackEnd = lastWeekEnd || semester2[semester2.length - 1]?.end_date;
     const sem2Subtitle = sem2
       ? `${formatDisplayDate(sem2.start_date)} — ${formatDisplayDate(sem2.end_date)}`
+      : sem2FallbackStart && sem2FallbackEnd
+      ? `${formatDisplayDate(sem2FallbackStart)} — ${formatDisplayDate(sem2FallbackEnd)}`
       : "Весна — Літо (січень – серпень)";
 
     return { semester1, semester2, sem1Subtitle, sem2Subtitle };
   }, [currentGroupData, matrix?.semesters, matrix?.weeks, todayIso]);
+
+  const yearOverview = useMemo(() => {
+    if (!currentGroupData) return null;
+    const merged = currentGroupData.mergedPeriods;
+    const summaries = summarizeProcessPeriods(merged);
+    const todayMs = parseUtcMidnightMs(todayIso);
+    const currentIdx = merged.findIndex((p) => {
+      const s = parseUtcMidnightMs(p.start_date);
+      const e = parseUtcMidnightMs(p.end_date);
+      return todayMs >= s && todayMs <= e;
+    });
+    const inspectedIdx =
+      activeTimelineIdx !== null && activeTimelineIdx >= 0 && activeTimelineIdx < merged.length
+        ? activeTimelineIdx
+        : currentIdx >= 0
+        ? currentIdx
+        : 0;
+    return {
+      merged,
+      summaries,
+      currentIdx,
+      inspectedPeriod: merged[inspectedIdx] ?? null,
+      inspectedIdx,
+    };
+  }, [currentGroupData, todayIso, activeTimelineIdx]);
 
   const handleSelectCourse = (courseNum: number | "all") => {
     setActiveCourseTab(courseNum);
@@ -387,6 +549,7 @@ export function EducationalProcessClient() {
 
   const handleSelectGroup = (id: number) => {
     setSelectedGroupId(id);
+    setActiveTimelineIdx(null);
     const g = allGroups.find((x) => x.id === id);
     if (g && activeCourseTab !== "all" && activeCourseTab !== g.course) {
       setActiveCourseTab(g.course);
@@ -661,175 +824,128 @@ export function EducationalProcessClient() {
               </DesktopSpotlightGrid>
             )}
 
-            {/* Semester 1 */}
-            <section aria-label="I семестр" className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sys-border/60 pb-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="px-2 py-0.5 rounded-md bg-sys-bg border border-sys-border text-xs font-bold text-sys-text-primary">
-                    I семестр
+            {yearOverview && yearOverview.merged.length > 0 && (
+              <section
+                aria-label="Візуальна шкала навчального року"
+                className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs space-y-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+                    Карта навчального року
                   </h2>
-                  <span className="text-xs text-sys-text-secondary font-medium">
-                    {semesterMilestones.sem1Subtitle}
-                  </span>
-                </div>
-                <span className="text-xs text-sys-text-muted">
-                  {semesterMilestones.semester1.length} етапів
-                </span>
-              </div>
-
-              <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {semesterMilestones.semester1.map((item, idx) => {
-                  const cfg = TYPE_CONFIG[item.period_type] || TYPE_CONFIG.theory;
-                  const isCurrent = item.status === "current";
-                  const isUpcoming = item.status === "upcoming";
-                  const isPast = item.status === "past";
-
-                  return (
-                    <div
-                      key={`${item.start_week}-${item.period_type}-${idx}`}
-                      className={`interactive-surface scroll-reveal-card rounded-2xl border p-4 flex flex-col justify-between shadow-xs ${
-                        isCurrent
-                          ? "border-sys-accent bg-sys-accent/5 ring-1 ring-sys-accent/40"
-                          : isUpcoming
-                          ? "border-sys-border bg-sys-card hover:border-sys-border-elevated"
-                          : "border-sys-border/50 bg-sys-card/50 opacity-65"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotClass}`} />
-                            <span>{cfg.name}</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {yearOverview.summaries.map((sum) => {
+                      const cfg = TYPE_CONFIG[sum.period_type] || TYPE_CONFIG.theory;
+                      return (
+                        <span
+                          key={sum.period_type}
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-semibold ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dotClass}`} />
+                          <span>{cfg.name}:</span>
+                          <span className="font-bold">
+                            {pluralizeUk(sum.weeks_count, ["тиждень", "тижні", "тижнів"])}
                           </span>
-
-                          {isCurrent && (
-                            <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-bold text-[10px] uppercase tracking-wide">
-                              Зараз
-                            </span>
-                          )}
-                          {isUpcoming && (
-                            <span className="text-xs font-semibold text-sys-accent">
-                              через {item.daysDiff} дн.
-                            </span>
-                          )}
-                          {isPast && (
-                            <span className="text-[11px] font-medium text-sys-text-muted">
-                              Завершено
-                            </span>
-                          )}
-                        </div>
-
-                        <h3 className="text-sm sm:text-base font-bold text-sys-text-primary mt-1">
-                          {item.name || cfg.name}
-                        </h3>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-sys-border/50 flex items-center justify-between text-xs text-sys-text-secondary">
-                        <span>
-                          {formatDisplayDate(item.start_date)} — {formatDisplayDate(item.end_date)}
                         </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="relative pt-1">
+                  <div
+                    className="flex h-4 w-full overflow-hidden rounded-full bg-sys-bg p-0.5 border border-sys-border/70 gap-[2px]"
+                    onMouseLeave={() => setActiveTimelineIdx(null)}
+                  >
+                    {yearOverview.merged.map((period, idx) => {
+                      const cfg = TYPE_CONFIG[period.period_type] || TYPE_CONFIG.theory;
+                      const isInspected = yearOverview.inspectedIdx === idx;
+                      const label = `${period.name || cfg.name} (${formatDisplayDate(period.start_date)} — ${formatDisplayDate(period.end_date)}, ${pluralizeUk(period.weeks_count, ["тиждень", "тижні", "тижнів"])})`;
+                      return (
+                        <button
+                          key={`${period.start_week}-${period.period_type}-${idx}`}
+                          type="button"
+                          title={label}
+                          aria-label={label}
+                          onMouseEnter={() => setActiveTimelineIdx(idx)}
+                          onFocus={() => setActiveTimelineIdx(idx)}
+                          onClick={() => setActiveTimelineIdx(idx)}
+                          style={{ flexGrow: period.weeks_count, flexBasis: 0 }}
+                          className={`h-full min-w-[4px] rounded-full transition-opacity duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent ${cfg.barClass} ${
+                            isInspected ? "opacity-100 ring-1 ring-sys-text-primary/40" : "opacity-85 hover:opacity-100"
+                          }`}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {realTimeStatus && realTimeStatus.progressPercent > 0 && realTimeStatus.progressPercent < 100 && (
+                    <div
+                      aria-hidden="true"
+                      style={{ left: `${realTimeStatus.progressPercent}%` }}
+                      className="pointer-events-none absolute top-0 bottom-0 -translate-x-1/2 flex flex-col items-center"
+                    >
+                      <span className="h-5 w-0.5 rounded-full bg-sys-text-primary shadow-xs" />
+                    </div>
+                  )}
+
+                  <div
+                    aria-hidden="true"
+                    className="mt-1.5 grid grid-cols-12 text-[10px] font-medium text-sys-text-muted text-center select-none"
+                  >
+                    {ACADEMIC_MONTH_LABELS.map((monthLabel) => (
+                      <span key={monthLabel}>{monthLabel}</span>
+                    ))}
+                  </div>
+                </div>
+
+                {yearOverview.inspectedPeriod && (() => {
+                  const p = yearOverview.inspectedPeriod;
+                  const cfg = TYPE_CONFIG[p.period_type] || TYPE_CONFIG.theory;
+                  const isCurrentBlock = yearOverview.inspectedIdx === yearOverview.currentIdx;
+                  return (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sys-border/70 bg-sys-bg/60 px-3 py-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <span className={`h-2 w-2 rounded-full shrink-0 ${cfg.dotClass}`} />
+                        <span className="font-bold text-sys-text-primary truncate">
+                          {p.name || cfg.name}
+                        </span>
+                        {isCurrentBlock && (
+                          <span className="rounded-full bg-sys-accent-subtle px-2 py-0.5 text-[10px] font-bold text-sys-accent">
+                            Зараз триває
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sys-text-secondary font-medium whitespace-nowrap">
+                        {formatDisplayDate(p.start_date)} — {formatDisplayDate(p.end_date)} ·{" "}
                         <span className="font-semibold text-sys-text-primary">
-                          {item.weeks_count} тижн.
+                          {pluralizeUk(p.weeks_count, ["тиждень", "тижні", "тижнів"])}
                         </span>
-                      </div>
+                      </span>
                     </div>
                   );
-                })}
+                })()}
+              </section>
+            )}
 
-                {semesterMilestones.semester1.length === 0 && (
-                  <div className="col-span-full rounded-xl border border-dashed border-sys-border p-4 text-center text-xs text-sys-text-secondary">
-                    Немає додаткових сесійних або практичних етапів у I семестрі.
-                  </div>
-                )}
-              </DesktopSpotlightGrid>
-            </section>
+            <SemesterSection
+              title="I семестр"
+              subtitle={semesterMilestones.sem1Subtitle}
+              items={semesterMilestones.semester1}
+            />
 
-            {/* Semester 2 */}
-            <section aria-label="II семестр" className="space-y-3 pt-2">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sys-border/60 pb-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="px-2 py-0.5 rounded-md bg-sys-bg border border-sys-border text-xs font-bold text-sys-text-primary">
-                    II семестр
-                  </h2>
-                  <span className="text-xs text-sys-text-secondary font-medium">
-                    {semesterMilestones.sem2Subtitle}
-                  </span>
-                </div>
-                <span className="text-xs text-sys-text-muted">
-                  {semesterMilestones.semester2.length} етапів
-                </span>
+            <SemesterSection
+              title="II семестр"
+              subtitle={semesterMilestones.sem2Subtitle}
+              items={semesterMilestones.semester2}
+              extraTopPadding={semesterMilestones.semester1.length > 0}
+            />
+
+            {semesterMilestones.semester1.length === 0 && semesterMilestones.semester2.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-sys-border bg-sys-card/50 p-6 text-center text-xs text-sys-text-secondary">
+                У цьому навчальному році для обраної групи заплановано лише теоретичне навчання без додаткових етапів у графіку.
               </div>
-
-              <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {semesterMilestones.semester2.map((item, idx) => {
-                  const cfg = TYPE_CONFIG[item.period_type] || TYPE_CONFIG.theory;
-                  const isCurrent = item.status === "current";
-                  const isUpcoming = item.status === "upcoming";
-                  const isPast = item.status === "past";
-
-                  return (
-                    <div
-                      key={`${item.start_week}-${item.period_type}-${idx}`}
-                      className={`interactive-surface scroll-reveal-card rounded-2xl border p-4 flex flex-col justify-between shadow-xs ${
-                        isCurrent
-                          ? "border-sys-accent bg-sys-accent/5 ring-1 ring-sys-accent/40"
-                          : isUpcoming
-                          ? "border-sys-border bg-sys-card hover:border-sys-border-elevated"
-                          : "border-sys-border/50 bg-sys-card/50 opacity-65"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotClass}`} />
-                            <span>{cfg.name}</span>
-                          </span>
-
-                          {isCurrent && (
-                            <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-bold text-[10px] uppercase tracking-wide">
-                              Зараз
-                            </span>
-                          )}
-                          {isUpcoming && (
-                            <span className="text-xs font-semibold text-sys-accent">
-                              через {item.daysDiff} дн.
-                            </span>
-                          )}
-                          {isPast && (
-                            <span className="text-[11px] font-medium text-sys-text-muted">
-                              Завершено
-                            </span>
-                          )}
-                        </div>
-
-                        <h3 className="text-sm sm:text-base font-bold text-sys-text-primary mt-1">
-                          {item.name || cfg.name}
-                        </h3>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-sys-border/50 flex items-center justify-between text-xs text-sys-text-secondary">
-                        <span>
-                          {formatDisplayDate(item.start_date)} — {formatDisplayDate(item.end_date)}
-                        </span>
-                        <span className="font-semibold text-sys-text-primary">
-                          {item.weeks_count} тижн.
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {semesterMilestones.semester2.length === 0 && (
-                  <div className="col-span-full rounded-xl border border-dashed border-sys-border p-4 text-center text-xs text-sys-text-secondary">
-                    Немає додаткових сесійних або практичних етапів у II семестрі.
-                  </div>
-                )}
-              </DesktopSpotlightGrid>
-            </section>
+            )}
 
             {/* Full Schedule Collapsible Table */}
             <div className="pt-2">

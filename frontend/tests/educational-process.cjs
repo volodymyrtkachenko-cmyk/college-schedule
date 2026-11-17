@@ -125,3 +125,69 @@ test("partitionSemesterPeriods handles fallback week 22 boundary cleanly without
   assert.equal(semester1.length, 1);
   assert.equal(semester2.length, 0);
 });
+
+test("partitionSemesterPeriods ignores off-year semester 2 before academic year start", () => {
+  const weeks = makeWeeks(52);
+  const semesters = [
+    {
+      semester_number: 1,
+      name: "2026/2027 · I семестр",
+      start_date: "2026-08-31",
+      end_date: "2027-01-10",
+      start_week: 1,
+      end_week: 19,
+    },
+    {
+      semester_number: 2,
+      name: "2026/2027 · II семестр",
+      start_date: "2026-02-01",
+      end_date: "2026-06-30",
+      start_week: 1,
+      end_week: 52,
+    },
+  ];
+
+  const winterSession = {
+    start_date: "2026-12-28",
+    end_date: "2027-01-10",
+    start_week: 18,
+    end_week: 19,
+    weeks_count: 2,
+    period_type: "session",
+    name: "Екзаменаційна сесія",
+  };
+  const springPractice = {
+    start_date: "2027-03-01",
+    end_date: "2027-03-14",
+    start_week: 27,
+    end_week: 28,
+    weeks_count: 2,
+    period_type: "practice",
+    name: "Практика",
+  };
+
+  const { semester1, semester2 } = ep.partitionSemesterPeriods([winterSession, springPractice], semesters, weeks);
+  assert.equal(semester1.length, 1);
+  assert.equal(semester1[0].name, "Екзаменаційна сесія");
+  assert.equal(semester2.length, 1);
+  assert.equal(semester2[0].name, "Практика");
+});
+
+test("summarizeProcessPeriods and pluralizeUk produce clear summaries", () => {
+  const summary = ep.summarizeProcessPeriods([
+    { start_date: "2026-08-31", end_date: "2026-12-27", start_week: 1, end_week: 17, weeks_count: 17, period_type: "theory", name: "Теоретичне навчання" },
+    { start_date: "2026-12-28", end_date: "2027-01-10", start_week: 18, end_week: 19, weeks_count: 2, period_type: "holiday", name: "Канікули" },
+    { start_date: "2027-01-11", end_date: "2027-06-27", start_week: 20, end_week: 43, weeks_count: 24, period_type: "theory", name: "Теоретичне навчання" },
+    { start_date: "2027-06-28", end_date: "2027-08-29", start_week: 44, end_week: 52, weeks_count: 9, period_type: "holiday", name: "Канікули" },
+  ]);
+  assert.deepEqual(
+    Array.from(summary, (s) => [s.period_type, s.weeks_count, s.spans_count]),
+    [
+      ["theory", 41, 2],
+      ["holiday", 11, 2],
+    ],
+  );
+  assert.equal(ep.pluralizeUk(1, ["тиждень", "тижні", "тижнів"]), "1 тиждень");
+  assert.equal(ep.pluralizeUk(3, ["тиждень", "тижні", "тижнів"]), "3 тижні");
+  assert.equal(ep.pluralizeUk(11, ["тиждень", "тижні", "тижнів"]), "11 тижнів");
+});

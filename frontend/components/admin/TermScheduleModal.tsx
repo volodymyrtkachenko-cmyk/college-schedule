@@ -148,14 +148,24 @@ export function TermScheduleModal({
   async function handleCreateNextTerm() {
     setLoading(true);
     try {
+      const [y1Raw, y2Raw] = nextYear.split("/").map((part) => parseInt(part, 10));
+      const baseStartYear = Number.isFinite(y1Raw)
+        ? y1Raw
+        : new Date(`${term.start_date}T00:00:00Z`).getUTCFullYear();
+      const baseEndYear = Number.isFinite(y2Raw) ? y2Raw : baseStartYear + 1;
+      const defaultStartDate =
+        nextSemesterNum === 2 ? `${baseEndYear}-02-01` : `${baseStartYear}-09-01`;
+      const defaultEndDate =
+        nextSemesterNum === 2 ? `${baseEndYear}-06-30` : `${baseEndYear}-01-31`;
+
       const session = await api.auth.ensureAuthenticated();
       const created = await api.terms.create(
         {
           name: nextName,
           academic_year: nextYear,
           semester_number: nextSemesterNum,
-          start_date: term.semester_number === 1 ? "2026-02-01" : "2026-09-01",
-          end_date: term.semester_number === 1 ? "2026-06-30" : "2027-01-31",
+          start_date: defaultStartDate,
+          end_date: defaultEndDate,
           total_weeks: nextWeeks,
           is_current: false,
           status: "PLANNING",

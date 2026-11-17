@@ -178,3 +178,38 @@ async def test_educational_process_etag_304_and_term_cache_invalidation(ep_clien
     )
     assert r3.status_code == 200
     assert r3.headers.get("etag") != etag1
+
+
+@pytest.mark.anyio
+async def test_educational_process_ignores_off_year_term_dates(ep_client):
+    client, sessions = ep_client
+    async with sessions() as db:
+        group = Group(name="92", year_of_admission=2026, is_active=True)
+        sem1 = AcademicTerm(
+            name="2026/2027 · I семестр",
+            academic_year="2026/2027",
+            semester_number=1,
+            start_date=date(2026, 8, 31),
+            end_date=date(2027, 1, 10),
+            total_weeks=19,
+            is_current=True,
+            status="ACTIVE",
+        )
+        # Mis-dated Term 2 (Feb-Jun 2026 lies strictly before 2026/2027 academic year)
+        misdated_sem2 = AcademicTerm(
+            name="2026/2027 · II семестр",
+            academic_year="2026/2027",
+            semester_number=2,
+            start_date=date(2026, 2, 1),
+            end_date=date(2026, 6, 30),
+            total_weeks=17,
+            is_current=False,
+            status="PLANNING",
+        )
+        db.add_all([group, sem1, misdated_sem2])
+        await db.commit()
+
+    resp = await client.get("/api/educational-process?academic_year_start=2026")
+    assert resp.status_code == 200
+    semesters = resp.json()["semesters"]
+    assert [s["semester_number"] for s in semesters] == [1]
