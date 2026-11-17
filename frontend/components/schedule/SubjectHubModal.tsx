@@ -1077,7 +1077,7 @@ export function SubjectHubModal({
                             strokeWidth="2.4"
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            className={`transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-180" : ""}`}
+                            className={`transition-transform duration-[420ms] ease-[cubic-bezier(0.25,0.9,0.3,1)] shrink-0 ${isExpanded ? "rotate-180" : ""}`}
                           >
                             <path d="m6 9 6 6 6-6" />
                           </svg>
@@ -1090,48 +1090,18 @@ export function SubjectHubModal({
                     </div>
                   </div>
 
-                  {desktopMotion ? (
-                    <AnimatePresence initial={false}>
-                      {isExpanded && (
-                        <m.div
-                          initial={{ opacity: 0, height: 0, y: -6 }}
-                          animate={{
-                            opacity: 1,
-                            height: "auto",
-                            y: 0,
-                            transition: {
-                              height: { type: "spring", stiffness: 380, damping: 30 },
-                              y: { type: "spring", stiffness: 380, damping: 30 },
-                              opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
-                            },
-                          }}
-                          exit={{
-                            opacity: 0,
-                            height: 0,
-                            y: -4,
-                            transition: {
-                              height: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
-                              y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-                              opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
-                            },
-                          }}
-                          className="overflow-hidden"
-                        >
-                          <TaskChecklistSection
-                            taskKey={taskKey}
-                            brief={brief}
-                            maxPoints={task.maxPoints}
-                            compact
-                          />
-                        </m.div>
-                      )}
-                    </AnimatePresence>
-                  ) : (
+                  {canExpandBrief && (
                     <div
                       data-open={isExpanded ? "true" : undefined}
-                      className="grid-accordion"
+                      aria-hidden={!isExpanded || undefined}
+                      className="grid-accordion task-compact-accordion"
                     >
-                      <div className="grid-accordion-inner">
+                      <div
+                        ref={(el) => {
+                          if (el) el.inert = !isExpanded;
+                        }}
+                        className="grid-accordion-inner"
+                      >
                         <TaskChecklistSection
                           taskKey={taskKey}
                           brief={brief}

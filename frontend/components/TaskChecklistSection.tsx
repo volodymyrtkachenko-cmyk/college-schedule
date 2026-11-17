@@ -151,7 +151,8 @@ export function TaskChecklistSection({
     >
       {showHeaderMeta && (
         <div
-          className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-sys-border/60 ${
+          style={{ "--task-idx": 0 } as React.CSSProperties}
+          className={`task-stagger-item flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-sys-border/60 ${
             isAi ? "bg-indigo-500/[0.06]" : "bg-sys-elevated/45"
           }`}
         >
@@ -205,7 +206,7 @@ export function TaskChecklistSection({
 
       <div className={`${compact ? "p-2.5 space-y-2.5" : "p-3 space-y-3"}`}>
         {displaySummary && (
-          <div className="space-y-1">
+          <div style={{ "--task-idx": 1 } as React.CSSProperties} className="task-stagger-item space-y-1">
             <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-sys-text-secondary">
               Що зробити
             </div>
@@ -216,7 +217,10 @@ export function TaskChecklistSection({
         )}
 
         {deliverableText && (
-          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/[0.06] px-2.5 py-2 flex items-start gap-2">
+          <div
+            style={{ "--task-idx": 2 } as React.CSSProperties}
+            className="task-stagger-item rounded-lg border border-emerald-500/25 bg-emerald-500/[0.06] px-2.5 py-2 flex items-start gap-2"
+          >
             <svg
               className="w-4 h-4 text-emerald-700 dark:text-emerald-300 shrink-0 mt-0.5"
               viewBox="0 0 24 24"
@@ -241,7 +245,7 @@ export function TaskChecklistSection({
         )}
 
         {hasMaterials && (
-          <div className="space-y-1.5">
+          <div style={{ "--task-idx": 3 } as React.CSSProperties} className="task-stagger-item space-y-1.5">
             <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-sys-text-secondary">
               Прикріплені матеріали
             </div>

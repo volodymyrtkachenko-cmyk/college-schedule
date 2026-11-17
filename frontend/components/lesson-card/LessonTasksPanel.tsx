@@ -531,7 +531,7 @@ export function DayTasksSection({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`text-sys-text-muted transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
+            className={`text-sys-text-muted transition-transform duration-[420ms] ease-[cubic-bezier(0.25,0.9,0.3,1)] shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
           >
             <path d="m6 9 6 6 6-6" />
           </svg>
@@ -600,7 +600,7 @@ export function WeekTasksTrigger({
         </svg>
       ) : null}
       <span>{tasks.length} ДЗ</span>
-      <span className={`text-xs text-sys-text-muted transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isHwOpen ? "rotate-180" : ""}`}>
+      <span className={`text-xs text-sys-text-muted transition-transform duration-[420ms] ease-[cubic-bezier(0.25,0.9,0.3,1)] ${isHwOpen ? "rotate-180" : ""}`}>
         ▾
       </span>
     </button>
@@ -632,7 +632,7 @@ export function WeekTasksPopover({
   onClose: () => void;
   onToggleHw: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
-  const { shouldRender, isClosing } = useAnimatedDisclosure(show, 230);
+  const { shouldRender, isClosing } = useAnimatedDisclosure(show, 310);
   if (!shouldRender) return null;
 
   return (

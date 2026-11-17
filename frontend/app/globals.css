@@ -1829,36 +1829,25 @@ html[data-surface="glass"] #desktop-sections-menu {
       transform: translate3d(0, var(--popup-y, -8px), 0) scale(0.9);
     }
   }
+}
 
-  /* Компактний поповер ДЗ на десктопі: шовковисте 60fps розгортання з оптичним фокусом і каскадом */
+@media (prefers-reduced-motion: no-preference) {
+  /* Компактний поповер ДЗ на десктопі: помітне шовковисте 60fps розгортання з оптичним фокусом і каскадом */
   .discrete-popup.desktop-compact-popover {
     will-change: transform, opacity, filter;
     transform-origin: var(--popup-origin, top left);
-    transition-property: opacity, transform, filter;
-    transition-duration: 240ms, 340ms, 260ms;
-    transition-timing-function: var(--ease-out), var(--ease-smooth), var(--ease-out);
-    animation: compact-popover-halo 560ms var(--ease-smooth) both;
+    transition: none;
+    animation: compact-popover-enter 420ms cubic-bezier(0.25, 0.9, 0.3, 1) both;
   }
 
   .discrete-popup.desktop-compact-popover[data-closing="true"] {
-    animation: none;
-    transition-duration: 190ms, 220ms, 190ms;
-    transition-timing-function: var(--ease-out), cubic-bezier(0.32, 0, 0.24, 1), var(--ease-out);
-    transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.95);
-    filter: blur(4px);
+    animation: compact-popover-exit 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    pointer-events: none;
   }
 
   .discrete-popup.desktop-compact-popover:not([data-closing="true"]) .task-stagger-item {
-    animation: task-stagger-in 340ms var(--ease-smooth) backwards;
-    animation-delay: calc(min(var(--task-idx, 0), 6) * 42ms + 50ms);
-  }
-
-  @starting-style {
-    .discrete-popup.desktop-compact-popover {
-      opacity: 0;
-      transform: translate3d(0, var(--popup-y, -8px), 0) scale(0.92);
-      filter: blur(6px);
-    }
+    animation: task-stagger-in 400ms cubic-bezier(0.25, 0.9, 0.3, 1) backwards;
+    animation-delay: calc(min(var(--task-idx, 0), 6) * 55ms + 70ms);
   }
 }
 
@@ -1941,37 +1930,62 @@ html[data-surface="glass"] #desktop-sections-menu {
 
 /* Фірмове плавне 60fps розгортання/згортання компактних блоків завдань на десктопі
    з оптичним фокусом, світловим акцентним променем та каскадною появою рядків */
-@keyframes task-accent-sweep {
+@keyframes compact-popover-enter {
   0% {
     opacity: 0;
-    transform: translate3d(-45%, 0, 0) scaleX(0.35);
+    transform: translate3d(0, var(--popup-y, -10px), 0) scale(0.88);
+    filter: blur(6px);
+    box-shadow: 0 0 0 1px rgb(var(--sys-accent) / 0.52), 0 18px 40px -8px rgb(var(--sys-accent) / 0.28);
   }
-  35% {
-    opacity: 0.95;
+  45% {
+    opacity: 1;
+    filter: blur(1px);
   }
   100% {
-    opacity: 0;
-    transform: translate3d(45%, 0, 0) scaleX(0.85);
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0px);
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.25), 0 8px 10px -6px rgb(0 0 0 / 0.2);
   }
 }
 
-@keyframes compact-popover-halo {
+@keyframes compact-popover-exit {
   0% {
-    box-shadow: 0 0 0 1px rgb(var(--sys-accent) / 0.45), 0 14px 36px -8px rgb(var(--sys-accent) / 0.24);
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0px);
   }
   100% {
-    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.25), 0 8px 10px -6px rgb(0 0 0 / 0.2);
+    opacity: 0;
+    transform: translate3d(0, var(--popup-y, -8px), 0) scale(0.92);
+    filter: blur(5px);
+  }
+}
+
+@keyframes task-accent-sweep {
+  0% {
+    opacity: 0;
+    transform: translate3d(-55%, 0, 0) scaleX(0.3);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(55%, 0, 0) scaleX(0.95);
   }
 }
 
 @keyframes task-stagger-in {
   from {
     opacity: 0;
-    transform: translate3d(0, 8px, 0);
+    transform: translate3d(0, 10px, 0);
+    filter: blur(2px);
   }
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
+    filter: blur(0px);
   }
 }
 
@@ -1979,46 +1993,46 @@ html[data-surface="glass"] #desktop-sections-menu {
   position: relative;
   will-change: grid-template-rows, opacity;
   transition:
-    grid-template-rows 260ms cubic-bezier(0.32, 0, 0.24, 1),
-    opacity 210ms var(--ease-out);
+    grid-template-rows 340ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .grid-accordion.task-compact-accordion::before {
   content: "";
   position: absolute;
   top: 0;
-  left: 10%;
-  right: 10%;
-  height: 1px;
+  left: 8%;
+  right: 8%;
+  height: 1.5px;
   pointer-events: none;
   z-index: 2;
-  background: linear-gradient(90deg, transparent 0%, rgb(var(--sys-accent) / 0.78) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgb(var(--sys-accent) / 0.85) 50%, transparent 100%);
   opacity: 0;
-  transform: translate3d(-45%, 0, 0) scaleX(0.35);
+  transform: translate3d(-55%, 0, 0) scaleX(0.3);
 }
 
 .grid-accordion.task-compact-accordion[data-open="true"] {
   transition:
-    grid-template-rows 380ms var(--ease-smooth),
-    opacity 280ms var(--ease-out);
+    grid-template-rows 460ms cubic-bezier(0.25, 0.9, 0.3, 1),
+    opacity 360ms cubic-bezier(0.25, 0.9, 0.3, 1);
 }
 
 .grid-accordion.task-compact-accordion[data-open="true"]::before {
-  animation: task-accent-sweep 560ms var(--ease-smooth) both;
+  animation: task-accent-sweep 700ms cubic-bezier(0.25, 0.9, 0.3, 1) both;
 }
 
 .grid-accordion.task-compact-accordion > .grid-accordion-inner {
   contain: layout style;
   transform-origin: top center;
   will-change: transform, filter, opacity;
-  opacity: 0.3;
-  filter: blur(4px);
-  transform: translate3d(0, -10px, 0) scale(0.98);
+  opacity: 0.2;
+  filter: blur(5px);
+  transform: translate3d(0, -12px, 0) scale(0.972);
   transition:
-    visibility 260ms linear,
-    transform 250ms cubic-bezier(0.32, 0, 0.24, 1),
-    filter 210ms var(--ease-out),
-    opacity 210ms var(--ease-out);
+    visibility 340ms linear,
+    transform 320ms cubic-bezier(0.4, 0, 0.2, 1),
+    filter 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .grid-accordion.task-compact-accordion[data-open="true"] > .grid-accordion-inner {
@@ -2028,27 +2042,31 @@ html[data-surface="glass"] #desktop-sections-menu {
   transform: translate3d(0, 0, 0) scale(1);
   transition:
     visibility 0ms linear,
-    transform 380ms var(--ease-smooth),
-    filter 280ms var(--ease-out),
-    opacity 260ms var(--ease-out);
+    transform 460ms cubic-bezier(0.25, 0.9, 0.3, 1),
+    filter 360ms cubic-bezier(0.25, 0.9, 0.3, 1),
+    opacity 340ms cubic-bezier(0.25, 0.9, 0.3, 1);
 }
 
 .grid-accordion.task-compact-accordion .task-stagger-item {
   opacity: 0;
-  transform: translate3d(0, 8px, 0);
+  transform: translate3d(0, 10px, 0);
+  filter: blur(2px);
   transition:
-    opacity 160ms var(--ease-out),
-    transform 200ms cubic-bezier(0.32, 0, 0.24, 1);
+    opacity 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    filter 220ms cubic-bezier(0.4, 0, 0.2, 1);
   transition-delay: 0ms;
 }
 
 .grid-accordion.task-compact-accordion[data-open="true"] .task-stagger-item {
   opacity: 1;
   transform: translate3d(0, 0, 0);
+  filter: blur(0px);
   transition:
-    opacity 280ms var(--ease-out),
-    transform 360ms var(--ease-smooth);
-  transition-delay: calc(min(var(--task-idx, 0), 6) * 45ms + 45ms);
+    opacity 360ms cubic-bezier(0.25, 0.9, 0.3, 1),
+    transform 420ms cubic-bezier(0.25, 0.9, 0.3, 1),
+    filter 340ms cubic-bezier(0.25, 0.9, 0.3, 1);
+  transition-delay: calc(min(var(--task-idx, 0), 6) * 60ms + 70ms);
 }
 
 @media (prefers-reduced-motion: reduce) {
