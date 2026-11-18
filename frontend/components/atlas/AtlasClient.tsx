@@ -594,7 +594,7 @@ function RelationListSection({
           За фільтром «{filterQuery}» збігів у списку немає.
         </p>
       ) : (
-        <ul ref={listRef} role="list" className="space-y-2">
+        <ul ref={listRef} role="list" className="divide-y divide-sys-border">
           {visibleRows.map((row) => {
             const daysText = row.days.map((d) => DAY_SHORT_NAMES[d] ?? String(d)).join(", ");
             const subjectsText = row.subjects.join(" · ");
@@ -610,7 +610,7 @@ function RelationListSection({
                   type="button"
                   onClick={() => onSelectNode(row.node.id)}
                   title={`Перейти до орбіти: ${row.node.fullName || row.node.label}`}
-                  className="w-full min-h-[44px] rounded-xl border border-sys-border bg-sys-bg/65 hover:bg-sys-bg hover:border-sys-accent/45 px-3 py-2.5 text-left transition-colors cursor-pointer flex items-start justify-between gap-2.5 group"
+                  className="w-full min-h-[44px] rounded-md hover:bg-sys-bg px-3 py-2.5 text-left transition-colors cursor-pointer flex items-start justify-between gap-2.5 group"
                 >
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -803,7 +803,7 @@ function CompareSummaryCard({
       : `Спільні групи (${sharedRows.length})`;
 
   return (
-    <div className="[container-type:inline-size] rounded-2xl border border-amber-500/40 bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
+    <div className="[container-type:inline-size] rounded-2xl border border-amber-500/40 bg-sys-card p-4 sm:p-5 shadow-xs lg:shadow-none lg:border-0 space-y-4">
       {/* Quick Back Navigation Row */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
@@ -1072,7 +1072,7 @@ function AtlasDirectoryBrowserCard({
   return (
     <aside
       aria-label="Каталог вузлів Атласу"
-      className="[container-type:inline-size] rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto"
+      className="[container-type:inline-size] rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs lg:shadow-none lg:border-0 space-y-4 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="space-y-1">
@@ -1391,7 +1391,7 @@ function AtlasInspectorPanel({
         aria-label={`Паспорт вузла ${node.label}`}
         className="[container-type:inline-size] space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto pr-0.5"
       >
-        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs lg:shadow-none lg:border-0 space-y-4">
           {/* Quick Return to Full College Bar */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button
@@ -1403,11 +1403,11 @@ function AtlasInspectorPanel({
               <span>Весь коледж</span>
             </button>
             <div className="flex items-center gap-1.5 text-xs font-semibold text-sys-text-secondary tabular-nums">
-              <span className="rounded-lg border border-sys-border bg-sys-bg px-2 py-0.5">
+              <span className="px-1 py-0.5">
                 {neighborsCount} зв&apos;язків
               </span>
               {node.lessonsCount > 0 && (
-                <span className="rounded-lg border border-sys-border bg-sys-bg px-2 py-0.5">
+                <span className="px-1 py-0.5">
                   {formatPairsLabel(node.lessonsCount)} / тиж.
                 </span>
               )}
@@ -1425,7 +1425,7 @@ function AtlasInspectorPanel({
               </span>
             </div>
 
-            <h2 className="text-lg sm:text-xl font-bold text-sys-text-primary leading-snug break-words [text-wrap:balance]">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-sys-text-primary leading-snug break-words [text-wrap:balance]">
               {node.label}
             </h2>
 
@@ -2190,10 +2190,10 @@ export function AtlasClient() {
             </section>
 
             {/* Primary Workspace Grid: Side-by-side on Desktop (lg+), Single Full-Screen Tab on Mobile/Tablet (<1024px) */}
-            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] lg:rounded-2xl lg:border lg:border-sys-border lg:bg-sys-card lg:overflow-clip items-start">
               {/* Map Column */}
               <div
-                className={`lg:col-span-7 xl:col-span-8 min-w-0 ${
+                className={`min-w-0 ${
                   mobileTab === "list" ? "hidden lg:block" : "block"
                 }`}
               >
@@ -2252,9 +2252,7 @@ export function AtlasClient() {
                         <span>
                           {intersection
                             ? "Деталі порівняння"
-                            : inspector.node.kind === "group"
-                              ? `Викладачі (${inspector.teachers.length})`
-                              : `Групи (${inspector.groups.length})`}
+                            : "Деталі ↑"}
                         </span>
                       </button>
                     </div>
@@ -2264,7 +2262,7 @@ export function AtlasClient() {
 
               {/* Inspector / Catalog Column */}
               <div
-                className={`lg:col-span-5 xl:col-span-4 min-w-0 ${
+                className={`min-w-0 lg:border-l lg:border-sys-border ${
                   mobileTab === "map" ? "hidden lg:block" : "block"
                 }`}
               >

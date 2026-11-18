@@ -512,24 +512,9 @@ export function AtlasCanvas({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
 
-    // Subtle atmospheric backdrop aura centered at graph origin
+    // Project edges toward the graph origin.
     const originScreenX = (0 - cam.x) * cam.zoom + width / 2;
     const originScreenY = (0 - cam.y) * cam.zoom + height / 2;
-    const maxDim = Math.max(width, height);
-    const bgGrad = ctx.createRadialGradient(
-      originScreenX,
-      originScreenY,
-      12,
-      originScreenX,
-      originScreenY,
-      maxDim * 0.72,
-    );
-    bgGrad.addColorStop(0, rgba(palette.accent, palette.isDark ? 0.08 : 0.06));
-    bgGrad.addColorStop(0.55, rgba(palette.kinds.subject, palette.isDark ? 0.03 : 0.02));
-    bgGrad.addColorStop(1, rgba(palette.bg, 0));
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, width, height);
-
     const toScreen = (wx: number, wy: number) => ({
       x: (wx - cam.x) * cam.zoom + width / 2,
       y: (wy - cam.y) * cam.zoom + height / 2,
@@ -538,7 +523,7 @@ export function AtlasCanvas({
     // 3. Draw concentric orbit rings
     if (curLayout.rings.length > 0) {
       ctx.save();
-      ctx.font = "600 10px var(--font-manrope), system-ui, sans-serif";
+      ctx.font = "600 10px system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       for (const ring of curLayout.rings) {
@@ -600,6 +585,7 @@ export function AtlasCanvas({
 
     // 4. Draw edges
     const visibleIds = curLayout.visibleNodeIds;
+    const focusNode = focusId ? curGraph.nodeMap.get(focusId) : null;
     for (const link of curGraph.links) {
       if (!visibleIds.has(link.source) || !visibleIds.has(link.target)) continue;
       const posA = renderPosRef.current.get(link.source);
@@ -639,13 +625,12 @@ export function AtlasCanvas({
       } else if (focusId) {
         const touchesFocus = link.source === focusId || link.target === focusId;
         if (touchesFocus) {
-          const otherNode = curGraph.nodeMap.get(link.source === focusId ? link.target : link.source);
           edgeColor = link.kind === "curator"
             ? palette.sharedGold
-            : otherNode
-              ? palette.kinds[otherNode.kind]
+            : focusNode
+              ? palette.kinds[focusNode.kind]
               : palette.accent;
-          edgeAlpha = 0.62;
+          edgeAlpha = 0.72;
           lineWidth = Math.min(2.8, 1.1 + link.weight * 0.22);
         } else {
           if (!link.isPrimaryRingEdge) continue;
@@ -754,18 +739,23 @@ export function AtlasCanvas({
               ? palette.sharedGold
               : palette.kinds[node.kind];
 
+      const traceMarker = (radius: number) => {
+        if (node.kind === "group") {
+          drawRoundedRectPath(ctx, screen.x - radius, screen.y - radius, radius * 2, radius * 2, radius * 0.42);
+        } else {
+          ctx.beginPath();
+          ctx.arc(screen.x, screen.y, radius, 0, Math.PI * 2);
+        }
+      };
+
       if (isSelected || isCompare || isHovered || isShared || isCourseGroup) {
-        ctx.beginPath();
-        ctx.arc(screen.x, screen.y, sr + (isSelected || isCompare ? 7 : 5), 0, Math.PI * 2);
-        ctx.fillStyle = rgba(
-          baseColor,
-          isSelected || isCompare ? 0.22 : isCourseGroup ? 0.18 : 0.16,
-        );
-        ctx.fill();
+        traceMarker(sr + (isSelected || isCompare ? 4 : 3));
+        ctx.strokeStyle = rgba(baseColor, isSelected || isCompare ? 0.85 : 0.4);
+        ctx.lineWidth = 1.25;
+        ctx.stroke();
       }
 
-      ctx.beginPath();
-      ctx.arc(screen.x, screen.y, sr, 0, Math.PI * 2);
+      traceMarker(sr);
       if (isSelected || isCompare || isShared || isDirectNeighbor || isCourseGroup) {
         ctx.fillStyle = rgba(baseColor, alpha);
       } else {
@@ -849,7 +839,7 @@ export function AtlasCanvas({
         sy: number,
         tint: Rgb,
       ) => {
-        ctx.font = "700 10px var(--font-manrope), system-ui, sans-serif";
+        ctx.font = "700 10px system-ui, sans-serif";
         const tw = ctx.measureText(text).width + 18;
         const th = 20;
         const box: LabelBox = {
@@ -947,7 +937,7 @@ export function AtlasCanvas({
 
       // Strict all-or-nothing rule in Constellation mode:
       // 1) Outer-ring teachers appear either ALL together when zoomed in enough, or only on hover/focus.
-      // 2) Inner-ring groups ALWAYS appear ALL together (never dropping individual siblings).
+      // 2) Group labels take priority where space is available.
       if (
         isConstellationTeacher &&
         !isForceShown &&
@@ -981,12 +971,10 @@ export function AtlasCanvas({
         : isForceShown && !compactGroupConstellation
           ? 11.5
           : item.node.kind === "group"
-            ? width < 480
-              ? 9.5
-              : 10.5
+            ? 11
             : 10.5;
       const fontWeight = isForceShown || item.node.kind === "group" ? "700" : "600";
-      const font = `${fontWeight} ${fontSize}px var(--font-manrope), system-ui, sans-serif`;
+      const font = `${fontWeight} ${fontSize}px system-ui, sans-serif`;
       ctx.font = font;
 
       const cacheKey = `${fontWeight}:${fontSize}:${text}`;
@@ -997,7 +985,7 @@ export function AtlasCanvas({
       }
 
       let subW = 0;
-      const subFont = "500 10px var(--font-manrope), system-ui, sans-serif";
+      const subFont = "500 10px system-ui, sans-serif";
       if (subLines.length > 0) {
         ctx.font = subFont;
         for (const subLine of subLines) {
@@ -1101,7 +1089,7 @@ export function AtlasCanvas({
       // Reserve small role badge box above center node in orbit mode
       if (isCenterInEgo) {
         const roleText = item.node.kind === "group" ? "ГРУПА" : "ВИКЛАДАЧ";
-        const roleFont = "700 9.5px var(--font-manrope), system-ui, sans-serif";
+        const roleFont = "700 9.5px system-ui, sans-serif";
         ctx.font = roleFont;
         const roleW = ctx.measureText(roleText).width + 14;
         const roleH = 16;
@@ -1138,7 +1126,7 @@ export function AtlasCanvas({
       };
 
       if (isConstellationGroup) {
-        // Never drop any group label on the inner ring in Constellation mode; all groups stay visible together
+        if (!isInteracted && hasCollision(box)) continue;
       } else if (isConstellationTeacher && hasCollision(box)) {
         // Step radially outward along spoke so zoomed-in outer-ring teachers all stay visible without colliding
         const cos = radialDist > 1 ? item.pos.x / radialDist : 0;
@@ -1157,6 +1145,7 @@ export function AtlasCanvas({
             break;
           }
         }
+        if (!isInteracted && hasCollision(box)) continue;
       } else if (
         !isForceShown &&
         !showAllConstellationTeachers
@@ -1198,7 +1187,7 @@ export function AtlasCanvas({
       }
       placedBoxes.push(box);
 
-      // Draw crisp label pill background for maximum readability
+      // Reserve filled labels for the two active anchors.
       const isAccentPill = item.node.id === curSelectedNodeId || item.node.id === curCompareNodeId;
       const pillColor =
         item.node.id === curCompareNodeId || isOnlyBNode
@@ -1209,49 +1198,51 @@ export function AtlasCanvas({
               ? palette.sharedGold
               : palette.kinds[item.node.kind];
 
-      drawRoundedRectPath(ctx, box.x1, box.y1, pillW, pillH, subLines.length > 0 ? 9 : 7);
       if (isAccentPill) {
-        ctx.fillStyle = rgba(pillColor, 0.96);
+        drawRoundedRectPath(ctx, box.x1, box.y1, pillW, pillH, 7);
+        ctx.fillStyle = rgba(palette.textPrimary, 1);
         ctx.fill();
-        ctx.fillStyle = "#ffffff";
-      } else {
-        ctx.fillStyle = rgba(palette.card, palette.isDark ? 0.92 : 0.96);
-        ctx.fill();
-        ctx.strokeStyle = rgba(
-          isForceShown ? pillColor : palette.border,
-          isForceShown ? 0.62 : 0.7,
-        );
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = rgba(pillColor, 1);
+        ctx.lineWidth = 2;
         ctx.stroke();
+        ctx.fillStyle = rgba(palette.card, 1);
+      } else {
         ctx.fillStyle = rgba(palette.textPrimary, Math.min(1, item.alpha + 0.12));
+        ctx.strokeStyle = rgba(palette.card, 0.98);
+        ctx.lineWidth = 3;
+        ctx.lineJoin = "round";
       }
 
+      const drawLabelLine = (line: string, y: number) => {
+        if (!isAccentPill) ctx.strokeText(line, cx, y);
+        ctx.fillText(line, cx, y);
+      };
       ctx.textAlign = "center";
       if (subLines.length === 1) {
         ctx.font = font;
-        ctx.fillText(text, cx, cy - 6.5);
+        drawLabelLine(text, cy - 6.5);
         ctx.font = subFont;
         ctx.fillStyle = isAccentPill
-          ? "rgba(255, 255, 255, 0.92)"
+          ? rgba(palette.card, 1)
           : subtitleText?.startsWith("Куратор")
             ? rgba(palette.sharedGold, palette.isDark ? 0.95 : 0.92)
             : rgba(palette.textSecondary, Math.min(1, item.alpha));
-        ctx.fillText(subLines[0], cx, cy + 7.5);
+        drawLabelLine(subLines[0], cy + 7.5);
       } else if (subLines.length >= 2) {
         ctx.font = font;
-        ctx.fillText(text, cx, box.y1 + 12);
+        drawLabelLine(text, box.y1 + 12);
         ctx.font = subFont;
         ctx.fillStyle = isAccentPill
-          ? "rgba(255, 255, 255, 0.92)"
+          ? rgba(palette.card, 1)
           : subtitleText?.startsWith("Куратор")
             ? rgba(palette.sharedGold, palette.isDark ? 0.95 : 0.92)
             : rgba(palette.textSecondary, Math.min(1, item.alpha));
         subLines.forEach((line, idx) => {
-          ctx.fillText(line, cx, box.y1 + 26 + idx * 13.5);
+          drawLabelLine(line, box.y1 + 26 + idx * 13.5);
         });
       } else {
         ctx.font = font;
-        ctx.fillText(text, cx, cy + 0.5);
+        drawLabelLine(text, cy + 0.5);
       }
       void align;
     }
@@ -1318,6 +1309,7 @@ export function AtlasCanvas({
 
     const updateSize = () => {
       const rect = container.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
       const width = Math.max(200, Math.round(rect.width));
       const height = Math.max(260, Math.round(rect.height));
       const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -1668,7 +1660,7 @@ export function AtlasCanvas({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full rounded-2xl border border-sys-border bg-sys-card overflow-hidden select-none shadow-xs ${
+      className={`relative w-full rounded-2xl lg:rounded-none lg:border-0 border border-sys-border bg-sys-card overflow-hidden select-none shadow-xs ${
         mobileHeightMode === "expanded"
           ? "h-[420px] sm:h-[520px] lg:h-[660px]"
           : "h-[290px] sm:h-[360px] lg:h-[660px]"
@@ -1717,8 +1709,8 @@ export function AtlasCanvas({
         </div>
       )}
 
-      {/* Top-Right Camera Controls */}
-      <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-10 flex items-center gap-1.5">
+      {/* Camera controls */}
+      <div className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 z-10 flex items-center gap-1.5">
         <div className="flex items-center rounded-xl border border-sys-border bg-sys-card/95 p-0.5 shadow-sm">
           <button
             type="button"
@@ -1752,7 +1744,7 @@ export function AtlasCanvas({
       </div>
 
       {/* Bottom Legend Bar */}
-      <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex flex-wrap items-center justify-between gap-2">
+      <div className="pointer-events-none absolute left-3 right-36 bottom-3 z-10 flex flex-wrap items-center justify-between gap-2">
         {intersection ? (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card/95 px-3 py-1.5 text-[11px] font-medium text-sys-text-secondary shadow-xs">
             <span className="inline-flex items-center gap-1.5">
@@ -1771,7 +1763,7 @@ export function AtlasCanvas({
         ) : (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card/95 px-3 py-1.5 text-[11px] font-medium text-sys-text-secondary shadow-xs">
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-sys-accent shrink-0" />
+              <span className="h-2.5 w-2.5 rounded-[3px] bg-sys-accent shrink-0" />
               <span>Групи</span>
             </span>
             <span className="inline-flex items-center gap-1.5">
@@ -1785,15 +1777,7 @@ export function AtlasCanvas({
           </div>
         )}
 
-        <div className="hidden sm:flex items-center rounded-xl border border-sys-border bg-sys-card/95 px-3 py-1.5 text-[11px] text-sys-text-muted shadow-xs">
-          <span>
-            {intersection
-              ? "Клік по вузлу — перейти у його орбіту · Колесо для зуму"
-              : isEgoActive
-                ? "Клік по сусіду — перехід у його орбіту · Колесо для зуму"
-                : "Клік по вузлу — відкрити орбіту · Наблизьте, щоб побачити всіх викладачів"}
-          </span>
-        </div>
+
       </div>
     </div>
   );
