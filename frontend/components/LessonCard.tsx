@@ -574,7 +574,7 @@ export const LessonCard = memo(function LessonCard({
           onMoveSelect?.(lesson);
         }
       }}
-      className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-colors duration-150 ease-out ${
+      className={`group/card relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-colors duration-150 ease-out ${
         isHwOpen || moreOpen ? "z-40 !translate-y-0" : ""
       } ${
         isDay

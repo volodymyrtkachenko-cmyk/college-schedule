@@ -1,9 +1,14 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
-import { clampStaggerIndex } from "../lib/motion";
+import {
+  DESKTOP_DAY_EXIT_CLEANUP_MS,
+  DESKTOP_DAY_STAGE_HEIGHT_MS,
+  clampStaggerIndex,
+  computeDaySwitchChoreography,
+} from "../lib/motion";
 import { useToast } from "./ToastProvider";
 import {
   LessonCard,
@@ -23,6 +28,8 @@ import {
   UKR_WEEKDAY_LONG_FMT,
   calendarDateIsoToUtcDate,
 } from "../lib/date";
+
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 function parseMin(t?: string): number | null {
   if (!t) return null;
@@ -175,15 +182,187 @@ export const ScheduleDay = memo(function ScheduleDay({
     [schedule.lessons],
   );
 
-  const firstStart = orderedLessons.length > 0 ? parseMin(orderedLessons[0].time.split(/[-–—]/)[0]) : null;
-  const isBeforeDayStart = Boolean(
-    kyivNow &&
-    kyivNow.dateIso === schedule.date &&
-    firstStart !== null &&
-    kyivNow.minutes < firstStart &&
-    kyivNow.minutes >= firstStart - 120
-  );
-  const timeToStart = isBeforeDayStart && firstStart !== null && kyivNow ? firstStart - kyivNow.minutes : 0;
+  const currentMotionKey = mode === "day" ? `${schedule.date}-${dayMotionSeq}` : schedule.date;
+  const [dayTransition, setDayTransition] = useState<{
+    key: string;
+    activeSchedule: ScheduleResponse;
+    exitingSchedule: ScheduleResponse | null;
+    dir: -1 | 1;
+  }>(() => ({
+    key: currentMotionKey,
+    activeSchedule: schedule,
+    exitingSchedule: null,
+    dir: daySlideDir < 0 ? -1 : 1,
+  }));
+
+  if (mode !== "day") {
+    if (
+      dayTransition.key !== currentMotionKey ||
+      dayTransition.activeSchedule !== schedule ||
+      dayTransition.exitingSchedule !== null
+    ) {
+      setDayTransition({
+        key: currentMotionKey,
+        activeSchedule: schedule,
+        exitingSchedule: null,
+        dir: daySlideDir < 0 ? -1 : 1,
+      });
+    }
+  } else if (currentMotionKey !== dayTransition.key) {
+    const resolvedDir: -1 | 1 =
+      daySlideDir < 0
+        ? -1
+        : daySlideDir > 0
+          ? 1
+          : schedule.date < dayTransition.activeSchedule.date
+            ? -1
+            : 1;
+    const shouldAnimateHandoff =
+      animateOnMount &&
+      !shouldReduceMotion &&
+      schedule.date !== dayTransition.activeSchedule.date;
+    setDayTransition({
+      key: currentMotionKey,
+      activeSchedule: schedule,
+      exitingSchedule: shouldAnimateHandoff ? dayTransition.activeSchedule : null,
+      dir: resolvedDir,
+    });
+  } else if (dayTransition.activeSchedule !== schedule) {
+    setDayTransition((prev) =>
+      prev.activeSchedule === schedule ? prev : { ...prev, activeSchedule: schedule }
+    );
+  }
+
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const activeLayerRef = useRef<HTMLDivElement | null>(null);
+  const exitLayerRef = useRef<HTMLDivElement | null>(null);
+  const heightAnimRef = useRef<Animation | null>(null);
+  const exitTimerRef = useRef<number | null>(null);
+  const lastStableHeightRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (mode !== "day") return;
+    const activeEl = activeLayerRef.current;
+    if (!activeEl || typeof ResizeObserver === "undefined") return;
+    const updateHeight = () => {
+      if (!heightAnimRef.current) {
+        const h = activeEl.getBoundingClientRect().height;
+        if (h > 0) lastStableHeightRef.current = h;
+      }
+    };
+    updateHeight();
+    const ro = new ResizeObserver(updateHeight);
+    ro.observe(activeEl);
+    return () => ro.disconnect();
+  }, [mode, dayTransition.key]);
+
+  useEffect(() => {
+    const stageEl = stageRef.current;
+    return () => {
+      if (exitTimerRef.current !== null) {
+        window.clearTimeout(exitTimerRef.current);
+        exitTimerRef.current = null;
+      }
+      if (heightAnimRef.current) {
+        heightAnimRef.current.cancel();
+        heightAnimRef.current = null;
+      }
+      if (stageEl) {
+        stageEl.style.overflow = "";
+      }
+    };
+  }, []);
+
+  useIsomorphicLayoutEffect(() => {
+    if (exitTimerRef.current !== null) {
+      window.clearTimeout(exitTimerRef.current);
+      exitTimerRef.current = null;
+    }
+
+    if (mode !== "day" || !dayTransition.exitingSchedule) {
+      return;
+    }
+
+    const activeTransitionKey = dayTransition.key;
+    const exitEl = exitLayerRef.current;
+    if (exitEl) {
+      exitEl.setAttribute("inert", "");
+    }
+
+    const stageEl = stageRef.current;
+    const activeEl = activeLayerRef.current;
+    const prefersReduce =
+      shouldReduceMotion ||
+      (typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const isDesktopViewport =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(min-width: 1024px)").matches;
+
+    const choreography = computeDaySwitchChoreography(
+      dayTransition.exitingSchedule.lessons.length,
+      dayTransition.activeSchedule.lessons.length,
+      dayTransition.dir
+    );
+
+    if (stageEl && activeEl && !prefersReduce && isDesktopViewport) {
+      let fromHeight = 0;
+      if (heightAnimRef.current) {
+        fromHeight = stageEl.getBoundingClientRect().height;
+        heightAnimRef.current.cancel();
+        heightAnimRef.current = null;
+      } else {
+        fromHeight =
+          exitEl?.getBoundingClientRect().height || lastStableHeightRef.current;
+      }
+
+      const toHeight = activeEl.getBoundingClientRect().height;
+      if (toHeight > 0) {
+        lastStableHeightRef.current = toHeight;
+      }
+
+      if (
+        fromHeight > 0 &&
+        toHeight > 0 &&
+        Math.abs(fromHeight - toHeight) > 1 &&
+        typeof stageEl.animate === "function"
+      ) {
+        stageEl.style.overflow = "clip";
+        const anim = stageEl.animate(
+          [{ height: `${fromHeight}px` }, { height: `${toHeight}px` }],
+          {
+            duration: choreography.stageHeightDurationMs || DESKTOP_DAY_STAGE_HEIGHT_MS,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          }
+        );
+        heightAnimRef.current = anim;
+        const clearStageAnim = () => {
+          if (heightAnimRef.current === anim) {
+            heightAnimRef.current = null;
+            stageEl.style.overflow = "";
+          }
+        };
+        anim.onfinish = clearStageAnim;
+        anim.oncancel = clearStageAnim;
+      } else {
+        stageEl.style.overflow = "";
+      }
+    }
+
+    exitTimerRef.current = window.setTimeout(() => {
+      exitTimerRef.current = null;
+      setDayTransition((prev) =>
+        prev.key === activeTransitionKey && prev.exitingSchedule
+          ? { ...prev, exitingSchedule: null }
+          : prev
+      );
+    }, choreography.exitCleanupMs || DESKTOP_DAY_EXIT_CLEANUP_MS);
+  }, [dayTransition.key]);
+
+  const isDesktopDayEnter = mode === "day" && animateOnMount && !shouldReduceMotion;
+  const effectiveDir = dayTransition.dir;
 
   const headerClassName = `mb-3.5 flex items-center justify-between gap-2 px-0 ${mode === "week" ? "min-h-[56px]" : "pt-1"} ${
     hideHeaderOnMobile ? "hidden sm:flex" : ""
@@ -198,7 +377,19 @@ export const ScheduleDay = memo(function ScheduleDay({
           aria-hidden={hideDayTitle || undefined}
           className="schedule-day-title-slot flex flex-wrap items-center gap-2.5 min-w-0 flex-1"
         >
-          <div className="flex flex-wrap items-center gap-2">
+          <div
+            key={isDesktopDayEnter ? currentMotionKey : undefined}
+            className={
+              isDesktopDayEnter
+                ? "desktop-day-header-enter flex flex-wrap items-center gap-2"
+                : "flex flex-wrap items-center gap-2"
+            }
+            style={
+              isDesktopDayEnter
+                ? ({ "--lesson-slide-dir": effectiveDir } as React.CSSProperties)
+                : undefined
+            }
+          >
             <h2 className="w-fit text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
               {weekdayLabel}<span className="font-normal text-sys-text-secondary">,</span>
             </h2>
@@ -274,156 +465,237 @@ export const ScheduleDay = memo(function ScheduleDay({
     </>
   );
 
-  const preLessonBannerContent = (
-    <>
-      <div className="flex items-center gap-2 shrink-0">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span>До початку занять</span>
-      </div>
-      {orderedLessons[0] && timeToStart !== null && (
-        <div className="flex items-center gap-1.5 text-sys-text-primary font-medium min-w-0">
-          <span className="leading-snug">
-            <span className="whitespace-nowrap">{orderedLessons[0].lesson_number}-а пара о {orderedLessons[0].time.split(/[-–—]/)[0]}</span>{" "}
-            <span className="whitespace-nowrap">(через {timeToStart >= 60 ? `${Math.floor(timeToStart / 60)} год${timeToStart % 60 > 0 ? ` ${timeToStart % 60} хв` : ""}` : `${timeToStart} хв`})</span>
-          </span>
-        </div>
-      )}
-    </>
-  );
+  const renderDayBody = (
+    targetSchedule: ScheduleResponse,
+    phase: "static" | "enter" | "exit",
+    dir: -1 | 1,
+    counterpartCount: number,
+    hasExitingLayer: boolean
+  ) => {
+    const orderedTargetLessons = [...targetSchedule.lessons].sort(
+      (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
+    );
+    const firstTargetStart =
+      orderedTargetLessons.length > 0
+        ? parseMin(orderedTargetLessons[0].time.split(/[-–—]/)[0])
+        : null;
+    const isTargetBeforeStart = Boolean(
+      kyivNow &&
+      kyivNow.dateIso === targetSchedule.date &&
+      firstTargetStart !== null &&
+      kyivNow.minutes < firstTargetStart &&
+      kyivNow.minutes >= firstTargetStart - 120
+    );
+    const targetTimeToStart =
+      isTargetBeforeStart && firstTargetStart !== null && kyivNow
+        ? firstTargetStart - kyivNow.minutes
+        : 0;
 
-  const emptyOrPeriodContent = schedule.period_info ? (
-    compactPeriod ? (
-      <CompactSchedulePeriodCard period={schedule.period_info} />
-    ) : (
-      <SchedulePeriodCard period={schedule.period_info} isToday={isToday} />
-    )
-  ) : (
-    <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 px-6 py-12 text-center text-sys-text-muted">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-bg border border-sys-border text-sys-accent shadow-xs">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
-          <path d="m9 16 2 2 4-4" />
-        </svg>
-      </div>
-      <p className="text-base font-semibold text-sys-text-primary">Пар немає</p>
-      <p className="text-xs text-sys-text-secondary mt-1">Розклад на цей день вільний</p>
-    </div>
-  );
-
-  const isDesktopDayEnter = mode === "day" && animateOnMount && !shouldReduceMotion;
-  const normalizedSlideDir = daySlideDir > 0 ? 1 : daySlideDir < 0 ? -1 : 0;
-
-  const dayListBody = (
-    <>
-      {isBeforeDayStart && (
-        <div
-          className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3${
-            isDesktopDayEnter ? " desktop-lesson-enter" : ""
-          }`}
-          style={
-            isDesktopDayEnter
-              ? ({ "--lesson-index": 0, "--lesson-slide-dir": normalizedSlideDir } as React.CSSProperties)
-              : undefined
-          }
-        >
-          {preLessonBannerContent}
-        </div>
-      )}
-
-      {orderedLessons.length ? (
-        <div className="schedule-day-stack flex flex-col">
-          {orderedLessons.map((lesson, idx) => {
-            const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
-            const prev = idx > 0 ? orderedLessons[idx - 1] : null;
-            const prevEnd = prev ? parseMin(prev.time.split(/[-–—]/)[1]) : null;
-            const currStart = parseMin(lesson.time.split(/[-–—]/)[0]);
-            const isBreakNow = Boolean(
-              kyivNow &&
-              kyivNow.dateIso === schedule.date &&
-              prev &&
-              prev.lesson_number !== lesson.lesson_number &&
-              prevEnd !== null &&
-              currStart !== null &&
-              kyivNow.minutes >= prevEnd &&
-              kyivNow.minutes < currStart
-            );
-            const breakDuration = prevEnd !== null && currStart !== null ? currStart - prevEnd : 0;
-            const breakLeft = isBreakNow && currStart !== null && kyivNow ? currStart - kyivNow.minutes : 0;
-
-            const lessonRowBody = (
-              <>
-                {isBreakNow && (
-                  <div className="flex flex-wrap items-center justify-center text-center gap-x-2 gap-y-0.5 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
-                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                      <CoffeeIcon className="w-3.5 h-3.5 shrink-0" />
-                      <span>Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
-                    </span>
-                    <span aria-hidden="true">•</span>
-                    <span>до {lesson.lesson_number}-ї пари залишилось <span className="whitespace-nowrap">{breakLeft} хв</span></span>
-                  </div>
-                )}
-                <LessonCard
-                  lesson={lesson}
-                  targetDate={schedule.date}
-                  mode={mode}
-                  learningMode={mode === "day" ? (schedule.learning_mode ?? null) : null}
-                  scheduleMode={scheduleMode}
-                  canEdit={canEdit}
-                  onEdit={onEdit}
-                  movingLesson={movingLesson}
-                  onMoveSelect={onMoveSelect}
-                  onCopySelect={onCopySelect}
-                  onCancelDated={onCancelDated}
-                  onRestoreDated={onRestoreDated}
-                  onQuickJump={onQuickJump}
-                  currentTeacherId={currentTeacherId}
-                  currentTeacherName={currentTeacherName}
-                  onOpenSubjectHub={onOpenSubjectHub}
-                />
-              </>
-            );
-
-            const rowClassName = `flex flex-col gap-2.5 relative has-[[data-open]]:z-50${
-              isDesktopDayEnter ? " desktop-lesson-enter" : ""
-            }`;
-            const rowStyle = isDesktopDayEnter
-              ? ({
-                  "--lesson-index": clampStaggerIndex(idx),
-                  "--lesson-slide-dir": normalizedSlideDir,
-                } as React.CSSProperties)
-              : undefined;
-
-            return (
-              <div
-                key={`${schedule.date}-${lessonKey}`}
-                className={rowClassName}
-                style={rowStyle}
-              >
-                {lessonRowBody}
-              </div>
-            );
-          })}
-        </div>
-      ) : isDesktopDayEnter ? (
-        <div
-          className="desktop-day-empty-enter"
-          style={{ "--lesson-slide-dir": normalizedSlideDir } as React.CSSProperties}
-        >
-          {emptyOrPeriodContent}
-        </div>
+    const emptyOrPeriodContent = targetSchedule.period_info ? (
+      compactPeriod ? (
+        <CompactSchedulePeriodCard period={targetSchedule.period_info} />
       ) : (
-        emptyOrPeriodContent
-      )}
-    </>
-  );
+        <SchedulePeriodCard period={targetSchedule.period_info} isToday={isToday} />
+      )
+    ) : (
+      <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 px-6 py-12 text-center text-sys-text-muted">
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-bg border border-sys-border text-sys-accent shadow-xs">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+            <path d="m9 16 2 2 4-4" />
+          </svg>
+        </div>
+        <p className="text-base font-semibold text-sys-text-primary">Пар немає</p>
+        <p className="text-xs text-sys-text-secondary mt-1">Розклад на цей день вільний</p>
+      </div>
+    );
+
+    const motionClass =
+      phase === "exit"
+        ? " desktop-lesson-exit"
+        : phase === "enter"
+          ? " desktop-lesson-enter"
+          : "";
+    const baseDelay = phase === "enter" ? (hasExitingLayer ? "65ms" : "0ms") : undefined;
+
+    return (
+      <>
+        {isTargetBeforeStart && (
+          <div
+            className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3${motionClass}`}
+            style={
+              phase !== "static"
+                ? ({
+                    "--lesson-index": 0,
+                    "--lesson-slide-dir": dir,
+                    ...(baseDelay ? { "--lesson-base-delay": baseDelay } : {}),
+                  } as React.CSSProperties)
+                : undefined
+            }
+          >
+            <div className="flex items-center gap-2 shrink-0">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>До початку занять</span>
+            </div>
+            {orderedTargetLessons[0] && targetTimeToStart !== null && (
+              <div className="flex items-center gap-1.5 text-sys-text-primary font-medium min-w-0">
+                <span className="leading-snug">
+                  <span className="whitespace-nowrap">{orderedTargetLessons[0].lesson_number}-а пара о {orderedTargetLessons[0].time.split(/[-–—]/)[0]}</span>{" "}
+                  <span className="whitespace-nowrap">(через {targetTimeToStart >= 60 ? `${Math.floor(targetTimeToStart / 60)} год${targetTimeToStart % 60 > 0 ? ` ${targetTimeToStart % 60} хв` : ""}` : `${targetTimeToStart} хв`})</span>
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {orderedTargetLessons.length ? (
+          <div className="schedule-day-stack flex flex-col">
+            {orderedTargetLessons.map((lesson, idx) => {
+              const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
+              const prev = idx > 0 ? orderedTargetLessons[idx - 1] : null;
+              const prevEnd = prev ? parseMin(prev.time.split(/[-–—]/)[1]) : null;
+              const currStart = parseMin(lesson.time.split(/[-–—]/)[0]);
+              const isBreakNow = Boolean(
+                kyivNow &&
+                kyivNow.dateIso === targetSchedule.date &&
+                prev &&
+                prev.lesson_number !== lesson.lesson_number &&
+                prevEnd !== null &&
+                currStart !== null &&
+                kyivNow.minutes >= prevEnd &&
+                kyivNow.minutes < currStart
+              );
+              const breakDuration = prevEnd !== null && currStart !== null ? currStart - prevEnd : 0;
+              const breakLeft = isBreakNow && currStart !== null && kyivNow ? currStart - kyivNow.minutes : 0;
+
+              const rowStyle =
+                phase === "exit"
+                  ? ({
+                      "--lesson-index": clampStaggerIndex(idx),
+                      "--lesson-slide-dir": dir,
+                      "--lesson-exit-y": counterpartCount > 0 && idx >= counterpartCount ? "-8px" : "0px",
+                    } as React.CSSProperties)
+                  : phase === "enter"
+                    ? ({
+                        "--lesson-index": clampStaggerIndex(idx),
+                        "--lesson-slide-dir": dir,
+                        "--lesson-base-delay": hasExitingLayer ? "65ms" : "0ms",
+                        "--lesson-enter-y":
+                          hasExitingLayer && counterpartCount > 0 && idx >= counterpartCount
+                            ? "-6px"
+                            : "0px",
+                      } as React.CSSProperties)
+                    : undefined;
+
+              return (
+                <div
+                  key={`${phase}-${targetSchedule.date}-${lessonKey}`}
+                  className={`flex flex-col gap-2.5 relative has-[[data-open]]:z-50${motionClass}`}
+                  style={rowStyle}
+                >
+                  {isBreakNow && (
+                    <div className="flex flex-wrap items-center justify-center text-center gap-x-2 gap-y-0.5 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
+                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                        <CoffeeIcon className="w-3.5 h-3.5 shrink-0" />
+                        <span>Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
+                      </span>
+                      <span aria-hidden="true">•</span>
+                      <span>до {lesson.lesson_number}-ї пари залишилось <span className="whitespace-nowrap">{breakLeft} хв</span></span>
+                    </div>
+                  )}
+                  <LessonCard
+                    lesson={lesson}
+                    targetDate={targetSchedule.date}
+                    mode={mode}
+                    learningMode={mode === "day" ? (targetSchedule.learning_mode ?? null) : null}
+                    scheduleMode={scheduleMode}
+                    canEdit={canEdit && phase !== "exit"}
+                    onEdit={onEdit}
+                    movingLesson={movingLesson}
+                    onMoveSelect={onMoveSelect}
+                    onCopySelect={onCopySelect}
+                    onCancelDated={onCancelDated}
+                    onRestoreDated={onRestoreDated}
+                    onQuickJump={onQuickJump}
+                    currentTeacherId={currentTeacherId}
+                    currentTeacherName={currentTeacherName}
+                    onOpenSubjectHub={onOpenSubjectHub}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        ) : phase !== "static" ? (
+          <div
+            className={phase === "exit" ? "desktop-day-empty-exit" : "desktop-day-empty-enter"}
+            style={
+              {
+                "--lesson-slide-dir": dir,
+                ...(baseDelay ? { "--lesson-base-delay": baseDelay } : {}),
+              } as React.CSSProperties
+            }
+          >
+            {emptyOrPeriodContent}
+          </div>
+        ) : (
+          emptyOrPeriodContent
+        )}
+      </>
+    );
+  };
+
+  if (mode !== "day") {
+    return (
+      <section className="min-w-0">
+        {(!hideDayTitle || orderedLessons.length > 0) && (
+          <header className={headerClassName}>{headerContent}</header>
+        )}
+        <div>{renderDayBody(schedule, "static", 1, 0, false)}</div>
+      </section>
+    );
+  }
+
+  const activePhase = isDesktopDayEnter ? "enter" : "static";
+  const hasExitingLayer = Boolean(dayTransition.exitingSchedule);
 
   return (
-    <section className={mode === "day" ? "relative min-w-0 overflow-x-clip -mx-3 px-3 [contain:layout_style]" : "min-w-0"}>
-      {(!hideDayTitle || (mode === "day" && orderedLessons.length > 0)) && (
+    <section className="relative min-w-0 [contain:layout_style]">
+      {(!hideDayTitle || orderedLessons.length > 0) && (
         <header className={headerClassName}>{headerContent}</header>
       )}
-      <div key={mode === "day" ? `${schedule.date}-${dayMotionSeq}` : undefined}>
-        {dayListBody}
+      <div
+        ref={stageRef}
+        className="desktop-day-stage relative -mx-3 px-3 overflow-x-clip"
+      >
+        {dayTransition.exitingSchedule && (
+          <div
+            ref={exitLayerRef}
+            key={`exit-${dayTransition.exitingSchedule.date}-${dayTransition.key}`}
+            aria-hidden="true"
+            className="desktop-day-layer-exit px-3"
+          >
+            {renderDayBody(
+              dayTransition.exitingSchedule,
+              "exit",
+              effectiveDir,
+              dayTransition.activeSchedule.lessons.length,
+              true
+            )}
+          </div>
+        )}
+        <div
+          ref={activeLayerRef}
+          key={dayTransition.key}
+          className="desktop-day-layer-active"
+        >
+          {renderDayBody(
+            dayTransition.activeSchedule,
+            activePhase,
+            effectiveDir,
+            dayTransition.exitingSchedule?.lessons.length ?? 0,
+            hasExitingLayer
+          )}
+        </div>
       </div>
     </section>
   );

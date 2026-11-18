@@ -362,7 +362,7 @@ export function LessonCardActions({
       ? "relative flex items-center gap-1 ml-1"
       : variant === "mobile-day"
       ? "relative flex items-center gap-1.5 ml-auto shrink-0"
-      : "relative flex items-center gap-1 shrink-0 whitespace-nowrap ml-auto lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity";
+      : "relative flex items-center gap-1 shrink-0 whitespace-nowrap ml-auto lg:opacity-0 lg:group-hover/card:opacity-100 focus-within:opacity-100 transition-opacity";
 
   const wrapperStyle =
     variant === "week"

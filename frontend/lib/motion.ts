@@ -10,6 +10,15 @@ export const DURATION_SLOW = 0.28;
 export const DURATION_PANEL = 0.34;
 export const DURATION_SHELL = 0.46;
 
+export const DESKTOP_DAY_EXIT_MS = 180;
+export const DESKTOP_DAY_EXIT_STAGGER_MS = 12;
+export const DESKTOP_DAY_ENTER_DELAY_MS = 65;
+export const DESKTOP_DAY_ENTER_MS = 340;
+export const DESKTOP_DAY_ENTER_STAGGER_MS = 18;
+export const DESKTOP_DAY_STAGE_HEIGHT_MS = 420;
+export const DESKTOP_DAY_EXIT_CLEANUP_MS =
+  DESKTOP_DAY_EXIT_MS + 5 * DESKTOP_DAY_EXIT_STAGGER_MS + 10;
+
 export const EASE_SMOOTH = [0.22, 1, 0.36, 1] as const;
 export const EASE_EXIT = [0.32, 0, 0.24, 1] as const;
 export const EASE_OUT = [0.4, 0, 1, 1] as const;
@@ -78,6 +87,37 @@ export function computeMobileSwipeEntryOffset(
     return slideDir * Math.round(distance);
   }
   return slideDir * 22;
+}
+
+export interface DaySwitchChoreography {
+  normalizedDir: -1 | 1;
+  exitOffsetPx: number;
+  enterOffsetPx: number;
+  isShrinking: boolean;
+  isExpanding: boolean;
+  exitCleanupMs: number;
+  stageHeightDurationMs: number;
+}
+
+/**
+ * Compute coordinated two-phase handoff geometry and timings when switching
+ * between two days on desktop (including days with differing lesson counts).
+ */
+export function computeDaySwitchChoreography(
+  prevCount: number,
+  nextCount: number,
+  slideDir: number
+): DaySwitchChoreography {
+  const normalizedDir: -1 | 1 = slideDir < 0 ? -1 : 1;
+  return {
+    normalizedDir,
+    exitOffsetPx: normalizedDir * -28,
+    enterOffsetPx: normalizedDir * 28,
+    isShrinking: nextCount < prevCount,
+    isExpanding: nextCount > prevCount,
+    exitCleanupMs: DESKTOP_DAY_EXIT_CLEANUP_MS,
+    stageHeightDurationMs: DESKTOP_DAY_STAGE_HEIGHT_MS,
+  };
 }
 
 /**

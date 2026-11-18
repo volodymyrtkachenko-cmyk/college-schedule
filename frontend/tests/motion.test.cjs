@@ -52,3 +52,31 @@ test("computeMobileSwipeEntryOffset produces continuous directional handoff offs
   const backwardFromDrag = motionMod.computeMobileSwipeEntryOffset(-1, 50);
   assert.ok(backwardFromDrag <= -28 && backwardFromDrag >= -72);
 });
+
+test("computeDaySwitchChoreography returns directional handoff and shrinking/expanding state", () => {
+  const motionMod = loadTsModule(path.resolve(__dirname, "../lib/motion.ts"));
+
+  assert.equal(motionMod.DESKTOP_DAY_EXIT_MS, 180);
+  assert.equal(motionMod.DESKTOP_DAY_EXIT_STAGGER_MS, 12);
+  assert.equal(motionMod.DESKTOP_DAY_ENTER_DELAY_MS, 65);
+  assert.equal(motionMod.DESKTOP_DAY_ENTER_MS, 340);
+  assert.equal(motionMod.DESKTOP_DAY_ENTER_STAGGER_MS, 18);
+  assert.equal(motionMod.DESKTOP_DAY_STAGE_HEIGHT_MS, 420);
+  assert.equal(motionMod.DESKTOP_DAY_EXIT_CLEANUP_MS, 250);
+
+  const tuesdayToWednesday = motionMod.computeDaySwitchChoreography(5, 3, 1);
+  assert.equal(tuesdayToWednesday.normalizedDir, 1);
+  assert.equal(tuesdayToWednesday.exitOffsetPx, -28);
+  assert.equal(tuesdayToWednesday.enterOffsetPx, 28);
+  assert.equal(tuesdayToWednesday.isShrinking, true);
+  assert.equal(tuesdayToWednesday.isExpanding, false);
+  assert.equal(tuesdayToWednesday.exitCleanupMs, 250);
+  assert.equal(tuesdayToWednesday.stageHeightDurationMs, 420);
+
+  const wednesdayToTuesday = motionMod.computeDaySwitchChoreography(3, 5, -1);
+  assert.equal(wednesdayToTuesday.normalizedDir, -1);
+  assert.equal(wednesdayToTuesday.exitOffsetPx, 28);
+  assert.equal(wednesdayToTuesday.enterOffsetPx, -28);
+  assert.equal(wednesdayToTuesday.isShrinking, false);
+  assert.equal(wednesdayToTuesday.isExpanding, true);
+});
