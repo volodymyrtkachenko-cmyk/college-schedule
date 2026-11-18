@@ -268,6 +268,7 @@ function auditLegacyClasses() {
     "components/TaskChecklistSection.tsx",
     "components/ClassroomRelinkBanner.tsx",
     "components/schedule/DesktopFocusDaySwitcher.tsx",
+    "components/schedule/DesktopDaySelector.tsx",
   "app/bells/page.tsx",
   "app/statistics/page.tsx",
   "app/educational-process/page.tsx",

@@ -3,7 +3,6 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, m, type Variants } from "framer-motion";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { canMoveLesson } from "../lib/scheduleMove";
-import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
 import { ScheduleDay } from "./ScheduleDay";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
 import type { SubjectHubTarget } from "../lib/schedule";
@@ -375,7 +374,6 @@ export function ScheduleWeekGrid({
           <div
             key={`desktop-header-${day.date}`}
             data-day-col={dIdx}
-            onMouseEnter={() => setFocusDayCol(dIdx)}
             onFocusCapture={() => setFocusDayCol(dIdx)}
             style={{ gridColumn: dIdx + 1 }}
             className={`flex flex-col transition-opacity duration-fast ease-smooth ${
@@ -415,7 +413,6 @@ export function ScheduleWeekGrid({
                 <div
                   key={`desktop-slot-${num}-${day.date}`}
                   data-day-col={dIdx}
-                  onMouseEnter={() => setFocusDayCol(dIdx)}
                   onFocusCapture={() => setFocusDayCol(dIdx)}
                   style={{
                     gridColumn: dIdx + 1,
@@ -473,7 +470,6 @@ export function ScheduleWeekGrid({
             <div
               key={`desktop-slot-${num}-${day.date}`}
               data-day-col={dIdx}
-              onMouseEnter={() => setFocusDayCol(dIdx)}
               onFocusCapture={() => setFocusDayCol(dIdx)}
               style={{ gridColumn: dIdx + 1 }}
               className={`desktop-week-slot flex flex-col min-h-[92px] transition-opacity relative has-[[data-open]]:z-50 has-[[data-open]]:opacity-100 ${
@@ -500,7 +496,6 @@ export function ScheduleWeekGrid({
         <div
           key={`desktop-footer-${day.date}`}
           data-day-col={dIdx}
-          onMouseEnter={() => setFocusDayCol(dIdx)}
           style={{ gridColumn: dIdx + 1 }}
           className="py-2 px-3 text-center text-xs font-medium transition-opacity border-t border-sys-border/40 mt-1 text-sys-text-secondary"
         >
@@ -516,7 +511,7 @@ export function ScheduleWeekGrid({
   );
 
   return (
-    <DesktopSpotlightGrid spotlightHoverOnly className="relative w-full pb-4 overflow-x-clip -mx-3 px-3">
+    <div className="relative w-full pb-4 overflow-x-clip -mx-3 px-3">
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
       {renderDesktop && (
         desktopMotion ? (
@@ -529,7 +524,6 @@ export function ScheduleWeekGrid({
               initial={animateOnMount ? "enter" : false}
               animate="center"
               exit="exit"
-              onMouseLeave={() => setFocusDayCol(null)}
               onBlurCapture={(e) => {
                 if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
                   setFocusDayCol(null);
@@ -544,7 +538,6 @@ export function ScheduleWeekGrid({
           <div
             ref={weekGridRef}
             key={`desktop-week-${week[0]?.date ?? "week"}`}
-            onMouseLeave={() => setFocusDayCol(null)}
             onBlurCapture={(e) => {
               if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
                 setFocusDayCol(null);
@@ -737,6 +730,6 @@ export function ScheduleWeekGrid({
           ))}
         </div>
       )}
-    </DesktopSpotlightGrid>
+    </div>
   );
 }

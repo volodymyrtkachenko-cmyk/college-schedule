@@ -678,7 +678,6 @@ export function SchedulePageClient({
                             currentGroupName={!isPreviewContext && mode === "student" ? (sel.currentName ?? null) : null}
                             currentTeacherId={!isPreviewContext && mode === "teacher" ? teacherId : null}
                             currentTeacherName={!isPreviewContext && mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
-                            daySlideDir={sel.daySlideDir}
                             shouldReduceMotion={shouldReduceMotion}
                             animateOnMount={sel.hasMotionInteracted}
                             learningModeBadge={sel.headerLearningModeData}

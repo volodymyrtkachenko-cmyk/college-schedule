@@ -1,12 +1,9 @@
 "use client";
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { m, type Variants } from "framer-motion";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
-import { useDesktopMotionEnabled } from "../lib/useViewportTier";
-import { DesktopSpotlightGrid } from "./navigation/DesktopSpotlightGrid";
 import {
   LessonCard,
   QuickJumpTarget,
@@ -32,51 +29,7 @@ function parseMin(t?: string): number | null {
   return Number.isNaN(h) || Number.isNaN(m) ? null : h * 60 + m;
 }
 
-const DESKTOP_DAY_STAGE_VARIANTS: Variants = {
-  enter: (dir: number) => ({
-    opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? 32 : -32) : 0,
-    y: dir === 0 ? 10 : 0,
-  }),
-  center: {
-    opacity: 1,
-    x: 0,
-    y: 0,
-    transition: {
-      x: { type: "spring", stiffness: 400, damping: 32, mass: 0.75 },
-      y: { type: "spring", stiffness: 400, damping: 32, mass: 0.75 },
-      opacity: { duration: 0.14, ease: [0.22, 1, 0.36, 1] },
-    },
-  },
-};
-
-interface DayItemMotionCustom {
-  idx: number;
-  dir: number;
-}
-
-const DESKTOP_DAY_ITEM_VARIANTS: Variants = {
-  enter: ({ idx, dir }: DayItemMotionCustom) => ({
-    opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? 28 + Math.min(idx, 4) * 12 : -(28 + Math.min(idx, 4) * 12)) : 0,
-    y: dir === 0 ? 10 + Math.min(idx, 4) * 4 : 0,
-  }),
-  center: ({ idx }: DayItemMotionCustom) => {
-    const delay = Math.min(idx, 4) * 0.02;
-    return {
-      opacity: 1,
-      x: 0,
-      y: 0,
-      transition: {
-        x: { type: "spring", stiffness: 400, damping: 32, mass: 0.75, delay },
-        y: { type: "spring", stiffness: 400, damping: 32, mass: 0.75, delay },
-        opacity: { duration: 0.14, ease: [0.22, 1, 0.36, 1], delay },
-      },
-    };
-  },
-};
-
-/** Read-only or editable list of one day's lessons, with Telegram sharing, live break indicator, and cascade motion. */
+/** Read-only or editable list of one day’s lessons. */
 export const ScheduleDay = memo(function ScheduleDay({
   schedule,
   isToday = false,
@@ -97,7 +50,6 @@ export const ScheduleDay = memo(function ScheduleDay({
   currentTeacherId,
   currentTeacherName,
   compactPeriod = false,
-  daySlideDir = 0,
   shouldReduceMotion = false,
   animateOnMount = true,
   learningModeBadge = null,
@@ -122,7 +74,6 @@ export const ScheduleDay = memo(function ScheduleDay({
   currentTeacherId?: number | null;
   currentTeacherName?: string | null;
   compactPeriod?: boolean;
-  daySlideDir?: number;
   shouldReduceMotion?: boolean;
   animateOnMount?: boolean;
   learningModeBadge?: HeaderLearningModeData | null;
@@ -130,8 +81,6 @@ export const ScheduleDay = memo(function ScheduleDay({
 }) {
   const { showToast } = useToast();
   const { resolvedTheme } = useTheme();
-  const desktopMotionEnabled = useDesktopMotionEnabled();
-  const desktopMotion = desktopMotionEnabled && mode === "day" && !shouldReduceMotion;
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(() =>
     getSharedKyivNowSnapshot()
   );
@@ -359,44 +308,17 @@ export const ScheduleDay = memo(function ScheduleDay({
   const stageBody = (
     <>
       {(!hideDayTitle || (mode === "day" && orderedLessons.length > 0)) && (
-        desktopMotion ? (
-          <m.header
-            custom={{ idx: 0, dir: daySlideDir }}
-            variants={DESKTOP_DAY_ITEM_VARIANTS}
-            initial={animateOnMount ? "enter" : false}
-            animate="center"
-            className={headerClassName}
-          >
-            {headerContent}
-          </m.header>
-        ) : (
-          <header className={headerClassName}>
-            {headerContent}
-          </header>
-        )
+        <header className={headerClassName}>{headerContent}</header>
       )}
 
-      {/* Morning pre-lesson indicator */}
       {isBeforeDayStart && (
-        desktopMotion ? (
-          <m.div
-            custom={{ idx: 0.5, dir: daySlideDir }}
-            variants={DESKTOP_DAY_ITEM_VARIANTS}
-            initial={animateOnMount ? "enter" : false}
-            animate="center"
-            className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3"
-          >
-            {preLessonBannerContent}
-          </m.div>
-        ) : (
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3">
-            {preLessonBannerContent}
-          </div>
-        )
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3">
+          {preLessonBannerContent}
+        </div>
       )}
 
       {orderedLessons.length ? (
-        <DesktopSpotlightGrid className="schedule-day-stack flex flex-col">
+        <div className="schedule-day-stack flex flex-col">
           {orderedLessons.map((lesson, idx) => {
             const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
             const prev = idx > 0 ? orderedLessons[idx - 1] : null;
@@ -450,21 +372,6 @@ export const ScheduleDay = memo(function ScheduleDay({
 
             const rowClassName = "flex flex-col gap-2.5 relative has-[[data-open]]:z-50";
 
-            if (desktopMotion) {
-              return (
-                <m.div
-                  key={`${schedule.date}-${lessonKey}`}
-                  custom={{ idx: idx + 1, dir: daySlideDir }}
-                  variants={DESKTOP_DAY_ITEM_VARIANTS}
-                  initial={animateOnMount ? "enter" : false}
-                  animate="center"
-                  className={rowClassName}
-                >
-                  {lessonRowBody}
-                </m.div>
-              );
-            }
-
             return (
               <div
                 key={`${schedule.date}-${lessonKey}`}
@@ -474,16 +381,7 @@ export const ScheduleDay = memo(function ScheduleDay({
               </div>
             );
           })}
-        </DesktopSpotlightGrid>
-      ) : desktopMotion ? (
-        <m.div
-          custom={{ idx: 1, dir: daySlideDir }}
-          variants={DESKTOP_DAY_ITEM_VARIANTS}
-          initial={animateOnMount ? "enter" : false}
-          animate="center"
-        >
-          {emptyOrPeriodContent}
-        </m.div>
+        </div>
       ) : (
         emptyOrPeriodContent
       )}
@@ -492,22 +390,12 @@ export const ScheduleDay = memo(function ScheduleDay({
 
   return (
     <section className={mode === "day" ? "relative min-w-0 overflow-x-clip -mx-3 px-3 [contain:layout_style]" : "min-w-0"}>
-      {desktopMotion ? (
-        <m.div
-          key={`day-stage-${schedule.date}`}
-          custom={daySlideDir}
-          variants={DESKTOP_DAY_STAGE_VARIANTS}
-          initial={animateOnMount ? "enter" : false}
-          animate="center"
-          className="w-full"
-        >
-          {stageBody}
-        </m.div>
-      ) : (
-        <div key={mode === "day" ? `day-stage-${schedule.date}` : undefined}>
-          {stageBody}
-        </div>
-      )}
+      <div
+        key={mode === "day" ? schedule.date : undefined}
+        className={mode === "day" && animateOnMount && !shouldReduceMotion ? "desktop-day-enter" : undefined}
+      >
+        {stageBody}
+      </div>
     </section>
   );
 });

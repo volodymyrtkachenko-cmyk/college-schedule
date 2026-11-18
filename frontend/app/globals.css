@@ -755,6 +755,7 @@ html[data-theme="light"][data-accent="cyan"] {
   --ease-spring-gentle: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring-modal: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-desktop-panel: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   interpolate-size: allow-keywords;
 }
@@ -1643,7 +1644,7 @@ html[data-surface="glass"] #desktop-sections-menu {
     margin-block: -4px;
   }
 
-  .desktop-week-slot:has(:is([data-open], .desktop-tilt-card:hover)) {
+  .desktop-week-slot:has([data-open]) {
     contain: none;
     z-index: 25;
   }
@@ -1668,11 +1669,6 @@ html[data-surface="glass"] #desktop-sections-menu {
     animation-delay: calc(var(--col-step, 0) * 26ms + var(--row-step, 0) * 16ms);
   }
 
-  /* In dense 5x5 Week grid, only evaluate mask-composite border glow for the hovered card */
-  .desktop-week-grid .interactive-surface:not(:hover)::before {
-    opacity: 0 !important;
-  }
-
   .desktop-week-grid[data-focus-day="0"]:not(:has([data-open])) [data-day-col]:not([data-day-col="0"]),
   .desktop-week-grid[data-focus-day="1"]:not(:has([data-open])) [data-day-col]:not([data-day-col="1"]),
   .desktop-week-grid[data-focus-day="2"]:not(:has([data-open])) [data-day-col]:not([data-day-col="2"]),
@@ -1683,28 +1679,6 @@ html[data-surface="glass"] #desktop-sections-menu {
 
   .desktop-view-enter {
     animation: desktop-view-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  }
-
-  .app-backdrop[data-parallax="1"] .app-parallax-back {
-    will-change: transform;
-    transform: translate3d(
-        calc(var(--bg-px, 0) * -10px),
-        calc(var(--bg-py, 0) * -8px),
-        0
-      )
-      scale(1.03);
-    transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .app-backdrop[data-parallax="1"] .app-parallax-front {
-    will-change: transform;
-    transform: translate3d(
-        calc(var(--bg-px, 0) * 18px),
-        calc(var(--bg-py, 0) * 14px),
-        0
-      )
-      scale(1.045);
-    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   @supports (animation-timeline: scroll()) {
@@ -1938,6 +1912,34 @@ html[data-surface="glass"] #desktop-sections-menu {
   }
 }
 
+@keyframes desktop-day-reveal {
+  from { opacity: 0.72; }
+  to { opacity: 1; }
+}
+
+.desktop-day-selector {
+  box-shadow: inset 0 -1px 0 rgb(var(--sys-border));
+}
+
+.desktop-day-indicator {
+  z-index: 1;
+  height: 2px;
+  width: 20%;
+  border-radius: 999px;
+  background: rgb(var(--sys-accent));
+  transform: translateX(calc(var(--day-position) * 100%));
+}
+
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+  .desktop-day-selector:not([data-reduced-motion]) .desktop-day-indicator {
+    transition: transform 460ms var(--ease-desktop-panel);
+  }
+
+  .desktop-day-enter {
+    animation: desktop-day-reveal 240ms var(--ease-desktop-panel) backwards;
+  }
+}
+
 @media (min-width: 1024px) {
   .desktop-sidebar-shell {
     --desktop-sidebar-w: clamp(296px, 27vw, 356px);
@@ -1949,8 +1951,8 @@ html[data-surface="glass"] #desktop-sections-menu {
     visibility: visible;
     will-change: width, margin-left;
     transition:
-      width 460ms cubic-bezier(0.22, 1, 0.36, 1),
-      margin-left 460ms cubic-bezier(0.22, 1, 0.36, 1),
+      width 460ms var(--ease-desktop-panel),
+      margin-left 460ms var(--ease-desktop-panel),
       visibility 0ms linear;
   }
 
@@ -2257,7 +2259,7 @@ html[data-density="relaxed"] {
   padding: var(--lesson-day-pad-y) var(--lesson-day-pad-x);
 }
 
-.lesson-card-day:not([data-open="true"]):not(:hover) {
+.lesson-card-day:not([data-open="true"]) {
   contain: layout style;
 }
 
@@ -2622,6 +2624,16 @@ html[data-surface="outline"] .shadow-md {
   backface-visibility: hidden;
 }
 
+@media (min-width: 1024px) {
+  .app-backdrop[data-backdrop="none"] {
+    background: radial-gradient(
+      ellipse 75% 360px at 50% 0%,
+      rgb(var(--sys-accent) / 0.07),
+      transparent
+    );
+  }
+}
+
 .app-backdrop-glass-sheen {
   background:
     radial-gradient(60% 50% at 15% 15%, rgb(var(--sys-accent) / 0.16), transparent 70%),
@@ -2765,28 +2777,6 @@ html.light .app-aurora-orb-3 {
     rgb(var(--sys-status-ok-bg) / 0.025) 56%,
     transparent 78%
   );
-}
-
-@keyframes aurora-float-1 {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(5%, 7%, 0); }
-}
-
-@keyframes aurora-float-2 {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(-6%, -5%, 0); }
-}
-
-@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
-  .app-aurora-orb-1 {
-    animation: aurora-float-1 22s ease-in-out infinite;
-  }
-  .app-aurora-orb-2 {
-    animation: aurora-float-2 28s ease-in-out infinite;
-  }
-  html:is([data-vt-kind], :has(dialog[open])) :is(.app-aurora-orb-1, .app-aurora-orb-2) {
-    animation-play-state: paused !important;
-  }
 }
 
 .app-backdrop-dots {

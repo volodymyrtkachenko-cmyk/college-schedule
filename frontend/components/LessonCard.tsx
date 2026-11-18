@@ -508,8 +508,8 @@ export const LessonCard = memo(function LessonCard({
               : isSelectedForMove
                 ? "border-emerald-400 ring-1 ring-emerald-400/70"
                 : !isDay && isTodayTarget
-                  ? "border-sys-accent/40 bg-sys-accent/[0.05] shadow-[0_0_14px_rgb(var(--sys-accent)/0.1)] hover:border-sys-accent/60"
-                  : "border-sys-border hover:border-sys-elevatedBorder";
+                  ? "border-sys-accent/40 bg-sys-accent/[0.05] shadow-[0_0_14px_rgb(var(--sys-accent)/0.1)]"
+                  : "border-sys-border";
 
   const sharedActionProps = {
     lesson,
@@ -574,9 +574,7 @@ export const LessonCard = memo(function LessonCard({
           onMoveSelect?.(lesson);
         }
       }}
-      className={`interactive-surface group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-colors duration-150 ease-out hover:border-sys-border/90 active:scale-[0.99] ${
-        isDay || isLive ? "desktop-tilt-card" : ""
-      } ${
+      className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-colors duration-150 ease-out ${
         isHwOpen || moreOpen ? "z-40 !translate-y-0" : ""
       } ${
         isDay
@@ -643,7 +641,7 @@ export const LessonCard = memo(function LessonCard({
           {!hideTimeColumn && (
             <div className="w-24 sm:w-28 shrink-0 self-start flex flex-col items-start pr-4 border-r border-sys-border/50 text-left pt-1">
               <div className="flex items-center gap-2">
-                <span className={`ui-mono-slot text-2xl sm:text-[26px] font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
+                <span className={`ui-mono-slot text-2xl sm:text-[26px] font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary"}`}>
                   {lesson.lesson_number}
                 </span>
               </div>
@@ -754,7 +752,7 @@ export const LessonCard = memo(function LessonCard({
               <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                 {!hideTimeColumn && (
                   <div className="ui-mono-slot flex items-center gap-2 whitespace-nowrap">
-                    <span className={`text-base font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
+                    <span className={`text-base font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary"}`}>
                       {lesson.lesson_number}
                     </span>
                     <span className="text-sys-text-muted font-bold text-xs">·</span>

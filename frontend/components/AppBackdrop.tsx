@@ -15,58 +15,7 @@ export function AppBackdrop() {
   const [photoReady, setPhotoReady] = useState(false);
   const [hasMissingCustomPhoto, setHasMissingCustomPhoto] = useState(false);
 
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const activeObjectUrlRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || backdrop === "none" || backdrop === "custom") {
-      rootRef.current?.style.removeProperty("--bg-px");
-      rootRef.current?.style.removeProperty("--bg-py");
-      return;
-    }
-
-    const mqDesktop = window.matchMedia(
-      "(min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)",
-    );
-    if (!mqDesktop.matches) return;
-
-    let rafId: number | null = null;
-    let lastNx = 0;
-    let lastNy = 0;
-
-    const flushCoords = () => {
-      rafId = null;
-      const node = rootRef.current;
-      if (!node) return;
-      node.style.setProperty("--bg-px", lastNx.toFixed(3));
-      node.style.setProperty("--bg-py", lastNy.toFixed(3));
-    };
-
-    const handlePointerMove = (e: PointerEvent) => {
-      if (e.pointerType !== "mouse" || window.innerWidth <= 0 || window.innerHeight <= 0) return;
-      lastNx = Math.max(-1, Math.min(1, (e.clientX / window.innerWidth) * 2 - 1));
-      lastNy = Math.max(-1, Math.min(1, (e.clientY / window.innerHeight) * 2 - 1));
-      if (rafId === null) {
-        rafId = window.requestAnimationFrame(flushCoords);
-      }
-    };
-
-    const handlePointerLeave = () => {
-      lastNx = 0;
-      lastNy = 0;
-      if (rafId === null) {
-        rafId = window.requestAnimationFrame(flushCoords);
-      }
-    };
-
-    window.addEventListener("pointermove", handlePointerMove, { passive: true });
-    document.addEventListener("mouseleave", handlePointerLeave, { passive: true });
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      document.removeEventListener("mouseleave", handlePointerLeave);
-      if (rafId !== null) window.cancelAnimationFrame(rafId);
-    };
-  }, [backdrop]);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,9 +86,8 @@ export function AppBackdrop() {
 
   return (
     <div
-      ref={rootRef}
       aria-hidden="true"
-      data-parallax={effectiveBackdrop !== "none" && effectiveBackdrop !== "custom" ? "1" : undefined}
+      data-backdrop={effectiveBackdrop}
       className="app-backdrop fixed inset-0 z-0 overflow-hidden pointer-events-none select-none"
     >
       {effectiveBackdrop !== "custom" && (
