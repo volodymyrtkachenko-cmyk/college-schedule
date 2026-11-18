@@ -199,8 +199,11 @@ export function useScheduleSelection({
       if (offset < 0 && !canNavigatePrevWeek) return;
       if (offset > 0 && !canNavigateNextWeek) return;
       const nextAnchorIso = addDaysToCalendarIso(formatKyivDateIso(weekAnchorDate), offset * 7);
+      const dir = offset > 0 ? 1 : -1;
       setHasMotionInteracted(true);
-      setWeekSlideDir(offset > 0 ? 1 : -1);
+      setWeekSlideDir(dir);
+      setDaySlideDir(dir);
+      setDayMotionSeq((seq) => seq + 1);
       setWeekAnchorDate(calendarDateIsoToUtcDate(nextAnchorIso));
       setSelectedDayIndex((prev) => clampWeekDayIndex(nextAnchorIso, prev, minDateIso, maxDateIso));
     },

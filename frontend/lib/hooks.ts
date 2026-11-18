@@ -196,6 +196,242 @@ const useIsomorphicLayoutEffect =
 
 const EMPTY_SCHEDULE_WEEK: ScheduleResponse[] = [];
 
+type CachedWeekSnapshot =
+  | {
+      kind: "memory";
+      today: ScheduleResponse | null;
+      week: ScheduleResponse[];
+      rawJson: string;
+      isFresh: boolean;
+    }
+  | {
+      kind: "storage" | "ssr";
+      today: ScheduleResponse | null;
+      week: ScheduleResponse[];
+      rawJson: string;
+    }
+  | {
+      kind: "fallback";
+      today: ScheduleResponse | null;
+      week: ScheduleResponse[];
+      rawJson: string;
+      isSameWeek: boolean;
+    };
+
+function getScheduleAuthSignature(
+  mode: "student" | "teacher",
+  groupId: number | null,
+  teacherId: number | null
+): string {
+  if (typeof window === "undefined") return "guest";
+  try {
+    const uid = window.localStorage.getItem("schedule:classroom_google_user_id") || "";
+    const email = window.localStorage.getItem("schedule:classroom_linked_email") || "";
+    const linkedGid = window.localStorage.getItem("schedule:classroom_linked_group_id") || "";
+    const pin = window.localStorage.getItem("college_schedule_teacher_pin") ? "pin" : "";
+    const hasAuth = Boolean(
+      (mode === "teacher" && pin) ||
+        (mode === "student" && (uid || email) && (!linkedGid || Number(linkedGid) === groupId))
+    );
+    return hasAuth ? `auth:${uid}:${email}:${linkedGid}:${pin}` : "guest";
+  } catch {
+    return "guest";
+  }
+}
+
+function buildScheduleStorageKeys(params: {
+  mode: "student" | "teacher";
+  groupId: number | null;
+  teacherId: number | null;
+  dateKey: string;
+  includeCancelled: boolean;
+}) {
+  const { mode, groupId, teacherId, dateKey, includeCancelled } = params;
+  const authSig = getScheduleAuthSignature(mode, groupId, teacherId);
+  const storageTier = authSig.startsWith("auth:") ? ":auth" : ":guest";
+  const targetKey = mode === "student" ? `groupId:${groupId}` : `teacherId:${teacherId}`;
+  const cancelSuffix = includeCancelled ? ":all" : "";
+  const todayKey = `schedule:today:${targetKey}${cancelSuffix}${storageTier}`;
+  const weekKey = `schedule:week:${targetKey}:${dateKey}${cancelSuffix}${storageTier}`;
+  const memKey = `${todayKey}|${weekKey}|${authSig}`;
+  return { authSig, storageTier, targetKey, cancelSuffix, todayKey, weekKey, memKey };
+}
+
+function findFallbackScheduleFromStorage(params: {
+  targetKey: string;
+  dateKey: string;
+  cancelSuffix: string;
+  storageTier: string;
+  includeCancelled: boolean;
+}): Extract<CachedWeekSnapshot, { kind: "fallback" }> | null {
+  const { targetKey, dateKey, cancelSuffix, storageTier, includeCancelled } = params;
+  try {
+    for (const tier of [storageTier, ":auth", ":guest"]) {
+      const exactRaw = window.localStorage.getItem(
+        `schedule:week:${targetKey}:${dateKey}${cancelSuffix}${tier}`
+      );
+      if (exactRaw) {
+        const parsedWeek = JSON.parse(exactRaw) as ScheduleResponse[];
+        if (Array.isArray(parsedWeek) && parsedWeek.length > 0) {
+          return {
+            kind: "fallback",
+            today: parsedWeek[0],
+            week: parsedWeek,
+            rawJson: exactRaw,
+            isSameWeek: true,
+          };
+        }
+      }
+    }
+
+    const prefix = `schedule:week:${targetKey}:`;
+    let bestDate = "";
+    let bestRaw: string | null = null;
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (!k || !k.startsWith(prefix)) continue;
+      const isAllKey = k.includes(":all:");
+      if (Boolean(includeCancelled) !== isAllKey) continue;
+      const m = k.match(/:(\d{4}-\d{2}-\d{2})(?::|$)/);
+      const dStr = m?.[1] ?? "";
+      if (dStr >= bestDate) {
+        bestDate = dStr;
+        bestRaw = window.localStorage.getItem(k);
+      }
+    }
+
+    if (bestRaw) {
+      const parsedWeek = JSON.parse(bestRaw) as ScheduleResponse[];
+      if (Array.isArray(parsedWeek) && parsedWeek.length > 0) {
+        const isSameWeek = bestDate === dateKey;
+        const remappedWeek: ScheduleResponse[] = parsedWeek.map((dayItem, idx) => {
+          const mappedIso = addDaysToCalendarIso(dateKey, idx);
+          const safeLessons = isSameWeek
+            ? dayItem.lessons
+            : (dayItem.lessons || [])
+                .filter((l) => !l.is_replacement)
+                .map((l) => {
+                  if (!l.note || !l.note.includes("[TASK")) return l;
+                  const cleanedNote = l.note
+                    .split("\n")
+                    .filter((line) => !line.trim().startsWith("[TASK"))
+                    .join("\n")
+                    .trim();
+                  return { ...l, note: cleanedNote || null };
+                });
+          return {
+            ...dayItem,
+            date: mappedIso,
+            lessons: safeLessons,
+          };
+        });
+        return {
+          kind: "fallback",
+          today: remappedWeek[0] ?? null,
+          week: remappedWeek,
+          rawJson: JSON.stringify(remappedWeek),
+          isSameWeek,
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function resolveCachedScheduleSnapshot(params: {
+  mode: "student" | "teacher";
+  groupId: number | null;
+  teacherId: number | null;
+  dateKey: string;
+  includeCancelled: boolean;
+  matchesInitialSsrSeed: boolean;
+  initialWeek: ScheduleResponse[];
+  initialWeekJson: string;
+  initialSeedToday: ScheduleResponse | null;
+}): {
+  keys: ReturnType<typeof buildScheduleStorageKeys>;
+  snapshot: CachedWeekSnapshot | null;
+} {
+  const {
+    mode,
+    groupId,
+    teacherId,
+    dateKey,
+    includeCancelled,
+    matchesInitialSsrSeed,
+    initialWeek,
+    initialWeekJson,
+    initialSeedToday,
+  } = params;
+  const keys = buildScheduleStorageKeys({
+    mode,
+    groupId,
+    teacherId,
+    dateKey,
+    includeCancelled,
+  });
+
+  const memCached = memoryCache.get(keys.memKey);
+  if (memCached) {
+    return {
+      keys,
+      snapshot: {
+        kind: "memory",
+        today: memCached.today,
+        week: memCached.week,
+        rawJson: memCached.rawJson,
+        isFresh: Date.now() - memCached.time < CACHE_TTL,
+      },
+    };
+  }
+
+  try {
+    const cachedToday = window.localStorage.getItem(keys.todayKey);
+    const cachedWeek = window.localStorage.getItem(keys.weekKey);
+    if (cachedToday && cachedWeek) {
+      return {
+        keys,
+        snapshot: {
+          kind: "storage",
+          today: JSON.parse(cachedToday) as ScheduleResponse,
+          week: JSON.parse(cachedWeek) as ScheduleResponse[],
+          rawJson: cachedWeek,
+        },
+      };
+    }
+  } catch {
+    try {
+      window.localStorage.removeItem(keys.todayKey);
+      window.localStorage.removeItem(keys.weekKey);
+    } catch {}
+  }
+
+  if (matchesInitialSsrSeed) {
+    return {
+      keys,
+      snapshot: {
+        kind: "ssr",
+        today: initialSeedToday,
+        week: initialWeek,
+        rawJson: initialWeekJson,
+      },
+    };
+  }
+
+  const fallback = findFallbackScheduleFromStorage({
+    targetKey: keys.targetKey,
+    dateKey,
+    cancelSuffix: keys.cancelSuffix,
+    storageTier: keys.storageTier,
+    includeCancelled,
+  });
+  if (fallback) {
+    return { keys, snapshot: fallback };
+  }
+
+  return { keys, snapshot: null };
+}
+
 export function useSchedule(
   weekAnchorDate: Date,
   includeCancelled = false,
@@ -562,6 +798,60 @@ export function useSchedule(
   };
 
   const activeTargetId = mode === "student" ? groupId : teacherId;
+  const currentDateKey = formatKyivDateIso(weekAnchorDate);
+  const initialSyncKey =
+    hasInitialSeedOnMount && typeof window !== "undefined"
+      ? `${initialMode ?? "student"}:${
+          (initialMode ?? "student") === "student" ? initialGroupId : initialTeacherId
+        }:${formatKyivDateIso(weekAnchorDate)}:${includeCancelled ? 1 : 0}`
+      : "";
+  const [syncState, setSyncState] = useState<{ key: string; json: string }>(() => ({
+    key: initialSyncKey,
+    json: hasInitialSeedOnMount ? initialWeekJson : "",
+  }));
+
+  const scheduleSyncKey =
+    typeof window !== "undefined" &&
+    (Boolean(includeCancelled) || isSetupComplete || Boolean(user)) &&
+    activeTargetId
+      ? `${mode}:${activeTargetId}:${currentDateKey}:${includeCancelled ? 1 : 0}`
+      : "";
+
+  if (scheduleSyncKey && scheduleSyncKey !== syncState.key) {
+    const matchesSeedNow =
+      !includeCancelled &&
+      initialWeek.length > 0 &&
+      Boolean(initialWeekStartIso) &&
+      currentDateKey === initialWeekStartIso &&
+      mode === (initialMode ?? "student") &&
+      (mode === "student" ? groupId === initialGroupId : teacherId === initialTeacherId);
+    const { snapshot } = resolveCachedScheduleSnapshot({
+      mode,
+      groupId,
+      teacherId,
+      dateKey: currentDateKey,
+      includeCancelled,
+      matchesInitialSsrSeed: matchesSeedNow,
+      initialWeek,
+      initialWeekJson,
+      initialSeedToday,
+    });
+    if (snapshot) {
+      const nextJson = snapshot.rawJson;
+      setSyncState({ key: scheduleSyncKey, json: nextJson });
+      if (nextJson !== lastRenderedWeekJsonRef.current) {
+        lastRenderedWeekJsonRef.current = nextJson;
+        if (snapshot.today) setToday(snapshot.today);
+        setWeek(snapshot.week);
+      }
+      setIsUsingFallbackCache(false);
+      setLoading(false);
+      setError(null);
+    } else {
+      setSyncState({ key: scheduleSyncKey, json: syncState.json });
+      setLoading(true);
+    }
+  }
 
   useEffect(() => {
     if (!includeCancelled && !isSetupComplete && !user) {
@@ -582,153 +872,14 @@ export function useSchedule(
       return;
     }
 
-    const formatDateKey = (d: Date) => formatKyivDateIso(d);
-
-    const getAuthSignature = () => {
-      if (typeof window === "undefined") return "guest";
-      try {
-        const uid = window.localStorage.getItem("schedule:classroom_google_user_id") || "";
-        const email = window.localStorage.getItem("schedule:classroom_linked_email") || "";
-        const linkedGid = window.localStorage.getItem("schedule:classroom_linked_group_id") || "";
-        const pin = window.localStorage.getItem("college_schedule_teacher_pin") ? "pin" : "";
-        const hasAuth = Boolean(
-          (mode === "teacher" && pin) ||
-            (mode === "student" && (uid || email) && (!linkedGid || Number(linkedGid) === groupId))
-        );
-        return hasAuth ? `auth:${uid}:${email}:${linkedGid}:${pin}` : "guest";
-      } catch {
-        return "guest";
-      }
-    };
-
-    const authSig = getAuthSignature();
-    const storageTier = authSig.startsWith("auth:") ? ":auth" : ":guest";
-    const dateKey = formatDateKey(weekAnchorDate);
-    const targetKey = mode === "student" ? `groupId:${groupId}` : `teacherId:${teacherId}`;
-    const cancelSuffix = includeCancelled ? ":all" : "";
-    const todayKey = `schedule:today:${targetKey}${cancelSuffix}${storageTier}`;
-    const weekKey = `schedule:week:${targetKey}:${dateKey}${cancelSuffix}${storageTier}`;
-
+    const dateKey = formatKyivDateIso(weekAnchorDate);
     const targetGroupId = mode === "student" ? (groupId as number) : undefined;
     const targetTeacherId = mode === "teacher" ? (teacherId as number) : undefined;
-    const getMemKey = (wKey = weekKey) => `${todayKey}|${wKey}|${getAuthSignature()}`;
 
     let isSubscribed = true;
     let activeAbortController: AbortController | null = null;
 
-    const findFallbackScheduleFromStorage = (): {
-      today: ScheduleResponse | null;
-      week: ScheduleResponse[];
-      rawJson: string;
-      isSameWeek: boolean;
-    } | null => {
-      try {
-        // Спочатку шукаємо точний тиждень у будь-якому tier (:auth або :guest), щоб не блимати при перемиканні
-        for (const tier of [storageTier, ":auth", ":guest"]) {
-          const exactRaw = window.localStorage.getItem(
-            `schedule:week:${targetKey}:${dateKey}${cancelSuffix}${tier}`
-          );
-          if (exactRaw) {
-            const parsedWeek = JSON.parse(exactRaw) as ScheduleResponse[];
-            if (Array.isArray(parsedWeek) && parsedWeek.length > 0) {
-              return { today: parsedWeek[0], week: parsedWeek, rawJson: exactRaw, isSameWeek: true };
-            }
-          }
-        }
-
-        const prefix = `schedule:week:${targetKey}:`;
-        let bestDate = "";
-        let bestRaw: string | null = null;
-        for (let i = 0; i < window.localStorage.length; i++) {
-          const k = window.localStorage.key(i);
-          if (!k || !k.startsWith(prefix)) continue;
-          const isAllKey = k.includes(":all:");
-          if (Boolean(includeCancelled) !== isAllKey) continue;
-          const m = k.match(/:(\d{4}-\d{2}-\d{2})(?::|$)/);
-          const dStr = m?.[1] ?? "";
-          if (dStr >= bestDate) {
-            bestDate = dStr;
-            bestRaw = window.localStorage.getItem(k);
-          }
-        }
-
-        if (bestRaw) {
-          const parsedWeek = JSON.parse(bestRaw) as ScheduleResponse[];
-          if (Array.isArray(parsedWeek) && parsedWeek.length > 0) {
-            const isSameWeek = bestDate === dateKey;
-            const remappedWeek: ScheduleResponse[] = parsedWeek.map((dayItem, idx) => {
-              const mappedIso = addDaysToCalendarIso(dateKey, idx);
-              const safeLessons = isSameWeek
-                ? dayItem.lessons
-                : (dayItem.lessons || [])
-                    .filter((l) => !l.is_replacement)
-                    .map((l) => {
-                      if (!l.note || !l.note.includes("[TASK")) return l;
-                      const cleanedNote = l.note
-                        .split("\n")
-                        .filter((line) => !line.trim().startsWith("[TASK"))
-                        .join("\n")
-                        .trim();
-                      return { ...l, note: cleanedNote || null };
-                    });
-              return {
-                ...dayItem,
-                date: mappedIso,
-                lessons: safeLessons,
-              };
-            });
-            const remappedJson = JSON.stringify(remappedWeek);
-            return {
-              today: remappedWeek[0] ?? null,
-              week: remappedWeek,
-              rawJson: remappedJson,
-              isSameWeek,
-            };
-          }
-        }
-      } catch {}
-      return null;
-    };
-
     const fetchSchedule = (forceNetwork = false, silentRevalidate = false) => {
-      let hasCachedSchedule = false;
-      let usedCrossWeekFallback = false;
-      const currentMemKey = getMemKey();
-
-      const memCached = memoryCache.get(currentMemKey);
-      if (memCached) {
-        if (lastRenderedWeekJsonRef.current !== memCached.rawJson) {
-          lastRenderedWeekJsonRef.current = memCached.rawJson;
-          setToday(memCached.today);
-          setWeek(memCached.week);
-        }
-        setIsUsingFallbackCache(false);
-        setLoading(false);
-        hasCachedSchedule = true;
-        if (!forceNetwork && Date.now() - memCached.time < CACHE_TTL) {
-          setIsSlowNetwork(false);
-          return;
-        }
-      } else {
-        try {
-          const cachedToday = window.localStorage.getItem(todayKey);
-          const cachedWeek = window.localStorage.getItem(weekKey);
-          if (cachedToday && cachedWeek) {
-            if (lastRenderedWeekJsonRef.current !== cachedWeek) {
-              lastRenderedWeekJsonRef.current = cachedWeek;
-              setToday(JSON.parse(cachedToday) as ScheduleResponse);
-              setWeek(JSON.parse(cachedWeek) as ScheduleResponse[]);
-            }
-            setIsUsingFallbackCache(false);
-            setLoading(false);
-            hasCachedSchedule = true;
-          }
-        } catch {
-          window.localStorage.removeItem(todayKey);
-          window.localStorage.removeItem(weekKey);
-        }
-      }
-
       const matchesInitialSsrSeed =
         !includeCancelled &&
         initialWeek.length > 0 &&
@@ -737,30 +888,36 @@ export function useSchedule(
         mode === (initialMode ?? "student") &&
         (mode === "student" ? groupId === initialGroupId : teacherId === initialTeacherId);
 
-      if (!hasCachedSchedule) {
-        if (matchesInitialSsrSeed) {
-          if (lastRenderedWeekJsonRef.current !== initialWeekJson) {
-            lastRenderedWeekJsonRef.current = initialWeekJson;
-            setToday(initialSeedToday);
-            setWeek(initialWeek);
-          }
-          setIsUsingFallbackCache(false);
-          setLoading(false);
-          hasCachedSchedule = true;
-        } else {
-          const fallback = findFallbackScheduleFromStorage();
-          if (fallback) {
-            lastRenderedWeekJsonRef.current = fallback.rawJson;
-            if (fallback.today) setToday(fallback.today);
-            setWeek(fallback.week);
-            usedCrossWeekFallback = !fallback.isSameWeek;
-            setIsUsingFallbackCache(false);
-            setLoading(false);
-            hasCachedSchedule = true;
-          } else if (!silentRevalidate) {
-            setLoading(true);
-          }
+      const { keys, snapshot } = resolveCachedScheduleSnapshot({
+        mode,
+        groupId,
+        teacherId,
+        dateKey,
+        includeCancelled,
+        matchesInitialSsrSeed,
+        initialWeek,
+        initialWeekJson,
+        initialSeedToday,
+      });
+      const { targetKey, todayKey, weekKey } = keys;
+
+      const hasCachedSchedule = Boolean(snapshot);
+      const usedCrossWeekFallback = Boolean(snapshot?.kind === "fallback" && !snapshot.isSameWeek);
+
+      if (snapshot) {
+        if (lastRenderedWeekJsonRef.current !== snapshot.rawJson) {
+          lastRenderedWeekJsonRef.current = snapshot.rawJson;
+          if (snapshot.today) setToday(snapshot.today);
+          setWeek(snapshot.week);
         }
+        setIsUsingFallbackCache(false);
+        setLoading(false);
+        if (snapshot.kind === "memory" && !forceNetwork && snapshot.isFresh) {
+          setIsSlowNetwork(false);
+          return;
+        }
+      } else if (!silentRevalidate) {
+        setLoading(true);
       }
 
       setError(null);
@@ -807,7 +964,11 @@ export function useSchedule(
             }
           } catch {}
 
-          memoryCache.set(getMemKey(), {
+          const liveAuthSig = getScheduleAuthSignature(mode, groupId, teacherId);
+          const liveStorageTier = liveAuthSig.startsWith("auth:") ? ":auth" : ":guest";
+          const liveTodayKey = `schedule:today:${targetKey}${keys.cancelSuffix}${liveStorageTier}`;
+          const liveWeekKey = `schedule:week:${targetKey}:${dateKey}${keys.cancelSuffix}${liveStorageTier}`;
+          memoryCache.set(`${liveTodayKey}|${liveWeekKey}|${liveAuthSig}`, {
             time: Date.now(),
             today: todayResponse,
             week: weekResponse,

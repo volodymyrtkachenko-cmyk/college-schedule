@@ -273,6 +273,75 @@ export const ScheduleDay = memo(function ScheduleDay({
     };
   }, []);
 
+  const prevHeightKeyRef = useRef<string>(dayTransition.key);
+  const prevActiveScheduleRef = useRef<ScheduleResponse>(dayTransition.activeSchedule);
+
+  useIsomorphicLayoutEffect(() => {
+    const prevKey = prevHeightKeyRef.current;
+    const prevSchedule = prevActiveScheduleRef.current;
+    prevHeightKeyRef.current = dayTransition.key;
+    prevActiveScheduleRef.current = dayTransition.activeSchedule;
+
+    if (prevKey !== dayTransition.key || prevSchedule === dayTransition.activeSchedule) {
+      return;
+    }
+
+    if (mode !== "day") return;
+    const stageEl = stageRef.current;
+    const activeEl = activeLayerRef.current;
+    if (!stageEl || !activeEl) return;
+
+    const toHeight = activeEl.getBoundingClientRect().height;
+    if (heightAnimRef.current) {
+      const liveHeight = stageEl.getBoundingClientRect().height;
+      heightAnimRef.current.cancel();
+      heightAnimRef.current = null;
+
+      const prefersReduce =
+        shouldReduceMotion ||
+        (typeof window !== "undefined" &&
+          typeof window.matchMedia === "function" &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+      const isDesktopViewport =
+        typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(min-width: 1024px)").matches;
+
+      if (
+        !prefersReduce &&
+        isDesktopViewport &&
+        liveHeight > 0 &&
+        toHeight > 0 &&
+        Math.abs(liveHeight - toHeight) > 1 &&
+        typeof stageEl.animate === "function"
+      ) {
+        stageEl.style.overflow = "clip";
+        const anim = stageEl.animate(
+          [{ height: `${liveHeight}px` }, { height: `${toHeight}px` }],
+          {
+            duration: DESKTOP_DAY_STAGE_HEIGHT_MS,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          }
+        );
+        heightAnimRef.current = anim;
+        const clearStageAnim = () => {
+          if (heightAnimRef.current === anim) {
+            heightAnimRef.current = null;
+            stageEl.style.overflow = "";
+          }
+        };
+        anim.onfinish = clearStageAnim;
+        anim.oncancel = clearStageAnim;
+      } else {
+        stageEl.style.overflow = "";
+      }
+    }
+
+    if (toHeight > 0) {
+      lastStableHeightRef.current = toHeight;
+    }
+  }, [dayTransition.key, dayTransition.activeSchedule, mode, shouldReduceMotion]);
+
   useIsomorphicLayoutEffect(() => {
     if (exitTimerRef.current !== null) {
       window.clearTimeout(exitTimerRef.current);
