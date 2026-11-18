@@ -128,3 +128,45 @@ test("normalizeTaskBrief handles deliverable, clickable material kinds, safe htt
     isHeavy: false,
   });
 });
+
+test("buildNeutralSampleTask and resolveFullTaskDetail produce multi-paragraph expandable description and 3 materials", () => {
+  const taskDetail = loadTsModule("lib/schedule/taskDetail.ts");
+
+  const sampleWeek = [
+    {
+      date: "2026-11-18",
+      day_of_week: 3,
+      lessons: [
+        {
+          lesson_number: 1,
+          subject_id: 42,
+          subject_name: "Мікропроцесорні системи",
+          teacher_id: 7,
+          teacher_name: "Іван Петренко",
+          is_cancelled: false,
+        },
+      ],
+    },
+  ];
+
+  const sample = taskDetail.buildNeutralSampleTask(sampleWeek, "ІН-21");
+  assert.equal(sample.subject, "Мікропроцесорні системи");
+  assert.equal(sample.teacher, "Іван Петренко");
+  assert.equal(sample.brief.materials.length, 3);
+  assert.equal(sample.brief.summary.split("\n\n").length, 4);
+
+  const resolved = taskDetail.resolveFullTaskDetail(
+    {
+      task: sample,
+      groupId: 5,
+    },
+    [],
+    false
+  );
+  assert.equal(resolved.hasExpandableDescription, true);
+  assert.ok(resolved.leadSummary.length > 20);
+  // 3 trailing paragraphs + 3 brief steps + 1 deliverable line
+  assert.equal(resolved.extendedParagraphs.length, 7);
+  assert.equal(resolved.materials.length, 3);
+  assert.ok(resolved.deliverable && resolved.deliverable.length > 0);
+});

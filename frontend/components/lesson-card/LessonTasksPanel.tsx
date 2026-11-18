@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Lesson } from "../../lib/api";
+import { openTaskDetailModal } from "../../lib/schedule";
 import {
   ClassroomTaskItem,
   formatTaskCount,
@@ -44,17 +45,29 @@ function getDeadlineAccentShadow(highlightTask: ClassroomTaskItem | null, isLink
 }
 
 function ActiveTasksList({
+  lesson,
   groups,
   isLinked,
   isMobile,
   isWeek = false,
 }: {
+  lesson: Lesson;
   groups: GroupedTasks[];
   isLinked: boolean;
   isMobile: boolean;
   isWeek?: boolean;
 }) {
   const optionalToast = useOptionalToast();
+  const handleOpenTask = (e: React.MouseEvent, task: ClassroomTaskItem) => {
+    e.stopPropagation();
+    vibrateTap(8);
+    openTaskDetailModal({
+      task,
+      subjectName: lesson.subject_name,
+      teacherName: task.teacher || lesson.teacher_name,
+      groupId: lesson.group_id ?? null,
+    });
+  };
   return (
     <>
       {groups.map((group, gIdx) => (
@@ -66,20 +79,16 @@ function ActiveTasksList({
           )}
           {group.items.map((task, idx) =>
             isWeek ? (
-              <a
+              <div
                 key={idx}
-                href={task.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  markPendingClassroomReturn();
-                  vibrateTap(10);
-                }}
-                title={`${task.teacher ? `[${task.teacher}] ` : ""}${task.title || "Завдання"} — Відкрити в Classroom`}
-                className="group flex items-start justify-between gap-2 rounded-lg border border-sys-border bg-sys-bg/80 px-2.5 py-1.5 text-xs text-sys-text-primary hover:border-sys-elevated-border hover:bg-sys-surface transition-colors"
+                className="group flex items-start justify-between gap-1.5 rounded-lg border border-sys-border bg-sys-bg/80 pr-1.5 text-xs text-sys-text-primary hover:border-sys-elevated-border hover:bg-sys-surface transition-colors"
               >
-                <div className="flex min-w-0 flex-col">
+                <button
+                  type="button"
+                  onClick={(e) => handleOpenTask(e, task)}
+                  title={`${task.teacher ? `[${task.teacher}] ` : ""}${task.title || "Завдання"} — Деталі завдання`}
+                  className="flex min-w-0 flex-1 flex-col px-2.5 py-1.5 text-left cursor-pointer"
+                >
                   <span className="font-semibold text-sys-text-primary line-clamp-2 break-words leading-snug text-xs group-hover:text-sys-accent transition-colors">
                     {task.title || "Завдання"}
                   </span>
@@ -91,18 +100,7 @@ function ActiveTasksList({
                       {getTaskStatusText(task.deadline, isLinked)}
                     </span>
                   ) : null}
-                </div>
-                <span className="shrink-0 mt-0.5 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors ml-1">
-                  ↗
-                </span>
-              </a>
-            ) : (
-              <div
-                key={idx}
-                className={`flex items-center justify-between gap-2 rounded-lg hover:bg-sys-card transition-colors ${
-                  isMobile ? "min-h-[44px] pr-1.5" : "pr-1.5"
-                }`}
-              >
+                </button>
                 <a
                   href={task.url}
                   target="_blank"
@@ -112,7 +110,24 @@ function ActiveTasksList({
                     markPendingClassroomReturn();
                     vibrateTap(10);
                   }}
-                  className={`group flex flex-1 min-w-0 items-start justify-between gap-3 rounded-lg px-3 py-2 text-xs ${
+                  aria-label={`Відкрити завдання «${task.title || "Завдання"}» у Google Classroom`}
+                  title="Відкрити в Classroom"
+                  className="shrink-0 mt-1 flex h-6 w-6 items-center justify-center rounded-md text-xs text-sys-text-muted hover:text-sys-accent hover:bg-sys-card transition-colors"
+                >
+                  ↗
+                </a>
+              </div>
+            ) : (
+              <div
+                key={idx}
+                className={`flex items-center justify-between gap-2 rounded-lg hover:bg-sys-card transition-colors ${
+                  isMobile ? "min-h-[44px] pr-1.5" : "pr-1.5"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => handleOpenTask(e, task)}
+                  className={`group flex flex-1 min-w-0 items-start justify-between gap-3 rounded-lg px-3 py-2 text-xs text-left cursor-pointer ${
                     isMobile ? "min-h-[44px]" : ""
                   }`}
                 >
@@ -130,8 +145,22 @@ function ActiveTasksList({
                         {getTaskStatusText(task.deadline, isLinked)}
                       </span>
                     ) : null}
-                    <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
                   </div>
+                </button>
+                <a
+                  href={task.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markPendingClassroomReturn();
+                    vibrateTap(10);
+                  }}
+                  aria-label={`Відкрити завдання «${task.title || "Завдання"}» у Google Classroom`}
+                  title="Відкрити в Google Classroom"
+                  className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-sys-text-muted hover:text-sys-accent hover:bg-sys-bg transition-colors text-xs"
+                >
+                  ↗
                 </a>
                 {isLinked && task.deadline.badgeTone === "overdue" && (
                   <button
@@ -160,11 +189,13 @@ function ActiveTasksList({
 }
 
 function CompletedTasksList({
+  lesson,
   completedCount,
   groups,
   submissions,
   variant,
 }: {
+  lesson: Lesson;
   completedCount: number;
   groups: GroupedTasks[];
   submissions: Record<string, PersonalSubmission>;
@@ -175,6 +206,20 @@ function CompletedTasksList({
 
   const isWeek = variant === "week";
   const isMobile = variant === "mobile";
+  const handleOpenTask = (e: React.MouseEvent, task: ClassroomTaskItem, extraState?: { state?: string; assignedGrade?: number | null; maxPoints?: number | null }) => {
+    e.stopPropagation();
+    vibrateTap(8);
+    openTaskDetailModal({
+      task: {
+        ...task,
+        subject: lesson.subject_name,
+        ...(extraState ?? {}),
+      },
+      subjectName: lesson.subject_name,
+      teacherName: task.teacher || lesson.teacher_name,
+      groupId: lesson.group_id ?? null,
+    });
+  };
 
   return (
     <div className={`pt-2 mt-1 ${isWeek ? "border-t border-sys-border/50" : "border-t border-sys-border/40"} flex flex-col gap-1.5`}>
@@ -208,42 +253,33 @@ function CompletedTasksList({
 
             if (isWeek) {
               return (
-                <a
+                <div
                   key={`wk-cm-${idx}`}
-                  href={task.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    markPendingClassroomReturn();
-                    vibrateTap(10);
-                  }}
-                  className="group flex items-start justify-between gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-2.5 py-1.5 text-xs text-sys-text-primary hover:bg-emerald-500/10 transition-colors"
+                  className="group flex items-start justify-between gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] pr-1.5 text-xs text-sys-text-primary hover:bg-emerald-500/10 transition-colors"
                 >
-                  <div className="flex min-w-0 flex-col">
-                    <span className="font-semibold text-sys-text-primary line-clamp-2 break-words leading-snug text-xs group-hover:text-sys-accent transition-colors">
-                      {task.title || "Завдання"}
-                    </span>
-                    {!group.teacher && task.teacher && (
-                      <span className="text-[11px] text-sys-text-muted break-words leading-tight">({task.teacher})</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 ml-1 mt-0.5 whitespace-nowrap">
-                    <span className="inline-flex items-center text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      handleOpenTask(e, task, {
+                        state: sub?.state,
+                        assignedGrade: sub?.grade ?? null,
+                        maxPoints: sub?.maxPoints ?? null,
+                      })
+                    }
+                    className="flex min-w-0 flex-1 items-start justify-between gap-2 px-2.5 py-1.5 text-left cursor-pointer"
+                  >
+                    <div className="flex min-w-0 flex-col">
+                      <span className="font-semibold text-sys-text-primary line-clamp-2 break-words leading-snug text-xs group-hover:text-sys-accent transition-colors">
+                        {task.title || "Завдання"}
+                      </span>
+                      {!group.teacher && task.teacher && (
+                        <span className="text-[11px] text-sys-text-muted break-words leading-tight">({task.teacher})</span>
+                      )}
+                    </div>
+                    <span className="inline-flex shrink-0 mt-0.5 items-center text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded whitespace-nowrap">
                       {gradeText}
                     </span>
-                    <span className="text-sys-text-muted group-hover:text-sys-text-primary text-xs">↗</span>
-                  </div>
-                </a>
-              );
-            }
-
-            if (isMobile) {
-              return (
-                <div
-                  key={`mb-cm-${idx}`}
-                  className="flex items-center justify-between gap-2 rounded-lg bg-emerald-500/[0.03] border border-emerald-500/20 hover:bg-emerald-500/10 transition-colors"
-                >
+                  </button>
                   <a
                     href={task.url}
                     target="_blank"
@@ -253,7 +289,31 @@ function CompletedTasksList({
                       markPendingClassroomReturn();
                       vibrateTap(10);
                     }}
-                    className="group flex flex-1 min-w-0 items-start justify-between gap-2 p-2 text-xs"
+                    aria-label={`Відкрити завдання «${task.title || "Завдання"}» у Google Classroom`}
+                    className="shrink-0 mt-1 flex h-6 w-6 items-center justify-center rounded-md text-xs text-sys-text-muted hover:text-sys-accent hover:bg-sys-card transition-colors"
+                  >
+                    ↗
+                  </a>
+                </div>
+              );
+            }
+
+            if (isMobile) {
+              return (
+                <div
+                  key={`mb-cm-${idx}`}
+                  className="flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/[0.03] border border-emerald-500/20 hover:bg-emerald-500/10 transition-colors pr-1.5"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      handleOpenTask(e, task, {
+                        state: sub?.state,
+                        assignedGrade: sub?.grade ?? null,
+                        maxPoints: sub?.maxPoints ?? null,
+                      })
+                    }
+                    className="group flex flex-1 min-w-0 items-start justify-between gap-2 p-2 text-xs text-left cursor-pointer"
                   >
                     <div className="flex flex-col min-w-0 flex-1">
                       <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-tight">
@@ -263,12 +323,23 @@ function CompletedTasksList({
                         <span className="text-sys-text-muted text-[11px] mt-0.5 truncate">({task.teacher})</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0 ml-1.5 mt-0.5">
-                      <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
-                        {gradeText}
-                      </span>
-                      <span className="text-sys-text-muted group-hover:text-sys-text-primary text-xs">↗</span>
-                    </div>
+                    <span className="inline-flex shrink-0 ml-1 mt-0.5 items-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
+                      {gradeText}
+                    </span>
+                  </button>
+                  <a
+                    href={task.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markPendingClassroomReturn();
+                      vibrateTap(10);
+                    }}
+                    aria-label={`Відкрити завдання «${task.title || "Завдання"}» у Google Classroom`}
+                    className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-sys-text-muted hover:text-sys-accent text-xs"
+                  >
+                    ↗
                   </a>
                   {isManualDone && (
                     <button
@@ -280,7 +351,7 @@ function CompletedTasksList({
                         optionalToast?.showToast("Позначку здачі скасовано", "info");
                       }}
                       aria-label={`Скасувати ручну позначку здачі для «${task.title || "Завдання"}»`}
-                      className="shrink-0 mr-2 inline-flex items-center min-h-[24px] rounded-md border border-sys-border/80 bg-sys-card hover:border-rose-500/40 hover:bg-rose-500/10 px-2 py-0.5 text-[11px] font-medium text-sys-text-secondary hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer active:scale-95"
+                      className="shrink-0 inline-flex items-center min-h-[24px] rounded-md border border-sys-border/80 bg-sys-card hover:border-rose-500/40 hover:bg-rose-500/10 px-2 py-0.5 text-[11px] font-medium text-sys-text-secondary hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer active:scale-95"
                     >
                       Скасувати
                     </button>
@@ -292,18 +363,18 @@ function CompletedTasksList({
             return (
               <div
                 key={`dt-cm-${idx}`}
-                className="flex items-center justify-between gap-2 rounded-lg bg-emerald-500/[0.03] border border-emerald-500/20 hover:bg-emerald-500/10 transition-colors"
+                className="flex items-center justify-between gap-2 rounded-lg bg-emerald-500/[0.03] border border-emerald-500/20 hover:bg-emerald-500/10 transition-colors pr-1.5"
               >
-                <a
-                  href={task.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    markPendingClassroomReturn();
-                    vibrateTap(10);
-                  }}
-                  className="group flex flex-1 min-w-0 items-start justify-between gap-3 px-3 py-2 text-xs"
+                <button
+                  type="button"
+                  onClick={(e) =>
+                    handleOpenTask(e, task, {
+                      state: sub?.state,
+                      assignedGrade: sub?.grade ?? null,
+                      maxPoints: sub?.maxPoints ?? null,
+                    })
+                  }
+                  className="group flex flex-1 min-w-0 items-start justify-between gap-3 px-3 py-2 text-xs text-left cursor-pointer"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2 min-w-0 flex-1">
                     <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-snug">
@@ -313,12 +384,23 @@ function CompletedTasksList({
                       <span className="text-sys-text-muted text-xs shrink-0 whitespace-nowrap">({task.teacher})</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 mt-0.5 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
-                      {gradeText}
-                    </span>
-                    <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
-                  </div>
+                  <span className="inline-flex shrink-0 mt-0.5 whitespace-nowrap items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
+                    {gradeText}
+                  </span>
+                </button>
+                <a
+                  href={task.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markPendingClassroomReturn();
+                    vibrateTap(10);
+                  }}
+                  aria-label={`Відкрити завдання «${task.title || "Завдання"}» у Google Classroom`}
+                  className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-sys-text-muted hover:text-sys-accent hover:bg-sys-card transition-colors text-xs"
+                >
+                  ↗
                 </a>
                 {isManualDone && (
                   <button
@@ -330,7 +412,7 @@ function CompletedTasksList({
                       optionalToast?.showToast("Позначку здачі скасовано", "info");
                     }}
                     aria-label={`Скасувати ручну позначку здачі для «${task.title || "Завдання"}»`}
-                    className="shrink-0 mr-2.5 inline-flex items-center min-h-[24px] rounded-md border border-sys-border/80 bg-sys-card hover:border-rose-500/40 hover:bg-rose-500/10 px-2 py-0.5 text-[11px] font-medium text-sys-text-secondary hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer active:scale-95"
+                    className="shrink-0 mr-1 inline-flex items-center min-h-[24px] rounded-md border border-sys-border/80 bg-sys-card hover:border-rose-500/40 hover:bg-rose-500/10 px-2 py-0.5 text-[11px] font-medium text-sys-text-secondary hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer active:scale-95"
                   >
                     Скасувати
                   </button>
@@ -401,16 +483,19 @@ export function DayTasksSection({
         }`}
         style={{ boxShadow: getDeadlineAccentShadow(task, isLinked) }}
       >
-        <a
-          href={task.url}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
-            markPendingClassroomReturn();
-            vibrateTap(10);
+            vibrateTap(8);
+            openTaskDetailModal({
+              task,
+              subjectName: lesson.subject_name,
+              teacherName: task.teacher || lesson.teacher_name,
+              groupId: lesson.group_id ?? null,
+            });
           }}
-          className="group flex flex-1 min-w-0 items-start justify-between px-3.5 py-2.5 cursor-pointer"
+          className="group flex flex-1 min-w-0 items-start justify-between px-3.5 py-2.5 text-left cursor-pointer"
         >
           {isMobile ? (
             <>
@@ -430,9 +515,6 @@ export function DayTasksSection({
                   ) : null}
                 </div>
               </div>
-              <div className="shrink-0 ml-1.5 mt-0.5">
-                <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
-              </div>
             </>
           ) : (
             <>
@@ -449,28 +531,44 @@ export function DayTasksSection({
                     <span>{getTaskStatusText(task.deadline, isLinked)}</span>
                   </span>
                 ) : null}
-                <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs ml-1">↗</span>
               </div>
             </>
           )}
-        </a>
-        {canMarkDone && (
-          <button
-            type="button"
+        </button>
+        <div className="flex items-center gap-1 shrink-0 mr-2">
+          {canMarkDone && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                vibrateTap(10);
+                setTaskManualDone({ url: task.url }, true);
+                optionalToast?.showToast("Перенесено у «Здано» (відмічено вручну)", "success");
+              }}
+              aria-label={`Позначити завдання «${titleLabel}» як здане`}
+              title="Прибрати з боргів і перенести у «Здано»"
+              className="shrink-0 inline-flex items-center gap-1 min-h-[26px] rounded-md border border-emerald-500/35 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer active:scale-95"
+            >
+              <CheckIcon className="h-3 w-3 shrink-0" />
+              <span>Здано</span>
+            </button>
+          )}
+          <a
+            href={task.url}
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={(e) => {
               e.stopPropagation();
+              markPendingClassroomReturn();
               vibrateTap(10);
-              setTaskManualDone({ url: task.url }, true);
-              optionalToast?.showToast("Перенесено у «Здано» (відмічено вручну)", "success");
             }}
-            aria-label={`Позначити завдання «${titleLabel}» як здане`}
-            title="Прибрати з боргів і перенести у «Здано»"
-            className="shrink-0 mr-2.5 inline-flex items-center gap-1 min-h-[26px] rounded-md border border-emerald-500/35 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer active:scale-95"
+            aria-label={`Відкрити завдання «${titleLabel}» у Google Classroom`}
+            title="Відкрити в Google Classroom"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-accent hover:bg-sys-card transition-colors text-xs"
           >
-            <CheckIcon className="h-3 w-3 shrink-0" />
-            <span>Здано</span>
-          </button>
-        )}
+            ↗
+          </a>
+        </div>
       </div>
     );
   }
@@ -537,8 +635,9 @@ export function DayTasksSection({
       >
         <div ref={innerRef} aria-hidden={!isHwOpen} className="tasks-accordion-inner min-h-0 overflow-hidden">
           <div className="tasks-accordion-content flex flex-col gap-2 p-3 border-t border-sys-border/60 bg-sys-bg/40">
-            <ActiveTasksList groups={groupedTasks} isLinked={isLinked} isMobile={isMobile} />
+            <ActiveTasksList lesson={lesson} groups={groupedTasks} isLinked={isLinked} isMobile={isMobile} />
             <CompletedTasksList
+              lesson={lesson}
               completedCount={completedTasksCount}
               groups={groupedCompletedTasks}
               submissions={submissions}
@@ -624,6 +723,16 @@ export function WeekTasksPopover({
   onToggleHw: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
   const { shouldRender, isClosing } = useAnimatedDisclosure(show, 190);
+
+  useEffect(() => {
+    if (!show) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [show, onClose]);
+
   if (!shouldRender) return null;
 
   return (
@@ -667,8 +776,9 @@ export function WeekTasksPopover({
               </button>
             </div>
             <div className="flex flex-col gap-1.5">
-              <ActiveTasksList groups={groupedTasks} isLinked={isLinked} isMobile={false} isWeek />
+              <ActiveTasksList lesson={lesson} groups={groupedTasks} isLinked={isLinked} isMobile={false} isWeek />
               <CompletedTasksList
+                lesson={lesson}
                 completedCount={completedTasksCount}
                 groups={groupedCompletedTasks}
                 submissions={submissions}

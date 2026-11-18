@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ScheduleResponse } from "../../lib/api";
-import type { SubjectHubTarget, WeekDayMini } from "../../lib/schedule";
+import { buildNeutralSampleTask, openTaskDetailModal, type SubjectHubTarget, type WeekDayMini } from "../../lib/schedule";
 import { formatTaskWord, type TaskGroupsResult } from "../../lib/useTaskGroups";
 import { ClassroomSyncButton } from "../ClassroomSyncButton";
 import type { FullTaskItem } from "../TaskCardItem";
@@ -27,6 +27,7 @@ interface DesktopScheduleSidebarProps {
   shouldReduceMotion: boolean;
   mode: "student" | "teacher";
   groupId: number | null;
+  currentGroupName?: string | null;
   weekStartStr: string;
   currentWeekNumber: number | null;
   weekType: string;
@@ -58,6 +59,7 @@ export function DesktopScheduleSidebar({
   shouldReduceMotion,
   mode,
   groupId,
+  currentGroupName = null,
   weekStartStr,
   currentWeekNumber,
   weekType,
@@ -321,20 +323,37 @@ export function DesktopScheduleSidebar({
                   ? "Оцінки доступні лише студентам цієї групи. Прив'яжіть пошту @kre.dp.ua своєї групи."
                   : "Завдання та матеріали доступні лише студентам цієї групи. Прив'яжіть пошту @kre.dp.ua своєї групи."}
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
-                }}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-medium text-xs px-4 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card"
-              >
-                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                  <polyline points="10 17 15 12 10 7" />
-                  <line x1="15" y1="12" x2="3" y2="12" />
-                </svg>
-                <span>Прив&apos;язати Google Classroom</span>
-              </button>
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-medium text-xs px-4 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card"
+                >
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                    <polyline points="10 17 15 12 10 7" />
+                    <line x1="15" y1="12" x2="3" y2="12" />
+                  </svg>
+                  <span>Прив&apos;язати Google Classroom</span>
+                </button>
+                {mode === "student" && (
+                  <button
+                    type="button"
+                    data-testid="open-demo-task-modal"
+                    onClick={() =>
+                      openTaskDetailModal({
+                        task: buildNeutralSampleTask(week, currentGroupName),
+                        groupId,
+                      })
+                    }
+                    className="inline-flex items-center justify-center rounded-xl border border-sys-border bg-sys-card hover:border-sys-accent/45 hover:text-sys-accent text-sys-text-secondary font-semibold text-[11px] px-3.5 py-2 transition-colors cursor-pointer active:scale-95"
+                  >
+                    Переглянути приклад завдання
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="mt-4">

@@ -74,8 +74,8 @@ export function openTopLayer(dialog: HTMLDialogElement): void {
 }
 
 /**
- * Closes a modal `<dialog>` cleanly, letting modern browsers animate `display`/`overlay`
- * natively and using a `data-closing` animation wait fallback on older engines.
+ * Closes a modal `<dialog>` cleanly using a controlled `data-closing="true"` transition
+ * while keeping `[open]` in the top layer so dialog and `::backdrop` exit in sync.
  */
 export function closeTopLayer(
   dialog: HTMLDialogElement,
@@ -90,7 +90,16 @@ export function closeTopLayer(
   };
 
   if (prefersReducedMotion()) {
+    const prevScroll =
+      typeof window !== "undefined" ? { x: window.scrollX, y: window.scrollY } : null;
     if (dialog.open) dialog.close();
+    if (
+      prevScroll &&
+      typeof window !== "undefined" &&
+      (window.scrollX !== prevScroll.x || window.scrollY !== prevScroll.y)
+    ) {
+      window.scrollTo(prevScroll.x, prevScroll.y);
+    }
     notifyAfterClose();
     return () => {};
   }
@@ -100,7 +109,7 @@ export function closeTopLayer(
 
   const cleanup = () => {
     cancelled = true;
-    if (timeoutId !== null) {
+    if (timeoutId !== null && typeof window !== "undefined") {
       window.clearTimeout(timeoutId);
       timeoutId = null;
     }
@@ -110,6 +119,10 @@ export function closeTopLayer(
   pendingCloseCleanups.set(dialog, cleanup);
 
   const waitForExitAnimations = (shouldCloseAfter: boolean): () => void => {
+    if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
+      void window.getComputedStyle(dialog).opacity;
+    }
+
     const animations =
       typeof dialog.getAnimations === "function"
         ? dialog.getAnimations({ subtree: true })
@@ -120,7 +133,16 @@ export function closeTopLayer(
       cleanup();
       pendingCloseCleanups.delete(dialog);
       if (shouldCloseAfter && dialog.open) {
+        const prevScroll =
+          typeof window !== "undefined" ? { x: window.scrollX, y: window.scrollY } : null;
         dialog.close();
+        if (
+          prevScroll &&
+          typeof window !== "undefined" &&
+          (window.scrollX !== prevScroll.x || window.scrollY !== prevScroll.y)
+        ) {
+          window.scrollTo(prevScroll.x, prevScroll.y);
+        }
       }
       notifyAfterClose();
     };
@@ -130,27 +152,22 @@ export function closeTopLayer(
       return () => {};
     }
 
-    timeoutId = window.setTimeout(finish, 450);
+    if (typeof window !== "undefined") {
+      timeoutId = window.setTimeout(finish, 240);
+    }
     Promise.allSettled(animations.map((a) => a.finished)).then(finish);
     return cleanup;
   };
 
   if (!dialog.open) {
-    if (!canTransitionTopLayer()) {
-      cleanup();
-      pendingCloseCleanups.delete(dialog);
-      notifyAfterClose();
-      return () => {};
-    }
-    return waitForExitAnimations(false);
+    cleanup();
+    pendingCloseCleanups.delete(dialog);
+    notifyAfterClose();
+    return () => {};
   }
 
-  if (canTransitionTopLayer()) {
-    dialog.close();
-    return waitForExitAnimations(false);
-  }
-
-  // Fallback for browsers without discrete top-layer `display`/`overlay` transitions.
+  // Keep `dialog.open === true` with `data-closing="true"` so both surface & `::backdrop`
+  // glide out together uniformly across Chrome, Safari, and Firefox.
   dialog.dataset.closing = "true";
   return waitForExitAnimations(true);
 }
@@ -161,7 +178,8 @@ function isOutsideDialogBox(dialog: HTMLDialogElement, clientX: number, clientY:
 }
 
 /**
- * Fallback backdrop light-dismiss for engines without native `HTMLDialogElement.prototype.closedBy`.
+ * Controlled backdrop light-dismiss for modal `<dialog>` elements so outside clicks
+ * always go through `onRequestClose()` and play the `data-closing` exit transition.
  * Checks both `pointerdown` and `pointerup` outside the dialog box so text-drag selection never closes it.
  */
 export function setupClosedByFallback(
@@ -170,9 +188,6 @@ export function setupClosedByFallback(
   onRequestClose: () => void
 ): () => void {
   if (!enabled || typeof HTMLDialogElement === "undefined") {
-    return () => {};
-  }
-  if ("closedBy" in HTMLDialogElement.prototype) {
     return () => {};
   }
 

@@ -10,7 +10,8 @@ import { type ReferenceRecord, type ScheduleResponse } from "../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../lib/hooks";
 import { resolveScheduleSubtabFromSearch } from "../lib/navigation";
 import { buildBlurredPreviewScheduleDay, buildBlurredPreviewWeek } from "../lib/onboarding";
-import type { SubjectHubTarget } from "../lib/schedule";
+import type { SubjectHubTarget, TaskDetailOpenPayload } from "../lib/schedule";
+import { OPEN_TASK_DETAIL_EVENT, resolveFullTaskDetail } from "../lib/schedule";
 import { useMobileNav } from "../lib/useMobileNav";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useTheme } from "../lib/useTheme";
@@ -43,6 +44,7 @@ const MobileTasksView = dynamic(() => import("./MobileTasksView").then((m) => me
 const SettingsContent = dynamic(() => import("./settings/SettingsContent").then((m) => memo(m.SettingsContent)), { ssr: false });
 const GuideHubModal = dynamic(() => import("./GuideHubModal").then((m) => m.GuideHubModal), { ssr: false });
 const SubjectHubModal = dynamic(() => import("./schedule/SubjectHubModal").then((m) => m.SubjectHubModal), { ssr: false });
+const TaskDetailModal = dynamic(() => import("./TaskDetailModal").then((m) => m.TaskDetailModal), { ssr: false });
 const InstallPrompt = dynamic(() => import("./InstallPrompt").then((m) => m.InstallPrompt), { ssr: false });
 const ClassroomRelinkBanner = dynamic(() => import("./ClassroomRelinkBanner").then((m) => m.ClassroomRelinkBanner), { ssr: false });
 
@@ -160,6 +162,7 @@ export function SchedulePageClient({
       void import("./schedule/DesktopWeekHeaderBar");
       void import("./schedule/ContextSelectionModal");
       void import("./schedule/SubjectHubModal");
+      void import("./TaskDetailModal");
       if (mode === "student") {
         void import("./MobileTasksView");
         void import("./GradesView");
@@ -180,6 +183,21 @@ export function SchedulePageClient({
   const [subjectHubOpen, setSubjectHubOpen] = useState(false);
   const [subjectHubMounted, setSubjectHubMounted] = useState(false);
   const [subjectHubTarget, setSubjectHubTarget] = useState<SubjectHubTarget | null>(null);
+  const [taskDetailOpen, setTaskDetailOpen] = useState(false);
+  const [taskDetailMounted, setTaskDetailMounted] = useState(false);
+  const [taskDetailPayload, setTaskDetailPayload] = useState<TaskDetailOpenPayload | null>(null);
+
+  useEffect(() => {
+    const onOpenTaskDetail = (event: Event) => {
+      const detail = (event as CustomEvent<TaskDetailOpenPayload>).detail;
+      if (!detail?.task) return;
+      setTaskDetailPayload(detail);
+      setTaskDetailMounted(true);
+      setTaskDetailOpen(true);
+    };
+    window.addEventListener(OPEN_TASK_DETAIL_EVENT, onOpenTaskDetail);
+    return () => window.removeEventListener(OPEN_TASK_DETAIL_EVENT, onOpenTaskDetail);
+  }, []);
   const handleOpenSubjectHub = useCallback(
     (target: SubjectHubTarget) => {
       const effectiveGroupId = target.groupId ?? (mode === "student" ? groupId : null);
@@ -319,6 +337,11 @@ export function SchedulePageClient({
     [sel.returnTarget, groupId, setGroupId]
   );
 
+  const resolvedTaskDetail = useMemo(
+    () => (taskDetailPayload ? resolveFullTaskDetail(taskDetailPayload, allTasks, isLinked) : null),
+    [taskDetailPayload, allTasks, isLinked]
+  );
+
   const backgroundShellRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = backgroundShellRef.current as (HTMLDivElement & { inert?: boolean }) | null;
@@ -335,6 +358,7 @@ export function SchedulePageClient({
       teacherPinModalOpen ||
       guideHubOpen ||
       subjectHubOpen ||
+      taskDetailOpen ||
       contextModalOpen,
     onOpenContextModal: () => setContextModalOpen(true),
     onJumpToToday: sel.handleJumpToToday,
@@ -692,6 +716,7 @@ export function SchedulePageClient({
                         shouldReduceMotion={shouldReduceMotion}
                         mode={mode}
                         groupId={isPreviewContext ? null : groupId}
+                        currentGroupName={!isPreviewContext && mode === "student" ? (sel.currentName ?? null) : null}
                         weekStartStr={weekStartStr}
                         onClassroomSynced={handleToolbarClassroomSynced}
                         currentWeekNumber={sel.currentWeekNumber}
@@ -849,6 +874,15 @@ export function SchedulePageClient({
                 setSubjectHubOpen(false);
                 sel.handleQuickJump(jumpTarget);
               }}
+            />
+          )}
+
+          {taskDetailMounted && (
+            <TaskDetailModal
+              isOpen={taskDetailOpen}
+              detail={resolvedTaskDetail}
+              isLinked={isLinked}
+              onClose={() => setTaskDetailOpen(false)}
             />
           )}
       </div>

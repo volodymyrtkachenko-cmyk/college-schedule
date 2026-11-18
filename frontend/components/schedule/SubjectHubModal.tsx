@@ -36,6 +36,7 @@ import {
   formatTaskWeightBadge,
   getNavigatorTaskKey,
   hasExpandableBrief,
+  openTaskDetailModal,
   partitionSubjectTasks,
   resolveEffectiveTaskBrief,
   resolveSubjectLessonDetails,
@@ -1013,28 +1014,46 @@ export function SubjectHubModal({
               return (
                 <li key={rowKey} className="px-3 py-2.5">
                   <div className="flex items-start justify-between gap-2">
-                    <a
-                      href={task.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={markPendingClassroomReturn}
-                      className="group min-w-0 flex-1 space-y-0.5 hover:opacity-90 transition-opacity"
-                    >
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-xs sm:text-[13px] font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors break-words">
-                          {task.title}
-                        </span>
-                        <span aria-hidden="true" className="shrink-0 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors">
-                          ↗
-                        </span>
-                      </div>
-                      {statusText && (
-                        <div className={`flex items-center gap-1.5 text-[11px] ${withDot ? statusCls : "text-sys-text-muted"}`}>
-                          {withDot && <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />}
-                          <span>{statusText}</span>
+                    <div className="flex min-w-0 flex-1 items-start gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openTaskDetailModal({
+                            task,
+                            subjectName: target.subjectName,
+                            teacherName: task.teacher,
+                            groupId: effectiveGroupId,
+                          })
+                        }
+                        className="group min-w-0 flex-1 space-y-0.5 text-left cursor-pointer hover:opacity-90 transition-opacity"
+                      >
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-xs sm:text-[13px] font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors break-words">
+                            {task.title}
+                          </span>
                         </div>
-                      )}
-                    </a>
+                        {statusText && (
+                          <div className={`flex items-center gap-1.5 text-[11px] ${withDot ? statusCls : "text-sys-text-muted"}`}>
+                            {withDot && <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotCls}`} />}
+                            <span>{statusText}</span>
+                          </div>
+                        )}
+                      </button>
+                      <a
+                        href={task.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markPendingClassroomReturn();
+                        }}
+                        aria-label={`Відкрити завдання «${task.title}» у Google Classroom`}
+                        title="Відкрити в Classroom"
+                        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs text-sys-text-muted hover:text-sys-accent hover:bg-sys-card transition-colors"
+                      >
+                        ↗
+                      </a>
+                    </div>
 
                     <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                       {allowManualDone && isLinked && (
@@ -1303,12 +1322,17 @@ export function SubjectHubModal({
                                   key={task.id || task.url || `done-${idx}`}
                                   className="flex items-center justify-between gap-2.5 px-3 py-2.5 text-xs hover:bg-sys-card/70 transition-colors"
                                 >
-                                  <a
-                                    href={task.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={markPendingClassroomReturn}
-                                    className="group flex items-center justify-between gap-2.5 min-w-0 flex-1"
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openTaskDetailModal({
+                                        task,
+                                        subjectName: target.subjectName,
+                                        teacherName: task.teacher,
+                                        groupId: effectiveGroupId,
+                                      })
+                                    }
+                                    className="group flex items-center justify-between gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
                                   >
                                     <span className="font-medium text-sys-text-primary break-words group-hover:text-sys-accent transition-colors min-w-0 flex-1">
                                       {task.title}
@@ -1318,9 +1342,21 @@ export function SubjectHubModal({
                                         ? gradeInfo.text
                                         : isManualDone
                                         ? "Відмічено вручну"
-                                        : "Здано"}{" "}
-                                      ↗
+                                        : "Здано"}
                                     </span>
+                                  </button>
+                                  <a
+                                    href={task.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      markPendingClassroomReturn();
+                                    }}
+                                    aria-label={`Відкрити завдання «${task.title}» у Google Classroom`}
+                                    className="shrink-0 flex h-6 w-6 items-center justify-center rounded-md text-xs text-sys-text-muted hover:text-sys-accent hover:bg-sys-card transition-colors"
+                                  >
+                                    ↗
                                   </a>
 
                                   {isManualDone && (

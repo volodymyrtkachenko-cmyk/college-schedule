@@ -41,6 +41,17 @@ export function ContextSelectionModal({
   const [modalCourseFilter, setModalCourseFilter] = useState<number | null>(null);
   const [modalHighlightedIndex, setModalHighlightedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const courseFilterInnerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const innerEl = courseFilterInnerRef.current;
+    if (!innerEl) return;
+    if (modalTab !== "student") {
+      innerEl.setAttribute("inert", "");
+    } else {
+      innerEl.removeAttribute("inert");
+    }
+  }, [modalTab, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -200,28 +211,39 @@ export function ContextSelectionModal({
             </search>
 
             {/* Course filter chips for groups */}
-            {modalTab === "student" && (
-              <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0 no-scrollbar" role="group" aria-label="Фільтр за курсом">
-                {([null, 1, 2, 3, 4] as const).map((course) => {
-                  const active = modalCourseFilter === course;
-                  return (
-                    <button
-                      key={course ?? "all"}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => setModalCourseFilter(course)}
-                      className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold border transition-colors ${
-                        active
-                          ? "bg-sys-accentSolid text-sys-onAccent border-sys-accentSolid shadow-xs"
-                          : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40"
-                      }`}
-                    >
-                      {course === null ? "Всі" : `${course} курс`}
-                    </button>
-                  );
-                })}
+            <div
+              data-open={modalTab === "student" ? "true" : undefined}
+              aria-hidden={modalTab !== "student"}
+              className="grid-accordion shrink-0"
+            >
+              <div className="grid-accordion-inner">
+                <div
+                  ref={courseFilterInnerRef}
+                  className="pt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar"
+                  role="group"
+                  aria-label="Фільтр за курсом"
+                >
+                  {([null, 1, 2, 3, 4] as const).map((course) => {
+                    const active = modalCourseFilter === course;
+                    return (
+                      <button
+                        key={course ?? "all"}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setModalCourseFilter(course)}
+                        className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold border transition-colors ${
+                          active
+                            ? "bg-sys-accentSolid text-sys-onAccent border-sys-accentSolid shadow-xs"
+                            : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40"
+                        }`}
+                      >
+                        {course === null ? "Всі" : `${course} курс`}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            )}
+            </div>
 
             {/* Recent selections */}
             {!modalSearch.trim() && (

@@ -6,6 +6,8 @@ import { invalidateScheduleCache, useOnlineStatus } from "../lib/hooks";
 import { getVisibleUserNote } from "./LessonCard";
 import { AppDialog } from "./ui/AppDialog";
 import { CloseIcon } from "./ui/Icons";
+import { useHairlineIndicator } from "../lib/useHairlineIndicator";
+import { useRetargetableHeight } from "../lib/useRetargetableHeight";
 
 export function LessonNote({ lesson, date }: { lesson: Lesson; date: string }) {
   const cleanDisplayNote = (lesson.note || "")
@@ -31,11 +33,13 @@ export function LessonNote({ lesson, date }: { lesson: Lesson; date: string }) {
 }
 
 export function LessonNoteModal({
+  isOpen = true,
   lesson,
   date,
   initialMode = "edit",
   onClose,
 }: {
+  isOpen?: boolean;
   lesson: Lesson;
   date: string;
   initialMode?: "edit" | "history";
@@ -57,10 +61,29 @@ export function LessonNoteModal({
     )
   );
   const [mode, setMode] = useState<"edit" | "history">(initialMode);
+  const [prevMode, setPrevMode] = useState<"edit" | "history">(initialMode);
+  const [hasSwitchedMode, setHasSwitchedMode] = useState(false);
+  if (mode !== prevMode) {
+    setHasSwitchedMode(true);
+    setPrevMode(mode);
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<NoteRevision[] | null>(null);
   const groupId = lesson.group_id;
+  const contentHeightRef = useRef<HTMLDivElement>(null);
+  useRetargetableHeight(contentHeightRef, `${mode}:${busy}:${history?.length ?? 0}`);
+  const {
+    containerRef: tabListRef,
+    hasTarget: hasTabBar,
+    isReady: tabBarReady,
+    indicatorStyle: tabBarStyle,
+  } = useHairlineIndicator<HTMLDivElement>({
+    activeKey: mode,
+    enabled: isOpen,
+    alignToContainerBottom: true,
+    insetPx: 0,
+  });
 
   useEffect(() => {
     mounted.current = true;
@@ -70,10 +93,31 @@ export function LessonNoteModal({
   }, []);
 
   useEffect(() => {
-    if (mode === "history" && !history) {
+    if (!isOpen) return;
+    const rawNote = lesson.note ?? "";
+    setNote(rawNote);
+    setRevision(lesson.note_revision ?? 0);
+    setDraft(
+      getVisibleUserNote(
+        rawNote
+          .split("\n")
+          .filter((l) => !l.trim().startsWith("[TASK]"))
+          .join("\n")
+          .trim()
+      )
+    );
+    setMode(initialMode);
+    setPrevMode(initialMode);
+    setHasSwitchedMode(false);
+    setError(null);
+    setHistory(null);
+  }, [isOpen, lesson.note, lesson.note_revision, initialMode]);
+
+  useEffect(() => {
+    if (isOpen && mode === "history" && !history) {
       void fetchHistory();
     }
-  }, [mode]);
+  }, [isOpen, mode, history]);
 
   async function fetchHistory() {
     if (!groupId) return;
@@ -124,7 +168,7 @@ export function LessonNoteModal({
 
   return (
     <AppDialog
-      isOpen
+      isOpen={isOpen}
       onClose={onClose}
       variant="sheet"
       maxWidth="448px"
@@ -154,25 +198,38 @@ export function LessonNoteModal({
         </div>
 
         {/* Tab switch between Edit and History */}
-        <div className="flex border-b border-sys-border/40 px-5 pt-2 gap-4 text-xs font-semibold">
+        <div
+          ref={tabListRef}
+          className="ui-hairline-rail relative flex border-b border-sys-border/40 px-5 pt-2 gap-4 text-xs font-semibold isolate"
+        >
+          {hasTabBar && (
+            <span
+              aria-hidden="true"
+              data-ready={tabBarReady ? "true" : undefined}
+              style={tabBarStyle}
+              className="ui-hairline-bar pointer-events-none z-20"
+            />
+          )}
           <button
             type="button"
+            data-hairline-active={mode === "edit" ? "true" : undefined}
             onClick={() => setMode("edit")}
-            className={`pb-2 border-b-2 transition-colors ${
+            className={`pb-2 transition-colors cursor-pointer ${
               mode === "edit"
-                ? "border-sys-accent text-sys-accent"
-                : "border-transparent text-sys-text-secondary hover:text-sys-text-primary"
+                ? "text-sys-accent"
+                : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
             Редагування
           </button>
           <button
             type="button"
+            data-hairline-active={mode === "history" ? "true" : undefined}
             onClick={() => setMode("history")}
-            className={`pb-2 border-b-2 transition-colors ${
+            className={`pb-2 transition-colors cursor-pointer ${
               mode === "history"
-                ? "border-sys-accent text-sys-accent"
-                : "border-transparent text-sys-text-secondary hover:text-sys-text-primary"
+                ? "text-sys-accent"
+                : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
             Історія
@@ -180,62 +237,70 @@ export function LessonNoteModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain custom-scrollbar p-5 space-y-4">
-          {mode === "edit" ? (
-            <form
-              id="lesson-note-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void saveNote(false);
-              }}
-              className="space-y-4"
+        <div className="flex-1 overflow-y-auto overflow-x-clip [scrollbar-gutter:stable] overscroll-contain custom-scrollbar p-5">
+          <div ref={contentHeightRef} className="overflow-x-clip">
+            <div
+              key={mode}
+              data-slide-dir={hasSwitchedMode ? (mode === "history" ? "next" : "prev") : undefined}
+              className="guide-step-slide"
             >
-              <label htmlFor={labelId} className="block text-xs font-medium text-sys-text-secondary">
-                Текст примітки (видимий студентам та викладачам)
-              </label>
-              <textarea
-                id={labelId}
-                rows={4}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !busy && draft.trim()) {
+              {mode === "edit" ? (
+                <form
+                  id="lesson-note-form"
+                  onSubmit={(e) => {
                     e.preventDefault();
                     void saveNote(false);
-                  }
-                }}
-                placeholder="Введіть важливу інформацію щодо пари…"
-                disabled={busy}
-                className="form-control w-full p-3 text-sm text-sys-text-primary"
-              />
-              {error && (
-                <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-700 dark:text-rose-400">
-                  {error}
+                  }}
+                  className="space-y-4"
+                >
+                  <label htmlFor={labelId} className="block text-xs font-medium text-sys-text-secondary">
+                    Текст примітки (видимий студентам та викладачам)
+                  </label>
+                  <textarea
+                    id={labelId}
+                    rows={4}
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !busy && draft.trim()) {
+                        e.preventDefault();
+                        void saveNote(false);
+                      }
+                    }}
+                    placeholder="Введіть важливу інформацію щодо пари…"
+                    disabled={busy}
+                    className="form-control w-full p-3 text-sm text-sys-text-primary"
+                  />
+                  {error && (
+                    <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-700 dark:text-rose-400">
+                      {error}
+                    </div>
+                  )}
+                </form>
+              ) : (
+                <div className="space-y-3">
+                  {busy ? (
+                    <p className="text-center text-xs text-sys-text-secondary py-4">Завантаження історії…</p>
+                  ) : history && history.length > 0 ? (
+                    history.map((row) => (
+                      <div key={`${row.note_id}:${row.revision}`} className="rounded-lg border border-sys-border/60 bg-sys-bg/40 p-3 text-xs space-y-1">
+                        <div className="flex items-center justify-between text-sys-text-muted">
+                          <span>{row.snapshot.actor_name ?? "Система"}</span>
+                          <span>{row.snapshot.note_date}</span>
+                        </div>
+                        <p className="text-sys-text-primary whitespace-pre-wrap">{row.snapshot.note}</p>
+                        {row.snapshot.archived && (
+                          <span className="inline-block text-xs text-rose-700 dark:text-rose-400 uppercase font-semibold">Архівовано</span>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-center text-xs text-sys-text-muted py-6">Історія змін порожня.</p>
+                  )}
                 </div>
               )}
-            </form>
-          ) : (
-            <div className="space-y-3">
-              {busy ? (
-                <p className="text-center text-xs text-sys-text-secondary py-4">Завантаження історії…</p>
-              ) : history && history.length > 0 ? (
-                history.map((row) => (
-                  <div key={`${row.note_id}:${row.revision}`} className="rounded-lg border border-sys-border/60 bg-sys-bg/40 p-3 text-xs space-y-1">
-                    <div className="flex items-center justify-between text-sys-text-muted">
-                      <span>{row.snapshot.actor_name ?? "Система"}</span>
-                      <span>{row.snapshot.note_date}</span>
-                    </div>
-                    <p className="text-sys-text-primary whitespace-pre-wrap">{row.snapshot.note}</p>
-                    {row.snapshot.archived && (
-                      <span className="inline-block text-xs text-rose-700 dark:text-rose-400 uppercase font-semibold">Архівовано</span>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="text-center text-xs text-sys-text-muted py-6">Історія змін порожня.</p>
-              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Footer */}

@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, m } from "framer-motion";
 import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
-import { useDesktopMotionEnabled } from "@/lib/useViewportTier";
 import {
   BarChartIcon,
   BellIcon,
@@ -91,7 +89,6 @@ export function DesktopToolbar({
 
   const { shouldRender: shouldRenderNavMenu, isClosing: isNavMenuClosing } =
     useAnimatedDisclosure(navMenuOpen, 170);
-  const desktopMotion = useDesktopMotionEnabled();
 
   const getMenuItems = () => {
     if (!navListRef.current) return [];
@@ -404,108 +401,7 @@ export function DesktopToolbar({
               />
             </button>
 
-            {desktopMotion ? (
-              <AnimatePresence>
-                {navMenuOpen && (
-                  <m.div
-                    ref={navListRef}
-                    id="desktop-sections-menu"
-                    role="menu"
-                    aria-labelledby="desktop-sections-trigger"
-                    onKeyDown={handleMenuKeyDown}
-                    initial={{ opacity: 0, scale: 0.96, y: -4 }}
-                    animate={{
-                      opacity: 1,
-                      scale: 1,
-                      y: 0,
-                      transition: {
-                        scale: { duration: 0.21, ease: [0.22, 1, 0.36, 1] },
-                        y: { duration: 0.21, ease: [0.22, 1, 0.36, 1] },
-                        opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
-                      },
-                    }}
-                    exit={{
-                      opacity: 0,
-                      scale: 0.97,
-                      y: -4,
-                      pointerEvents: "none",
-                      transition: { duration: 0.14, ease: [0.32, 0, 0.24, 1] },
-                    }}
-                    style={{ transformOrigin: "top right" }}
-                    className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-sys-border bg-sys-card backdrop-blur-2xl p-1.5 shadow-[0_20px_50px_-12px_rgb(0_0_0/0.42)] z-50"
-                  >
-                    {SECTION_LINKS.map((item, idx) => {
-                      const Icon = item.icon;
-                      return (
-                        <m.div
-                          key={item.href}
-                          initial={{ opacity: 0, x: 5 }}
-                          animate={{
-                            opacity: 1,
-                            x: 0,
-                            transition: { delay: idx * 0.02, duration: 0.16, ease: [0.22, 1, 0.36, 1] },
-                          }}
-                        >
-                          <TransitionLink
-                            href={item.href}
-                            role="menuitem"
-                            tabIndex={-1}
-                            onClick={() => setNavMenuOpen(false)}
-                            className="flex items-start gap-2.5 rounded-xl px-3 py-2 text-left transition-colors hover:bg-sys-bg focus:bg-sys-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sys-accent group"
-                          >
-                            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-accent group-hover:border-sys-accent/40">
-                              <Icon className="h-3.5 w-3.5" />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-xs font-semibold text-sys-text-primary leading-snug">
-                                {item.label}
-                              </span>
-                              <span className="block text-[11px] text-sys-text-muted leading-snug">
-                                {item.description}
-                              </span>
-                            </span>
-                          </TransitionLink>
-                        </m.div>
-                      );
-                    })}
-
-                    <hr className="my-1.5 border-sys-border/70" />
-
-                    <m.div
-                      initial={{ opacity: 0, x: 8 }}
-                      animate={{
-                        opacity: 1,
-                        x: 0,
-                        transition: { delay: SECTION_LINKS.length * 0.025, duration: 0.16, ease: [0.22, 1, 0.36, 1] },
-                      }}
-                    >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        tabIndex={-1}
-                        onClick={() => {
-                          setNavMenuOpen(false);
-                          onOpenGuideHub();
-                        }}
-                        className="flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-left transition-colors hover:bg-sys-bg focus:bg-sys-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sys-accent cursor-pointer group"
-                      >
-                        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-sys-accent/25 bg-sys-accent/10 text-sys-accent group-hover:border-sys-accent/50">
-                          <LightbulbIcon className="h-3.5 w-3.5" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-xs font-semibold text-sys-text-primary leading-snug">
-                            Гід та довідник
-                          </span>
-                          <span className="block text-[11px] text-sys-text-muted leading-snug">
-                            Огляд можливостей і підказки
-                          </span>
-                        </span>
-                      </button>
-                    </m.div>
-                  </m.div>
-                )}
-              </AnimatePresence>
-            ) : shouldRenderNavMenu ? (
+            {shouldRenderNavMenu ? (
               <div
                 ref={navListRef}
                 id="desktop-sections-menu"

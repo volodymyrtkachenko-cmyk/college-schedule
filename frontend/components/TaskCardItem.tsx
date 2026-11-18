@@ -7,9 +7,10 @@ import {
   formatTaskWeightBadge,
   getNavigatorTaskKey,
   hasExpandableBrief,
+  openTaskDetailModal,
   resolveEffectiveTaskBrief,
   type TaskBrief,
-} from "../lib/schedule/priorityNavigator";
+} from "../lib/schedule";
 import { formatTaskGradeDisplay } from "../lib/useGradesSummary";
 import { markPendingClassroomReturn, setTaskManualDone } from "../lib/useClassroomSubmissions";
 import { TaskChecklistSection } from "./TaskChecklistSection";
@@ -121,28 +122,37 @@ export const TaskCardItem = memo(function TaskCardItem({
             boxShadow: borderAccentStyle,
           }}
         >
-          <a
-            href={t.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={markPendingClassroomReturn}
-            className="group block cursor-pointer"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => openTaskDetailModal({ task: t })}
+              className="group block flex-1 min-w-0 text-left cursor-pointer"
+            >
+              <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors">
                 {titleLine}
               </h4>
-              <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs shrink-0 mt-0.5">
-                ↗
-              </span>
-            </div>
 
-            {teacherLine && (
-              <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
-                {teacherLine}
-              </p>
-            )}
-          </a>
+              {teacherLine && (
+                <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
+                  {teacherLine}
+                </p>
+              )}
+            </button>
+            <a
+              href={t.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.stopPropagation();
+                markPendingClassroomReturn();
+              }}
+              aria-label={`Відкрити завдання «${titleLine}» у Google Classroom`}
+              title="Відкрити в Classroom"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sys-text-muted hover:text-sys-accent hover:bg-sys-bg transition-colors text-xs"
+            >
+              ↗
+            </a>
+          </div>
 
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <div className={`flex items-center gap-1.5 text-xs font-medium ${statusColorClass}`}>
@@ -165,38 +175,51 @@ export const TaskCardItem = memo(function TaskCardItem({
     }
 
     return (
-      <a
-        href={t.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={markPendingClassroomReturn}
-        className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
+      <div
+        className="min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 shadow-xs text-left overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
         style={{
           boxShadow: borderAccentStyle,
         }}
       >
         <div className="flex items-start justify-between gap-2">
-          <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors flex-1">
-            {titleLine}
-          </h4>
-          <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs shrink-0 mt-0.5">
+          <button
+            type="button"
+            onClick={() => openTaskDetailModal({ task: t })}
+            className="group block flex-1 min-w-0 text-left cursor-pointer"
+          >
+            <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors">
+              {titleLine}
+            </h4>
+
+            {teacherLine && (
+              <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
+                {teacherLine}
+              </p>
+            )}
+
+            {statusText ? (
+              <div className={`mt-2 flex items-center gap-1.5 text-xs font-medium ${statusColorClass}`}>
+                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColorClass}`} />
+                <span>{statusText}</span>
+              </div>
+            ) : null}
+          </button>
+          <a
+            href={t.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.stopPropagation();
+              markPendingClassroomReturn();
+            }}
+            aria-label={`Відкрити завдання «${titleLine}» у Google Classroom`}
+            title="Відкрити в Classroom"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sys-text-muted hover:text-sys-accent hover:bg-sys-bg transition-colors text-xs"
+          >
             ↗
-          </span>
+          </a>
         </div>
-
-        {teacherLine && (
-          <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
-            {teacherLine}
-          </p>
-        )}
-
-        {statusText ? (
-          <div className={`mt-2 flex items-center gap-1.5 text-xs font-medium ${statusColorClass}`}>
-            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColorClass}`} />
-            <span>{statusText}</span>
-          </div>
-        ) : null}
-      </a>
+      </div>
     );
   }
 
@@ -209,30 +232,43 @@ export const TaskCardItem = memo(function TaskCardItem({
 
   if (!canExpandBrief && !canMarkManualDone) {
     return (
-      <a
-        href={t.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={markPendingClassroomReturn}
-        className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
+      <div
+        className="min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 shadow-xs text-left overflow-hidden [content-visibility:auto] [contain-intrinsic-size:78px]"
         style={{
           boxShadow: borderAccentStyle,
         }}
       >
         <div className="flex items-start justify-between gap-2">
-          <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors flex-1">
-            {titleLine}
-          </h4>
-          <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs shrink-0 mt-0.5">
-            ↗
-          </span>
-        </div>
+          <button
+            type="button"
+            onClick={() => openTaskDetailModal({ task: t })}
+            className="group block flex-1 min-w-0 text-left cursor-pointer"
+          >
+            <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors">
+              {titleLine}
+            </h4>
 
-        {teacherLine && (
-          <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
-            {teacherLine}
-          </p>
-        )}
+            {teacherLine && (
+              <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
+                {teacherLine}
+              </p>
+            )}
+          </button>
+          <a
+            href={t.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.stopPropagation();
+              markPendingClassroomReturn();
+            }}
+            aria-label={`Відкрити завдання «${titleLine}» у Google Classroom`}
+            title="Відкрити в Classroom"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sys-text-muted hover:text-sys-accent hover:bg-sys-bg transition-colors text-xs"
+          >
+            ↗
+          </a>
+        </div>
 
         {(statusText || weightBadge) && (
           <div className="mt-2 flex items-center justify-between gap-2">
@@ -251,41 +287,48 @@ export const TaskCardItem = memo(function TaskCardItem({
             )}
           </div>
         )}
-      </a>
+      </div>
     );
   }
 
   return (
     <div
-      className={`min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated shadow-xs text-left overflow-hidden ${
-        briefOpen ? "" : "[content-visibility:auto] [contain-intrinsic-size:78px]"
-      }`}
+      className="min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated shadow-xs text-left overflow-hidden"
       style={{
         boxShadow: borderAccentStyle,
       }}
     >
-      <a
-        href={t.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={markPendingClassroomReturn}
-        className="group block cursor-pointer"
-      >
-        <div className="flex items-start justify-between gap-2">
-          <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors flex-1">
+      <div className="flex items-start justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => openTaskDetailModal({ task: t })}
+          className="group block flex-1 min-w-0 text-left cursor-pointer"
+        >
+          <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors">
             {titleLine}
           </h4>
-          <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs shrink-0 mt-0.5">
-            ↗
-          </span>
-        </div>
 
-        {teacherLine && (
-          <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
-            {teacherLine}
-          </p>
-        )}
-      </a>
+          {teacherLine && (
+            <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
+              {teacherLine}
+            </p>
+          )}
+        </button>
+        <a
+          href={t.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            e.stopPropagation();
+            markPendingClassroomReturn();
+          }}
+          aria-label={`Відкрити завдання «${titleLine}» у Google Classroom`}
+          title="Відкрити в Classroom"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sys-text-muted hover:text-sys-accent hover:bg-sys-bg transition-colors text-xs"
+        >
+          ↗
+        </a>
+      </div>
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         {statusText ? (

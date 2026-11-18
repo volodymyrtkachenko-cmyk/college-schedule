@@ -176,6 +176,12 @@ export const LessonCard = memo(function LessonCard({
   const [isHwOpen, setIsHwOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [noteModalMode, setNoteModalMode] = useState<"edit" | "history" | null>(null);
+  const [noteModalMounted, setNoteModalMounted] = useState(false);
+  const [lastNoteModalMode, setLastNoteModalMode] = useState<"edit" | "history">("edit");
+  if (noteModalMode) {
+    if (!noteModalMounted) setNoteModalMounted(true);
+    if (lastNoteModalMode !== noteModalMode) setLastNoteModalMode(noteModalMode);
+  }
   const { settings, updateSetting } = useUserSettings();
   const showHw = settings.showHomeworkBadges;
   const selectedSubgroup = settings.defaultSubgroup;
@@ -991,11 +997,12 @@ export const LessonCard = memo(function LessonCard({
         </div>
       )}
 
-      {noteModalMode && (
+      {noteModalMounted && (
         <LessonNoteModal
+          isOpen={Boolean(noteModalMode)}
           lesson={lesson}
           date={targetDate}
-          initialMode={noteModalMode}
+          initialMode={lastNoteModalMode}
           onClose={() => setNoteModalMode(null)}
         />
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { EditIcon, MoveIcon } from "../LessonIcons";
 import { HistoryIcon, MessageSquareIcon } from "../ui/Icons";
 import { Lesson } from "../../lib/api";
@@ -101,6 +101,19 @@ export function LessonMoreMenu({
   onOpenNoteModal: (mode: "edit" | "history") => void;
 }) {
   const { shouldRender, isClosing } = useAnimatedDisclosure(open, 190);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
   if (!shouldRender) return null;
 
   return (

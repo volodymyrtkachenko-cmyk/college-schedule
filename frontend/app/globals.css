@@ -1324,18 +1324,14 @@ dialog.app-dialog {
   margin: auto;
   opacity: 0;
   transition-property: opacity, transform, overlay, display;
-  transition-duration:
-    var(--duration-dialog-out),
-    var(--duration-dialog-out),
-    var(--duration-dialog-out),
-    var(--duration-dialog-out);
-  transition-timing-function: var(--ease-exit), var(--ease-exit), ease-out, ease-out;
+  transition-duration: 180ms, 200ms, 200ms, 200ms;
+  transition-timing-function: var(--ease-desktop-exit), var(--ease-desktop-exit), ease-out, ease-out;
   transition-behavior: allow-discrete;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   dialog.app-dialog {
-    transform: translate3d(0, 10px, 0) scale(0.985);
+    transform: translate3d(0, 8px, 0) scale(0.988);
   }
 }
 
@@ -1346,11 +1342,7 @@ dialog.app-dialog[open] {
 
 dialog.app-dialog[open]:where(:not([data-closing="true"])) {
   opacity: 1;
-  transition-duration:
-    200ms,
-    var(--duration-dialog-in),
-    var(--duration-dialog-in),
-    var(--duration-dialog-in);
+  transition-duration: 170ms, 260ms, 260ms, 260ms;
   transition-timing-function: var(--ease-desktop-panel), var(--ease-desktop-panel), ease-out, ease-out;
 }
 
@@ -1374,14 +1366,14 @@ dialog.app-dialog::backdrop {
   overscroll-behavior: contain;
   opacity: 0;
   transition-property: opacity, overlay, display;
-  transition-duration: 180ms, var(--duration-dialog-out), var(--duration-dialog-out);
+  transition-duration: 200ms, 200ms, 200ms;
   transition-timing-function: var(--ease-desktop-exit), ease-out, ease-out;
   transition-behavior: allow-discrete;
 }
 
 dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
   opacity: 1;
-  transition-duration: 220ms, var(--duration-dialog-in), var(--duration-dialog-in);
+  transition-duration: 220ms, 260ms, 260ms;
   transition-timing-function: var(--ease-desktop-panel), ease-out, ease-out;
 }
 
@@ -1391,12 +1383,17 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
     max-width: 100dvw;
     box-sizing: border-box;
     margin: auto auto 0 auto;
+    transition-duration: 180ms, 200ms, 200ms, 200ms;
+  }
+
+  dialog.app-dialog[data-variant="sheet"][open]:where(:not([data-closing="true"])) {
+    transition-duration: 170ms, 250ms, 250ms, 250ms;
   }
 }
 
 @media (max-width: 639px) and (prefers-reduced-motion: no-preference) {
   dialog.app-dialog[data-variant="sheet"] {
-    transform: translate3d(0, 44px, 0);
+    transform: translate3d(0, 32px, 0);
   }
 
   dialog.app-dialog[data-variant="sheet"][open]:where(:not([data-closing="true"])) {
@@ -1424,7 +1421,7 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
 @media (prefers-reduced-motion: no-preference) {
   @starting-style {
     dialog.app-dialog[open]:where(:not([data-closing="true"])) {
-      transform: translate3d(0, 12px, 0) scale(0.985);
+      transform: translate3d(0, 8px, 0) scale(0.988);
     }
   }
 }
@@ -1432,16 +1429,16 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
 @media (max-width: 639px) and (prefers-reduced-motion: no-preference) {
   @starting-style {
     dialog.app-dialog[data-variant="sheet"][open]:where(:not([data-closing="true"])) {
-      transform: translate3d(0, 44px, 0);
+      transform: translate3d(0, 32px, 0);
     }
   }
 }
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   dialog.app-dialog {
-    transform: translate3d(0, 10px, 0) scale(0.985);
+    transform: translate3d(0, 8px, 0) scale(0.988);
     transition-property: opacity, transform, overlay, display;
-    transition-duration: 170ms, 200ms, 200ms, 200ms;
+    transition-duration: 180ms, 200ms, 200ms, 200ms;
     transition-timing-function: var(--ease-desktop-exit), var(--ease-desktop-exit), ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
@@ -1449,7 +1446,7 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
   dialog.app-dialog[open]:where(:not([data-closing="true"])) {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
-    transition-duration: 210ms, 280ms, 280ms, 280ms;
+    transition-duration: 170ms, 260ms, 260ms, 260ms;
     transition-timing-function: var(--ease-desktop-panel), var(--ease-desktop-panel), ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
@@ -1463,21 +1460,21 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
     backdrop-filter: blur(10px) saturate(1.1);
     -webkit-backdrop-filter: blur(10px) saturate(1.1);
     transition-property: opacity, overlay, display;
-    transition-duration: 170ms, 200ms, 200ms;
+    transition-duration: 200ms, 200ms, 200ms;
     transition-timing-function: var(--ease-desktop-exit), ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
 
   dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
     opacity: 1;
-    transition-duration: 210ms, 280ms, 280ms;
+    transition-duration: 220ms, 260ms, 260ms;
     transition-timing-function: var(--ease-desktop-panel), ease-out, ease-out;
   }
 
   @starting-style {
     dialog.app-dialog[open]:where(:not([data-closing="true"])) {
       opacity: 0;
-      transform: translate3d(0, 10px, 0) scale(0.985);
+      transform: translate3d(0, 8px, 0) scale(0.988);
     }
 
     dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
@@ -1496,7 +1493,9 @@ html[data-surface="glass"] #desktop-sections-menu {
   dialog.app-dialog[open]:where(:not([data-closing="true"])),
   dialog.app-dialog::backdrop,
   dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
-    transition-duration: 110ms !important;
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
   }
 }
 
@@ -1789,10 +1788,14 @@ html[data-surface="glass"] #desktop-sections-menu {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .discrete-panel,
   .discrete-popup,
   .discrete-popup[data-closing="true"],
-  .discrete-popup-backdrop {
-    transition-duration: 90ms !important;
+  .discrete-popup-backdrop,
+  .discrete-popup-backdrop[data-closing="true"] {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
   }
 }
 
@@ -1831,7 +1834,9 @@ html[data-surface="glass"] #desktop-sections-menu {
 @media (prefers-reduced-motion: reduce) {
   .toast-item,
   .toast-item[data-leaving="true"] {
-    transition-duration: 100ms !important;
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
   }
 }
 
@@ -1841,7 +1846,7 @@ html[data-surface="glass"] #desktop-sections-menu {
   grid-template-rows: 0fr;
   opacity: 0;
   transition:
-    grid-template-rows 230ms var(--ease-desktop-exit),
+    grid-template-rows 220ms var(--ease-desktop-exit),
     opacity 170ms var(--ease-desktop-exit);
 }
 
@@ -1849,7 +1854,7 @@ html[data-surface="glass"] #desktop-sections-menu {
   grid-template-rows: 1fr;
   opacity: 1;
   transition:
-    grid-template-rows 280ms var(--ease-desktop-panel),
+    grid-template-rows 270ms var(--ease-desktop-panel),
     opacity 200ms var(--ease-desktop-panel);
 }
 
@@ -1859,8 +1864,8 @@ html[data-surface="glass"] #desktop-sections-menu {
   visibility: hidden;
   transform: translate3d(0, -4px, 0);
   transition:
-    visibility 230ms linear,
-    transform 220ms var(--ease-desktop-exit);
+    visibility 220ms linear,
+    transform 210ms var(--ease-desktop-exit);
 }
 
 .grid-accordion[data-open="true"] > .grid-accordion-inner {
@@ -1868,23 +1873,23 @@ html[data-surface="glass"] #desktop-sections-menu {
   transform: translate3d(0, 0, 0);
   transition:
     visibility 0ms linear,
-    transform 260ms var(--ease-desktop-panel);
+    transform 250ms var(--ease-desktop-panel);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .grid-accordion {
-    transition: opacity 90ms ease-out !important;
-  }
-
-  .grid-accordion-inner {
+  .grid-accordion,
+  .grid-accordion[data-open="true"],
+  .grid-accordion-inner,
+  .grid-accordion[data-open="true"] > .grid-accordion-inner {
+    transition: none !important;
+    animation: none !important;
     transform: none !important;
-    transition: visibility 90ms linear !important;
   }
 }
 
 /* Спеціалізований акордеон «Завдання» у картці пари:
    - ПК: картка плавно розкривається одразу, текст проявляється у звільненому місці; згортання йде у зворотному порядку
-   - Мобільний: короткий безперервний синхронний рух без затримок, щоб встигати за дотиком */
+   - Мобільний: короткий безперерний синхронний рух без затримок, щоб встигати за дотиком */
 .tasks-accordion {
   display: grid;
   grid-template-rows: 0fr;
@@ -1926,15 +1931,15 @@ html[data-surface="glass"] #desktop-sections-menu {
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .tasks-accordion:not([data-variant="mobile"]) {
-    transition: grid-template-rows 270ms var(--ease-desktop-exit) 45ms;
+    transition: grid-template-rows 220ms var(--ease-desktop-exit) 0ms;
   }
 
   .tasks-accordion:not([data-variant="mobile"])[data-open="true"] {
-    transition: grid-template-rows 320ms var(--ease-desktop-panel) 0ms;
+    transition: grid-template-rows 280ms var(--ease-desktop-panel) 0ms;
   }
 
   .tasks-accordion:not([data-variant="mobile"]) > .tasks-accordion-inner {
-    transition: visibility 315ms linear;
+    transition: visibility 220ms linear;
   }
 
   .tasks-accordion:not([data-variant="mobile"])[data-open="true"] > .tasks-accordion-inner {
@@ -1953,26 +1958,21 @@ html[data-surface="glass"] #desktop-sections-menu {
     opacity: 1;
     transform: translate3d(0, 0, 0);
     transition:
-      opacity 220ms var(--ease-desktop-panel) 55ms,
-      transform 260ms var(--ease-desktop-panel) 45ms;
+      opacity 210ms var(--ease-desktop-panel) 35ms,
+      transform 240ms var(--ease-desktop-panel) 30ms;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tasks-accordion,
-  .tasks-accordion[data-open="true"] {
-    transition: none !important;
-  }
-
+  .tasks-accordion[data-open="true"],
   .tasks-accordion-inner,
-  .tasks-accordion[data-open="true"] > .tasks-accordion-inner {
-    transition: none !important;
-  }
-
+  .tasks-accordion[data-open="true"] > .tasks-accordion-inner,
   .tasks-accordion-content,
   .tasks-accordion[data-open="true"] .tasks-accordion-content {
+    transition: none !important;
+    animation: none !important;
     transform: none !important;
-    transition: opacity 90ms ease-out !important;
   }
 }
 

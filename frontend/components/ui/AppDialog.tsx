@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   cancelPendingTopLayerClose,
-  canTransitionTopLayer,
   closeTopLayer,
   openTopLayer,
   prefersReducedMotion,
@@ -49,6 +48,8 @@ export function AppDialog({
   className = "",
 }: AppDialogProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const invokerRef = useRef<HTMLElement | null>(null);
+  const scrollPosRef = useRef<{ x: number; y: number } | null>(null);
   const [keepMountedForExit, setKeepMountedForExit] = useState(isOpen);
   if (isOpen && !keepMountedForExit) {
     setKeepMountedForExit(true);
@@ -62,11 +63,9 @@ export function AppDialog({
   onCloseRef.current = onClose;
   closeDisabledRef.current = closeDisabled;
 
-  const closedByMode = closeDisabled
-    ? "none"
-    : closeOnBackdropClick
-      ? "any"
-      : "closerequest";
+  // Never use `closedby="any"` directly: `setupClosedByFallback` routes outside pointer clicks
+  // through `onClose()` so Close ✕, Esc, and backdrop click share one controlled exit animation.
+  const closedByMode = closeDisabled ? "none" : "closerequest";
 
   // Keep native `closedby` attribute/property synced without relying on TS JSX extensions.
   useEffect(() => {
@@ -83,6 +82,12 @@ export function AppDialog({
 
     if (isOpen) {
       closingManagedRef.current = false;
+      if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement && !dialog.contains(document.activeElement)) {
+        invokerRef.current = document.activeElement;
+      }
+      if (typeof window !== "undefined") {
+        scrollPosRef.current = { x: window.scrollX, y: window.scrollY };
+      }
       cancelPendingTopLayerClose(dialog);
       if (dialog.open || prefersReducedMotion()) {
         openTopLayer(dialog);
@@ -104,6 +109,20 @@ export function AppDialog({
     const cancelClose = closeTopLayer(dialog, () => {
       closingManagedRef.current = false;
       if (!isOpenRef.current) {
+        const savedScroll = scrollPosRef.current;
+        const invoker = invokerRef.current;
+        if (invoker && invoker.isConnected && invoker !== document.body && invoker !== document.documentElement) {
+          try {
+            invoker.focus({ preventScroll: true });
+          } catch {}
+        }
+        if (
+          savedScroll &&
+          typeof window !== "undefined" &&
+          (window.scrollX !== savedScroll.x || window.scrollY !== savedScroll.y)
+        ) {
+          window.scrollTo(savedScroll.x, savedScroll.y);
+        }
         setKeepMountedForExit(false);
       }
     });
@@ -125,21 +144,17 @@ export function AppDialog({
     };
   }, []);
 
-  // Wire Escape cancellation guard, native `close` synchronization, and backdrop fallback.
+  // Wire Escape cancellation guard, native `close` synchronization, and backdrop light-dismiss.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
 
     const handleCancel = (e: Event) => {
+      e.preventDefault();
       if (closeDisabledRef.current) {
-        e.preventDefault();
         return;
       }
-      // Intercept Escape / light-dismiss on engines needing `data-closing` fallback so exit animates.
-      if (!canTransitionTopLayer()) {
-        e.preventDefault();
-        onCloseRef.current();
-      }
+      onCloseRef.current();
     };
 
     const handleNativeClose = () => {

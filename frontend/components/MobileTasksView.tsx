@@ -6,7 +6,12 @@ import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import type { ScheduleResponse } from "../lib/api";
 import { formatKyivDateIso, KYIV_TIME_FMT } from "../lib/date";
 import { buildCurrentScheduleHref, resolveScheduleSubtabFromSearch } from "../lib/navigation";
-import type { SubjectHubTarget } from "../lib/schedule";
+import {
+  type SubjectHubTarget,
+  buildNeutralSampleTask,
+  openTaskDetailModal,
+} from "../lib/schedule";
+import { useRetargetableHeight } from "../lib/useRetargetableHeight";
 import {
   collectOverdueTaskKeys,
   formatOverdueBannerMessage,
@@ -124,6 +129,20 @@ export function TasksTodoBoard({
     if (!selectedSubject) return "";
     return subjects.some((s) => s.name === selectedSubject) ? selectedSubject : "";
   }, [selectedSubject, subjects]);
+
+  const tabHeightRef = useRef<HTMLDivElement>(null);
+  const extraDoneInnerRef = useRef<HTMLDivElement>(null);
+  useRetargetableHeight(tabHeightRef, `${activeTab}|${effectiveSubject}`);
+
+  useIsomorphicLayoutEffect(() => {
+    const innerEl = extraDoneInnerRef.current;
+    if (!innerEl) return;
+    if (!showAllDone) {
+      innerEl.setAttribute("inert", "");
+    } else {
+      innerEl.removeAttribute("inert");
+    }
+  }, [showAllDone, activeTab, turnedInTasks.length]);
 
   const selectedSubjectMeta = useMemo(
     () => subjects.find((s) => s.name === effectiveSubject) ?? null,
@@ -466,8 +485,9 @@ export function TasksTodoBoard({
           data-open={!isOverdueBannerClosing}
           className="grid-accordion !mt-0"
         >
-          <div className="grid-accordion-inner pt-3.5">
-            <div className="relative overflow-hidden rounded-xl border border-rose-500/35 bg-rose-500/[0.08] dark:bg-rose-500/[0.11] p-3 shadow-xs">
+          <div className="grid-accordion-inner">
+            <div className="pt-3.5">
+              <div className="relative overflow-hidden rounded-xl border border-rose-500/35 bg-rose-500/[0.08] dark:bg-rose-500/[0.11] p-3 shadow-xs">
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute -top-10 -left-10 h-24 w-24 rounded-full bg-rose-500/15 blur-xl"
@@ -519,6 +539,7 @@ export function TasksTodoBoard({
                   →
                 </span>
               </button>
+              </div>
             </div>
           </div>
         </aside>
@@ -654,23 +675,45 @@ export function TasksTodoBoard({
             </div>
           ) : (
             <>
-              {(showAllDone ? turnedInTasks : turnedInTasks.slice(0, DONE_INITIAL_LIMIT)).map((t, idx) => (
+              {turnedInTasks.slice(0, DONE_INITIAL_LIMIT).map((t, idx) => (
                 <TaskCardItem key={t.id || t.url || `done-${idx}`} task={t} isLinked={isLinked} />
               ))}
-              {!showAllDone && turnedInTasks.length > DONE_INITIAL_LIMIT && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllDone(true)}
-                  className="w-full rounded-xl border border-sys-border bg-sys-card py-2.5 px-4 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-[0.99] transition-colors cursor-pointer"
-                >
-                  Показати всі здані ({turnedInTasks.length})
-                </button>
+              {turnedInTasks.length > DONE_INITIAL_LIMIT && (
+                <>
+                  <div
+                    data-open={showAllDone ? "true" : undefined}
+                    aria-hidden={!showAllDone}
+                    className="grid-accordion !mt-0"
+                  >
+                    <div className="grid-accordion-inner">
+                      <div ref={extraDoneInnerRef} className="pt-2 space-y-2">
+                        {turnedInTasks.slice(DONE_INITIAL_LIMIT).map((t, idx) => (
+                          <TaskCardItem
+                            key={t.id || t.url || `done-extra-${idx}`}
+                            task={t}
+                            isLinked={isLinked}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    aria-expanded={showAllDone}
+                    onClick={() => setShowAllDone((prev) => !prev)}
+                    className="w-full rounded-xl border border-sys-border bg-sys-card py-2.5 px-4 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-[0.99] transition-colors cursor-pointer"
+                  >
+                    {showAllDone
+                      ? "Згорнути список"
+                      : `Показати всі здані (${turnedInTasks.length})`}
+                  </button>
+                </>
               )}
             </>
           );
 
         return (
-          <div className="overflow-x-clip">
+          <div ref={tabHeightRef} className="overflow-x-clip">
             <div
               key={activeTab}
               className={`guide-step-slide ${activeTab === "pending" ? "space-y-4" : "space-y-2"}`}
@@ -935,20 +978,35 @@ export function MobileTasksView({
             <p className="text-xs text-sys-text-secondary leading-relaxed max-w-sm mx-auto mb-5">
               Завдання та оцінки доступні лише студентам цієї групи. Прив&apos;яжіть пошту @kre.dp.ua своєї групи.
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
-              }}
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-semibold text-xs px-5 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card"
-            >
-              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                <polyline points="10 17 15 12 10 7" />
-                <line x1="15" y1="12" x2="3" y2="12" />
-              </svg>
-              <span>Прив&apos;язати Google Classroom</span>
-            </button>
+            <div className="flex flex-col items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+                }}
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-semibold text-xs px-5 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-sys-card"
+              >
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                  <polyline points="10 17 15 12 10 7" />
+                  <line x1="15" y1="12" x2="3" y2="12" />
+                </svg>
+                <span>Прив&apos;язати Google Classroom</span>
+              </button>
+              <button
+                type="button"
+                data-testid="mobile-open-demo-task-modal"
+                onClick={() =>
+                  openTaskDetailModal({
+                    task: buildNeutralSampleTask(week, null),
+                    groupId,
+                  })
+                }
+                className="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-xl border border-sys-border bg-sys-card hover:bg-sys-bg-secondary hover:border-sys-accent/40 px-3.5 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent"
+              >
+                <span>Переглянути приклад завдання</span>
+              </button>
+            </div>
           </div>
         ) : (
           <>

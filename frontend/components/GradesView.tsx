@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { FullTaskItem } from "./MobileTasksView";
 import { useGradesSummary, GradeItem, SubjectSummary } from "../lib/useGradesSummary";
+import { useRetargetableHeight } from "../lib/useRetargetableHeight";
 import { BarChartIcon, CloseIcon, UserCheckIcon } from "./ui/Icons";
 
 interface GradesViewProps {
@@ -44,6 +45,11 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
+  const subjectsListRef = useRef<HTMLDivElement>(null);
+  useRetargetableHeight(
+    subjectsListRef,
+    `${activeFilter}|${searchQuery}`
+  );
 
   const toggleSubject = (subjectName: string) => {
     setExpandedSubjects((prev) => ({
@@ -361,15 +367,13 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
 
       {/* Subjects List */}
       {filteredSubjects.length > 0 ? (
-        <div className="space-y-2">
+        <div ref={subjectsListRef} className="space-y-2">
           {filteredSubjects.map((subj: SubjectSummary) => {
             const isExpanded = Boolean(expandedSubjects[subj.subject]);
             return (
               <div
                 key={subj.subject}
-                className={`rounded-2xl border border-sys-border bg-sys-card transition-colors duration-fast ease-smooth overflow-hidden shadow-xs hover:border-sys-border/90 ${
-                  isExpanded ? "" : "[content-visibility:auto] [contain-intrinsic-size:auto_84px]"
-                }`}
+                className="rounded-2xl border border-sys-border bg-sys-card transition-colors duration-fast ease-smooth overflow-hidden shadow-xs hover:border-sys-border/90"
               >
                 {/* Subject Header Button */}
                 <button
