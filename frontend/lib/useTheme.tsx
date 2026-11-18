@@ -2,7 +2,11 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { flushSync } from "react-dom";
-import { startTypedViewTransition } from "@/lib/viewTransition";
+import {
+  abortActiveViewTransition,
+  consumeInterruptedPointerOrigin,
+  startTypedViewTransition,
+} from "@/lib/viewTransition";
 import {
   type AccentSelection,
   type BaseThemeMode,
@@ -121,7 +125,17 @@ function resolveOriginCoordinates(origin?: ThemeTransitionOrigin): { x: number; 
       typeof (origin.currentTarget as Element).getBoundingClientRect === "function"
     ) {
       const rect = (origin.currentTarget as Element).getBoundingClientRect();
-      if (rect.width > 0 || rect.height > 0) {
+      const interrupted = consumeInterruptedPointerOrigin(350);
+      if (
+        interrupted &&
+        interrupted.x >= rect.left - 8 &&
+        interrupted.x <= rect.right + 8 &&
+        interrupted.y >= rect.top - 8 &&
+        interrupted.y <= rect.bottom + 8
+      ) {
+        x = interrupted.x;
+        y = interrupted.y;
+      } else if (rect.width > 0 || rect.height > 0) {
         x = rect.left + rect.width / 2;
         y = rect.top + rect.height / 2;
       }
@@ -167,6 +181,7 @@ function prepareThemeTransitionAttrs(
   }
 
   return () => {
+    delete root.dataset.vtThemeFreeze;
     delete root.dataset.vtThemeStyle;
     delete root.dataset.vtThemeDir;
     delete root.dataset.vtSide;
@@ -175,6 +190,14 @@ function prepareThemeTransitionAttrs(
     root.style.removeProperty("--vt-theme-d");
   };
 }
+
+const SLIDER_VISUAL_CONFIG_KEYS: ReadonlyArray<keyof VisualStudioConfig> = [
+  "customHue",
+  "customSaturation",
+  "wallpaperBlur",
+  "wallpaperDim",
+  "wallpaperTint",
+];
 
 interface ThemeContextType {
   theme: Theme;
@@ -191,7 +214,7 @@ interface ThemeContextType {
     patch: Partial<VisualStudioConfig>,
     origin?: ThemeTransitionOrigin
   ) => void;
-  resetVisualStudio: () => void;
+  resetVisualStudio: (origin?: ThemeTransitionOrigin) => void;
   wallpaperVersion: number;
   bumpWallpaperVersion: () => void;
 }
@@ -417,39 +440,37 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   });
 
   const persistTimerRef = useRef<number | null>(null);
+  const activeThemeVtSeqRef = useRef(0);
 
-  const cancelPendingPersist = useCallback(() => {
+  const flushPendingPersist = useCallback(() => {
     if (persistTimerRef.current !== null && typeof window !== "undefined") {
       window.clearTimeout(persistTimerRef.current);
       persistTimerRef.current = null;
+      const curr = stateRef.current;
+      persistVisualStorage(curr.accent, curr.visualConfig);
     }
   }, []);
 
   const schedulePersist = useCallback(() => {
-    cancelPendingPersist();
+    if (persistTimerRef.current !== null && typeof window !== "undefined") {
+      window.clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
     if (typeof window === "undefined") return;
     persistTimerRef.current = window.setTimeout(() => {
       persistTimerRef.current = null;
       const curr = stateRef.current;
       persistVisualStorage(curr.accent, curr.visualConfig);
     }, 150);
-  }, [cancelPendingPersist]);
+  }, []);
 
   useEffect(() => {
-    const flushIfPending = () => {
-      if (persistTimerRef.current !== null) {
-        window.clearTimeout(persistTimerRef.current);
-        persistTimerRef.current = null;
-        const curr = stateRef.current;
-        persistVisualStorage(curr.accent, curr.visualConfig);
-      }
-    };
-    window.addEventListener("pagehide", flushIfPending);
+    window.addEventListener("pagehide", flushPendingPersist);
     return () => {
-      window.removeEventListener("pagehide", flushIfPending);
-      flushIfPending();
+      window.removeEventListener("pagehide", flushPendingPersist);
+      flushPendingPersist();
     };
-  }, []);
+  }, [flushPendingPersist]);
 
   const commitState = useCallback(
     (
@@ -462,15 +483,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         viewTransition?: boolean;
         transitionOrigin?: ThemeTransitionOrigin;
         deferStorage?: boolean;
+        preserveActiveVt?: boolean;
       }
     ) => {
+      // Update stateRef immediately so rapid consecutive toggles never compute from stale state.
+      stateRef.current = {
+        theme: nextTheme,
+        resolvedTheme: nextResolved,
+        accent: nextAccent,
+        visualConfig: nextConfig,
+      };
+
       const runReactStateCommit = () => {
-        stateRef.current = {
-          theme: nextTheme,
-          resolvedTheme: nextResolved,
-          accent: nextAccent,
-          visualConfig: nextConfig,
-        };
         setThemeState(nextTheme);
         setResolvedTheme(nextResolved);
         setAccentState(nextAccent);
@@ -486,58 +510,56 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         typeof (document as any).startViewTransition === "function";
 
       if (options?.viewTransition && hasViewTransition && !isReduced) {
-        cancelPendingPersist();
-        let removeBlocker: (() => void) | null = null;
-        let failsafeTimer: number | null = null;
-        let finishFailsafeTimer: number | null = null;
+        flushPendingPersist();
+        abortActiveViewTransition();
+
+        const seq = ++activeThemeVtSeqRef.current;
+        let cleaned = false;
         const clearThemeVt = prepareThemeTransitionAttrs(
           nextConfig.themeTransition,
           nextResolved,
           options.transitionOrigin
         );
-        const releaseBlocker = () => {
-          if (failsafeTimer !== null) {
-            window.clearTimeout(failsafeTimer);
-            failsafeTimer = null;
-          }
-          removeBlocker?.();
-          removeBlocker = null;
-        };
+
         const cleanupAll = () => {
-          releaseBlocker();
-          if (finishFailsafeTimer !== null) {
-            window.clearTimeout(finishFailsafeTimer);
-            finishFailsafeTimer = null;
-          }
+          if (cleaned || seq !== activeThemeVtSeqRef.current) return;
+          cleaned = true;
           clearThemeVt();
         };
-        finishFailsafeTimer = window.setTimeout(cleanupAll, 700);
 
         startTypedViewTransition(
           ["theme-change"],
           () => {
-            removeBlocker = injectTransitionBlocker();
-            failsafeTimer = window.setTimeout(releaseBlocker, 250);
+            if (seq !== activeThemeVtSeqRef.current) return;
+            if (typeof document !== "undefined") {
+              document.documentElement.dataset.vtThemeFreeze = "true";
+            }
+            applyDomState(nextResolved, nextAccent, nextConfig);
             try {
               flushSync(runReactStateCommit);
             } catch {
               runReactStateCommit();
             }
-            applyDomState(nextResolved, nextAccent, nextConfig);
-            void window.getComputedStyle(document.documentElement).colorScheme;
-            if (typeof window !== "undefined") {
+            if (typeof window !== "undefined" && typeof document !== "undefined") {
+              void window.getComputedStyle(document.documentElement).colorScheme;
+              void window.getComputedStyle(document.body).backgroundColor;
               window.dispatchEvent(new CustomEvent(VISUAL_CHANGE_EVENT));
             }
           },
           {
             kind: "theme",
-            onReady: releaseBlocker,
+            failsafeMs: 1100,
             onFinish: cleanupAll,
+            onAbort: cleanupAll,
           }
         );
         return;
       }
 
+      if (!options?.preserveActiveVt) {
+        activeThemeVtSeqRef.current += 1;
+        abortActiveViewTransition();
+      }
       runReactStateCommit();
       if (options?.suppressTransitions) {
         disableTransitionsTemporarily();
@@ -546,7 +568,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         applyDomState(nextResolved, nextAccent, nextConfig, { deferStorage: true });
         schedulePersist();
       } else {
-        cancelPendingPersist();
+        flushPendingPersist();
         applyDomState(nextResolved, nextAccent, nextConfig);
       }
 
@@ -554,7 +576,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         window.dispatchEvent(new CustomEvent(VISUAL_CHANGE_EVENT));
       }
     },
-    [cancelPendingPersist, schedulePersist]
+    [flushPendingPersist, schedulePersist]
   );
 
   const resolveSystemTheme = useCallback((target: Theme): ResolvedTheme => {
@@ -638,10 +660,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     (patch: Partial<VisualStudioConfig>) => {
       const curr = stateRef.current;
       const merged = sanitizeVisualConfig({ ...curr.visualConfig, ...patch });
+      const patchKeys = Object.keys(patch) as Array<keyof VisualStudioConfig>;
+      const deferStorage =
+        patchKeys.length > 0 &&
+        patchKeys.every((key) => SLIDER_VISUAL_CONFIG_KEYS.includes(key));
+      if (!deferStorage) {
+        persistVisualStorage(curr.accent, merged);
+      }
       commitState(curr.theme, curr.resolvedTheme, curr.accent, merged, {
         suppressTransitions:
           patch.surface !== undefined && patch.surface !== curr.visualConfig.surface,
-        deferStorage: true,
+        deferStorage,
+        preserveActiveVt:
+          patchKeys.length > 0 && patchKeys.every((key) => key === "themeTransition"),
       });
     },
     [commitState]
@@ -671,10 +702,33 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     [applyThemeBundle]
   );
 
-  const resetVisualStudio = useCallback(() => {
-    const classic = CURATED_STYLE_PRESETS[0];
-    applyThemeBundle(classic.accent, DEFAULT_VISUAL_CONFIG);
-  }, [applyThemeBundle]);
+  const resetVisualStudio = useCallback(
+    (origin?: ThemeTransitionOrigin) => {
+      const classic = CURATED_STYLE_PRESETS[0];
+      const curr = stateRef.current;
+      const nextConfig: VisualStudioConfig = { ...DEFAULT_VISUAL_CONFIG };
+      const shouldTransition =
+        Boolean(origin) &&
+        (curr.resolvedTheme !== "dark" ||
+          curr.accent !== classic.accent ||
+          curr.visualConfig.surface !== nextConfig.surface ||
+          curr.visualConfig.backdrop !== nextConfig.backdrop ||
+          curr.visualConfig.fontPreset !== nextConfig.fontPreset ||
+          curr.visualConfig.radius !== nextConfig.radius ||
+          curr.visualConfig.density !== nextConfig.density);
+      try {
+        localStorage.setItem(STORAGE_KEY, "dark");
+        localStorage.setItem(ACCENT_STORAGE_KEY, classic.accent);
+        localStorage.setItem(VISUAL_STUDIO_STORAGE_KEY, JSON.stringify(nextConfig));
+      } catch {}
+      commitState("dark", "dark", classic.accent, nextConfig, {
+        viewTransition: shouldTransition,
+        suppressTransitions: true,
+        transitionOrigin: origin,
+      });
+    },
+    [commitState]
+  );
 
   const bumpWallpaperVersion = useCallback(() => {
     setWallpaperVersion((prev) => prev + 1);

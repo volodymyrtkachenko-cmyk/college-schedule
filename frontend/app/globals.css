@@ -1108,15 +1108,33 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 }
 
+/* ::view-transition приймає події покажчика на :root, щоб миттєво перервати активний перехід на pointerdown замість втрати кліку */
+::view-transition {
+  pointer-events: auto;
+}
+
+::view-transition-group(*),
+::view-transition-image-pair(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  pointer-events: none;
+}
+
+html[data-vt-theme-freeze="true"] *,
+html[data-vt-theme-freeze="true"] *::before,
+html[data-vt-theme-freeze="true"] *::after {
+  transition: none !important;
+}
+
 /* Іменовані шари View Transitions:
-   - на desktop (>= 1024px) анімується виключно main-content без конфліктів з модалками при зміні теми
+   - на desktop (>= 1024px) іменуємо шари виключно під час route-переходів, без побічних ефектів на тему
    - на mobile (< 1024px) під час навігації нижня панель фіксується на своєму місці */
 @media (min-width: 1024px) {
-  html:not([data-vt-kind="theme"]) .vt-main-content {
+  html[data-vt-kind="route"] .vt-main-content {
     view-transition-name: main-content;
   }
 
-  html:not([data-vt-kind="theme"]) .vt-desktop-header {
+  html[data-vt-kind="route"] .vt-desktop-header {
     view-transition-name: desktop-header;
   }
 }
@@ -1197,14 +1215,27 @@ html[data-vt-kind="theme"] :is(.vt-desktop-header, .vt-main-content, .vt-bottom-
   }
 
   /* При перемиканні теми: старий кадр м'яко приглушується, а новий накриває його вибраним геометричним переходом */
+  html[data-vt-kind="theme"]::view-transition-group(root),
+  :active-view-transition-type(theme-change)::view-transition-group(root) {
+    animation: none;
+  }
+
   html[data-vt-kind="theme"]::view-transition-old(root),
   :active-view-transition-type(theme-change)::view-transition-old(root) {
-    animation: 430ms cubic-bezier(0.22, 1, 0.36, 1) both vt-theme-old-dim;
+    animation: 460ms cubic-bezier(0.22, 1, 0.36, 1) both vt-theme-old-dim;
     mix-blend-mode: normal;
     z-index: 1;
   }
 
-  html[data-vt-kind="theme"]:not([data-vt-theme-style])::view-transition-new(root),
+  html[data-vt-kind="theme"][data-vt-theme-style="slant"]::view-transition-old(root) {
+    animation-duration: 430ms;
+  }
+
+  html[data-vt-kind="theme"][data-vt-theme-style="split"]::view-transition-old(root) {
+    animation-duration: 420ms;
+  }
+
+  html[data-vt-kind="theme"]:where(:not([data-vt-theme-style]))::view-transition-new(root),
   html[data-vt-kind="theme"][data-vt-theme-style="slant"]::view-transition-new(root) {
     animation: 430ms cubic-bezier(0.22, 1, 0.36, 1) both vt-slant-right;
     mix-blend-mode: normal;

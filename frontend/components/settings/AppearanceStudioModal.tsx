@@ -428,9 +428,8 @@ export function AppearanceStudioModal({
             {!isDefaultClassic && (
               <button
                 type="button"
-                onClick={() => {
-                  setTheme("dark");
-                  resetVisualStudio();
+                onClick={(e) => {
+                  resetVisualStudio(e);
                   setImportFeedback(null);
                   setPhotoFeedback(null);
                 }}

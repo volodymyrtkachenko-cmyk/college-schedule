@@ -170,6 +170,88 @@ test("startTypedViewTransition honors reduced motion without setting vtKind", ()
   assert.equal(documentMock.documentElement.dataset.vtKind, undefined);
 });
 
+test("startTypedViewTransition aborts superseded transitions cleanly and ignores stale onReady/onFinish", async () => {
+  const ready1 = createDeferred();
+  const finish1 = createDeferred();
+  const ready2 = createDeferred();
+  const finish2 = createDeferred();
+  const events = [];
+  let skipped1 = 0;
+
+  const documentMock = {
+    documentElement: { dataset: {} },
+    startViewTransition(arg) {
+      const idx = events.filter((e) => e.startsWith("start:")).length + 1;
+      events.push(`start:${idx}:${documentMock.documentElement.dataset.vtKind || ""}`);
+      arg.update();
+      return {
+        ready: idx === 1 ? ready1.promise : ready2.promise,
+        finished: idx === 1 ? finish1.promise : finish2.promise,
+        updateCallbackDone: Promise.resolve(),
+        skipTransition() {
+          if (idx === 1) skipped1++;
+        },
+      };
+    },
+  };
+
+  const vtMod = loadTsModule(path.resolve(__dirname, "../lib/viewTransition.ts"), {
+    window: { matchMedia: () => ({ matches: false }) },
+    document: documentMock,
+  });
+
+  documentMock.documentElement.dataset.vtThemeStyle = "diamond";
+  vtMod.startTypedViewTransition(["theme-change"], () => events.push("update:1"), {
+    kind: "theme",
+    onReady: () => events.push("ready:1"),
+    onFinish: () => {
+      delete documentMock.documentElement.dataset.vtThemeStyle;
+      events.push("finish:1");
+    },
+    onAbort: () => {
+      delete documentMock.documentElement.dataset.vtThemeStyle;
+      events.push("abort:1");
+    },
+  });
+
+  // Start second transition synchronously after updating theme style attribute
+  vtMod.abortActiveViewTransition();
+  documentMock.documentElement.dataset.vtThemeStyle = "curtain";
+  vtMod.startTypedViewTransition(["theme-change"], () => events.push("update:2"), {
+    kind: "theme",
+    onReady: () => events.push("ready:2"),
+    onFinish: () => {
+      delete documentMock.documentElement.dataset.vtThemeStyle;
+      events.push("finish:2");
+    },
+    onAbort: () => events.push("abort:2"),
+  });
+
+  assert.equal(skipped1, 1);
+  assert.equal(documentMock.documentElement.dataset.vtKind, "theme");
+  assert.equal(documentMock.documentElement.dataset.vtThemeStyle, "curtain");
+
+  // Stale promises from transition 1 settle late and MUST NOT fire onReady/onFinish or clear attrs
+  ready1.resolve();
+  finish1.reject(new Error("AbortError"));
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.equal(documentMock.documentElement.dataset.vtKind, "theme");
+  assert.equal(documentMock.documentElement.dataset.vtThemeStyle, "curtain");
+  assert.ok(!events.includes("ready:1"));
+  assert.ok(!events.includes("finish:1"));
+
+  ready2.resolve();
+  finish2.resolve();
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.equal(documentMock.documentElement.dataset.vtKind, undefined);
+  assert.equal(documentMock.documentElement.dataset.vtThemeStyle, undefined);
+  assert.ok(events.includes("abort:1"));
+  assert.ok(events.includes("ready:2"));
+  assert.ok(events.includes("finish:2"));
+});
+
 function createDialogTopLayerSandbox({ supportsOverlay, supportsAllowDiscrete, displayTransitions }) {
   const probeEl = {
     style: { cssText: "", display: "" },
@@ -382,4 +464,191 @@ test("closeTopLayer holds dialog.open with data-closing during exit animations, 
   assert.equal(dialog3.open, false);
   assert.equal(dialog3.dataset.closing, undefined);
   assert.equal(afterCount3, 1);
+});
+
+test("startTypedViewTransition failsafeMs atomically aborts stalled transition and cleans kind with onAbort", async () => {
+  const ready = createDeferred();
+  const neverFinished = new Promise(() => {});
+  let skipped = false;
+  let aborted = 0;
+
+  const documentMock = {
+    documentElement: { dataset: { vtThemeStyle: "diamond" } },
+    startViewTransition() {
+      return {
+        ready: ready.promise,
+        finished: neverFinished,
+        updateCallbackDone: Promise.resolve(),
+        skipTransition() {
+          skipped = true;
+        },
+      };
+    },
+  };
+
+  const vtMod = loadTsModule(path.resolve(__dirname, "../lib/viewTransition.ts"), {
+    window: { matchMedia: () => ({ matches: false }) },
+    document: documentMock,
+  });
+
+  vtMod.startTypedViewTransition(["theme-change"], () => {}, {
+    kind: "theme",
+    failsafeMs: 35,
+    onFinish: () => {
+      delete documentMock.documentElement.dataset.vtThemeStyle;
+    },
+    onAbort: () => {
+      aborted += 1;
+      delete documentMock.documentElement.dataset.vtThemeStyle;
+    },
+  });
+
+  ready.resolve();
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(documentMock.documentElement.dataset.vtKind, "theme");
+  assert.equal(documentMock.documentElement.dataset.vtThemeStyle, "diamond");
+
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(skipped, true);
+  assert.equal(aborted, 1);
+  assert.equal(documentMock.documentElement.dataset.vtKind, undefined);
+  assert.equal(documentMock.documentElement.dataset.vtThemeStyle, undefined);
+});
+
+test("startTypedViewTransition pointerdown aborts active transition and forwards root click once", async () => {
+  const ready = createDeferred();
+  const finish = createDeferred();
+  const listeners = new Map();
+  let skipped = 0;
+  let aborted = 0;
+  let buttonClicks = 0;
+  let linkClicks = 0;
+  let hoveredTarget = null;
+
+  const buttonEl = {
+    tagName: "BUTTON",
+    closest(selector) {
+      return selector.includes("button") ? this : null;
+    },
+    getAttribute() {
+      return null;
+    },
+    click() {
+      buttonClicks += 1;
+    },
+  };
+
+  const linkEl = {
+    tagName: "A",
+    closest(selector) {
+      return selector.includes("a[href]") ? this : null;
+    },
+    getAttribute() {
+      return null;
+    },
+    click() {
+      linkClicks += 1;
+    },
+  };
+
+  const documentMock = {
+    documentElement: { dataset: {} },
+    body: {
+      contains(node) {
+        return node === buttonEl || node === linkEl;
+      },
+    },
+    elementFromPoint() {
+      return hoveredTarget;
+    },
+    startViewTransition() {
+      return {
+        ready: ready.promise,
+        finished: finish.promise,
+        updateCallbackDone: Promise.resolve(),
+        skipTransition() {
+          skipped += 1;
+        },
+      };
+    },
+  };
+
+  const windowMock = {
+    matchMedia: () => ({ matches: false }),
+    addEventListener(type, fn) {
+      listeners.set(type, fn);
+    },
+    removeEventListener(type) {
+      listeners.delete(type);
+    },
+  };
+
+  const vtMod = loadTsModule(path.resolve(__dirname, "../lib/viewTransition.ts"), {
+    window: windowMock,
+    document: documentMock,
+  });
+
+  // Case 1: browser delivers click to documentElement (overlay intercepted mousedown) -> replayed cleanly once
+  documentMock.documentElement.dataset.vtThemeStyle = "split";
+  vtMod.startTypedViewTransition(["theme-change"], () => {}, {
+    kind: "theme",
+    onAbort: () => {
+      aborted += 1;
+      delete documentMock.documentElement.dataset.vtThemeStyle;
+    },
+  });
+
+  hoveredTarget = buttonEl;
+  listeners.get("pointerdown")({ isTrusted: true, pointerType: "mouse", button: 0, clientX: 290, clientY: 372 });
+  assert.equal(skipped, 1);
+  assert.equal(aborted, 1);
+  assert.equal(documentMock.documentElement.dataset.vtKind, undefined);
+  assert.equal(documentMock.documentElement.dataset.vtThemeStyle, undefined);
+
+  let defaultPrevented = false;
+  let stopped = false;
+  listeners.get("pointerup")({ isTrusted: true, pointerType: "mouse", clientX: 290, clientY: 372 });
+  listeners.get("click")({
+    isTrusted: true,
+    target: documentMock.documentElement,
+    clientX: 290,
+    clientY: 372,
+    preventDefault() {
+      defaultPrevented = true;
+    },
+    stopImmediatePropagation() {
+      stopped = true;
+    },
+  });
+  await Promise.resolve();
+  assert.equal(defaultPrevented, true);
+  assert.equal(stopped, true);
+  assert.equal(buttonClicks, 1);
+  const originCoords = vtMod.consumeInterruptedPointerOrigin();
+  assert.equal(originCoords?.x, 290);
+  assert.equal(originCoords?.y, 372);
+
+  // Case 2: pointerup without click (Blink suppressed click after overlay teardown) -> microtask clicks once
+  vtMod.startTypedViewTransition(["theme-change"], () => {}, { kind: "theme" });
+  hoveredTarget = linkEl;
+  listeners.get("pointerdown")({ isTrusted: true, pointerType: "mouse", button: 0, clientX: 120, clientY: 40 });
+  listeners.get("pointerup")({ isTrusted: true, pointerType: "mouse", clientX: 120, clientY: 40 });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(linkClicks, 1);
+
+  // Case 3: native click lands directly on button inside body -> no duplicate replay
+  vtMod.startTypedViewTransition(["theme-change"], () => {}, { kind: "theme" });
+  hoveredTarget = buttonEl;
+  listeners.get("pointerdown")({ isTrusted: true, pointerType: "mouse", button: 0, clientX: 290, clientY: 372 });
+  listeners.get("pointerup")({ isTrusted: true, pointerType: "mouse", clientX: 290, clientY: 372 });
+  listeners.get("click")({
+    isTrusted: true,
+    target: buttonEl,
+    clientX: 290,
+    clientY: 372,
+    preventDefault() {},
+    stopImmediatePropagation() {},
+  });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(buttonClicks, 1);
 });
