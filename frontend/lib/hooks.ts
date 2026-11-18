@@ -8,7 +8,12 @@ import {
   invalidateGroupStatusCache,
 } from "./api";
 import { useAuth } from "./auth";
-import { addDaysToCalendarIso, getCalendarWeekdayMon0 } from "./calendarDate";
+import {
+  addDaysToCalendarIso,
+  calendarDateIsoToUtcDate,
+  diffCalendarWeeks,
+  getCalendarWeekdayMon0,
+} from "./calendarDate";
 import { formatKyivDateIso } from "./date";
 import { checkScheduleHasSubgroups, extractSubgroupTeacherHints } from "./format";
 import {
@@ -287,6 +292,8 @@ function findFallbackScheduleFromStorage(params: {
     const prefix = `schedule:week:${targetKey}:`;
     let bestDate = "";
     let bestRaw: string | null = null;
+    let bestSameParity = false;
+    let bestWeekDist = Number.POSITIVE_INFINITY;
     for (let i = 0; i < window.localStorage.length; i++) {
       const k = window.localStorage.key(i);
       if (!k || !k.startsWith(prefix)) continue;
@@ -294,9 +301,21 @@ function findFallbackScheduleFromStorage(params: {
       if (Boolean(includeCancelled) !== isAllKey) continue;
       const m = k.match(/:(\d{4}-\d{2}-\d{2})(?::|$)/);
       const dStr = m?.[1] ?? "";
-      if (dStr >= bestDate) {
+      if (!dStr) continue;
+      const weekDist = Math.abs(diffCalendarWeeks(dStr, dateKey));
+      const sameParity = weekDist % 2 === 0;
+      const isBetter =
+        !bestRaw ||
+        (sameParity !== bestSameParity
+          ? sameParity
+          : weekDist !== bestWeekDist
+            ? weekDist < bestWeekDist
+            : dStr > bestDate);
+      if (isBetter) {
         bestDate = dStr;
         bestRaw = window.localStorage.getItem(k);
+        bestSameParity = sameParity;
+        bestWeekDist = weekDist;
       }
     }
 
@@ -878,6 +897,74 @@ export function useSchedule(
 
     let isSubscribed = true;
     let activeAbortController: AbortController | null = null;
+    let prefetchTimer: ReturnType<typeof setTimeout> | null = null;
+    const prefetchControllers: AbortController[] = [];
+
+    const scheduleAdjacentPrefetch = () => {
+      if (includeCancelled) return;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      if (prefetchTimer !== null) clearTimeout(prefetchTimer);
+      prefetchTimer = setTimeout(() => {
+        prefetchTimer = null;
+        if (!isSubscribed) return;
+        const todayIsoNow = formatKyivDateIso(new Date());
+        const isWeekdayNow = getCalendarWeekdayMon0(todayIsoNow) < 5;
+        for (const offsetDays of [-7, 7]) {
+          const adjDateKey = addDaysToCalendarIso(dateKey, offsetDays);
+          const adjKeys = buildScheduleStorageKeys({
+            mode,
+            groupId,
+            teacherId,
+            dateKey: adjDateKey,
+            includeCancelled,
+          });
+          const cachedMem = memoryCache.get(adjKeys.memKey);
+          if (cachedMem && Date.now() - cachedMem.time < CACHE_TTL) {
+            continue;
+          }
+          const controller =
+            typeof AbortController !== "undefined" ? new AbortController() : null;
+          if (controller) prefetchControllers.push(controller);
+          api
+            .week(
+              targetGroupId,
+              targetTeacherId,
+              calendarDateIsoToUtcDate(adjDateKey),
+              includeCancelled,
+              controller?.signal
+            )
+            .then((adjWeekResponse) => {
+              if (!isSubscribed || controller?.signal.aborted) return;
+              if (!Array.isArray(adjWeekResponse) || adjWeekResponse.length === 0) return;
+              const adjJson = JSON.stringify(adjWeekResponse);
+              const adjMatchingDay = isWeekdayNow
+                ? adjWeekResponse.find((d) => d.date === todayIsoNow)
+                : undefined;
+              const adjTodayResponse: ScheduleResponse = adjMatchingDay ??
+                adjWeekResponse[0] ?? {
+                  date: adjDateKey,
+                  week_type: "both",
+                  lessons: [],
+                };
+              try {
+                window.localStorage.setItem(adjKeys.weekKey, adjJson);
+                pruneOldScheduleCache(adjKeys.targetKey, 6);
+              } catch {}
+              const liveSig = getScheduleAuthSignature(mode, groupId, teacherId);
+              const liveTier = liveSig.startsWith("auth:") ? ":auth" : ":guest";
+              const liveTodayKey = `schedule:today:${adjKeys.targetKey}${adjKeys.cancelSuffix}${liveTier}`;
+              const liveWeekKey = `schedule:week:${adjKeys.targetKey}:${adjDateKey}${adjKeys.cancelSuffix}${liveTier}`;
+              memoryCache.set(`${liveTodayKey}|${liveWeekKey}|${liveSig}`, {
+                time: Date.now(),
+                today: adjTodayResponse,
+                week: adjWeekResponse,
+                rawJson: adjJson,
+              });
+            })
+            .catch(() => {});
+        }
+      }, 180);
+    };
 
     const fetchSchedule = (forceNetwork = false, silentRevalidate = false) => {
       const matchesInitialSsrSeed =
@@ -914,6 +1001,7 @@ export function useSchedule(
         setLoading(false);
         if (snapshot.kind === "memory" && !forceNetwork && snapshot.isFresh) {
           setIsSlowNetwork(false);
+          scheduleAdjacentPrefetch();
           return;
         }
       } else if (!silentRevalidate) {
@@ -986,6 +1074,7 @@ export function useSchedule(
           setIsUsingFallbackCache(false);
           setIsSlowNetwork(false);
           setError(null);
+          scheduleAdjacentPrefetch();
         })
         .catch(() => {
           if (!isSubscribed || requestController?.signal.aborted) return;
@@ -1018,6 +1107,8 @@ export function useSchedule(
     return () => {
       isSubscribed = false;
       activeAbortController?.abort();
+      if (prefetchTimer !== null) clearTimeout(prefetchTimer);
+      for (const c of prefetchControllers) c.abort();
       window.removeEventListener("schedule:refresh", handleScheduleRefresh);
       window.removeEventListener("teacher-access-changed", handleClassroomAccessChange);
       window.removeEventListener("classroom-access-changed", handleClassroomAccessChange);

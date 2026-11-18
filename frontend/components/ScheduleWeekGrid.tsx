@@ -122,6 +122,30 @@ export function ScheduleWeekGrid({
   const canMoveTo = (lesson: Lesson, date: string, lessonNumber: number) =>
     canMoveLesson(lesson, date, lessonNumber, week, availabilityWeek);
 
+  const weekFirstDate = week[0]?.date ?? "";
+  const [weekMotionTrack, setWeekMotionTrack] = useState<{
+    firstDate: string;
+    weekRef: ScheduleResponse[];
+    revalidated: boolean;
+  }>(() => ({
+    firstDate: weekFirstDate,
+    weekRef: week,
+    revalidated: false,
+  }));
+  if (weekFirstDate !== weekMotionTrack.firstDate) {
+    setWeekMotionTrack({
+      firstDate: weekFirstDate,
+      weekRef: week,
+      revalidated: false,
+    });
+  } else if (week !== weekMotionTrack.weekRef && !weekMotionTrack.revalidated) {
+    setWeekMotionTrack({
+      firstDate: weekFirstDate,
+      weekRef: week,
+      revalidated: true,
+    });
+  }
+
   if (canEdit) {
     return (
       <div className="w-full pb-4">
@@ -266,7 +290,7 @@ export function ScheduleWeekGrid({
     }
   };
 
-  const shouldCascadeCells = desktopMotion && animateOnMount;
+  const shouldCascadeCells = desktopMotion && animateOnMount && !weekMotionTrack.revalidated;
   const getCellMotionStyle = (col: number, row: number, isHeader = false): React.CSSProperties => {
     if (!shouldCascadeCells) return {};
     const colStep = weekSlideDir < 0 ? 4 - col : col;

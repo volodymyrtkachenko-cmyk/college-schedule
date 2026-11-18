@@ -188,11 +188,13 @@ export const ScheduleDay = memo(function ScheduleDay({
     activeSchedule: ScheduleResponse;
     exitingSchedule: ScheduleResponse | null;
     dir: -1 | 1;
+    revalidated: boolean;
   }>(() => ({
     key: currentMotionKey,
     activeSchedule: schedule,
     exitingSchedule: null,
     dir: daySlideDir < 0 ? -1 : 1,
+    revalidated: false,
   }));
 
   if (mode !== "day") {
@@ -206,6 +208,7 @@ export const ScheduleDay = memo(function ScheduleDay({
         activeSchedule: schedule,
         exitingSchedule: null,
         dir: daySlideDir < 0 ? -1 : 1,
+        revalidated: false,
       });
     }
   } else if (currentMotionKey !== dayTransition.key) {
@@ -226,10 +229,13 @@ export const ScheduleDay = memo(function ScheduleDay({
       activeSchedule: schedule,
       exitingSchedule: shouldAnimateHandoff ? dayTransition.activeSchedule : null,
       dir: resolvedDir,
+      revalidated: false,
     });
   } else if (dayTransition.activeSchedule !== schedule) {
     setDayTransition((prev) =>
-      prev.activeSchedule === schedule ? prev : { ...prev, activeSchedule: schedule }
+      prev.activeSchedule === schedule
+        ? prev
+        : { ...prev, activeSchedule: schedule, revalidated: true }
     );
   }
 
@@ -656,9 +662,11 @@ export const ScheduleDay = memo(function ScheduleDay({
                       } as React.CSSProperties)
                     : undefined;
 
+              const rowKeyPrefix = phase === "exit" ? "exit" : "active";
+
               return (
                 <div
-                  key={`${phase}-${targetSchedule.date}-${lessonKey}`}
+                  key={`${rowKeyPrefix}-${targetSchedule.date}-${lessonKey}`}
                   className={`flex flex-col gap-2.5 relative has-[[data-open]]:z-50${motionClass}`}
                   style={rowStyle}
                 >
@@ -724,7 +732,7 @@ export const ScheduleDay = memo(function ScheduleDay({
     );
   }
 
-  const activePhase = isDesktopDayEnter ? "enter" : "static";
+  const activePhase = isDesktopDayEnter && !dayTransition.revalidated ? "enter" : "static";
   const hasExitingLayer = Boolean(dayTransition.exitingSchedule);
 
   return (
