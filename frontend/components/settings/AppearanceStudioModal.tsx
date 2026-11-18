@@ -613,7 +613,7 @@ export function AppearanceStudioModal({
                 >
                   <div
                     aria-hidden="true"
-                    className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-2xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                    className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-2xs transform-gpu transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)]"
                   />
                   {THEME_MODES.map((m) => (
                     <button
@@ -655,31 +655,29 @@ export function AppearanceStudioModal({
 
           {/* Controls Column (Scrollable Tabs Content) */}
           <div className="order-2 md:order-1 flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
-            {/* Wrapping Tab Bar with GPU 2D sliding pill */}
+            {/* Wrapping Tab Bar with 2px sliding hairline underline */}
             <div
               ref={tabListRef}
               role="tablist"
               aria-label="Розділи налаштування стилю"
-              className="relative shrink-0 flex flex-wrap items-center gap-1.5 border-b border-sys-border bg-sys-card px-3 sm:px-4 py-2.5 isolate"
+              className="relative shrink-0 flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-sys-border bg-sys-card px-3 sm:px-4 pt-2 pb-1.5 isolate"
             >
               {tabPill.width > 0 && (
                 <div
                   aria-hidden="true"
-                  className={`pointer-events-none absolute top-0 left-0 z-0 rounded-xl border border-sys-accent bg-sys-accent/15 shadow-xs transform-gpu ${
+                  className={`pointer-events-none absolute top-0 left-0 z-10 h-[2px] rounded-full bg-sys-accent transform-gpu ${
                     tabPill.ready
-                      ? "transition-[transform,width,height] duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                      ? "transition-[transform,width] duration-page [transition-timing-function:var(--ease-desktop-panel)]"
                       : ""
                   }`}
                   style={{
-                    width: `${tabPill.width}px`,
-                    height: `${tabPill.height}px`,
-                    transform: `translate3d(${tabPill.left}px, ${tabPill.top}px, 0)`,
+                    width: `${Math.max(12, tabPill.width - 16)}px`,
+                    transform: `translate3d(${tabPill.left + 8}px, ${tabPill.top + tabPill.height - 2}px, 0)`,
                   }}
                 />
               )}
               {STUDIO_TABS.map((tab) => {
                 const active = activeTab === tab.id;
-                const showStaticActive = active && tabPill.width === 0;
                 return (
                   <button
                     key={tab.id}
@@ -690,12 +688,10 @@ export function AppearanceStudioModal({
                     aria-selected={active}
                     type="button"
                     onClick={() => handleSelectTab(tab.id)}
-                    className={`relative z-10 shrink-0 whitespace-nowrap min-h-[36px] rounded-xl border px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors duration-fast cursor-pointer active:scale-[0.97] ${
-                      showStaticActive
-                        ? "border-sys-accent bg-sys-accent/15 text-sys-accent shadow-xs"
-                        : active
-                        ? "border-transparent text-sys-accent"
-                        : "border-sys-border bg-sys-bg/75 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border"
+                    className={`relative z-10 shrink-0 whitespace-nowrap min-h-[34px] rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors duration-fast cursor-pointer active:scale-[0.97] ${
+                      active
+                        ? "text-sys-text-primary font-bold"
+                        : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/70"
                     }`}
                   >
                     {tab.label}
@@ -825,7 +821,7 @@ export function AppearanceStudioModal({
                     >
                       <div
                         aria-hidden="true"
-                        className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
+                        className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)]"
                       />
                       {THEME_MODES.map((m) => {
                         const active = theme === m.id;

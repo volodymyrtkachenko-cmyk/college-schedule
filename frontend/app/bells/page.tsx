@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
+import { BellsFaqList } from "@/components/bells/BellsFaqList";
 import { BellsLiveView } from "@/components/bells/BellsLiveView";
 import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
 import { SubpageHeader } from "@/components/navigation/SubpageHeader";
 import {
   BarChartIcon,
   CalendarIcon,
-  ChevronDownIcon,
   ClockIcon,
 } from "@/components/ui/Icons";
 import type { PublicBellsResponse } from "@/lib/api";
@@ -186,22 +186,7 @@ export default async function BellsPage() {
             >
               Часті запитання
             </h2>
-            <div className="space-y-3">
-              {FAQS.map((faq, idx) => (
-                <details
-                  key={idx}
-                  className="scroll-reveal-card group rounded-xl border border-sys-border bg-sys-card p-4 transition-colors hover:border-sys-accent/40 open:border-sys-accent/60"
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-medium text-sys-text-primary [&::-webkit-details-marker]:hidden">
-                    <span>{faq.q}</span>
-                    <ChevronDownIcon className="h-4 w-4 shrink-0 text-sys-text-secondary transition-transform group-open:rotate-180" />
-                  </summary>
-                  <p className="mt-3 text-sm leading-relaxed text-sys-text-secondary">
-                    {faq.a}
-                  </p>
-                </details>
-              ))}
-            </div>
+            <BellsFaqList faqs={FAQS} />
           </section>
 
           {/* Швидкі посилання */}

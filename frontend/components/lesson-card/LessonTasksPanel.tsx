@@ -372,6 +372,16 @@ export function DayTasksSection({
   onToggleHw: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
   const optionalToast = useOptionalToast();
+  const tasksPanelId = React.useId();
+  const innerRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    if (!isHwOpen) el.setAttribute("inert", "");
+    else el.removeAttribute("inert");
+  }, [isHwOpen]);
+
   if (tasks.length === 0) return null;
 
   const isMobile = variant === "mobile";
@@ -472,16 +482,14 @@ export function DayTasksSection({
       }`}
       style={{ boxShadow: getDeadlineAccentShadow(highlightTask, isLinked) }}
     >
-      <div
+      <button
+        type="button"
+        aria-expanded={isHwOpen}
+        aria-controls={tasksPanelId}
         onClick={onToggleHw}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") onToggleHw(e);
-        }}
         className={`flex ${
           isMobile ? "min-h-[44px]" : ""
-        } w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-sys-card transition-colors`}
+        } w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 text-left hover:bg-sys-card active:scale-[0.995] transition-colors duration-fast`}
       >
         <div className="flex items-center gap-2 shrink-0">
           {isMobile && highlightTask?.deadline.badgeTone === "overdue" && isLinked ? (
@@ -505,6 +513,7 @@ export function DayTasksSection({
             </span>
           ) : null}
           <svg
+            aria-hidden="true"
             width="16"
             height="16"
             viewBox="0 0 24 24"
@@ -513,32 +522,21 @@ export function DayTasksSection({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`text-sys-text-muted transition-transform duration-200 shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
+            className={`text-sys-text-muted transition-transform duration-base [transition-timing-function:var(--ease-desktop-panel)] shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
           >
             <path d="m6 9 6 6 6-6" />
           </svg>
         </div>
-      </div>
+      </button>
 
       <div
-        style={{
-          display: "grid",
-          gridTemplateRows: isHwOpen ? "1fr" : "0fr",
-          transition: isMobile
-            ? "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease"
-            : "grid-template-rows 0.30s var(--ease-spring), opacity 0.22s ease",
-          opacity: isHwOpen ? 1 : 0,
-        }}
-        className="w-full overflow-hidden"
+        id={tasksPanelId}
+        data-open={isHwOpen ? "true" : "false"}
+        data-variant={variant}
+        className="tasks-accordion w-full overflow-hidden"
       >
-        <div
-          className="min-h-0 overflow-hidden"
-          style={{
-            transform: isMobile ? undefined : isHwOpen ? "translate3d(0, 0, 0)" : "translate3d(0, -6px, 0)",
-            transition: isMobile ? undefined : "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        >
-          <div className="flex flex-col gap-2 p-3 border-t border-sys-border/60 bg-sys-bg/40">
+        <div ref={innerRef} aria-hidden={!isHwOpen} className="tasks-accordion-inner min-h-0 overflow-hidden">
+          <div className="tasks-accordion-content flex flex-col gap-2 p-3 border-t border-sys-border/60 bg-sys-bg/40">
             <ActiveTasksList groups={groupedTasks} isLinked={isLinked} isMobile={isMobile} />
             <CompletedTasksList
               completedCount={completedTasksCount}

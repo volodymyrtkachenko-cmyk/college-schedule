@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import type { AtlasResponse } from "@/lib/api/types";
 import { readCacheSnapshot, writeCacheSnapshot } from "@/lib/cacheSnapshot";
 import { useTheme } from "@/lib/useTheme";
+import { useAnimatedDisclosure } from "@/lib/useAnimatedDisclosure";
 import { toTeacherSlug } from "@/lib/slug";
 import { TransitionLink } from "@/components/navigation/NavigationTransitionProvider";
 import { SubpageHeader } from "@/components/navigation/SubpageHeader";
@@ -1107,7 +1108,7 @@ function AtlasDirectoryBrowserCard({
       >
         <div
           aria-hidden="true"
-          className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+          className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-xs transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)] transform-gpu z-0"
         />
         <button
           type="button"
@@ -1520,10 +1521,20 @@ function AtlasInspectorPanel({
             {compareOpen && (
               <m.div
                 key="passport-compare-picker"
-                initial={shouldReduceMotion ? false : { opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={shouldReduceMotion ? undefined : { opacity: 0, y: -4 }}
-                transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                initial={shouldReduceMotion ? false : { opacity: 0, height: 0, y: -4 }}
+                animate={{ opacity: 1, height: "auto", y: 0 }}
+                exit={
+                  shouldReduceMotion
+                    ? undefined
+                    : {
+                        opacity: 0,
+                        height: 0,
+                        y: -4,
+                        transition: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
+                      }
+                }
+                transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
               >
                 <CompareNodePicker
                   graph={graph}
@@ -1596,17 +1607,12 @@ function AtlasInspectorPanel({
   };
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <m.div
-        key={panelKey}
-        initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={shouldReduceMotion ? undefined : { opacity: 0, y: -6 }}
-        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-      >
-        {renderBody()}
-      </m.div>
-    </AnimatePresence>
+    <div
+      key={panelKey}
+      className={shouldReduceMotion ? undefined : "desktop-view-enter"}
+    >
+      {renderBody()}
+    </div>
   );
 }
 
@@ -1629,6 +1635,8 @@ export function AtlasClient() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeSearchIdx, setActiveSearchIdx] = useState(0);
+  const { shouldRender: shouldRenderSearchList, isClosing: isSearchListClosing } =
+    useAnimatedDisclosure(searchOpen, 170);
 
   const initialFocusedRef = useRef(false);
   const searchBoxRef = useRef<HTMLDivElement | null>(null);
@@ -2015,12 +2023,14 @@ export function AtlasClient() {
                   )}
                 </div>
 
-                {searchOpen && (
+                {shouldRenderSearchList && (
                   <div
                     id={searchListboxId}
                     role="listbox"
                     aria-label="Результати пошуку"
-                    className="absolute left-0 right-0 top-full mt-1.5 z-30 max-h-80 overflow-y-auto rounded-2xl border border-sys-elevated-border bg-sys-card/95 backdrop-blur-xl p-1.5 shadow-xl"
+                    data-closing={isSearchListClosing ? "true" : undefined}
+                    style={{ "--popup-y": "-4px", "--popup-origin": "top center" } as React.CSSProperties}
+                    className="discrete-popup absolute left-0 right-0 top-full mt-1.5 z-30 max-h-80 overflow-y-auto rounded-2xl border border-sys-elevated-border bg-sys-card/95 backdrop-blur-xl p-1.5 shadow-xl"
                   >
                     {searchResults.length === 0 ? (
                       <p className="px-3 py-4 text-center text-xs text-sys-text-muted">
@@ -2153,7 +2163,7 @@ export function AtlasClient() {
               >
                 <div
                   aria-hidden="true"
-                  className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+                  className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-xs transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)] transform-gpu z-0"
                 />
                 <button
                   type="button"

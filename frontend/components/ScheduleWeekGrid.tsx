@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { AnimatePresence, m, type Variants } from "framer-motion";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { canMoveLesson } from "../lib/scheduleMove";
 import { ScheduleDay } from "./ScheduleDay";
@@ -32,34 +31,6 @@ function shortDateUk(dateStr: string): string {
     return "";
   }
 }
-
-const DESKTOP_WEEK_STAGE_VARIANTS: Variants = {
-  enter: (dir: number) => ({
-    x: dir !== 0 ? (dir > 0 ? 36 : -36) : 0,
-    y: dir === 0 ? 10 : 0,
-  }),
-  center: {
-    x: 0,
-    y: 0,
-    transition: {
-      x: { type: "spring", stiffness: 360, damping: 28, mass: 0.84 },
-      y: { type: "spring", stiffness: 360, damping: 28, mass: 0.84 },
-    },
-  },
-  exit: (dir: number) => ({
-    opacity: 0,
-    x: dir !== 0 ? (dir > 0 ? -84 : 84) : 0,
-    y: dir === 0 ? -10 : 0,
-    scale: 0.96,
-    pointerEvents: "none",
-    transition: {
-      x: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-      y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-      scale: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-      opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
-    },
-  }),
-};
 
 export function ScheduleWeekGrid({
   week,
@@ -514,40 +485,27 @@ export function ScheduleWeekGrid({
     <div className="relative w-full pb-4 overflow-x-clip -mx-3 px-3">
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
       {renderDesktop && (
-        desktopMotion ? (
-          <AnimatePresence mode="popLayout" initial={animateOnMount} custom={weekSlideDir}>
-            <m.div
-              ref={weekGridRef}
-              key={`desktop-week-${week[0]?.date ?? "week"}`}
-              custom={weekSlideDir}
-              variants={DESKTOP_WEEK_STAGE_VARIANTS}
-              initial={animateOnMount ? "enter" : false}
-              animate="center"
-              exit="exit"
-              onBlurCapture={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                  setFocusDayCol(null);
-                }
-              }}
-              className="desktop-week-grid hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4"
-            >
-              {desktopGridBody}
-            </m.div>
-          </AnimatePresence>
-        ) : (
-          <div
-            ref={weekGridRef}
-            key={`desktop-week-${week[0]?.date ?? "week"}`}
-            onBlurCapture={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                setFocusDayCol(null);
-              }
-            }}
-            className="desktop-week-grid hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4"
-          >
-            {desktopGridBody}
-          </div>
-        )
+        <div
+          ref={weekGridRef}
+          key={`desktop-week-${week[0]?.date ?? "week"}`}
+          data-slide-dir={
+            animateOnMount && weekSlideDir !== 0 && desktopMotion
+              ? weekSlideDir > 0
+                ? "next"
+                : "prev"
+              : undefined
+          }
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+              setFocusDayCol(null);
+            }
+          }}
+          className={`desktop-week-grid hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4${
+            animateOnMount && desktopMotion ? " week-grid-enter" : ""
+          }`}
+        >
+          {desktopGridBody}
+        </div>
       )}
 
       {/* Tablet (640px – 1023px): horizontal scroll with snap-start */}

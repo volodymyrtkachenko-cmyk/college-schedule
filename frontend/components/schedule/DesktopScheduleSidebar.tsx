@@ -2,10 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { m } from "framer-motion";
 import type { ScheduleResponse } from "../../lib/api";
 import type { SubjectHubTarget, WeekDayMini } from "../../lib/schedule";
-import { useDesktopMotionEnabled } from "../../lib/useViewportTier";
 import { formatTaskWord, type TaskGroupsResult } from "../../lib/useTaskGroups";
 import { ClassroomSyncButton } from "../ClassroomSyncButton";
 import type { FullTaskItem } from "../TaskCardItem";
@@ -80,8 +78,6 @@ export function DesktopScheduleSidebar({
   onClassroomSynced,
   onOpenSubjectHub,
 }: DesktopScheduleSidebarProps) {
-  const desktopMotion = useDesktopMotionEnabled();
-
   const [tasksMounted, setTasksMounted] = useState(() => desktopSidebarTab === "tasks");
   const [gradesMounted, setGradesMounted] = useState(() => desktopSidebarTab === "grades");
   if (desktopSidebarTab === "tasks" && !tasksMounted) setTasksMounted(true);
@@ -224,7 +220,7 @@ export function DesktopScheduleSidebar({
                 </h2>
               </div>
 
-              {/* Desktop Segmented Toggle: Завдання vs Оцінки (layoutId on desktop, GPU slider fallback) */}
+              {/* Desktop Segmented Toggle: Завдання vs Оцінки */}
               <div
                 role="group"
                 aria-label="Розділ Classroom"
@@ -236,36 +232,26 @@ export function DesktopScheduleSidebar({
                 }
                 className="ui-seg-lg relative grid min-h-[30px] grid-cols-2 items-stretch rounded-lg border border-sys-border bg-sys-bg text-xs shadow-xs isolate select-none shrink-0"
               >
-                {!desktopMotion && (
-                  <div
-                    aria-hidden="true"
-                    className={`ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transform-gpu ${
-                      shouldReduceMotion
-                        ? ""
-                        : "transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
-                    }`}
-                  />
-                )}
+                <div
+                  aria-hidden="true"
+                  className={`ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transform-gpu ${
+                    shouldReduceMotion
+                      ? ""
+                      : "transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)]"
+                  }`}
+                />
                 <button
                   type="button"
                   aria-pressed={desktopSidebarTab === "tasks"}
                   onPointerEnter={preloadTasksBoardChunk}
                   onFocus={preloadTasksBoardChunk}
                   onClick={() => onChangeSidebarTab("tasks")}
-                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 font-semibold transition-colors duration-150 cursor-pointer text-center ${
+                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 font-semibold transition-colors duration-150 cursor-pointer text-center active:scale-[0.98] ${
                     desktopSidebarTab === "tasks"
                       ? "text-white font-bold"
                       : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  {desktopMotion && desktopSidebarTab === "tasks" && (
-                    <m.div
-                      layoutId="desktop-sidebar-tab-pill"
-                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                      aria-hidden="true"
-                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
-                    />
-                  )}
                   <span className="relative z-10 whitespace-nowrap">Завдання</span>
                 </button>
                 <button
@@ -274,20 +260,12 @@ export function DesktopScheduleSidebar({
                   onPointerEnter={preloadGradesChunk}
                   onFocus={preloadGradesChunk}
                   onClick={() => onChangeSidebarTab("grades")}
-                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 font-semibold transition-colors duration-150 cursor-pointer text-center ${
+                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 font-semibold transition-colors duration-150 cursor-pointer text-center active:scale-[0.98] ${
                     desktopSidebarTab === "grades"
                       ? "text-white font-bold"
                       : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  {desktopMotion && desktopSidebarTab === "grades" && (
-                    <m.div
-                      layoutId="desktop-sidebar-tab-pill"
-                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                      aria-hidden="true"
-                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
-                    />
-                  )}
                   <span className="relative z-10 whitespace-nowrap">Оцінки</span>
                 </button>
               </div>

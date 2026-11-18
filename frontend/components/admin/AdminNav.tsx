@@ -687,7 +687,7 @@ export function AdminNav({ active }: { active: string }) {
               initial={shouldReduceMotion ? { opacity: 0 } : { x: "-100%" }}
               animate={shouldReduceMotion ? { opacity: 1 } : { x: 0 }}
               exit={shouldReduceMotion ? { opacity: 0 } : { x: "-100%" }}
-              transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
               className="fixed top-0 left-0 bottom-0 z-[80] w-[min(320px,86vw)] bg-sys-card border-r border-sys-border flex flex-col shadow-2xl lg:hidden"
             >
               {renderNavContent()}
@@ -719,7 +719,7 @@ export function AdminNav({ active }: { active: string }) {
       {/* 4. Desktop Sidebar (≥ 1024px): 240px when expanded, 0px when collapsed */}
       <aside
         aria-label="Навігація адмінпанелі"
-        className={`hidden lg:flex shrink-0 h-screen sticky top-0 border-r border-sys-border bg-sys-card flex-col z-30 transition-[width] duration-200 ease-in-out ${
+        className={`hidden lg:flex shrink-0 h-screen sticky top-0 border-r border-sys-border bg-sys-card flex-col z-30 transition-[width] duration-sidebar [transition-timing-function:var(--ease-desktop-panel)] ${
           isDesktopCollapsed ? "w-0 overflow-hidden border-none" : "w-[240px]"
         }`}
       >

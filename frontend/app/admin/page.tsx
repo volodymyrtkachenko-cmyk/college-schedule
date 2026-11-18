@@ -482,15 +482,10 @@ function AdminContent() {
           }}
         />
 
-        <AnimatePresence mode="wait">
-          <m.div
-            key={currentTab}
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: [0.2, 0, 0, 1] }}
-            className="w-full space-y-5"
-          >
+        <div
+          key={currentTab}
+          className={`w-full space-y-5${shouldReduceMotion ? "" : " desktop-view-enter"}`}
+        >
         {currentTab === "schedule" ? (
           <AdminScheduleEditor />
         ) : currentTab === "permanent-schedule" ? (
@@ -699,8 +694,7 @@ function AdminContent() {
         />
           </>
         )}
-          </m.div>
-        </AnimatePresence>
+        </div>
         </div>
       </div>
     </main>

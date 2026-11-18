@@ -2,9 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { AnimatePresence, m } from "framer-motion";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
-import { useDesktopMotionEnabled } from "../lib/useViewportTier";
 import type { ScheduleResponse } from "../lib/api";
 import { formatKyivDateIso, KYIV_TIME_FMT } from "../lib/date";
 import { buildCurrentScheduleHref, resolveScheduleSubtabFromSearch } from "../lib/navigation";
@@ -67,7 +65,6 @@ export function TasksTodoBoard({
   groupId?: number | null;
   layoutPrefix?: string;
 }) {
-  const desktopMotion = useDesktopMotionEnabled();
   const optionalToast = useOptionalToast();
   const [activeTab, setActiveTab] = useState<TasksTabMode>("pending");
   const [prevTab, setPrevTab] = useState<TasksTabMode>("pending");
@@ -236,7 +233,7 @@ export function TasksTodoBoard({
         </div>
       )}
 
-      {/* 3 Status Segmented Pills — Framer layoutId on desktop or pure GPU translate3d slider */}
+      {/* 3 Status Segmented Pills — unified non-overshooting GPU translate3d slider */}
       <div
         role="tablist"
         aria-label="Категорії завдань"
@@ -250,14 +247,12 @@ export function TasksTodoBoard({
           isLinked ? "grid-cols-3" : "grid-cols-2"
         } rounded-xl border border-sys-border bg-sys-bg text-xs font-semibold shadow-2xs select-none isolate`}
       >
-        {!desktopMotion && (
-          <div
-            aria-hidden="true"
-            className="ui-seg-slider pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
-          >
-            <div className={`ui-seg-pill h-full w-full shadow-xs transition-colors duration-150 ${pillBgColor}`} />
-          </div>
-        )}
+        <div
+          aria-hidden="true"
+          className="ui-seg-slider pointer-events-none transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)] transform-gpu z-0"
+        >
+          <div className={`ui-seg-pill h-full w-full shadow-xs transition-colors duration-150 ${pillBgColor}`} />
+        </div>
 
         <button
           type="button"
@@ -270,14 +265,6 @@ export function TasksTodoBoard({
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          {desktopMotion && activeTab === "pending" && (
-            <m.div
-              layoutId={`${layoutPrefix}-status-pill`}
-              transition={{ type: "spring", stiffness: 460, damping: 32 }}
-              aria-hidden="true"
-              className={`ui-seg-pill pointer-events-none absolute inset-0 shadow-xs transition-colors duration-150 ${pillBgColor}`}
-            />
-          )}
           <span className="relative z-10 truncate">До здачі</span>
           <span
             className={`relative z-10 inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
@@ -303,14 +290,6 @@ export function TasksTodoBoard({
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          {desktopMotion && activeTab === "overdue" && (
-            <m.div
-              layoutId={`${layoutPrefix}-status-pill`}
-              transition={{ type: "spring", stiffness: 460, damping: 32 }}
-              aria-hidden="true"
-              className={`ui-seg-pill pointer-events-none absolute inset-0 shadow-xs transition-colors duration-150 ${pillBgColor}`}
-            />
-          )}
           <span className="relative z-10 truncate">{isLinked ? "Борги" : "Минув час"}</span>
           <span
             className={`relative z-10 inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
@@ -337,14 +316,6 @@ export function TasksTodoBoard({
                 : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
-            {desktopMotion && activeTab === "done" && (
-              <m.div
-                layoutId={`${layoutPrefix}-status-pill`}
-                transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                aria-hidden="true"
-                className={`ui-seg-pill pointer-events-none absolute inset-0 shadow-xs transition-colors duration-150 ${pillBgColor}`}
-              />
-            )}
             <span className="relative z-10 truncate">Здано</span>
             <span
               className={`relative z-10 inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
@@ -698,44 +669,12 @@ export function TasksTodoBoard({
             </>
           );
 
-        if (desktopMotion) {
-          const tabMotionDir = tabSlideDir === "prev" ? -1 : 1;
-          return (
-            <div className="relative overflow-x-clip">
-              <AnimatePresence mode="popLayout" initial={false} custom={tabMotionDir}>
-                <m.div
-                  key={activeTab}
-                  custom={tabMotionDir}
-                  initial={hasSwitchedTab ? { opacity: 0, x: tabMotionDir * 24 } : false}
-                  animate={{
-                    opacity: 1,
-                    x: 0,
-                    transition: {
-                      x: { type: "spring", stiffness: 380, damping: 28 },
-                      opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
-                    },
-                  }}
-                  exit={{
-                    opacity: 0,
-                    x: tabMotionDir * -20,
-                    pointerEvents: "none",
-                    transition: { duration: 0.14, ease: [0.32, 0, 0.24, 1] },
-                  }}
-                  className={activeTab === "pending" ? "space-y-4" : "space-y-2"}
-                >
-                  {activeTabContent}
-                </m.div>
-              </AnimatePresence>
-            </div>
-          );
-        }
-
         return (
           <div className="overflow-x-clip">
             <div
               key={activeTab}
               className={`guide-step-slide ${activeTab === "pending" ? "space-y-4" : "space-y-2"}`}
-              data-slide-dir={tabSlideDir ?? undefined}
+              data-slide-dir={hasSwitchedTab ? (tabSlideDir ?? undefined) : undefined}
             >
               {activeTabContent}
             </div>
@@ -948,7 +887,7 @@ export function MobileTasksView({
       >
         <div
           aria-hidden="true"
-          className="ui-seg-slider pointer-events-none transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0 bg-sys-accentSolid shadow-xs"
+          className="ui-seg-slider pointer-events-none transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)] transform-gpu z-0 bg-sys-accentSolid shadow-xs"
         />
 
         <button

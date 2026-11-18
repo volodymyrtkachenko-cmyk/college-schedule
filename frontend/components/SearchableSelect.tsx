@@ -1,7 +1,9 @@
 "use client";
 
 import { KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { convertEnToUkLayout, convertUkToEnLayout } from "../lib/quickJump";
+import { useAnimatedDisclosure } from "../lib/useAnimatedDisclosure";
 
 type Option = { id: number; name: string; disabled?: boolean };
 
@@ -29,6 +31,7 @@ export function SearchableSelect({
   const [activeIndex, setActiveIndex] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const listId = useId();
+  const { shouldRender, isClosing } = useAnimatedDisclosure(open, 170);
 
   const selected = options.find((option) => option.id === value);
   const filtered = useMemo(() => {
@@ -135,11 +138,13 @@ export function SearchableSelect({
         onKeyDown={handleKeyDown}
         className={`form-control w-full${leadingIcon ? " pl-9" : ""}`}
       />
-      {open && (
+      {shouldRender && (
         <div
           id={listId}
           role="listbox"
-          className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-sys-border bg-sys-card py-1 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+          data-closing={isClosing ? "true" : undefined}
+          style={{ "--popup-y": "-4px", "--popup-origin": "top center" } as CSSProperties}
+          className="discrete-popup absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-sys-border bg-sys-card py-1 shadow-2xl"
         >
           <div
             id={`${listId}-option-none`}

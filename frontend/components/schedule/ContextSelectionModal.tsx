@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, m } from "framer-motion";
 import type { ReferenceRecord } from "../../lib/api";
-import { useDesktopMotionEnabled } from "../../lib/useViewportTier";
 import { getGroupCourse } from "../../lib/groupInfo";
 import { filterAndRankEntities, getGroupSearchBadge } from "../../lib/quickJump";
 import { RecentSelectionsChips } from "../RecentSelectionsChips";
@@ -43,7 +41,6 @@ export function ContextSelectionModal({
   const [modalCourseFilter, setModalCourseFilter] = useState<number | null>(null);
   const [modalHighlightedIndex, setModalHighlightedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const desktopMotion = useDesktopMotionEnabled();
 
   useEffect(() => {
     if (isOpen) {
@@ -116,29 +113,19 @@ export function ContextSelectionModal({
                 style={{ "--seg-cols": 2, "--seg-index": modalTab === "teacher" ? 1 : 0 } as React.CSSProperties}
                 className="ui-seg-xl ui-seg-pad-4 relative grid grid-cols-2 items-stretch rounded-xl border border-sys-border bg-sys-bg flex-1 isolate select-none"
               >
-                {!desktopMotion && (
-                  <div
-                    aria-hidden="true"
-                    className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
-                  />
-                )}
+                <div
+                  aria-hidden="true"
+                  className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transform-gpu transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)]"
+                />
                 <button
                   type="button"
                   role="tab"
                   aria-selected={modalTab === "student"}
                   onClick={() => handleTabSwitch("student")}
-                  className={`ui-seg-pill relative z-10 flex min-h-9 items-center justify-center px-2 text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                  className={`ui-seg-pill relative z-10 flex min-h-9 items-center justify-center px-2 text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
                     modalTab === "student" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  {desktopMotion && modalTab === "student" && (
-                    <m.div
-                      layoutId="context-modal-tab-pill"
-                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                      aria-hidden="true"
-                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
-                    />
-                  )}
                   <span className="relative z-10 truncate">Групи ({groups.length})</span>
                 </button>
                 <button
@@ -146,18 +133,10 @@ export function ContextSelectionModal({
                   role="tab"
                   aria-selected={modalTab === "teacher"}
                   onClick={() => handleTabSwitch("teacher")}
-                  className={`ui-seg-pill relative z-10 flex min-h-9 items-center justify-center px-2 text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                  className={`ui-seg-pill relative z-10 flex min-h-9 items-center justify-center px-2 text-xs font-semibold transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
                     modalTab === "teacher" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  {desktopMotion && modalTab === "teacher" && (
-                    <m.div
-                      layoutId="context-modal-tab-pill"
-                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                      aria-hidden="true"
-                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
-                    />
-                  )}
                   <span className="relative z-10 truncate">Викладачі ({teachers.length})</span>
                 </button>
               </div>
@@ -325,36 +304,6 @@ export function ContextSelectionModal({
 
                   const listGridClass =
                     modalTab === "student" ? "grid grid-cols-2 sm:grid-cols-3 gap-2 content-start" : "space-y-1";
-
-                  if (desktopMotion) {
-                    const motionDir = tabSlideDir === "prev" ? -1 : 1;
-                    return (
-                      <AnimatePresence mode="popLayout" initial={false} custom={motionDir}>
-                        <m.div
-                          key={modalTab}
-                          custom={motionDir}
-                          initial={tabSlideDir ? { opacity: 0, x: motionDir * 28 } : false}
-                          animate={{
-                            opacity: 1,
-                            x: 0,
-                            transition: {
-                              x: { type: "spring", stiffness: 390, damping: 29 },
-                              opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
-                            },
-                          }}
-                          exit={{
-                            opacity: 0,
-                            x: motionDir * -24,
-                            pointerEvents: "none",
-                            transition: { duration: 0.14, ease: [0.32, 0, 0.24, 1] },
-                          }}
-                          className={listGridClass}
-                        >
-                          {listItems}
-                        </m.div>
-                      </AnimatePresence>
-                    );
-                  }
 
                   return (
                     <div

@@ -19,6 +19,7 @@ import {
 } from "../../lib/calendarDate";
 import { formatFullWeekRange } from "../../lib/format";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../../lib/quickJump";
+import { resolveNetDirection } from "../../lib/motion";
 import {
   buildWeekDaysMini,
   canNavigateNextDayDate,
@@ -169,6 +170,7 @@ export function useScheduleSelection({
   initialMode,
 }: UseScheduleSelectionParams) {
   const [daySlideDir, setDaySlideDir] = useState<number>(0);
+  const [dayMotionSeq, setDayMotionSeq] = useState<number>(0);
   const [weekSlideDir, setWeekSlideDir] = useState<number>(0);
   const [hasMotionInteracted, setHasMotionInteracted] = useState<boolean>(false);
   const [clockNow, setClockNow] = useState<Date>(() => resolveClockDate(ssrNowIso));
@@ -685,7 +687,8 @@ export function useScheduleSelection({
       const targetIso = addDaysToCalendarIso(formatKyivDateIso(weekAnchorDate), idx);
       if ((minDateIso && targetIso < minDateIso) || (maxDateIso && targetIso > maxDateIso)) return;
       setHasMotionInteracted(true);
-      setDaySlideDir(idx > selectedDayIndex ? 1 : -1);
+      setDaySlideDir(resolveNetDirection(selectedDayIndex, idx));
+      setDayMotionSeq((seq) => seq + 1);
       setSelectedDayIndex(idx);
       resetScroll();
     },
@@ -705,6 +708,7 @@ export function useScheduleSelection({
     if (!canNavigatePrevDay) return;
     setHasMotionInteracted(true);
     setDaySlideDir(-1);
+    setDayMotionSeq((seq) => seq + 1);
     if (selectedDayIndex > 0) {
       setSelectedDayIndex((prev) => prev - 1);
     } else {
@@ -721,6 +725,7 @@ export function useScheduleSelection({
     if (!canNavigateNextDay) return;
     setHasMotionInteracted(true);
     setDaySlideDir(1);
+    setDayMotionSeq((seq) => seq + 1);
     if (selectedDayIndex < 4) {
       setSelectedDayIndex((prev) => prev + 1);
     } else {
@@ -742,6 +747,7 @@ export function useScheduleSelection({
       setHasMotionInteracted(true);
       setWeekSlideDir(offset > 0 ? 1 : -1);
       setDaySlideDir(offset > 0 ? 1 : -1);
+      setDayMotionSeq((seq) => seq + 1);
       setWeekAnchorDate(calendarDateIsoToUtcDate(nextAnchorIso));
       setSelectedDayIndex(nextIdx);
       resetScroll();
@@ -755,6 +761,7 @@ export function useScheduleSelection({
     setHasMotionInteracted(true);
     setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
     setDaySlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
+    setDayMotionSeq((seq) => seq + 1);
     setWeekAnchorDate(currentAnchor);
     resetScroll();
   }, [weekAnchorDate, setWeekAnchorDate, resetScroll]);
@@ -767,7 +774,8 @@ export function useScheduleSelection({
     const diffDays = diffCalendarDays(formatKyivDateIso(currentAnchor), formatKyivDateIso(weekAnchorDate));
     setHasMotionInteracted(true);
     setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
-    setDaySlideDir(targetIso > activeDayDate ? 1 : targetIso < activeDayDate ? -1 : 0);
+    setDaySlideDir(resolveNetDirection(activeDayDate, targetIso));
+    setDayMotionSeq((seq) => seq + 1);
     setWeekAnchorDate(currentAnchor);
     setSelectedDayIndex(nextIdx);
     resetScroll();
@@ -782,7 +790,8 @@ export function useScheduleSelection({
     const diffDays = diffCalendarDays(formatKyivDateIso(currentAnchor), formatKyivDateIso(weekAnchorDate));
     setHasMotionInteracted(true);
     setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
-    setDaySlideDir(targetIso > activeDayDate ? 1 : targetIso < activeDayDate ? -1 : 0);
+    setDaySlideDir(resolveNetDirection(activeDayDate, targetIso));
+    setDayMotionSeq((seq) => seq + 1);
     setWeekAnchorDate(currentAnchor);
     if (dow >= 1 && dow <= 4) {
       setSelectedDayIndex(dow);
@@ -802,7 +811,8 @@ export function useScheduleSelection({
       const diffDays = diffCalendarDays(newAnchorIso, formatKyivDateIso(weekAnchorDate));
       setHasMotionInteracted(true);
       setWeekSlideDir(diffDays === 0 ? 0 : diffDays > 0 ? 1 : -1);
-      setDaySlideDir(effectiveTargetIso > activeDayDate ? 1 : effectiveTargetIso < activeDayDate ? -1 : 0);
+      setDaySlideDir(resolveNetDirection(activeDayDate, effectiveTargetIso));
+      setDayMotionSeq((seq) => seq + 1);
       setWeekAnchorDate(newAnchor);
       setSelectedDayIndex(nextIdx);
       resetScroll();
@@ -839,6 +849,7 @@ export function useScheduleSelection({
       } catch {}
       setHasMotionInteracted(true);
       setDaySlideDir(dayIdx < 2 ? -1 : dayIdx > 2 ? 1 : 0);
+      setDayMotionSeq((seq) => seq + 1);
       setSelectedDayIndex(dayIdx);
       setView("today");
       resetScroll();
@@ -906,6 +917,7 @@ export function useScheduleSelection({
 
   return {
     daySlideDir,
+    dayMotionSeq,
     weekSlideDir,
     hasMotionInteracted,
     selectedTeacher,

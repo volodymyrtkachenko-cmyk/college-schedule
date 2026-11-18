@@ -160,7 +160,7 @@ export function WelcomeScreen({
                   >
                     <div
                       aria-hidden="true"
-                      className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-2xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+                      className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-2xs transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)] transform-gpu z-0"
                     />
                     <button
                       type="button"

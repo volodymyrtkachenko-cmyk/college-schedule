@@ -58,10 +58,10 @@ export const MobileWeekDaysStrip = memo(function MobileWeekDaysStrip({
       aria-label="Дні тижня"
       className="relative z-10 flex min-h-[44px] w-full items-stretch border-b border-sys-border/60 bg-sys-card select-none"
     >
-      {/* Sliding indicator line at bottom */}
+      {/* Sliding hairline indicator at bottom */}
       <div
         aria-hidden="true"
-        className="absolute bottom-0 left-0 h-[3px] bg-sys-accent rounded-full transition-transform duration-base ease-spring transform-gpu motion-reduce:transition-none shadow-[0_0_8px_rgba(59,130,246,0.35)]"
+        className="absolute bottom-0 left-0 h-[2px] bg-sys-accent rounded-full transition-transform duration-base [transition-timing-function:var(--ease-desktop-panel)] transform-gpu motion-reduce:transition-none"
         style={{
           width: "20%",
           transform: `translate3d(${selectedDayIndex * 100}%, 0, 0)`,

@@ -337,7 +337,7 @@ export function SettingsContent({ embedded = false }: { embedded?: boolean }) {
             >
               <div
                 aria-hidden="true"
-                className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu"
+                className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)] transform-gpu"
               />
               <button
                 type="button"

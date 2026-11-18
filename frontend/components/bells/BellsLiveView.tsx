@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { DesktopSpotlightGrid } from "@/components/navigation/DesktopSpotlightGrid";
 import { BellIcon, CalendarIcon, ClockIcon } from "@/components/ui/Icons";
 import { api, type BellSlotItem, type PublicBellsResponse } from "@/lib/api";
 
@@ -100,7 +99,7 @@ function BellsTableCard({
     <section
       aria-labelledby={id}
       style={{ "--stagger-index": staggerIndex } as React.CSSProperties}
-      className={`interactive-surface desktop-stagger-card rounded-2xl border bg-sys-card p-5 shadow-sm transition-colors ${
+      className={`desktop-stagger-card rounded-2xl border bg-sys-card p-5 shadow-sm transition-colors ${
         isTodayMode
           ? "border-sys-accent/45 ring-1 ring-sys-accent/15"
           : "border-sys-border"
@@ -412,7 +411,7 @@ export function BellsLiveView({ initialData }: { initialData: PublicBellsRespons
       </section>
 
       {/* Таблиці розкладу дзвінків */}
-      <DesktopSpotlightGrid className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2">
         <BellsTableCard
           id="heading-standard-bells"
           title="Стандартні дні"
@@ -439,7 +438,7 @@ export function BellsLiveView({ initialData }: { initialData: PublicBellsRespons
           staggerIndex={1}
           icon="clock"
         />
-      </DesktopSpotlightGrid>
+      </div>
 
       {/* Заплановані скорочені дні */}
       {data.upcoming_shortened_days.length > 0 && (

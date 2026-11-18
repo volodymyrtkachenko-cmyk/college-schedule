@@ -64,11 +64,15 @@ const config: Config = {
         fast: '150ms',
         base: '240ms',
         slow: '320ms',
+        panel: '340ms',
+        sidebar: '380ms',
+        shell: '460ms',
         page: '280ms',
       },
       transitionTimingFunction: {
-        smooth: 'cubic-bezier(0.16, 1, 0.3, 1)',
+        smooth: 'cubic-bezier(0.22, 1, 0.36, 1)',
         spring: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        panelExit: 'cubic-bezier(0.32, 0, 0.24, 1)',
         easeOut: 'cubic-bezier(0, 0, 0.2, 1)',
       }
     }

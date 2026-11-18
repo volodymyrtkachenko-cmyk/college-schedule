@@ -741,48 +741,25 @@ html[data-theme="light"][data-accent="cyan"] {
 }
 
 :root {
-  --duration-micro: 140ms;
+  --duration-micro: 150ms;
   --duration-fast: 150ms;
-  --duration-panel: 200ms;
+  --duration-panel: 340ms;
   --duration-base: 240ms;
   --duration-slow: 320ms;
-  --duration-dialog-in: 350ms;
-  --duration-dialog-out: 200ms;
+  --duration-shell: 460ms;
+  --duration-dialog-in: 280ms;
+  --duration-dialog-out: 190ms;
   --duration-page: 280ms;
-  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring-snappy: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring-gentle: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring-modal: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring-gentle: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring-modal: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-desktop-panel: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-desktop-exit: cubic-bezier(0.32, 0, 0.24, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   interpolate-size: allow-keywords;
-}
-
-@supports (animation-timing-function: linear(0, 1)) {
-  :root {
-    --ease-spring: linear(
-      0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%,
-      0.849 31.5%, 0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%,
-      1.015 55%, 1.017 63.9%, 1.001
-    );
-    --ease-spring-snappy: linear(
-      0, 0.008, 0.032 2.4%, 0.125, 0.268 7.5%, 0.648 15%, 0.879 22%,
-      0.985 28%, 1.024 34%, 1.032 39%, 1.028 45%, 1.012 56%,
-      1.003 68%, 1
-    );
-    --ease-spring-gentle: linear(
-      0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%,
-      0.849 31.5%, 0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%,
-      1.015 55%, 1.017 63.9%, 1.001
-    );
-    --ease-spring-modal: linear(
-      0, 0.007, 0.028 2.6%, 0.112 6%, 0.548 18.5%, 0.735 25%,
-      0.865 31.5%, 0.946 38.5%, 0.983 45%, 1.001 52%, 1.006 60%,
-      1.004 72%, 1
-    );
-  }
 }
 
 /* Keyframes для напрямлених View Transitions (лише compositor transform/opacity) */
@@ -803,14 +780,14 @@ html[data-theme="light"][data-accent="cyan"] {
   }
   to {
     opacity: 0;
-    transform: translate3d(-20px, 0, 0);
+    transform: translate3d(-14px, 0, 0);
   }
 }
 
 @keyframes vt-forward-in {
   from {
     opacity: 0;
-    transform: translate3d(26px, 0, 0);
+    transform: translate3d(18px, 0, 0);
   }
   to {
     opacity: 1;
@@ -825,14 +802,14 @@ html[data-theme="light"][data-accent="cyan"] {
   }
   to {
     opacity: 0;
-    transform: translate3d(20px, 0, 0);
+    transform: translate3d(14px, 0, 0);
   }
 }
 
 @keyframes vt-backward-in {
   from {
     opacity: 0;
-    transform: translate3d(-26px, 0, 0);
+    transform: translate3d(-18px, 0, 0);
   }
   to {
     opacity: 1;
@@ -843,7 +820,7 @@ html[data-theme="light"][data-accent="cyan"] {
 @keyframes spa-tab-enter-next {
   from {
     opacity: 0;
-    transform: translate3d(12px, 0, 0);
+    transform: translate3d(10px, 0, 0);
   }
   to {
     opacity: 1;
@@ -854,7 +831,7 @@ html[data-theme="light"][data-accent="cyan"] {
 @keyframes spa-tab-enter-prev {
   from {
     opacity: 0;
-    transform: translate3d(-12px, 0, 0);
+    transform: translate3d(-10px, 0, 0);
   }
   to {
     opacity: 1;
@@ -873,7 +850,7 @@ html[data-theme="light"][data-accent="cyan"] {
 
 @keyframes desktop-card-spring {
   from {
-    transform: translate3d(0, 14px, 0) scale(0.97);
+    transform: translate3d(0, 8px, 0) scale(0.992);
   }
   to {
     transform: translate3d(0, 0, 0) scale(1);
@@ -883,11 +860,11 @@ html[data-theme="light"][data-accent="cyan"] {
 @keyframes desktop-view-enter {
   from {
     opacity: 0;
-    transform: translate3d(0, 10px, 0) scale(0.985);
+    transform: translate3d(0, 6px, 0);
   }
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -1042,7 +1019,7 @@ html[data-theme="light"][data-accent="cyan"] {
 
 @keyframes desktop-week-cell-spring {
   from {
-    transform: translate3d(var(--cell-x, 0px), var(--cell-y, 18px), 0) scale(0.95);
+    transform: translate3d(var(--cell-x, 0px), var(--cell-y, 10px), 0) scale(0.985);
   }
   to {
     transform: translate3d(0, 0, 0) scale(1);
@@ -1090,7 +1067,7 @@ html[data-theme="light"][data-accent="cyan"] {
 @keyframes guide-step-enter-next {
   from {
     opacity: 0;
-    transform: translate3d(22px, 0, 0);
+    transform: translate3d(10px, 0, 0);
   }
   to {
     opacity: 1;
@@ -1101,7 +1078,7 @@ html[data-theme="light"][data-accent="cyan"] {
 @keyframes guide-step-enter-prev {
   from {
     opacity: 0;
-    transform: translate3d(-22px, 0, 0);
+    transform: translate3d(-10px, 0, 0);
   }
   to {
     opacity: 1;
@@ -1171,9 +1148,17 @@ html[data-vt-kind="theme"] :is(.vt-desktop-header, .vt-main-content, .vt-bottom-
     mix-blend-mode: normal;
   }
 
+  /* Шапка-опора на ПК: не змінює положення при переходах між розділами, плавно оновлюючи внутрішній вміст */
   ::view-transition-group(desktop-header) {
-    animation-duration: 0.18s;
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    animation: none;
+  }
+  ::view-transition-old(desktop-header) {
+    animation: 140ms var(--ease-desktop-exit) both vt-fade-out;
+    mix-blend-mode: normal;
+  }
+  ::view-transition-new(desktop-header) {
+    animation: 220ms var(--ease-desktop-panel) both vt-fade-in;
+    mix-blend-mode: normal;
   }
 
   /* Десктопна навігація: блокуємо миготіння root-фону і плавно рухаємо main-content */
@@ -1185,17 +1170,17 @@ html[data-vt-kind="theme"] :is(.vt-desktop-header, .vt-main-content, .vt-bottom-
     }
 
     :active-view-transition-type(route-forward)::view-transition-old(main-content) {
-      animation: 0.17s cubic-bezier(0.4, 0, 1, 1) both vt-forward-out;
+      animation: 170ms var(--ease-desktop-exit) both vt-forward-out;
     }
     :active-view-transition-type(route-forward)::view-transition-new(main-content) {
-      animation: 0.25s cubic-bezier(0.22, 1, 0.36, 1) both vt-forward-in;
+      animation: 270ms var(--ease-desktop-panel) both vt-forward-in;
     }
 
     :active-view-transition-type(route-backward)::view-transition-old(main-content) {
-      animation: 0.17s cubic-bezier(0.4, 0, 1, 1) both vt-backward-out;
+      animation: 170ms var(--ease-desktop-exit) both vt-backward-out;
     }
     :active-view-transition-type(route-backward)::view-transition-new(main-content) {
-      animation: 0.25s cubic-bezier(0.22, 1, 0.36, 1) both vt-backward-in;
+      animation: 270ms var(--ease-desktop-panel) both vt-backward-in;
     }
   }
 
@@ -1350,7 +1335,7 @@ dialog.app-dialog {
 
 @media (prefers-reduced-motion: no-preference) {
   dialog.app-dialog {
-    transform: translate3d(0, 16px, 0) scale(0.955);
+    transform: translate3d(0, 10px, 0) scale(0.985);
   }
 }
 
@@ -1362,11 +1347,11 @@ dialog.app-dialog[open] {
 dialog.app-dialog[open]:where(:not([data-closing="true"])) {
   opacity: 1;
   transition-duration:
-    210ms,
+    200ms,
     var(--duration-dialog-in),
     var(--duration-dialog-in),
     var(--duration-dialog-in);
-  transition-timing-function: var(--ease-out), var(--ease-spring-modal), ease-out, ease-out;
+  transition-timing-function: var(--ease-desktop-panel), var(--ease-desktop-panel), ease-out, ease-out;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1389,14 +1374,15 @@ dialog.app-dialog::backdrop {
   overscroll-behavior: contain;
   opacity: 0;
   transition-property: opacity, overlay, display;
-  transition-duration: 190ms, var(--duration-dialog-out), var(--duration-dialog-out);
-  transition-timing-function: var(--ease-out), ease-out, ease-out;
+  transition-duration: 180ms, var(--duration-dialog-out), var(--duration-dialog-out);
+  transition-timing-function: var(--ease-desktop-exit), ease-out, ease-out;
   transition-behavior: allow-discrete;
 }
 
 dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
   opacity: 1;
-  transition-duration: 240ms, var(--duration-dialog-in), var(--duration-dialog-in);
+  transition-duration: 220ms, var(--duration-dialog-in), var(--duration-dialog-in);
+  transition-timing-function: var(--ease-desktop-panel), ease-out, ease-out;
 }
 
 @media (max-width: 639px) {
@@ -1410,7 +1396,7 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
 
 @media (max-width: 639px) and (prefers-reduced-motion: no-preference) {
   dialog.app-dialog[data-variant="sheet"] {
-    transform: translate3d(0, 56px, 0);
+    transform: translate3d(0, 44px, 0);
   }
 
   dialog.app-dialog[data-variant="sheet"][open]:where(:not([data-closing="true"])) {
@@ -1420,8 +1406,8 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
 
 @media (min-width: 1024px) {
   dialog.app-dialog::backdrop {
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 }
 
@@ -1438,7 +1424,7 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
 @media (prefers-reduced-motion: no-preference) {
   @starting-style {
     dialog.app-dialog[open]:where(:not([data-closing="true"])) {
-      transform: translate3d(0, 18px, 0) scale(0.95);
+      transform: translate3d(0, 12px, 0) scale(0.985);
     }
   }
 }
@@ -1446,59 +1432,56 @@ dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
 @media (max-width: 639px) and (prefers-reduced-motion: no-preference) {
   @starting-style {
     dialog.app-dialog[data-variant="sheet"][open]:where(:not([data-closing="true"])) {
-      transform: translate3d(0, 56px, 0);
+      transform: translate3d(0, 44px, 0);
     }
   }
 }
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   dialog.app-dialog {
-    transform: translate3d(0, 16px, 0) scale(0.95);
+    transform: translate3d(0, 10px, 0) scale(0.985);
     transition-property: opacity, transform, overlay, display;
-    transition-duration: 185ms, 185ms, 200ms, 200ms;
-    transition-timing-function: var(--ease-exit), cubic-bezier(0.32, 0, 0.24, 1), ease-out, ease-out;
+    transition-duration: 170ms, 200ms, 200ms, 200ms;
+    transition-timing-function: var(--ease-desktop-exit), var(--ease-desktop-exit), ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
 
   dialog.app-dialog[open]:where(:not([data-closing="true"])) {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
-    transition-duration: 190ms, 380ms, 380ms, 380ms;
-    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy), ease-out, ease-out;
+    transition-duration: 210ms, 280ms, 280ms, 280ms;
+    transition-timing-function: var(--ease-desktop-panel), var(--ease-desktop-panel), ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
 
   dialog.app-dialog > * {
-    box-shadow: 0 32px 90px -20px rgb(0 0 0 / 0.62);
+    box-shadow: 0 28px 80px -20px rgb(0 0 0 / 0.56);
   }
 
   dialog.app-dialog::backdrop {
-    background: radial-gradient(circle at 50% 42%, rgb(2 6 23 / 0.46), rgb(2 6 23 / 0.82));
-    backdrop-filter: blur(0px) saturate(1);
-    -webkit-backdrop-filter: blur(0px) saturate(1);
-    transition-property: opacity, backdrop-filter, overlay, display;
-    transition-duration: 185ms, 185ms, 200ms, 200ms;
-    transition-timing-function: var(--ease-out), ease-out, ease-out, ease-out;
+    background: radial-gradient(circle at 50% 42%, rgb(2 6 23 / 0.46), rgb(2 6 23 / 0.8));
+    backdrop-filter: blur(10px) saturate(1.1);
+    -webkit-backdrop-filter: blur(10px) saturate(1.1);
+    transition-property: opacity, overlay, display;
+    transition-duration: 170ms, 200ms, 200ms;
+    transition-timing-function: var(--ease-desktop-exit), ease-out, ease-out;
     transition-behavior: allow-discrete;
   }
 
   dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
     opacity: 1;
-    backdrop-filter: blur(12px) saturate(1.15);
-    -webkit-backdrop-filter: blur(12px) saturate(1.15);
-    transition-duration: 220ms, 260ms, 380ms, 380ms;
+    transition-duration: 210ms, 280ms, 280ms;
+    transition-timing-function: var(--ease-desktop-panel), ease-out, ease-out;
   }
 
   @starting-style {
     dialog.app-dialog[open]:where(:not([data-closing="true"])) {
       opacity: 0;
-      transform: translate3d(0, 28px, 0) scale(0.91);
+      transform: translate3d(0, 10px, 0) scale(0.985);
     }
 
     dialog.app-dialog[open]:where(:not([data-closing="true"]))::backdrop {
       opacity: 0;
-      backdrop-filter: blur(0px) saturate(1);
-      -webkit-backdrop-filter: blur(0px) saturate(1);
     }
   }
 }
@@ -1527,8 +1510,8 @@ html[data-surface="glass"] #desktop-sections-menu {
 @media (prefers-reduced-motion: no-preference) {
   .spring-press {
     transition-property: transform, background-color, border-color, color;
-    transition-duration: 220ms, 150ms, 150ms, 150ms;
-    transition-timing-function: var(--ease-spring-snappy), ease-out, ease-out, ease-out;
+    transition-duration: 150ms, 150ms, 150ms, 150ms;
+    transition-timing-function: var(--ease-desktop-panel), ease-out, ease-out, ease-out;
   }
 
   .spring-press:active {
@@ -1655,18 +1638,17 @@ html[data-surface="glass"] #desktop-sections-menu {
 
   .desktop-stagger-card {
     animation:
-      desktop-card-fade 210ms cubic-bezier(0.22, 1, 0.36, 1) backwards,
-      desktop-card-spring 430ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
-    animation-delay: calc(min(var(--stagger-index, 0), 8) * 18ms);
+      desktop-card-fade 200ms var(--ease-desktop-panel) backwards,
+      desktop-card-spring 300ms var(--ease-desktop-panel) backwards;
+    animation-delay: calc(min(var(--stagger-index, 0), 5) * 22ms);
   }
 
-  /* Pure compositor-thread cascade for 5-column desktop week grid (60/120fps, 0 JS spring solvers) */
+  /* Pure compositor-thread cascade for 5-column desktop week grid */
   .desktop-week-cell-enter {
     animation:
-      desktop-week-cell-fade 165ms cubic-bezier(0.22, 1, 0.36, 1) backwards,
-      desktop-week-cell-spring 360ms var(--ease-spring-snappy) backwards;
-    animation-delay: calc(var(--col-step, 0) * 26ms + var(--row-step, 0) * 16ms);
+      desktop-week-cell-fade 165ms var(--ease-desktop-panel) backwards,
+      desktop-week-cell-spring 280ms var(--ease-desktop-panel) backwards;
+    animation-delay: calc(var(--col-step, 0) * 22ms + var(--row-step, 0) * 14ms);
   }
 
   .desktop-week-grid[data-focus-day="0"]:not(:has([data-open])) [data-day-col]:not([data-day-col="0"]),
@@ -1727,15 +1709,15 @@ html[data-surface="glass"] #desktop-sections-menu {
 @media (prefers-reduced-motion: no-preference) {
   .discrete-panel {
     transition-property: opacity, transform, display;
-    transition-duration: 160ms, 220ms, 160ms;
-    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-gentle), ease-out;
+    transition-duration: 180ms, 240ms, 180ms;
+    transition-timing-function: var(--ease-desktop-panel), var(--ease-desktop-panel), ease-out;
     transition-behavior: allow-discrete;
   }
 
   @starting-style {
     .discrete-panel[data-open="true"] {
       opacity: 0;
-      transform: translate3d(0, 8px, 0);
+      transform: translate3d(0, 6px, 0);
     }
   }
 }
@@ -1744,15 +1726,15 @@ html[data-surface="glass"] #desktop-sections-menu {
   opacity: 1;
   transform-origin: var(--popup-origin, top center);
   transition-property: opacity, transform;
-  transition-duration: 160ms, 220ms;
-  transition-timing-function: var(--ease-out), var(--ease-spring-gentle);
+  transition-duration: 180ms, 240ms;
+  transition-timing-function: var(--ease-desktop-panel), var(--ease-desktop-panel);
 }
 
 .discrete-popup[data-closing="true"] {
   opacity: 0;
   pointer-events: none;
-  transition-duration: 150ms, 170ms;
-  transition-timing-function: var(--ease-exit), var(--ease-exit);
+  transition-duration: 140ms, 160ms;
+  transition-timing-function: var(--ease-desktop-exit), var(--ease-desktop-exit);
 }
 
 .discrete-popup-backdrop {
@@ -1771,13 +1753,13 @@ html[data-surface="glass"] #desktop-sections-menu {
   }
 
   .discrete-popup[data-closing="true"] {
-    transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.95);
+    transform: translate3d(0, var(--popup-y, -4px), 0) scale(0.97);
   }
 
   @starting-style {
     .discrete-popup {
       opacity: 0;
-      transform: translate3d(0, var(--popup-y, -6px), 0) scale(0.95);
+      transform: translate3d(0, var(--popup-y, -4px), 0) scale(0.97);
     }
 
     .discrete-popup-backdrop {
@@ -1788,23 +1770,20 @@ html[data-surface="glass"] #desktop-sections-menu {
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .discrete-popup.desktop-spring-popup {
-    transition-duration: 180ms, 340ms;
-    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1), var(--ease-spring-snappy);
+    transition-duration: 190ms, 240ms;
+    transition-timing-function: var(--ease-desktop-panel), var(--ease-desktop-panel);
   }
 
   .discrete-popup.desktop-spring-popup[data-closing="true"] {
-    transition-duration: 150ms, 170ms;
-    transition-timing-function: var(--ease-exit), var(--ease-exit);
-  }
-
-  .discrete-popup.desktop-spring-popup[data-closing="true"] {
-    transform: translate3d(0, var(--popup-y, -8px), 0) scale(0.92);
+    transition-duration: 140ms, 160ms;
+    transition-timing-function: var(--ease-desktop-exit), var(--ease-desktop-exit);
+    transform: translate3d(0, var(--popup-y, -5px), 0) scale(0.97);
   }
 
   @starting-style {
     .discrete-popup.desktop-spring-popup {
       opacity: 0;
-      transform: translate3d(0, var(--popup-y, -8px), 0) scale(0.9);
+      transform: translate3d(0, var(--popup-y, -5px), 0) scale(0.97);
     }
   }
 }
@@ -1817,19 +1796,19 @@ html[data-surface="glass"] #desktop-sections-menu {
   }
 }
 
-/* Тости з плавною пружинною появою та м'яким зникненням */
+/* Тости зі спокійною появою без перельоту та м'яким зникненням */
 .toast-item {
   opacity: 1;
   transition-property: opacity, transform;
-  transition-duration: 180ms, 240ms;
-  transition-timing-function: var(--ease-out), var(--ease-spring-snappy);
+  transition-duration: 200ms, 260ms;
+  transition-timing-function: var(--ease-desktop-panel), var(--ease-desktop-panel);
 }
 
 .toast-item[data-leaving="true"] {
   opacity: 0;
   pointer-events: none;
-  transition-duration: 180ms, 200ms;
-  transition-timing-function: var(--ease-exit), var(--ease-exit);
+  transition-duration: 160ms, 180ms;
+  transition-timing-function: var(--ease-desktop-exit), var(--ease-desktop-exit);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1838,13 +1817,13 @@ html[data-surface="glass"] #desktop-sections-menu {
   }
 
   .toast-item[data-leaving="true"] {
-    transform: translate3d(0, 10px, 0) scale(0.96);
+    transform: translate3d(0, 8px, 0) scale(0.975);
   }
 
   @starting-style {
     .toast-item {
       opacity: 0;
-      transform: translate3d(0, 14px, 0) scale(0.95);
+      transform: translate3d(0, 12px, 0) scale(0.97);
     }
   }
 }
@@ -1862,28 +1841,34 @@ html[data-surface="glass"] #desktop-sections-menu {
   grid-template-rows: 0fr;
   opacity: 0;
   transition:
-    grid-template-rows 280ms var(--ease-spring),
-    opacity 190ms var(--ease-out);
+    grid-template-rows 230ms var(--ease-desktop-exit),
+    opacity 170ms var(--ease-desktop-exit);
 }
 
 .grid-accordion[data-open="true"] {
   grid-template-rows: 1fr;
   opacity: 1;
+  transition:
+    grid-template-rows 280ms var(--ease-desktop-panel),
+    opacity 200ms var(--ease-desktop-panel);
 }
 
 .grid-accordion-inner {
   min-height: 0;
   overflow: hidden;
   visibility: hidden;
-  transform: translate3d(0, -6px, 0);
+  transform: translate3d(0, -4px, 0);
   transition:
-    visibility 280ms linear,
-    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    visibility 230ms linear,
+    transform 220ms var(--ease-desktop-exit);
 }
 
 .grid-accordion[data-open="true"] > .grid-accordion-inner {
   visibility: visible;
   transform: translate3d(0, 0, 0);
+  transition:
+    visibility 0ms linear,
+    transform 260ms var(--ease-desktop-panel);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1894,6 +1879,145 @@ html[data-surface="glass"] #desktop-sections-menu {
   .grid-accordion-inner {
     transform: none !important;
     transition: visibility 90ms linear !important;
+  }
+}
+
+/* Спеціалізований акордеон «Завдання» у картці пари:
+   - ПК: картка плавно розкривається одразу, текст проявляється у звільненому місці; згортання йде у зворотному порядку
+   - Мобільний: короткий безперервний синхронний рух без затримок, щоб встигати за дотиком */
+.tasks-accordion {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 190ms var(--ease-desktop-exit);
+}
+
+.tasks-accordion[data-open="true"] {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 220ms var(--ease-desktop-panel);
+}
+
+.tasks-accordion-inner {
+  min-height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  transition: visibility 190ms linear;
+}
+
+.tasks-accordion[data-open="true"] > .tasks-accordion-inner {
+  visibility: visible;
+  transition: visibility 0ms linear;
+}
+
+.tasks-accordion-content {
+  opacity: 0;
+  transform: translate3d(0, -3px, 0);
+  transition:
+    opacity 150ms var(--ease-desktop-exit),
+    transform 170ms var(--ease-desktop-exit);
+}
+
+.tasks-accordion[data-open="true"] .tasks-accordion-content {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity 190ms var(--ease-desktop-panel),
+    transform 210ms var(--ease-desktop-panel);
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .tasks-accordion:not([data-variant="mobile"]) {
+    transition: grid-template-rows 270ms var(--ease-desktop-exit) 45ms;
+  }
+
+  .tasks-accordion:not([data-variant="mobile"])[data-open="true"] {
+    transition: grid-template-rows 320ms var(--ease-desktop-panel) 0ms;
+  }
+
+  .tasks-accordion:not([data-variant="mobile"]) > .tasks-accordion-inner {
+    transition: visibility 315ms linear;
+  }
+
+  .tasks-accordion:not([data-variant="mobile"])[data-open="true"] > .tasks-accordion-inner {
+    transition: visibility 0ms linear;
+  }
+
+  .tasks-accordion:not([data-variant="mobile"]) .tasks-accordion-content {
+    opacity: 0;
+    transform: translate3d(0, -4px, 0);
+    transition:
+      opacity 130ms var(--ease-desktop-exit) 0ms,
+      transform 150ms var(--ease-desktop-exit) 0ms;
+  }
+
+  .tasks-accordion:not([data-variant="mobile"])[data-open="true"] .tasks-accordion-content {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    transition:
+      opacity 220ms var(--ease-desktop-panel) 55ms,
+      transform 260ms var(--ease-desktop-panel) 45ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tasks-accordion,
+  .tasks-accordion[data-open="true"] {
+    transition: none !important;
+  }
+
+  .tasks-accordion-inner,
+  .tasks-accordion[data-open="true"] > .tasks-accordion-inner {
+    transition: none !important;
+  }
+
+  .tasks-accordion-content,
+  .tasks-accordion[data-open="true"] .tasks-accordion-content {
+    transform: none !important;
+    transition: opacity 90ms ease-out !important;
+  }
+}
+
+/* Тонкі 2px індикатори вибору (спільна лінія для вкладок і перемикачів) */
+.ui-hairline-rail {
+  box-shadow: inset 0 -1px 0 rgb(var(--sys-border));
+}
+
+.ui-hairline-indicator {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: calc(100% / var(--seg-cols, 2));
+  border-radius: 999px;
+  background: rgb(var(--sys-accent));
+  transform: translate3d(calc(var(--seg-index, 0) * 100%), 0, 0);
+  transition: transform 320ms var(--ease-desktop-panel);
+  will-change: transform;
+}
+
+.ui-hairline-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: var(--bar-w, 0px);
+  border-radius: 999px;
+  background: rgb(var(--sys-accent));
+  transform: translate3d(var(--bar-x, 0px), var(--bar-y, 0px), 0);
+  opacity: var(--bar-opacity, 1);
+  will-change: transform, width;
+}
+
+.ui-hairline-bar[data-ready="true"] {
+  transition:
+    transform 300ms var(--ease-desktop-panel),
+    width 300ms var(--ease-desktop-panel),
+    opacity 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-hairline-indicator,
+  .ui-hairline-bar {
+    transition: none !important;
   }
 }
 
@@ -1917,6 +2041,17 @@ html[data-surface="glass"] #desktop-sections-menu {
   to { opacity: 1; }
 }
 
+@keyframes desktop-lesson-enter {
+  from {
+    opacity: 0.35;
+    transform: translate3d(calc(var(--lesson-slide-dir, 1) * 10px), 0, 0) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 .desktop-day-selector {
   box-shadow: inset 0 -1px 0 rgb(var(--sys-border));
 }
@@ -1937,6 +2072,19 @@ html[data-surface="glass"] #desktop-sections-menu {
 
   .desktop-day-enter {
     animation: desktop-day-reveal 240ms var(--ease-desktop-panel) backwards;
+  }
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .desktop-lesson-enter {
+    animation: desktop-lesson-enter 280ms var(--ease-desktop-panel) backwards;
+    animation-delay: calc(min(var(--lesson-index, 0), 5) * 24ms);
+    will-change: transform, opacity;
+  }
+
+  .desktop-day-empty-enter {
+    animation: desktop-lesson-enter 260ms var(--ease-desktop-panel) backwards;
+    will-change: transform, opacity;
   }
 }
 

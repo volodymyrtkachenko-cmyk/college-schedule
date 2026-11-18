@@ -19,6 +19,7 @@ import { CoffeeIcon } from "./ui/Icons";
 import { useTheme } from "../lib/useTheme";
 import { KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_LONG_FMT } from "../lib/date";
 import { calendarDateIsoToUtcDate } from "../lib/calendarDate";
+import { computeMobileSwipeEntryOffset } from "../lib/motion";
 
 function parseMin(t?: string): number | null {
   if (!t) return null;
@@ -163,12 +164,17 @@ export const DayPager = memo(function DayPager({
     }
   };
 
-  // Touch swipe handling with live finger tracking and velocity detection
+  // Touch swipe handling with live finger tracking, mid-flight interruptibility & WAAPI handoff
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const stageAnimRef = useRef<Animation | null>(null);
   const rafRef = useRef<number | null>(null);
   const resetTimerRef = useRef<number | null>(null);
   const awaitingDateResetRef = useRef(false);
   const pendingTranslateRef = useRef<number>(0);
+  const dragBaseOffsetRef = useRef<number>(0);
+  const committedSwipeRef = useRef<{ dir: -1 | 1; releasedOffset: number } | null>(null);
+  const prevRenderedKeyRef = useRef<string>(`${scheduleMode}-${schedule.date}`);
   const transitionCleanupRef = useRef<(() => void) | null>(null);
   const touchStartRef = useRef<{
     x: number;
@@ -180,6 +186,21 @@ export const DayPager = memo(function DayPager({
     lockedAxis: "x" | "y" | null;
     isHoriz: boolean;
   } | null>(null);
+
+  const readLiveTranslateX = (el: HTMLElement | null): number => {
+    if (!el || typeof window === "undefined") return 0;
+    try {
+      const matrixStr = window.getComputedStyle(el).transform;
+      if (!matrixStr || matrixStr === "none") return 0;
+      if (typeof DOMMatrixReadOnly !== "undefined") {
+        const val = new DOMMatrixReadOnly(matrixStr).m41;
+        return Number.isFinite(val) ? val : 0;
+      }
+    } catch {
+      return 0;
+    }
+    return 0;
+  };
 
   const cancelPendingMotion = useCallback(() => {
     awaitingDateResetRef.current = false;
@@ -197,30 +218,87 @@ export const DayPager = memo(function DayPager({
     }
   }, []);
 
-  useEffect(() => cancelPendingMotion, [cancelPendingMotion]);
+  useEffect(() => {
+    return () => {
+      cancelPendingMotion();
+      stageAnimRef.current?.cancel();
+      stageAnimRef.current = null;
+    };
+  }, [cancelPendingMotion]);
 
   useIsomorphicLayoutEffect(() => {
-    if (!awaitingDateResetRef.current) return;
-    awaitingDateResetRef.current = false;
-    pendingTranslateRef.current = 0;
-    if (resetTimerRef.current !== null) {
-      window.clearTimeout(resetTimerRef.current);
-      resetTimerRef.current = null;
+    const currentKey = `${scheduleMode}-${schedule.date}`;
+    const isDateChange = prevRenderedKeyRef.current !== currentKey;
+    prevRenderedKeyRef.current = currentKey;
+
+    const swipeInfo = committedSwipeRef.current;
+    committedSwipeRef.current = null;
+
+    if (awaitingDateResetRef.current) {
+      awaitingDateResetRef.current = false;
+      if (resetTimerRef.current !== null) {
+        window.clearTimeout(resetTimerRef.current);
+        resetTimerRef.current = null;
+      }
     }
+
+    pendingTranslateRef.current = 0;
+    dragBaseOffsetRef.current = 0;
     const el = containerRef.current;
-    if (!el) return;
-    el.style.transition = "";
-    el.style.transform = "";
-    el.style.willChange = "";
-  }, [schedule.date]);
+    if (el) {
+      el.style.transition = "";
+      el.style.transform = "";
+      el.style.willChange = "";
+    }
+
+    if (!isDateChange) return;
+
+    stageAnimRef.current?.cancel();
+    stageAnimRef.current = null;
+
+    if (shouldReduceMotion) return;
+    const stageEl = stageRef.current;
+    if (!stageEl || typeof stageEl.animate !== "function") return;
+
+    const dir: -1 | 0 | 1 = swipeInfo
+      ? swipeInfo.dir
+      : daySlideDir > 0
+      ? 1
+      : daySlideDir < 0
+      ? -1
+      : 0;
+    if (dir === 0) return;
+
+    const startX = computeMobileSwipeEntryOffset(dir, swipeInfo?.releasedOffset ?? 0);
+    const anim = stageEl.animate(
+      [
+        { transform: `translate3d(${startX}px, 0, 0)`, opacity: swipeInfo ? 0.72 : 0.62 },
+        { transform: "translate3d(0, 0, 0)", opacity: 1 },
+      ],
+      {
+        duration: swipeInfo ? 195 : 180,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "none",
+      },
+    );
+    stageAnimRef.current = anim;
+    anim.onfinish = () => {
+      if (stageAnimRef.current === anim) stageAnimRef.current = null;
+    };
+    anim.oncancel = () => {
+      if (stageAnimRef.current === anim) stageAnimRef.current = null;
+    };
+  }, [scheduleMode, schedule.date, daySlideDir, shouldReduceMotion]);
 
   const snapContainerBack = useCallback(
     (animate: boolean) => {
       cancelPendingMotion();
+      dragBaseOffsetRef.current = 0;
       const el = containerRef.current;
       if (!el) return;
 
       const clearStyles = () => {
+        pendingTranslateRef.current = 0;
         el.style.transition = "";
         el.style.transform = "";
         el.style.willChange = "";
@@ -232,7 +310,7 @@ export const DayPager = memo(function DayPager({
       }
 
       el.style.willChange = "transform";
-      el.style.transition = "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)";
+      el.style.transition = "transform 210ms cubic-bezier(0.22, 1, 0.36, 1)";
       el.style.transform = "translate3d(0, 0, 0)";
 
       const onEnd = (ev: TransitionEvent) => {
@@ -262,14 +340,35 @@ export const DayPager = memo(function DayPager({
         }
         resetTimerRef.current = null;
         clearStyles();
-      }, 300);
+      }, 250);
     },
     [cancelPendingMotion],
   );
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length !== 1) return;
+
+    let capturedX = 0;
+    if (stageAnimRef.current?.playState === "running") {
+      capturedX += readLiveTranslateX(stageRef.current);
+      stageAnimRef.current.cancel();
+      stageAnimRef.current = null;
+    }
+    if (transitionCleanupRef.current && containerRef.current) {
+      capturedX += readLiveTranslateX(containerRef.current);
+    }
+
     cancelPendingMotion();
+    const clampedBase = Math.max(-96, Math.min(96, capturedX));
+    dragBaseOffsetRef.current = clampedBase;
+    pendingTranslateRef.current = clampedBase;
+
+    const containerEl = containerRef.current;
+    if (containerEl && clampedBase !== 0) {
+      containerEl.style.willChange = "transform";
+      containerEl.style.transition = "none";
+      containerEl.style.transform = `translate3d(${clampedBase}px, 0, 0)`;
+    }
 
     const target = e.target as HTMLElement | null;
     const scrollable = target?.closest?.(
@@ -302,6 +401,10 @@ export const DayPager = memo(function DayPager({
 
     if (start.lockedAxis === null && (Math.abs(diffX) > 8 || Math.abs(diffY) > 8)) {
       start.lockedAxis = Math.abs(diffX) > Math.abs(diffY) * 1.1 ? "x" : "y";
+      if (start.lockedAxis === "y" && dragBaseOffsetRef.current !== 0) {
+        dragBaseOffsetRef.current = 0;
+        snapContainerBack(true);
+      }
     }
     if (start.lockedAxis !== "x") return;
 
@@ -315,11 +418,12 @@ export const DayPager = memo(function DayPager({
 
     const canAdvanceNext = Boolean(canNextDay && (!maxDateIso || schedule.date < maxDateIso));
     const canAdvancePrev = Boolean(canPrevDay && (!minDateIso || schedule.date > minDateIso));
-    const allowedInDirection = diffX < 0 ? canAdvanceNext : canAdvancePrev;
+    const rawTarget = dragBaseOffsetRef.current + diffX * 0.65;
+    const allowedInDirection = rawTarget < 0 ? canAdvanceNext : canAdvancePrev;
 
     pendingTranslateRef.current = allowedInDirection
-      ? diffX * 0.45
-      : Math.sign(diffX) * Math.min(44, Math.abs(diffX) * 0.22);
+      ? rawTarget
+      : Math.sign(rawTarget) * Math.min(44, Math.abs(rawTarget) * 0.35);
 
     if (rafRef.current === null) {
       rafRef.current = window.requestAnimationFrame(() => {
@@ -336,6 +440,7 @@ export const DayPager = memo(function DayPager({
   const handleTouchEnd = (e: React.TouchEvent) => {
     const start = touchStartRef.current;
     touchStartRef.current = null;
+    dragBaseOffsetRef.current = 0;
     if (!start || start.isHoriz || start.lockedAxis !== "x" || e.changedTouches.length === 0) {
       if (pendingTranslateRef.current !== 0) {
         snapContainerBack(true);
@@ -359,12 +464,18 @@ export const DayPager = memo(function DayPager({
     const wantsNext = diffX < 0;
 
     if (isHorizontal && (isFlick || isDrag) && (wantsNext ? canAdvanceNext : canAdvancePrev)) {
+      const releasedOffset = pendingTranslateRef.current;
       cancelPendingMotion();
+      committedSwipeRef.current = {
+        dir: wantsNext ? 1 : -1,
+        releasedOffset,
+      };
       pendingTranslateRef.current = 0;
       awaitingDateResetRef.current = true;
       resetTimerRef.current = window.setTimeout(() => {
         if (awaitingDateResetRef.current) {
           awaitingDateResetRef.current = false;
+          committedSwipeRef.current = null;
           snapContainerBack(true);
         }
       }, 260);
@@ -380,6 +491,7 @@ export const DayPager = memo(function DayPager({
 
   const handleTouchCancel = () => {
     touchStartRef.current = null;
+    dragBaseOffsetRef.current = 0;
     snapContainerBack(true);
   };
 
@@ -447,15 +559,9 @@ export const DayPager = memo(function DayPager({
       {/* Unified Animated Day Stage (header + pre-lesson banner + lessons move together) */}
       <div className="relative flex-1 w-full flex flex-col overflow-x-clip [contain:layout_style]">
         <div
+          ref={stageRef}
           key={`${scheduleMode}-${schedule.date}`}
-          data-slide-dir={
-            !shouldReduceMotion && daySlideDir !== 0
-              ? daySlideDir > 0
-                ? "next"
-                : "prev"
-              : undefined
-          }
-          className="mobile-day-slide flex flex-col flex-1 w-full"
+          className="flex flex-col flex-1 w-full [backface-visibility:hidden]"
         >
           {/* Day header: як на ПК — «Понеділок, 20 жовтня» + кнопки поділитися (44x44px) */}
           <header className="mb-3.5 flex items-center justify-between gap-2 px-0 pt-2">

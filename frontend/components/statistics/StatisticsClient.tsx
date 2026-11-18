@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { DesktopSpotlightGrid } from "@/components/navigation/DesktopSpotlightGrid";
 import { SubpageHeader } from "@/components/navigation/SubpageHeader";
 import { RecentSelectionsChips } from "@/components/RecentSelectionsChips";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { CloseIcon, InboxIcon, SearchIcon } from "@/components/ui/Icons";
+import { useHairlineIndicator } from "@/lib/useHairlineIndicator";
 import {
   api,
   type ReferenceRecord,
@@ -65,6 +65,20 @@ export function StatisticsClient() {
 
   const { recentGroupIds, recentTeacherIds, recordRecentGroup, recordRecentTeacher } =
     useRecentSelections();
+
+  const studentSortHairline = useHairlineIndicator<HTMLDivElement>({
+    activeKey: `${studentSort}-${mode}-${statsLoading}`,
+    enabled: mode === "student" && Boolean(stats) && !statsLoading,
+    alignToContainerBottom: true,
+    insetPx: 6,
+  });
+
+  const teacherSortHairline = useHairlineIndicator<HTMLDivElement>({
+    activeKey: `${teacherSort}-${teacherView}-${mode}-${statsLoading}`,
+    enabled: mode === "teacher" && Boolean(stats) && !statsLoading,
+    alignToContainerBottom: true,
+    insetPx: 6,
+  });
 
   useEffect(() => {
     let active = true;
@@ -377,7 +391,7 @@ export function StatisticsClient() {
               {teachers.length > 0 && (
                 <div
                   aria-hidden="true"
-                  className="ui-seg-slider pointer-events-none bg-sys-accentSolid transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0 shadow-sm"
+                  className="ui-seg-slider pointer-events-none bg-sys-accentSolid transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)] transform-gpu z-0 shadow-sm"
                 />
               )}
               <button
@@ -487,13 +501,13 @@ export function StatisticsClient() {
 
             {/* 3-Card KPI Overview Strip */}
             {mode === "student" && studentSummary ? (
-              <DesktopSpotlightGrid
+              <div
                 aria-label="Основні показники групи"
                 className="grid grid-cols-1 sm:grid-cols-3 gap-3"
               >
                 <div
                   style={{ "--stagger-index": 0 } as React.CSSProperties}
-                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                  className="desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                     <span className="font-medium">Вивчено за семестр</span>
@@ -521,7 +535,7 @@ export function StatisticsClient() {
                 {studentSummary.plannedTotalHours > 0 && studentSummary.planCompletionPercent !== null ? (
                   <div
                     style={{ "--stagger-index": 1 } as React.CSSProperties}
-                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                    className="desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
                   >
                     <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                       <span className="font-medium">Виконання плану</span>
@@ -552,7 +566,7 @@ export function StatisticsClient() {
                 ) : (
                   <div
                     style={{ "--stagger-index": 1 } as React.CSSProperties}
-                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                    className="desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
                   >
                     <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                       <span className="font-medium">Дисциплін у семестрі</span>
@@ -570,7 +584,7 @@ export function StatisticsClient() {
 
                 <div
                   style={{ "--stagger-index": 2 } as React.CSSProperties}
-                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                  className="desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                     <span className="font-medium">Тижневий ритм</span>
@@ -611,15 +625,15 @@ export function StatisticsClient() {
                     </div>
                   </div>
                 </div>
-              </DesktopSpotlightGrid>
+              </div>
             ) : (
-              <DesktopSpotlightGrid
+              <div
                 aria-label="Основні показники викладача"
                 className="grid grid-cols-1 sm:grid-cols-3 gap-3"
               >
                 <div
                   style={{ "--stagger-index": 0 } as React.CSSProperties}
-                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                  className="desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                     <span className="font-medium">Проведено за семестр</span>
@@ -649,7 +663,7 @@ export function StatisticsClient() {
 
                 <div
                   style={{ "--stagger-index": 1 } as React.CSSProperties}
-                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                  className="desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                     <span className="font-medium">Тижневе навантаження</span>
@@ -677,7 +691,7 @@ export function StatisticsClient() {
                 {teacherPlanStatus?.hasPlan && !teacherPlanStatus.isPartialPlan ? (
                   <div
                     style={{ "--stagger-index": 2 } as React.CSSProperties}
-                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                    className="desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
                   >
                     <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                       <span className="font-medium">Семестровий план</span>
@@ -710,7 +724,7 @@ export function StatisticsClient() {
                 ) : (
                   <div
                     style={{ "--stagger-index": 2 } as React.CSSProperties}
-                    className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                    className="desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
                   >
                     <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                       <span className="font-medium">Охоплення аудиторії</span>
@@ -740,7 +754,7 @@ export function StatisticsClient() {
                     </div>
                   </div>
                 )}
-              </DesktopSpotlightGrid>
+              </div>
             )}
 
             {mode === "student" ? (
@@ -757,10 +771,19 @@ export function StatisticsClient() {
 
                     {/* Sort controls */}
                     <div
+                      ref={studentSortHairline.containerRef}
                       role="group"
                       aria-label="Сортування предметів"
-                      className="inline-flex flex-wrap items-center gap-1 rounded-xl border border-sys-border bg-sys-card p-1 text-xs self-start sm:self-auto"
+                      className="ui-hairline-rail relative inline-flex flex-wrap items-center gap-1 text-xs self-start sm:self-auto isolate"
                     >
+                      {studentSortHairline.hasTarget && (
+                        <span
+                          aria-hidden="true"
+                          data-ready={studentSortHairline.isReady ? "true" : undefined}
+                          style={studentSortHairline.indicatorStyle}
+                          className="ui-hairline-bar pointer-events-none z-20"
+                        />
+                      )}
                       {(
                         [
                           { id: "hours", label: "За годинами" },
@@ -777,9 +800,9 @@ export function StatisticsClient() {
                             type="button"
                             aria-pressed={active}
                             onClick={() => handleStudentSortChange(opt.id)}
-                            className={`rounded-lg px-2.5 py-1 font-semibold transition-colors cursor-pointer ${
+                            className={`rounded-t-lg px-2.5 py-2 font-semibold transition-colors duration-fast cursor-pointer active:scale-[0.98] ${
                               active
-                                ? "bg-sys-accentSolid text-sys-onAccent shadow-xs"
+                                ? "text-sys-text-primary font-bold"
                                 : "text-sys-text-secondary hover:text-sys-text-primary"
                             }`}
                           >
@@ -885,7 +908,7 @@ export function StatisticsClient() {
                     </p>
                   </div>
                 ) : (
-                  <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {displayedStudentEntries.map((entry, idx) => {
                       const totalHours = entry.planned_hours ?? 0;
                       const hasPlannedHours = totalHours > 0;
@@ -926,9 +949,9 @@ export function StatisticsClient() {
                         <article
                           key={entry.id}
                           style={{ "--stagger-index": idx } as React.CSSProperties}
-                          className={`interactive-surface ${
+                          className={`${
                             idx < 6 ? "desktop-stagger-card" : "scroll-reveal-card"
-                          } rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40`}
+                          } rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 transition-colors duration-fast`}
                         >
                           <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                             <svg
@@ -1029,7 +1052,7 @@ export function StatisticsClient() {
                         </article>
                       );
                     })}
-                  </DesktopSpotlightGrid>
+                  </div>
                 )}
                 <p className="mt-6 text-center text-xs text-sys-text-muted">
                   Дані розраховані за розкладом і не враховують фактичну присутність.
@@ -1072,7 +1095,7 @@ export function StatisticsClient() {
                     >
                       <div
                         aria-hidden="true"
-                        className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-sm transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)] transform-gpu z-0"
+                        className="ui-seg-slider pointer-events-none bg-sys-accentSolid shadow-sm transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)] transform-gpu z-0"
                       />
                       <button
                         type="button"
@@ -1105,10 +1128,19 @@ export function StatisticsClient() {
                     (teacherView === "groups" && rawTeacherGroups.length > 1)) && (
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                       <div
+                        ref={teacherSortHairline.containerRef}
                         role="group"
                         aria-label="Сортування списку викладача"
-                        className="inline-flex items-center gap-1 rounded-xl border border-sys-border bg-sys-card p-1 text-xs self-start"
+                        className="ui-hairline-rail relative inline-flex items-center gap-1 text-xs self-start isolate"
                       >
+                        {teacherSortHairline.hasTarget && (
+                          <span
+                            aria-hidden="true"
+                            data-ready={teacherSortHairline.isReady ? "true" : undefined}
+                            style={teacherSortHairline.indicatorStyle}
+                            className="ui-hairline-bar pointer-events-none z-20"
+                          />
+                        )}
                         {(
                           [
                             { id: "hours" as const, label: "За годинами" },
@@ -1122,9 +1154,9 @@ export function StatisticsClient() {
                               type="button"
                               aria-pressed={active}
                               onClick={() => handleTeacherSortChange(opt.id)}
-                              className={`rounded-lg px-2.5 py-1 font-semibold transition-colors cursor-pointer ${
+                              className={`rounded-t-lg px-2.5 py-2 font-semibold transition-colors duration-fast cursor-pointer active:scale-[0.98] ${
                                 active
-                                  ? "bg-sys-accentSolid text-sys-onAccent shadow-xs"
+                                  ? "text-sys-text-primary font-bold"
                                   : "text-sys-text-secondary hover:text-sys-text-primary"
                               }`}
                             >
@@ -1175,7 +1207,7 @@ export function StatisticsClient() {
                       </p>
                     </div>
                   ) : (
-                    <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       {teacherSubjects.map((subj, idx) => {
                         const subjPlanned = subj.planned_hours ?? 0;
                         const hasSubjPlan =
@@ -1198,9 +1230,9 @@ export function StatisticsClient() {
                           <article
                             key={subj.id}
                             style={{ "--stagger-index": idx } as React.CSSProperties}
-                            className={`interactive-surface ${
+                            className={`${
                               idx < 6 ? "desktop-stagger-card" : "scroll-reveal-card"
-                            } rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40`}
+                            } rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 transition-colors duration-fast`}
                           >
                             <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                               <svg
@@ -1285,7 +1317,7 @@ export function StatisticsClient() {
                           </article>
                         );
                       })}
-                    </DesktopSpotlightGrid>
+                    </div>
                   )
                 ) : teacherGroups.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-sys-border bg-sys-card/50 p-8 text-center">
@@ -1295,7 +1327,7 @@ export function StatisticsClient() {
                     </p>
                   </div>
                 ) : (
-                  <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {teacherGroups.map((grp, idx) => {
                       const relativePercent =
                         maxTeacherGroupHours > 0
@@ -1314,9 +1346,9 @@ export function StatisticsClient() {
                         <article
                           key={grp.id}
                           style={{ "--stagger-index": idx } as React.CSSProperties}
-                          className={`interactive-surface ${
+                          className={`${
                             idx < 6 ? "desktop-stagger-card" : "scroll-reveal-card"
-                          } rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40`}
+                          } rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 transition-colors duration-fast`}
                         >
                           <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                             <svg
@@ -1381,7 +1413,7 @@ export function StatisticsClient() {
                         </article>
                       );
                     })}
-                  </DesktopSpotlightGrid>
+                  </div>
                 )}
 
                 <p className="mt-6 text-center text-xs text-sys-text-muted">

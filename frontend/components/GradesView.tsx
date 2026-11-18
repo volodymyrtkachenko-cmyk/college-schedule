@@ -428,7 +428,7 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
                         strokeWidth="2.4"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className={`text-sys-text-muted ml-0.5 shrink-0 transition-transform duration-200 ${
+                        className={`text-sys-text-muted ml-0.5 shrink-0 transition-transform duration-base [transition-timing-function:var(--ease-desktop-panel)] ${
                           isExpanded ? "rotate-180" : ""
                         }`}
                       >
@@ -464,22 +464,12 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom, onOpenSu
 
                 {/* Expanded Detailed Tasks */}
                 <div
-                  style={{
-                    display: "grid",
-                    gridTemplateRows: isExpanded ? "1fr" : "0fr",
-                    transition: "grid-template-rows 0.28s var(--ease-spring), opacity 0.20s ease",
-                    opacity: isExpanded ? 1 : 0,
-                  }}
-                  className="overflow-hidden"
+                  data-open={isExpanded ? "true" : "false"}
+                  aria-hidden={!isExpanded}
+                  className="tasks-accordion overflow-hidden"
                 >
-                  <div
-                    className="min-h-0"
-                    style={{
-                      transform: isExpanded ? "translate3d(0, 0, 0)" : "translate3d(0, -6px, 0)",
-                      transition: "transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)",
-                    }}
-                  >
-                    <div className="px-3 sm:px-4 pb-3.5 pt-1 border-t border-sys-border/50 bg-sys-bg/40 space-y-2">
+                  <div className="tasks-accordion-inner min-h-0 overflow-hidden">
+                    <div className="tasks-accordion-content px-3 sm:px-4 pb-3.5 pt-1 border-t border-sys-border/50 bg-sys-bg/40 space-y-2">
                       <div className="flex items-center justify-between gap-2 pt-2 pb-0.5">
                         <div className="text-[11px] font-semibold uppercase tracking-wider text-sys-text-muted">
                           Деталізація оцінок

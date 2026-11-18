@@ -1,9 +1,7 @@
 "use client";
 
 import React, { memo, useState } from "react";
-import { AnimatePresence, m } from "framer-motion";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
-import { useDesktopMotionEnabled } from "../lib/useViewportTier";
 import {
   formatBriefChipLabel,
   formatTaskWeightBadge,
@@ -47,7 +45,6 @@ export const TaskCardItem = memo(function TaskCardItem({
   isLinked = false,
 }: TaskCardItemProps) {
   const [briefOpen, setBriefOpen] = useState(false);
-  const desktopMotion = useDesktopMotionEnabled();
   const optionalToast = useOptionalToast();
 
   const isGenericTitle = !t.title || t.title === "Домашнє завдання" || t.title === "Завдання";
@@ -341,7 +338,7 @@ export const TaskCardItem = memo(function TaskCardItem({
                 strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className={`transition-transform duration-200 shrink-0 ${briefOpen ? "rotate-180" : ""}`}
+                className={`transition-transform duration-base [transition-timing-function:var(--ease-desktop-panel)] shrink-0 ${briefOpen ? "rotate-180" : ""}`}
               >
                 <path d="m6 9 6 6 6-6" />
               </svg>
@@ -350,57 +347,20 @@ export const TaskCardItem = memo(function TaskCardItem({
         </div>
       </div>
 
-      {desktopMotion ? (
-        <AnimatePresence initial={false}>
-          {briefOpen && (
-            <m.div
-              initial={{ opacity: 0, height: 0, y: -6 }}
-              animate={{
-                opacity: 1,
-                height: "auto",
-                y: 0,
-                transition: {
-                  height: { type: "spring", stiffness: 380, damping: 30 },
-                  y: { type: "spring", stiffness: 380, damping: 30 },
-                  opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
-                },
-              }}
-              exit={{
-                opacity: 0,
-                height: 0,
-                y: -4,
-                transition: {
-                  height: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
-                  y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-                  opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
-                },
-              }}
-              className="overflow-hidden"
-            >
-              <TaskChecklistSection
-                taskKey={taskKey}
-                brief={brief}
-                maxPoints={t.maxPoints}
-                compact
-              />
-            </m.div>
-          )}
-        </AnimatePresence>
-      ) : (
-        <div
-          data-open={briefOpen ? "true" : undefined}
-          className="grid-accordion"
-        >
-          <div className="grid-accordion-inner">
-            <TaskChecklistSection
-              taskKey={taskKey}
-              brief={brief}
-              maxPoints={t.maxPoints}
-              compact
-            />
-          </div>
+      <div
+        data-open={briefOpen ? "true" : undefined}
+        aria-hidden={!briefOpen}
+        className="grid-accordion"
+      >
+        <div className="grid-accordion-inner">
+          <TaskChecklistSection
+            taskKey={taskKey}
+            brief={brief}
+            maxPoints={t.maxPoints}
+            compact
+          />
         </div>
-      )}
+      </div>
     </div>
   );
 });

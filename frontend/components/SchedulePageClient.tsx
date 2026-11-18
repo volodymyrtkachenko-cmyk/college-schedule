@@ -680,6 +680,8 @@ export function SchedulePageClient({
                             currentTeacherName={!isPreviewContext && mode === "teacher" ? (sel.selectedTeacher?.name ?? null) : null}
                             shouldReduceMotion={shouldReduceMotion}
                             animateOnMount={sel.hasMotionInteracted}
+                            daySlideDir={sel.daySlideDir}
+                            dayMotionSeq={sel.dayMotionSeq}
                             learningModeBadge={sel.headerLearningModeData}
                           />
                         </div>
@@ -715,10 +717,10 @@ export function SchedulePageClient({
                     <div className="w-full min-w-0">
                       {desktopMotion ? (
                         <m.div
-                          initial={sel.hasMotionInteracted ? { opacity: 0, y: -12 } : false}
+                          initial={sel.hasMotionInteracted ? { opacity: 0, y: -10 } : false}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{
-                            y: { type: "spring", stiffness: 360, damping: 28 },
+                            y: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
                             opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
                           }}
                         >
@@ -758,7 +760,7 @@ export function SchedulePageClient({
                         y: 0,
                         transition: {
                           opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
-                          y: { type: "spring", stiffness: 370, damping: 28 },
+                          y: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
                         },
                       }}
                       className="w-full"

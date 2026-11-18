@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { AnimatePresence, m } from "framer-motion";
 import {
   api,
   type AcademicEvent,
@@ -46,7 +45,6 @@ import { markPendingClassroomReturn, setTaskManualDone, useClassroomSubmissions 
 import { formatTaskGradeDisplay, useGradesSummary, type GradeItem } from "../../lib/useGradesSummary";
 import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useUserSettings } from "../../lib/useUserSettings";
-import { useDesktopMotionEnabled } from "../../lib/useViewportTier";
 import { LockedMeetingBadge, MeetingActionBadge } from "../lesson-card/LessonCardMeetingControls";
 import { getEventBadge } from "../lesson-card/LessonCardStatusBadges";
 import type { FullTaskItem } from "../TaskCardItem";
@@ -170,7 +168,6 @@ export function SubjectHubModal({
   const titleId = useId();
   const toast = useOptionalToast();
   const { settings } = useUserSettings();
-  const desktopMotion = useDesktopMotionEnabled();
   const [expandedTaskKeys, setExpandedTaskKeys] = useState<Record<string, boolean>>({});
   const { isTeacherUnlocked } = useTeacherAccess();
   const {
@@ -1078,7 +1075,7 @@ export function SubjectHubModal({
                             strokeWidth="2.4"
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            className={`transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-180" : ""}`}
+                            className={`transition-transform duration-base [transition-timing-function:var(--ease-desktop-panel)] shrink-0 ${isExpanded ? "rotate-180" : ""}`}
                           >
                             <path d="m6 9 6 6 6-6" />
                           </svg>
@@ -1091,57 +1088,20 @@ export function SubjectHubModal({
                     </div>
                   </div>
 
-                  {desktopMotion ? (
-                    <AnimatePresence initial={false}>
-                      {isExpanded && (
-                        <m.div
-                          initial={{ opacity: 0, height: 0, y: -6 }}
-                          animate={{
-                            opacity: 1,
-                            height: "auto",
-                            y: 0,
-                            transition: {
-                              height: { type: "spring", stiffness: 380, damping: 30 },
-                              y: { type: "spring", stiffness: 380, damping: 30 },
-                              opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
-                            },
-                          }}
-                          exit={{
-                            opacity: 0,
-                            height: 0,
-                            y: -4,
-                            transition: {
-                              height: { duration: 0.18, ease: [0.32, 0, 0.24, 1] },
-                              y: { duration: 0.16, ease: [0.32, 0, 0.24, 1] },
-                              opacity: { duration: 0.13, ease: [0.22, 1, 0.36, 1] },
-                            },
-                          }}
-                          className="overflow-hidden"
-                        >
-                          <TaskChecklistSection
-                            taskKey={taskKey}
-                            brief={brief}
-                            maxPoints={task.maxPoints}
-                            compact
-                          />
-                        </m.div>
-                      )}
-                    </AnimatePresence>
-                  ) : (
-                    <div
-                      data-open={isExpanded ? "true" : undefined}
-                      className="grid-accordion"
-                    >
-                      <div className="grid-accordion-inner">
-                        <TaskChecklistSection
-                          taskKey={taskKey}
-                          brief={brief}
-                          maxPoints={task.maxPoints}
-                          compact
-                        />
-                      </div>
+                  <div
+                    data-open={isExpanded ? "true" : undefined}
+                    aria-hidden={!isExpanded}
+                    className="grid-accordion"
+                  >
+                    <div className="grid-accordion-inner">
+                      <TaskChecklistSection
+                        taskKey={taskKey}
+                        brief={brief}
+                        maxPoints={task.maxPoints}
+                        compact
+                      />
                     </div>
-                  )}
+                  </div>
                 </li>
               );
             };
@@ -1209,32 +1169,22 @@ export function SubjectHubModal({
                         }
                         className={`ui-seg-xl ui-seg-pad-4 relative grid items-stretch ${isLinked ? "grid-cols-3" : "grid-cols-2"} rounded-xl border border-sys-border/70 bg-sys-bg text-[11px] font-semibold isolate select-none`}
                       >
-                        {!desktopMotion && (
-                          <div
-                            aria-hidden="true"
-                            className="ui-seg-slider pointer-events-none z-0 bg-sys-card border border-sys-border shadow-2xs transform-gpu transition-transform duration-base [transition-timing-function:var(--ease-spring-snappy)]"
-                          />
-                        )}
+                        <div
+                          aria-hidden="true"
+                          className="ui-seg-slider pointer-events-none z-0 bg-sys-card border border-sys-border shadow-2xs transform-gpu transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)]"
+                        />
 
                         <button
                           type="button"
                           role="tab"
                           aria-selected={effectiveTaskTab === "pending"}
                           onClick={() => selectHubTaskTab("pending")}
-                          className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
+                          className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer active:scale-[0.98] ${
                             effectiveTaskTab === "pending"
                               ? "text-sys-text-primary font-bold"
                               : "text-sys-text-secondary hover:text-sys-text-primary"
                           }`}
                         >
-                          {desktopMotion && effectiveTaskTab === "pending" && (
-                            <m.div
-                              layoutId="subject-hub-task-pill"
-                              transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                              aria-hidden="true"
-                              className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-card border border-sys-border shadow-2xs"
-                            />
-                          )}
                           <span className="relative z-10 truncate">До здачі</span>
                           <span className="relative z-10 shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold text-sys-text-secondary">
                             {subjectTasks.active.length}
@@ -1246,7 +1196,7 @@ export function SubjectHubModal({
                           role="tab"
                           aria-selected={effectiveTaskTab === "overdue"}
                           onClick={() => selectHubTaskTab("overdue")}
-                          className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
+                          className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer active:scale-[0.98] ${
                             effectiveTaskTab === "overdue"
                               ? "text-rose-700 dark:text-rose-300 font-bold"
                               : subjectTasks.overdue.length > 0 && isLinked
@@ -1254,14 +1204,6 @@ export function SubjectHubModal({
                                 : "text-sys-text-secondary hover:text-sys-text-primary"
                           }`}
                         >
-                          {desktopMotion && effectiveTaskTab === "overdue" && (
-                            <m.div
-                              layoutId="subject-hub-task-pill"
-                              transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                              aria-hidden="true"
-                              className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-card border border-sys-border shadow-2xs"
-                            />
-                          )}
                           <span className="relative z-10 truncate">{isLinked ? "Борги" : "Минув час"}</span>
                           <span className="relative z-10 shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold">
                             {subjectTasks.overdue.length}
@@ -1274,20 +1216,12 @@ export function SubjectHubModal({
                             role="tab"
                             aria-selected={effectiveTaskTab === "done"}
                             onClick={() => selectHubTaskTab("done")}
-                            className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer ${
+                            className={`ui-seg-pill relative z-10 flex min-w-0 items-center justify-center gap-1 sm:gap-1.5 py-1.5 px-1.5 sm:px-2 transition-colors duration-fast cursor-pointer active:scale-[0.98] ${
                               effectiveTaskTab === "done"
                                 ? "text-emerald-700 dark:text-emerald-300 font-bold"
                                 : "text-sys-text-secondary hover:text-sys-text-primary"
                             }`}
                           >
-                            {desktopMotion && effectiveTaskTab === "done" && (
-                              <m.div
-                                layoutId="subject-hub-task-pill"
-                                transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                                aria-hidden="true"
-                                className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-card border border-sys-border shadow-2xs"
-                              />
-                            )}
                             <span className="relative z-10 truncate">Здано</span>
                             <span className="relative z-10 shrink-0 rounded-full bg-sys-surface px-1.5 py-0.5 text-[10px] font-bold">
                               {subjectTasks.completed.length}

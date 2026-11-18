@@ -161,12 +161,12 @@ export function DesktopToolbar({
     (view === "week" && isCurrentWeek);
 
   return (
-    <header className="vt-desktop-header desktop-toolbar-scroll sticky top-0 z-40 hidden lg:block min-h-[3.5rem] border-b border-sys-border bg-sys-card">
+    <header className="vt-desktop-header desktop-toolbar-scroll sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card">
       <div
         aria-hidden="true"
         className="desktop-scroll-progress pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-sys-accent/85"
       />
-      <div className="mx-auto grid min-h-[3.5rem] max-w-[1600px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-4 lg:px-6 py-1.5">
+      <div className="mx-auto grid h-full max-w-[1600px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-4 lg:px-6">
         {/* Left Zone: Brand + Context Selector */}
         <div className="flex items-center gap-2.5 min-w-0">
           <a
@@ -277,19 +277,17 @@ export function DesktopToolbar({
             </button>
           </div>
 
-          {/* Segmented Switcher: [ День | Тиждень ] with concentric Framer layoutId or CSS translate3d fallback */}
+          {/* Segmented Switcher: [ День | Тиждень ] — unified GPU slider */}
           <div
             role="group"
             aria-label="Режим відображення"
             style={{ "--seg-cols": 2, "--seg-index": view === "week" ? 1 : 0 } as React.CSSProperties}
             className="ui-seg-xl relative grid min-h-9 grid-cols-2 items-stretch rounded-xl border border-sys-border bg-sys-bg text-xs isolate select-none"
           >
-            {!desktopMotion && (
-              <div
-                aria-hidden="true"
-                className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transition-transform duration-base ease-spring transform-gpu"
-              />
-            )}
+            <div
+              aria-hidden="true"
+              className="ui-seg-slider pointer-events-none z-0 bg-sys-accentSolid shadow-xs transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)] transform-gpu"
+            />
             <button
               type="button"
               aria-pressed={view === "today"}
@@ -298,14 +296,6 @@ export function DesktopToolbar({
                 view === "today" ? "text-sys-onAccent" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
-              {desktopMotion && view === "today" && (
-                <m.div
-                  layoutId="desktop-toolbar-view-pill"
-                  transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                  aria-hidden="true"
-                  className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
-                />
-              )}
               <span className="relative z-10 whitespace-nowrap">День</span>
             </button>
             <button
@@ -316,14 +306,6 @@ export function DesktopToolbar({
                 view === "week" ? "text-sys-onAccent" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
-              {desktopMotion && view === "week" && (
-                <m.div
-                  layoutId="desktop-toolbar-view-pill"
-                  transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                  aria-hidden="true"
-                  className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-xs"
-                />
-              )}
               <span className="relative z-10 whitespace-nowrap">Тиждень</span>
             </button>
           </div>
@@ -431,21 +413,21 @@ export function DesktopToolbar({
                     role="menu"
                     aria-labelledby="desktop-sections-trigger"
                     onKeyDown={handleMenuKeyDown}
-                    initial={{ opacity: 0, scale: 0.9, y: -8 }}
+                    initial={{ opacity: 0, scale: 0.96, y: -4 }}
                     animate={{
                       opacity: 1,
                       scale: 1,
                       y: 0,
                       transition: {
-                        scale: { type: "spring", stiffness: 450, damping: 30 },
-                        y: { type: "spring", stiffness: 450, damping: 30 },
+                        scale: { duration: 0.21, ease: [0.22, 1, 0.36, 1] },
+                        y: { duration: 0.21, ease: [0.22, 1, 0.36, 1] },
                         opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
                       },
                     }}
                     exit={{
                       opacity: 0,
-                      scale: 0.92,
-                      y: -6,
+                      scale: 0.97,
+                      y: -4,
                       pointerEvents: "none",
                       transition: { duration: 0.14, ease: [0.32, 0, 0.24, 1] },
                     }}
@@ -457,11 +439,11 @@ export function DesktopToolbar({
                       return (
                         <m.div
                           key={item.href}
-                          initial={{ opacity: 0, x: 8 }}
+                          initial={{ opacity: 0, x: 5 }}
                           animate={{
                             opacity: 1,
                             x: 0,
-                            transition: { delay: idx * 0.025, duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+                            transition: { delay: idx * 0.02, duration: 0.16, ease: [0.22, 1, 0.36, 1] },
                           }}
                         >
                           <TransitionLink

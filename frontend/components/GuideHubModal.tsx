@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { AnimatePresence, m } from "framer-motion";
+import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useDesktopMotionEnabled } from "../lib/useViewportTier";
+import { useHairlineIndicator } from "../lib/useHairlineIndicator";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
@@ -134,7 +133,6 @@ export function GuideHubModal({
   const { isTeacherUnlocked } = useTeacherAccess();
   const { settings, updateSetting } = useUserSettings();
 
-  const tabListRef = useRef<HTMLDivElement>(null);
   const [role, setRole] = useState<"student" | "teacher">(initialRole ?? mode ?? "student");
   const [stepIdx, setStepIdx] = useState(0);
   const [slideDir, setSlideDir] = useState(1);
@@ -144,6 +142,18 @@ export function GuideHubModal({
   const stepsCount = steps.length;
   const safeIdx = stepIdx < stepsCount ? stepIdx : 0;
   const activeStep = steps[safeIdx] ?? steps[0];
+
+  const {
+    containerRef: tabListRef,
+    hasTarget: hasTabBar,
+    isReady: tabBarReady,
+    indicatorStyle: tabBarStyle,
+  } = useHairlineIndicator<HTMLDivElement>({
+    activeKey: `${role}-${safeIdx}`,
+    enabled: isOpen,
+    alignToContainerBottom: true,
+    insetPx: 6,
+  });
 
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
@@ -226,8 +236,6 @@ export function GuideHubModal({
     setRole(nextRole);
     setStepIdx(0);
   };
-
-  const desktopMotion = useDesktopMotionEnabled();
 
   const guidePanelInner = (
     <>
@@ -438,48 +446,30 @@ export function GuideHubModal({
                 style={{ "--seg-cols": 2, "--seg-index": role === "teacher" ? 1 : 0 } as React.CSSProperties}
                 className="ui-seg-lg relative inline-grid grid-cols-2 items-stretch rounded-lg border border-sys-border bg-sys-bg text-xs font-semibold isolate select-none"
               >
-                {!desktopMotion && (
-                  <div
-                    aria-hidden="true"
-                    className="ui-seg-slider pointer-events-none transition-transform duration-base ease-spring transform-gpu will-change-transform z-0"
-                  >
-                    <div className="ui-seg-pill h-full w-full bg-sys-accentSolid shadow-2xs" />
-                  </div>
-                )}
+                <div
+                  aria-hidden="true"
+                  className="ui-seg-slider pointer-events-none transition-transform duration-page [transition-timing-function:var(--ease-desktop-panel)] transform-gpu z-0"
+                >
+                  <div className="ui-seg-pill h-full w-full bg-sys-accentSolid shadow-2xs" />
+                </div>
                 <button
                   type="button"
                   aria-pressed={role === "student"}
                   onClick={() => handleRoleChange("student")}
-                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98] ${
                     role === "student" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  {desktopMotion && role === "student" && (
-                    <m.div
-                      layoutId="guide-role-pill"
-                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                      aria-hidden="true"
-                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-2xs"
-                    />
-                  )}
                   <span className="relative z-10">Студент</span>
                 </button>
                 <button
                   type="button"
                   aria-pressed={role === "teacher"}
                   onClick={() => handleRoleChange("teacher")}
-                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`ui-seg-pill relative z-10 flex items-center justify-center px-2.5 py-1 transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98] ${
                     role === "teacher" ? "text-sys-onAccent font-bold" : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
-                  {desktopMotion && role === "teacher" && (
-                    <m.div
-                      layoutId="guide-role-pill"
-                      transition={{ type: "spring", stiffness: 460, damping: 32 }}
-                      aria-hidden="true"
-                      className="ui-seg-pill pointer-events-none absolute inset-0 bg-sys-accentSolid shadow-2xs"
-                    />
-                  )}
                   <span className="relative z-10">Викладач</span>
                 </button>
               </div>
@@ -499,8 +489,16 @@ export function GuideHubModal({
             ref={tabListRef}
             role="tablist"
             aria-label="Розділи гіду"
-            className="ui-seg-xl ui-seg-pad-4 ui-seg-gap-4 flex items-stretch overflow-x-auto no-scrollbar rounded-xl border border-sys-border bg-sys-bg text-[11px] font-semibold"
+            className="ui-hairline-rail relative flex items-stretch overflow-x-auto no-scrollbar text-[11px] font-semibold isolate"
           >
+            {hasTabBar && (
+              <span
+                aria-hidden="true"
+                data-ready={tabBarReady ? "true" : undefined}
+                style={tabBarStyle}
+                className="ui-hairline-bar pointer-events-none z-20"
+              />
+            )}
             {steps.map((s, idx) => {
               const isCurrent = idx === safeIdx;
               const isConfigured =
@@ -516,10 +514,10 @@ export function GuideHubModal({
                   aria-selected={isCurrent}
                   tabIndex={isCurrent ? 0 : -1}
                   onClick={() => goToStep(idx)}
-                  className={`ui-seg-pill shrink-0 flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 border transition-colors duration-200 cursor-pointer whitespace-nowrap ${
+                  className={`shrink-0 flex-1 inline-flex items-center justify-center gap-1 rounded-t-lg py-2 px-2.5 transition-colors duration-fast cursor-pointer whitespace-nowrap active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sys-accent ${
                     isCurrent
-                      ? "bg-sys-card text-sys-accent font-bold border-sys-border border-b-2 border-b-sys-accent shadow-2xs"
-                      : "border-transparent text-sys-text-secondary hover:text-sys-text-primary"
+                      ? "text-sys-text-primary font-bold"
+                      : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
                   <span>{s.tabLabel}</span>
@@ -532,49 +530,16 @@ export function GuideHubModal({
 
         {/* 2. СТАБІЛЬНА СЦЕНА + ОПИС БЕЗ СТРИБКІВ РОЗМІРУ */}
         <div className="relative flex-1 overflow-y-auto overflow-x-clip lg:[scrollbar-gutter:stable] custom-scrollbar p-4">
-          {desktopMotion ? (
-            <AnimatePresence mode="popLayout" initial={false} custom={slideDir}>
-              <m.div
-                key={`${role}-${activeStep.id}`}
-                id={`guide-panel-${activeStep.id}`}
-                role="tabpanel"
-                aria-labelledby={`guide-tab-${activeStep.id}`}
-                custom={slideDir}
-                initial={hasStepped ? { opacity: 0, x: slideDir >= 0 ? 34 : -34, scale: 0.98 } : false}
-                animate={{
-                  opacity: 1,
-                  x: 0,
-                  scale: 1,
-                  transition: {
-                    x: { type: "spring", stiffness: 370, damping: 28 },
-                    scale: { type: "spring", stiffness: 370, damping: 28 },
-                    opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
-                  },
-                }}
-                exit={{
-                  opacity: 0,
-                  x: slideDir >= 0 ? -28 : 28,
-                  scale: 0.98,
-                  pointerEvents: "none",
-                  transition: { duration: 0.14, ease: [0.32, 0, 0.24, 1] },
-                }}
-                className="space-y-3.5"
-              >
-                {guidePanelInner}
-              </m.div>
-            </AnimatePresence>
-          ) : (
-            <div
-              key={`${role}-${activeStep.id}`}
-              id={`guide-panel-${activeStep.id}`}
-              role="tabpanel"
-              aria-labelledby={`guide-tab-${activeStep.id}`}
-              data-slide-dir={hasStepped ? (slideDir >= 0 ? "next" : "prev") : undefined}
-              className="guide-step-slide space-y-3.5"
-            >
-              {guidePanelInner}
-            </div>
-          )}
+          <div
+            key={`${role}-${activeStep.id}`}
+            id={`guide-panel-${activeStep.id}`}
+            role="tabpanel"
+            aria-labelledby={`guide-tab-${activeStep.id}`}
+            data-slide-dir={hasStepped ? (slideDir >= 0 ? "next" : "prev") : undefined}
+            className="guide-step-slide space-y-3.5"
+          >
+            {guidePanelInner}
+          </div>
         </div>
 
         {/* 4. НИЖНЯ НАВІГАЦІЯ */}

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DesktopSpotlightGrid } from "@/components/navigation/DesktopSpotlightGrid";
 import { SubpageHeader } from "@/components/navigation/SubpageHeader";
-import { ChevronDownIcon, ChevronUpIcon, CloseIcon, SearchIcon } from "@/components/ui/Icons";
+import { ChevronDownIcon, CloseIcon, SearchIcon } from "@/components/ui/Icons";
+import { useHairlineIndicator } from "@/lib/useHairlineIndicator";
 import {
   api,
   type EducationalProcessMatrix,
@@ -173,7 +173,7 @@ function SemesterSection({
         </span>
       </div>
 
-      <DesktopSpotlightGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {items.map((item, idx) => {
           const cfg = TYPE_CONFIG[item.period_type] || TYPE_CONFIG.theory;
           const isCurrent = item.status === "current";
@@ -183,11 +183,11 @@ function SemesterSection({
           return (
             <div
               key={`${item.start_week}-${item.period_type}-${idx}`}
-              className={`interactive-surface scroll-reveal-card rounded-2xl border p-4 flex flex-col justify-between shadow-xs ${
+              className={`scroll-reveal-card rounded-2xl border p-4 flex flex-col justify-between shadow-xs transition-colors ${
                 isCurrent
                   ? "border-sys-accent bg-sys-accent/5 ring-1 ring-sys-accent/40"
                   : isUpcoming
-                  ? "border-sys-border bg-sys-card hover:border-sys-border-elevated"
+                  ? "border-sys-border bg-sys-card"
                   : "border-sys-border/50 bg-sys-card/50 opacity-65"
               }`}
             >
@@ -233,7 +233,7 @@ function SemesterSection({
             </div>
           );
         })}
-      </DesktopSpotlightGrid>
+      </div>
     </section>
   );
 }
@@ -252,6 +252,18 @@ export function EducationalProcessClient() {
   const [showFullSchedule, setShowFullSchedule] = useState(false);
   const [activeTimelineIdx, setActiveTimelineIdx] = useState<number | null>(null);
   const hasInitializedGroupRef = useRef(false);
+
+  const {
+    containerRef: courseTabsRef,
+    hasTarget: hasCourseBar,
+    isReady: courseBarReady,
+    indicatorStyle: courseBarStyle,
+  } = useHairlineIndicator<HTMLDivElement>({
+    activeKey: `${activeCourseTab}-${matrix?.courses?.length ?? 0}-${loading}`,
+    enabled: !loading && !error,
+    alignToContainerBottom: true,
+    insetPx: 6,
+  });
 
   useEffect(() => {
     try {
@@ -596,10 +608,19 @@ export function EducationalProcessClient() {
           {/* Row 1: Course Tabs & Search */}
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
             <div
+              ref={courseTabsRef}
               role="tablist"
               aria-label="Курс"
-              className="ui-seg-xl ui-seg-pad-4 ui-seg-gap-4 flex items-stretch bg-sys-bg rounded-xl border border-sys-border/70 overflow-x-auto"
+              className="ui-hairline-rail relative flex items-stretch gap-1 overflow-x-auto no-scrollbar isolate"
             >
+              {hasCourseBar && (
+                <span
+                  aria-hidden="true"
+                  data-ready={courseBarReady ? "true" : undefined}
+                  style={courseBarStyle}
+                  className="ui-hairline-bar pointer-events-none z-20"
+                />
+              )}
               {availableCourses.map((courseNum) => {
                 const isActive = activeCourseTab === courseNum;
                 return (
@@ -609,10 +630,10 @@ export function EducationalProcessClient() {
                     role="tab"
                     aria-selected={isActive}
                     onClick={() => handleSelectCourse(courseNum)}
-                    className={`ui-seg-pill spring-press px-3 py-1.5 text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
+                    className={`rounded-t-lg px-3 py-2 text-xs font-bold transition-colors duration-fast whitespace-nowrap cursor-pointer active:scale-[0.98] ${
                       isActive
-                        ? "bg-sys-accentSolid text-sys-onAccent shadow-xs"
-                        : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
+                        ? "text-sys-text-primary"
+                        : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/70"
                     }`}
                   >
                     {courseNum} курс
@@ -624,10 +645,10 @@ export function EducationalProcessClient() {
                 role="tab"
                 aria-selected={activeCourseTab === "all"}
                 onClick={() => handleSelectCourse("all")}
-                className={`ui-seg-pill spring-press px-2.5 py-1.5 text-xs font-bold transition-[transform,color,background-color] duration-150 whitespace-nowrap ${
+                className={`rounded-t-lg px-3 py-2 text-xs font-bold transition-colors duration-fast whitespace-nowrap cursor-pointer active:scale-[0.98] ${
                   activeCourseTab === "all"
-                    ? "bg-sys-accentSolid text-sys-onAccent shadow-xs"
-                    : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
+                    ? "text-sys-text-primary"
+                    : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/70"
                 }`}
               >
                 Всі
@@ -726,13 +747,13 @@ export function EducationalProcessClient() {
         ) : (
           <div className="space-y-6">
             {realTimeStatus && (
-              <DesktopSpotlightGrid
+              <div
                 aria-label="Поточний стан"
                 className="grid grid-cols-1 sm:grid-cols-3 gap-3"
               >
                 <div
                   style={{ "--stagger-index": 0 } as React.CSSProperties}
-                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                  className="desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                     <span className="font-medium">Зараз триває</span>
@@ -770,7 +791,7 @@ export function EducationalProcessClient() {
 
                 <div
                   style={{ "--stagger-index": 1 } as React.CSSProperties}
-                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                  className="desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium text-sys-text-secondary">Найближча подія</span>
@@ -798,7 +819,7 @@ export function EducationalProcessClient() {
 
                 <div
                   style={{ "--stagger-index": 2 } as React.CSSProperties}
-                  className="interactive-surface desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
+                  className="desktop-stagger-card rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2"
                 >
                   <div className="flex items-center justify-between text-xs text-sys-text-secondary">
                     <span className="font-medium">Навчальний рік</span>
@@ -821,7 +842,7 @@ export function EducationalProcessClient() {
                     </div>
                   </div>
                 </div>
-              </DesktopSpotlightGrid>
+              </div>
             )}
 
             {yearOverview && yearOverview.merged.length > 0 && (
@@ -953,90 +974,96 @@ export function EducationalProcessClient() {
                 type="button"
                 aria-expanded={showFullSchedule}
                 onClick={() => setShowFullSchedule(!showFullSchedule)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated transition-colors"
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated transition-colors cursor-pointer"
               >
                 <span>Повний календарний план усіх {totalWeeksCount} тижнів</span>
                 <span className="inline-flex items-center gap-1.5 text-xs text-sys-text-muted">
                   <span>{showFullSchedule ? "Згорнути" : "Розгорнути"}</span>
-                  {showFullSchedule ? (
-                    <ChevronUpIcon className="h-3.5 w-3.5" />
-                  ) : (
-                    <ChevronDownIcon className="h-3.5 w-3.5" />
-                  )}
+                  <ChevronDownIcon
+                    className={`h-3.5 w-3.5 transition-transform duration-base [transition-timing-function:var(--ease-desktop-panel)] ${
+                      showFullSchedule ? "rotate-180" : ""
+                    }`}
+                  />
                 </span>
               </button>
 
-              {showFullSchedule && (
-                <div
-                  tabIndex={0}
-                  role="region"
-                  aria-label="Календарний план тижнів навчального року"
-                  className="mt-3 rounded-2xl border border-sys-border bg-sys-card overflow-x-auto shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent"
-                >
-                  <table className="w-full text-left text-xs">
-                    <caption className="sr-only">
-                      Повний календарний графік групи {currentGroupData.group.group_name} на{" "}
-                      {academicYearLabel} навчальний рік
-                    </caption>
-                    <thead>
-                      <tr className="border-b border-sys-border text-sys-text-secondary bg-sys-bg/40">
-                        <th scope="col" className="py-2.5 px-3 font-medium">
-                          Дати
-                        </th>
-                        <th scope="col" className="py-2.5 px-4 font-medium">
-                          Етап
-                        </th>
-                        <th scope="col" className="py-2.5 px-3 font-medium">
-                          Тижні
-                        </th>
-                        <th scope="col" className="py-2.5 px-3 text-right font-medium">
-                          Тривалість
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-sys-border/40">
-                      {currentGroupData.mergedPeriods.map((period, idx) => {
-                        const cfg = TYPE_CONFIG[period.period_type] || TYPE_CONFIG.theory;
-                        const isTheory = period.period_type === "theory";
+              <div
+                data-open={showFullSchedule ? "true" : undefined}
+                aria-hidden={!showFullSchedule}
+                className="grid-accordion"
+              >
+                <div className="grid-accordion-inner">
+                  <div
+                    tabIndex={showFullSchedule ? 0 : -1}
+                    role="region"
+                    aria-label="Календарний план тижнів навчального року"
+                    className="mt-3 rounded-2xl border border-sys-border bg-sys-card overflow-x-auto shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent"
+                  >
+                    <table className="w-full text-left text-xs">
+                      <caption className="sr-only">
+                        Повний календарний графік групи {currentGroupData.group.group_name} на{" "}
+                        {academicYearLabel} навчальний рік
+                      </caption>
+                      <thead>
+                        <tr className="border-b border-sys-border text-sys-text-secondary bg-sys-bg/40">
+                          <th scope="col" className="py-2.5 px-3 font-medium">
+                            Дати
+                          </th>
+                          <th scope="col" className="py-2.5 px-4 font-medium">
+                            Етап
+                          </th>
+                          <th scope="col" className="py-2.5 px-3 font-medium">
+                            Тижні
+                          </th>
+                          <th scope="col" className="py-2.5 px-3 text-right font-medium">
+                            Тривалість
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-sys-border/40">
+                        {currentGroupData.mergedPeriods.map((period, idx) => {
+                          const cfg = TYPE_CONFIG[period.period_type] || TYPE_CONFIG.theory;
+                          const isTheory = period.period_type === "theory";
 
-                        return (
-                          <tr
-                            key={`${period.start_week}-${period.period_type}-${idx}`}
-                            className={`transition-colors hover:bg-sys-cardActive/20 ${
-                              !isTheory ? "bg-sys-accent/[0.03]" : ""
-                            }`}
-                          >
-                            <td className="py-2.5 px-3 font-mono tabular-nums text-sys-text-secondary whitespace-nowrap">
-                              {formatShortDate(period.start_date)} – {formatShortDate(period.end_date)}
-                            </td>
-                            <th
-                              scope="row"
-                              className="py-2.5 px-4 font-semibold text-sys-text-primary"
+                          return (
+                            <tr
+                              key={`${period.start_week}-${period.period_type}-${idx}`}
+                              className={`transition-colors hover:bg-sys-cardActive/20 ${
+                                !isTheory ? "bg-sys-accent/[0.03]" : ""
+                              }`}
                             >
-                              <span className="inline-flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dotClass}`} />
-                                <span>{period.name || cfg.name}</span>
-                              </span>
-                            </th>
-                            <td className="py-2.5 px-3 text-sys-text-muted whitespace-nowrap">
-                              {period.start_week === period.end_week
-                                ? `${period.start_week}-й тиждень`
-                                : `тижні ${period.start_week}–${period.end_week}`}
-                            </td>
-                            <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                              <span
-                                className={`inline-block px-2 py-0.5 rounded-md font-medium border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
+                              <td className="py-2.5 px-3 font-mono tabular-nums text-sys-text-secondary whitespace-nowrap">
+                                {formatShortDate(period.start_date)} – {formatShortDate(period.end_date)}
+                              </td>
+                              <th
+                                scope="row"
+                                className="py-2.5 px-4 font-semibold text-sys-text-primary"
                               >
-                                {period.weeks_count} тижн.
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                                <span className="inline-flex items-center gap-2">
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dotClass}`} />
+                                  <span>{period.name || cfg.name}</span>
+                                </span>
+                              </th>
+                              <td className="py-2.5 px-3 text-sys-text-muted whitespace-nowrap">
+                                {period.start_week === period.end_week
+                                  ? `${period.start_week}-й тиждень`
+                                  : `тижні ${period.start_week}–${period.end_week}`}
+                              </td>
+                              <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded-md font-medium border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
+                                >
+                                  {period.weeks_count} тижн.
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         )}

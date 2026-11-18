@@ -3,6 +3,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
+import { clampStaggerIndex } from "../lib/motion";
 import { useToast } from "./ToastProvider";
 import {
   LessonCard,
@@ -52,6 +53,8 @@ export const ScheduleDay = memo(function ScheduleDay({
   compactPeriod = false,
   shouldReduceMotion = false,
   animateOnMount = true,
+  daySlideDir = 0,
+  dayMotionSeq = 0,
   learningModeBadge = null,
   onOpenSubjectHub,
 }: {
@@ -76,6 +79,8 @@ export const ScheduleDay = memo(function ScheduleDay({
   compactPeriod?: boolean;
   shouldReduceMotion?: boolean;
   animateOnMount?: boolean;
+  daySlideDir?: number;
+  dayMotionSeq?: number;
   learningModeBadge?: HeaderLearningModeData | null;
   onOpenSubjectHub?: (target: SubjectHubTarget) => void;
 }) {
@@ -305,14 +310,22 @@ export const ScheduleDay = memo(function ScheduleDay({
     </div>
   );
 
-  const stageBody = (
-    <>
-      {(!hideDayTitle || (mode === "day" && orderedLessons.length > 0)) && (
-        <header className={headerClassName}>{headerContent}</header>
-      )}
+  const isDesktopDayEnter = mode === "day" && animateOnMount && !shouldReduceMotion;
+  const normalizedSlideDir = daySlideDir > 0 ? 1 : daySlideDir < 0 ? -1 : 0;
 
+  const dayListBody = (
+    <>
       {isBeforeDayStart && (
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3">
+        <div
+          className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3${
+            isDesktopDayEnter ? " desktop-lesson-enter" : ""
+          }`}
+          style={
+            isDesktopDayEnter
+              ? ({ "--lesson-index": 0, "--lesson-slide-dir": normalizedSlideDir } as React.CSSProperties)
+              : undefined
+          }
+        >
           {preLessonBannerContent}
         </div>
       )}
@@ -370,17 +383,33 @@ export const ScheduleDay = memo(function ScheduleDay({
               </>
             );
 
-            const rowClassName = "flex flex-col gap-2.5 relative has-[[data-open]]:z-50";
+            const rowClassName = `flex flex-col gap-2.5 relative has-[[data-open]]:z-50${
+              isDesktopDayEnter ? " desktop-lesson-enter" : ""
+            }`;
+            const rowStyle = isDesktopDayEnter
+              ? ({
+                  "--lesson-index": clampStaggerIndex(idx),
+                  "--lesson-slide-dir": normalizedSlideDir,
+                } as React.CSSProperties)
+              : undefined;
 
             return (
               <div
                 key={`${schedule.date}-${lessonKey}`}
                 className={rowClassName}
+                style={rowStyle}
               >
                 {lessonRowBody}
               </div>
             );
           })}
+        </div>
+      ) : isDesktopDayEnter ? (
+        <div
+          className="desktop-day-empty-enter"
+          style={{ "--lesson-slide-dir": normalizedSlideDir } as React.CSSProperties}
+        >
+          {emptyOrPeriodContent}
         </div>
       ) : (
         emptyOrPeriodContent
@@ -390,11 +419,11 @@ export const ScheduleDay = memo(function ScheduleDay({
 
   return (
     <section className={mode === "day" ? "relative min-w-0 overflow-x-clip -mx-3 px-3 [contain:layout_style]" : "min-w-0"}>
-      <div
-        key={mode === "day" ? schedule.date : undefined}
-        className={mode === "day" && animateOnMount && !shouldReduceMotion ? "desktop-day-enter" : undefined}
-      >
-        {stageBody}
+      {(!hideDayTitle || (mode === "day" && orderedLessons.length > 0)) && (
+        <header className={headerClassName}>{headerContent}</header>
+      )}
+      <div key={mode === "day" ? `${schedule.date}-${dayMotionSeq}` : undefined}>
+        {dayListBody}
       </div>
     </section>
   );
